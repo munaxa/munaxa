@@ -1,0 +1,3 @@
+[Function]
+name = "early-access-subscribe"
+verify_jwt = false
