@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Tajawal:wght@400;500;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --bg:           #0B0518;
@@ -379,18 +380,51 @@ body.ready .reveal.d7 { animation-delay: .64s; }
   try { saved = localStorage.getItem('munaxa_lang') || 'en'; } catch (e) {}
   apply(saved);
 
+  // Supabase configuration
+  var SUPABASE_URL = 'https://fngkpuyvzqemkqnenryq.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_A0UpHcvUR3esIZlN0XUdDA_o5ai7giF';
+  var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
   // email capture
   var form = document.getElementById('notify-form');
   var notify = document.getElementById('notify');
   var email = document.getElementById('notify-email');
-  form.addEventListener('submit', function (e) {
+  var submitBtn = form.querySelector('button[type="submit"]');
+  
+  form.addEventListener('submit', async function (e) {
     e.preventDefault();
+    
     if (!email.value || email.value.indexOf('@') === -1) {
       email.focus();
       email.style.borderColor = 'var(--coral)';
       return;
     }
-    notify.classList.add('done');
+    
+    // Disable button and show loading state
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.7';
+    var originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span>Submitting...</span>';
+    
+    try {
+      // Insert email into Supabase table
+      var { data, error } = await supabase
+        .from('early_access')
+        .insert([{ email: email.value.trim() }]);
+      
+      if (error) throw error;
+      
+      // Success - show confirmation message
+      notify.classList.add('done');
+    } catch (err) {
+      console.error('Error submitting email:', err);
+      // Show error state
+      email.style.borderColor = 'var(--coral)';
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      submitBtn.innerHTML = originalText;
+      alert('Something went wrong. Please try again later.');
+    }
   });
 
   // entrance
