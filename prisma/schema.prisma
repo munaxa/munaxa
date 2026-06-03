@@ -1,0 +1,18 @@
+// ============================================================================
+// Munaxa — Prisma schema
+// Phase 1: initialization only (datasource + generator).
+// Phase 2 introduces the core data model (Tenant, School, Campus, AcademicYear,
+// Semester, Grade, Section, Classroom, User, Role, Permission, AuditLog) with
+// tenantId on every business entity and the tenant-isolation/RLS strategy.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// No models yet — added in Phase 2 (Core Database Design).
