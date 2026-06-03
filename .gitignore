@@ -1,35 +1,54 @@
 ```
-# Compressed files
-*.tar.gz
-
 # Dependencies
 node_modules/
 
-# Environment
-.env
-.env.local
-.env.
-
-# Logs and temp files
-*.log
-*.tmp
-
-# Editors
-.vscode/
-.idea/
+# Build outputs
+dist/
+build/
+.next/
+out/
 
 # Python
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Build outputs
-dist/
-build/
-target/
-
-# OS generated files
+.Python
+env/
+venv/
+.venv/
+.ENV
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
 .DS_Store
 Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Logs
+*.log
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
 ```
