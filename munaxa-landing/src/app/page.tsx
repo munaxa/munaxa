@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 // --- Animation Variants (Fixed Types) ---
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -29,15 +29,17 @@ const containerVariants = {
 };
 
 // Fixed: Using "easeOut" string instead of array to satisfy TS types
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
-    transition: { 
-      duration: 0.6, 
-      ease: [0.25, 0.1, 0.25, 1],
-    } 
+const itemVariants: Variants = {
+  hidden: {
+    opacity: 0,
+    y: 20,
+  },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.6,
+    },
   },
 };
 
@@ -49,7 +51,6 @@ const featureVariants = {
     transition: {
       duration: 0.6,
       delay: 0.2 + i * 0.1,
-      ease: [0.25, 0.1, 0.25, 1],
     },
   }),
 };
@@ -203,7 +204,7 @@ const DashboardPreview = () => (
   <motion.div 
     initial={{ opacity: 0, scale: 0.95, y: 40 }}
     animate={{ opacity: 1, scale: 1, y: 0 }}
-    transition={{ duration: 1, delay: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+    transition={{ duration: 1, delay: 0.4 }}
     className="relative mt-16 lg:mt-0 lg:absolute lg:right-0 lg:top-1/2 lg:-translate-y-1/2 w-full max-w-lg lg:max-w-xl"
   >
     {/* Glow Effect */}
