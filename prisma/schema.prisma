@@ -1,9 +1,20 @@
 // ============================================================================
 // Munaxa — Prisma schema
-// Phase 1: initialization only (datasource + generator).
-// Phase 2 introduces the core data model (Tenant, School, Campus, AcademicYear,
-// Semester, Grade, Section, Classroom, User, Role, Permission, AuditLog) with
-// tenantId on every business entity and the tenant-isolation/RLS strategy.
+// Phase 2: Core Database Design.
+//
+// Multi-tenant model: shared PostgreSQL, shared schema. Every business entity
+// carries a non-null `tenantId`. Isolation is enforced in depth (see
+// docs/architecture/03-multi-tenant-architecture.md and the RLS migration):
+//   1. JWT tenant claim (Phase 3)         3. Prisma client extension (tenant scoping)
+//   2. Tenant guard (Phase 3)             4. PostgreSQL Row-Level Security (this phase)
+//
+// Conventions:
+//   - UUID primary keys (@db.Uuid), app-generated.
+//   - timestamptz timestamps (createdAt/updatedAt); soft delete via deletedAt
+//     on recoverable business records.
+//   - Tenant-scoped uniqueness (e.g. @@unique([tenantId, ...])).
+//   - Composite indexes lead with tenantId.
+//   - Bilingual fields use *_En / *_Ar pairs.
 // ============================================================================
 
 generator client {
@@ -12,7 +23,341 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Runtime connection: a NON-superuser, NOBYPASSRLS role so Row-Level Security
+  // is enforced on the application (see the RLS migration).
   url      = env("DATABASE_URL")
+  // Migrations/introspection connect as the schema owner (privileged). Falls back
+  // to DATABASE_URL when unset (e.g. simple local setups).
+  directUrl = env("DIRECT_DATABASE_URL")
 }
 
-// No models yet — added in Phase 2 (Core Database Design).
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum TenantType {
+  SCHOOL
+}
+
+enum TenantStatus {
+  PROVISIONING
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  DISABLED
+}
+
+enum RoleScope {
+  PLATFORM
+  SCHOOL
+}
+
+enum RoleKey {
+  // Platform plane
+  PlatformOwner
+  PlatformAdmin
+  SupportAgent
+  // School plane
+  SchoolAdmin
+  Principal
+  VicePrincipal
+  FinanceOfficer
+  Teacher
+  Secretary
+  Parent
+  Student
+}
+
+// ----------------------------------------------------------------------------
+// Tenancy
+// ----------------------------------------------------------------------------
+
+model Tenant {
+  id        String       @id @default(uuid()) @db.Uuid
+  type      TenantType   @default(SCHOOL)
+  name      String
+  slug      String       @unique
+  status    TenantStatus @default(PROVISIONING)
+  createdAt DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(6)
+
+  schools       School[]
+  campuses      Campus[]
+  academicYears AcademicYear[]
+  semesters     Semester[]
+  grades        Grade[]
+  classrooms    Classroom[]
+  sections      Section[]
+  users         User[]
+  roles         Role[]
+  userRoles     UserRole[]
+  auditLogs     AuditLog[]
+
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// School structure
+// ----------------------------------------------------------------------------
+
+model School {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @db.Uuid
+  nameEn        String
+  nameAr        String
+  moeSchoolCode String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt     DateTime? @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campuses Campus[]
+
+  @@unique([tenantId, moeSchoolCode])
+  @@index([tenantId])
+}
+
+model Campus {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  schoolId  String    @db.Uuid
+  nameEn    String
+  nameAr    String
+  address   String?
+  phone     String?
+  isMain    Boolean   @default(false)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYears AcademicYear[]
+  grades        Grade[]
+  classrooms    Classroom[]
+
+  @@index([tenantId])
+  @@index([tenantId, schoolId])
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  campusId  String   @db.Uuid
+  name      String // e.g. "2025/2026"
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  isCurrent Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus    Campus     @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  semesters Semester[]
+
+  @@unique([tenantId, campusId, name])
+  @@index([tenantId, campusId])
+}
+
+model Semester {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  academicYearId String   @db.Uuid
+  name           String
+  sequence       Int
+  startDate      DateTime @db.Date
+  endDate        DateTime @db.Date
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, academicYearId, sequence])
+  @@index([tenantId, academicYearId])
+}
+
+model Grade {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  campusId  String   @db.Uuid
+  nameEn    String
+  nameAr    String
+  level     Int // ordinal, e.g. KG=0, G1=1 ...
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus   Campus    @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  sections Section[]
+
+  @@unique([tenantId, campusId, level])
+  @@index([tenantId, campusId])
+}
+
+model Classroom {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  campusId  String   @db.Uuid
+  name      String
+  capacity  Int?
+  building  String?
+  floor     String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus   Campus    @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  sections Section[]
+
+  @@unique([tenantId, campusId, name])
+  @@index([tenantId, campusId])
+}
+
+model Section {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  gradeId     String   @db.Uuid
+  classroomId String?  @db.Uuid
+  name        String // e.g. "A", "B"
+  capacity    Int?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grade     Grade      @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  classroom Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, gradeId, name])
+  @@index([tenantId, gradeId])
+  @@index([tenantId, classroomId])
+}
+
+// ----------------------------------------------------------------------------
+// Identity & Access (IAM)
+// ----------------------------------------------------------------------------
+
+model User {
+  id                 String     @id @default(uuid()) @db.Uuid
+  tenantId           String     @db.Uuid
+  firebaseUid        String?    @unique
+  email              String
+  phone              String?
+  nationalId         String? // Jordanian National ID (Raqam Watani)
+  firstNameEn        String?
+  lastNameEn         String?
+  firstNameAr        String?
+  lastNameAr         String?
+  status             UserStatus @default(INVITED)
+  mustChangePassword Boolean    @default(true)
+  lastLoginAt        DateTime?  @db.Timestamptz(6)
+  createdAt          DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime   @updatedAt @db.Timestamptz(6)
+  deletedAt          DateTime?  @db.Timestamptz(6)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles UserRole[]
+  auditLogs AuditLog[] @relation("AuditActor")
+
+  @@unique([tenantId, email])
+  @@unique([tenantId, nationalId])
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+// Roles are tenant-scoped for the School plane; Platform-plane system roles use a
+// null tenantId. Uniqueness is enforced per (tenantId, key).
+model Role {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String?   @db.Uuid
+  key       RoleKey
+  scope     RoleScope
+  isSystem  Boolean   @default(true)
+  nameEn    String?
+  nameAr    String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+}
+
+// Global permission catalog (not tenant-scoped). Seeded from @munaxa/domain.
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  key         String   @unique // e.g. "attendance:create"
+  category    String
+  description String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  id           String   @id @default(uuid()) @db.Uuid
+  roleId       String   @db.Uuid
+  permissionId String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  userId    String   @db.Uuid
+  roleId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([tenantId])
+  @@index([roleId])
+}
+
+// ----------------------------------------------------------------------------
+// Audit (append-only)
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String?  @db.Uuid // null for platform-level events
+  actorUserId String?  @db.Uuid
+  actorRole   String?
+  onBehalfOf  String?  @db.Uuid // set for support impersonation
+  action      String // e.g. "transaction.create"
+  entityType  String
+  entityId    String?
+  before      Json?
+  after       Json?
+  metadata    Json?
+  ip          String?
+  userAgent   String?
+  traceId     String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  actor  User?   @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+  @@index([actorUserId])
+}

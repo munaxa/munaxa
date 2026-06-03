@@ -66,6 +66,7 @@ pnpm dev                  # runs api + admin via Turborepo
 ## Phase status
 - ✅ Phase 0 — System Architecture
 - ✅ Phase 1 — Foundation Setup
-- ⬜ Phase 2 — Core Database Design (next)
+- ✅ Phase 2 — Core Database Design
+- ⬜ Phase 3 — Authentication & RBAC (next)
 
 Development is **phase-by-phase**; see `MunaxaPrompts/` for the phase specifications.

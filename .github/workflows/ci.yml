@@ -31,7 +31,10 @@ jobs:
           --health-cmd "pg_isready -U munaxa"
           --health-interval 10s --health-timeout 5s --health-retries 5
     env:
-      DATABASE_URL: postgresql://munaxa:munaxa_ci@localhost:5432/munaxa?schema=public
+      # Runtime/tests connect as the restricted, NOBYPASSRLS app role so RLS is enforced.
+      DATABASE_URL: postgresql://munaxa_app:munaxa_app_dev@localhost:5432/munaxa?schema=public
+      # Migrations connect as the privileged owner.
+      DIRECT_DATABASE_URL: postgresql://munaxa:munaxa_ci@localhost:5432/munaxa?schema=public
     steps:
       - uses: actions/checkout@v4
 
@@ -50,6 +53,15 @@ jobs:
       - name: Prisma generate
         run: pnpm prisma:generate
 
+      - name: Apply database migrations
+        run: pnpm --filter @munaxa/api prisma:deploy
+
+      - name: Provision restricted application role
+        run: psql "$DIRECT_DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/app-role.sql
+
+      - name: Seed database
+        run: pnpm --filter @munaxa/api db:seed
+
       - name: Format check
         run: pnpm format:check
 
@@ -61,6 +73,9 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Integration tests (DB / RLS)
+        run: pnpm --filter @munaxa/api test:e2e
 
       - name: Build
         run: pnpm build
