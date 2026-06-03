@@ -7,9 +7,11 @@ import {
 } from '@nestjs/terminus';
 import { ApiTags } from '@nestjs/swagger';
 import { PrismaService } from '../prisma/prisma.service';
+import { Public } from '../auth/decorators/public.decorator';
 
 /** Liveness & readiness endpoints used by load balancers and orchestration. */
 @ApiTags('health')
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(

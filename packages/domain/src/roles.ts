@@ -24,6 +24,13 @@ export type SchoolRole = (typeof SchoolRole)[keyof typeof SchoolRole];
 
 export type Role = PlatformRole | SchoolRole;
 
+/** All role keys (platform + school). Mirrors the Prisma `RoleKey` enum. */
+export const RoleKey = {
+  ...PlatformRole,
+  ...SchoolRole,
+} as const;
+export type RoleKey = (typeof RoleKey)[keyof typeof RoleKey];
+
 export const PLATFORM_ROLES: PlatformRole[] = Object.values(PlatformRole);
 export const SCHOOL_ROLES: SchoolRole[] = Object.values(SchoolRole);
 export const ALL_ROLES: Role[] = [...PLATFORM_ROLES, ...SCHOOL_ROLES];

@@ -22,10 +22,10 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // Runtime connection: a NON-superuser, NOBYPASSRLS role so Row-Level Security
   // is enforced on the application (see the RLS migration).
-  url      = env("DATABASE_URL")
+  url       = env("DATABASE_URL")
   // Migrations/introspection connect as the schema owner (privileged). Falls back
   // to DATABASE_URL when unset (e.g. simple local setups).
   directUrl = env("DIRECT_DATABASE_URL")
@@ -87,17 +87,19 @@ model Tenant {
   createdAt DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt DateTime     @updatedAt @db.Timestamptz(6)
 
-  schools       School[]
-  campuses      Campus[]
-  academicYears AcademicYear[]
-  semesters     Semester[]
-  grades        Grade[]
-  classrooms    Classroom[]
-  sections      Section[]
-  users         User[]
-  roles         Role[]
-  userRoles     UserRole[]
-  auditLogs     AuditLog[]
+  schools        School[]
+  campuses       Campus[]
+  academicYears  AcademicYear[]
+  semesters      Semester[]
+  grades         Grade[]
+  classrooms     Classroom[]
+  sections       Section[]
+  users          User[]
+  roles          Role[]
+  userRoles      UserRole[]
+  refreshTokens  RefreshToken[]
+  passwordResets PasswordResetToken[]
+  auditLogs      AuditLog[]
 
   @@index([status])
 }
@@ -256,15 +258,20 @@ model User {
   firstNameAr        String?
   lastNameAr         String?
   status             UserStatus @default(INVITED)
+  // Local-login credential (Argon2/bcrypt hash). Null for Firebase-only accounts.
+  passwordHash       String?
+  passwordUpdatedAt  DateTime?  @db.Timestamptz(6)
   mustChangePassword Boolean    @default(true)
   lastLoginAt        DateTime?  @db.Timestamptz(6)
   createdAt          DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?  @db.Timestamptz(6)
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles UserRole[]
-  auditLogs AuditLog[] @relation("AuditActor")
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles      UserRole[]
+  refreshTokens  RefreshToken[]
+  passwordResets PasswordResetToken[]
+  auditLogs      AuditLog[]           @relation("AuditActor")
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])
@@ -331,6 +338,50 @@ model UserRole {
   @@unique([userId, roleId])
   @@index([tenantId])
   @@index([roleId])
+}
+
+// ----------------------------------------------------------------------------
+// Auth: rotating refresh tokens (hashed) with reuse detection
+// ----------------------------------------------------------------------------
+
+model RefreshToken {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @db.Uuid
+  userId            String    @db.Uuid
+  // SHA-256 of the opaque refresh token; the raw token is never stored.
+  tokenHash         String    @unique
+  // Token family for rotation/reuse detection. Reuse of a rotated token revokes the family.
+  familyId          String    @db.Uuid
+  expiresAt         DateTime  @db.Timestamptz(6)
+  revokedAt         DateTime? @db.Timestamptz(6)
+  // Set when this token was rotated; pointing at its successor.
+  replacedByTokenId String?   @db.Uuid
+  userAgent         String?
+  ip                String?
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(6)
+  usedAt    DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+  @@index([expiresAt])
 }
 
 // ----------------------------------------------------------------------------

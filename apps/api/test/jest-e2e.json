@@ -5,5 +5,11 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@munaxa/domain$": "<rootDir>/../../../packages/domain/src/index.ts",
+    "^@munaxa/contracts$": "<rootDir>/../../../packages/contracts/src/index.ts",
+    "^@munaxa/utils$": "<rootDir>/../../../packages/utils/src/index.ts",
+    "^(\\.{1,2}/.*)\\.js$": "$1"
   }
 }
