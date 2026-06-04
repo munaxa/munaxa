@@ -55,6 +55,9 @@ jobs:
       - name: Prisma generate
         run: pnpm prisma:generate
 
+      - name: Build internal packages
+        run: pnpm turbo run build --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils
+
       - name: Apply database migrations
         run: pnpm --filter @munaxa/api prisma:deploy
 
