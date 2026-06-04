@@ -1,0 +1,19 @@
+import { Controller, Get, Param } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Permission } from '@munaxa/domain';
+import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
+import { StatementService } from './statement.service';
+
+@ApiTags('finance')
+@ApiBearerAuth()
+@Controller({ path: 'finance/students', version: '1' })
+export class StatementController {
+  constructor(private readonly service: StatementService) {}
+
+  @Get(':studentId/statement')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({ summary: 'Student financial statement + outstanding balance' })
+  statement(@Param('studentId') studentId: string) {
+    return this.service.forStudent(studentId);
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@munaxa/config-tailwind",
+  "version": "0.1.0",
+  "private": true,
+  "main": "preset.ts",
+  "types": "preset.ts",
+  "files": [
+    "preset.ts"
+  ],
+  "peerDependencies": {
+    "tailwindcss": "^3.4.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7"
+  }
+}
