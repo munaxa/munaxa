@@ -68,6 +68,7 @@ pnpm dev                  # runs api + admin via Turborepo
 - ✅ Phase 1 — Foundation Setup
 - ✅ Phase 2 — Core Database Design
 - ✅ Phase 3 — Authentication & RBAC
-- ⬜ Phase 4 — School Structure Management (next)
+- ✅ Phase 4 — School Structure Management
+- ⬜ Phase 5 — People Management (next)
 
 Development is **phase-by-phase**; see `MunaxaPrompts/` for the phase specifications.

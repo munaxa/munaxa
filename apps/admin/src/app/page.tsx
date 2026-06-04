@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { cn } from '@munaxa/ui';
 import { getMe, logout, tokenStore, type Principal } from '@/lib/auth';
 
@@ -34,12 +35,20 @@ export default function Home() {
     <main className="mx-auto max-w-2xl space-y-6 p-8">
       <header className="flex items-center justify-between">
         <span className="font-display text-2xl font-semibold">Munaxa</span>
-        <button
-          onClick={() => void onLogout()}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-        >
-          Sign out
-        </button>
+        <nav className="flex items-center gap-3">
+          <Link
+            href="/structure/schools"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+          >
+            School structure
+          </Link>
+          <button
+            onClick={() => void onLogout()}
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+          >
+            Sign out
+          </button>
+        </nav>
       </header>
 
       <section className="rounded-xl border border-border bg-card p-6">

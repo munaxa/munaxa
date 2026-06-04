@@ -7,6 +7,7 @@ import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
+import { StructureModule } from './structure/structure.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
@@ -32,6 +33,7 @@ import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
     PrismaModule,
     HealthModule,
     AuthModule,
+    StructureModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
