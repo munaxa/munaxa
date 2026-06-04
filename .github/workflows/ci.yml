@@ -35,6 +35,8 @@ jobs:
       DATABASE_URL: postgresql://munaxa_app:munaxa_app_dev@localhost:5432/munaxa?schema=public
       # Migrations connect as the privileged owner.
       DIRECT_DATABASE_URL: postgresql://munaxa:munaxa_ci@localhost:5432/munaxa?schema=public
+      # psql rejects the Prisma-specific "schema" query param; use a clean libpq URI.
+      PSQL_DIRECT_URL: postgresql://munaxa:munaxa_ci@localhost:5432/munaxa
     steps:
       - uses: actions/checkout@v4
 
@@ -57,7 +59,7 @@ jobs:
         run: pnpm --filter @munaxa/api prisma:deploy
 
       - name: Provision restricted application role
-        run: psql "$DIRECT_DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/app-role.sql
+        run: psql "$PSQL_DIRECT_URL" -v ON_ERROR_STOP=1 -f infra/postgres/app-role.sql
 
       - name: Seed database
         run: pnpm --filter @munaxa/api db:seed
@@ -88,6 +90,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - name: Prepare platform folders
         working-directory: apps/mobile
         run: flutter create --platforms=android,ios .
@@ -106,6 +109,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
