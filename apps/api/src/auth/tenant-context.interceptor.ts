@@ -17,7 +17,12 @@ export class TenantContextInterceptor implements NestInterceptor {
       return next.handle();
     }
     return TenantContextStore.run(
-      { tenantId: user.tenantId, isPlatform: user.isPlatform, actorUserId: user.userId },
+      {
+        tenantId: user.tenantId,
+        isPlatform: user.isPlatform,
+        actorUserId: user.userId,
+        permissions: user.permissions,
+      },
       () => next.handle(),
     );
   }

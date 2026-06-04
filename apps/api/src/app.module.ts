@@ -14,6 +14,7 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { AcademicsModule } from './academics/academics.module';
 import { FinanceModule } from './finance/finance.module';
 import { CommunicationModule } from './communication/communication.module';
+import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
@@ -46,6 +47,7 @@ import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
     AcademicsModule,
     FinanceModule,
     CommunicationModule,
+    ParentPortalModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

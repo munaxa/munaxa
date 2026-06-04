@@ -15,6 +15,8 @@ export interface TenantContext {
   isPlatform?: boolean;
   /** The acting user (for audit attribution). */
   actorUserId?: string;
+  /** The acting principal's permission keys (for service-layer row-scoping decisions). */
+  permissions?: string[];
 }
 
 const storage = new AsyncLocalStorage<TenantContext>();
