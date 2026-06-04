@@ -32,6 +32,7 @@ export const Permission = {
   HOMEWORK_MANAGE: 'homework:manage',
   HOMEWORK_READ: 'homework:read',
   BEHAVIOR_MANAGE: 'behavior:manage',
+  BEHAVIOR_READ: 'behavior:read',
   GRADE_IMPORT: 'grade:import',
   GRADE_READ: 'grade:read',
 

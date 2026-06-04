@@ -124,6 +124,12 @@ enum AttendanceMethod {
   QR
 }
 
+enum BehaviorType {
+  POSITIVE
+  NEGATIVE
+  NEUTRAL
+}
+
 enum RoleKey {
   // Platform plane
   PlatformOwner
@@ -153,30 +159,34 @@ model Tenant {
   createdAt DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt DateTime     @updatedAt @db.Timestamptz(6)
 
-  schools            School[]
-  campuses           Campus[]
-  academicYears      AcademicYear[]
-  semesters          Semester[]
-  grades             Grade[]
-  classrooms         Classroom[]
-  sections           Section[]
-  users              User[]
-  roles              Role[]
-  userRoles          UserRole[]
-  refreshTokens      RefreshToken[]
-  passwordResets     PasswordResetToken[]
-  students           Student[]
-  parents            Parent[]
-  teachers           Teacher[]
-  employees          Employee[]
-  parentStudents     ParentStudent[]
-  teacherSections    TeacherSection[]
-  timetableSlots     TimetableSlot[]
-  scheduleExceptions ScheduleException[]
-  timetableConfigs   TimetableConfig[]
-  studentAttendance  StudentAttendance[]
-  teacherAttendance  TeacherAttendance[]
-  auditLogs          AuditLog[]
+  schools             School[]
+  campuses            Campus[]
+  academicYears       AcademicYear[]
+  semesters           Semester[]
+  grades              Grade[]
+  classrooms          Classroom[]
+  sections            Section[]
+  users               User[]
+  roles               Role[]
+  userRoles           UserRole[]
+  refreshTokens       RefreshToken[]
+  passwordResets      PasswordResetToken[]
+  students            Student[]
+  parents             Parent[]
+  teachers            Teacher[]
+  employees           Employee[]
+  parentStudents      ParentStudent[]
+  teacherSections     TeacherSection[]
+  timetableSlots      TimetableSlot[]
+  scheduleExceptions  ScheduleException[]
+  timetableConfigs    TimetableConfig[]
+  studentAttendance   StudentAttendance[]
+  teacherAttendance   TeacherAttendance[]
+  homework            Homework[]
+  homeworkAttachments HomeworkAttachment[]
+  behaviorLogs        BehaviorLog[]
+  gradeRecords        GradeRecord[]
+  auditLogs           AuditLog[]
 
   @@index([status])
 }
@@ -257,8 +267,9 @@ model Semester {
   createdAt      DateTime @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  gradeRecords GradeRecord[]
 
   @@unique([tenantId, academicYearId, sequence])
   @@index([tenantId, academicYearId])
@@ -321,6 +332,8 @@ model Section {
   timetableSlots     TimetableSlot[]
   scheduleExceptions ScheduleException[]
   attendance         StudentAttendance[]
+  homework           Homework[]
+  gradeRecords       GradeRecord[]
 
   @@unique([tenantId, gradeId, name])
   @@index([tenantId, gradeId])
@@ -351,11 +364,13 @@ model Student {
   updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt        DateTime?     @db.Timestamptz(6)
 
-  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  section     Section?            @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  parentLinks ParentStudent[]
-  attendance  StudentAttendance[]
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  section      Section?            @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  parentLinks  ParentStudent[]
+  attendance   StudentAttendance[]
+  behaviorLogs BehaviorLog[]
+  gradeRecords GradeRecord[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -772,4 +787,94 @@ model TeacherAttendance {
 
   @@unique([tenantId, teacherId, date])
   @@index([tenantId, date])
+}
+
+// ----------------------------------------------------------------------------
+// Academics
+// ----------------------------------------------------------------------------
+
+model Homework {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @db.Uuid
+  sectionId    String    @db.Uuid
+  subject      String
+  title        String
+  description  String?
+  dueDate      DateTime  @db.Date
+  assignedById String?   @db.Uuid // teacher/user; plain ref (no FK relation)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime? @db.Timestamptz(6)
+
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  section     Section              @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  attachments HomeworkAttachment[]
+
+  @@index([tenantId, sectionId])
+  @@index([tenantId, dueDate])
+}
+
+// Attachment metadata. Files live in S3 and are uploaded directly via pre-signed URLs;
+// only the object key + metadata are stored here.
+model HomeworkAttachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  homeworkId   String   @db.Uuid
+  fileName     String
+  fileKey      String // S3 object key
+  contentType  String
+  size         Int
+  uploadedById String?  @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  homework Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, homeworkId])
+}
+
+model BehaviorLog {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @db.Uuid
+  studentId    String       @db.Uuid
+  type         BehaviorType
+  category     String?
+  title        String
+  description  String?
+  points       Int          @default(0)
+  date         DateTime     @db.Date
+  recordedById String?      @db.Uuid
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, studentId, date])
+}
+
+// A graded assessment. Unique per (student, subject, assessment, semester) so grade import
+// is idempotent (re-importing updates the score rather than duplicating).
+model GradeRecord {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  studentId  String   @db.Uuid
+  sectionId  String?  @db.Uuid
+  semesterId String?  @db.Uuid
+  subject    String
+  assessment String // e.g. "Midterm", "Quiz 1"
+  score      Decimal  @db.Decimal(6, 2)
+  maxScore   Decimal  @db.Decimal(6, 2)
+  weight     Decimal? @db.Decimal(5, 2)
+  gradedById String?  @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student  Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section  Section?  @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  semester Semester? @relation(fields: [semesterId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, studentId, subject, assessment, semesterId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, sectionId])
 }

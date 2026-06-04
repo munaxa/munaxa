@@ -60,6 +60,12 @@ export default function Home() {
           >
             Attendance
           </Link>
+          <Link
+            href="/academics"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+          >
+            Academics
+          </Link>
           <button
             onClick={() => void onLogout()}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
