@@ -1,0 +1,80 @@
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Bus, BusRoute, BusStop, StudentBusAssignment } from '@prisma/client';
+import { BusRepository } from './bus.repository';
+import type {
+  AssignStudentDto,
+  CreateBusDto,
+  CreateBusRouteDto,
+  CreateBusStopDto,
+  UpdateBusLocationDto,
+} from './bus.dto';
+
+@Injectable()
+export class BusService {
+  constructor(private readonly repo: BusRepository) {}
+
+  createRoute(dto: CreateBusRouteDto): Promise<BusRoute> {
+    return this.repo.createRoute({ name: dto.name, description: dto.description ?? null });
+  }
+
+  listRoutes(): Promise<BusRoute[]> {
+    return this.repo.listRoutes();
+  }
+
+  async createBus(dto: CreateBusDto): Promise<Bus> {
+    if (dto.routeId && !(await this.repo.routeExists(dto.routeId))) {
+      throw new BadRequestException('Route not found in this tenant');
+    }
+    return this.repo.createBus({
+      plateNumber: dto.plateNumber,
+      routeId: dto.routeId ?? null,
+      label: dto.label ?? null,
+      capacity: dto.capacity ?? null,
+      driverName: dto.driverName ?? null,
+      driverPhone: dto.driverPhone ?? null,
+    });
+  }
+
+  listBuses(): Promise<Bus[]> {
+    return this.repo.listBuses();
+  }
+
+  async updateLocation(id: string, dto: UpdateBusLocationDto): Promise<Bus> {
+    const bus = await this.repo.findBus(id);
+    if (!bus) throw new NotFoundException('Bus not found');
+    return this.repo.updateLocation(id, dto.lat, dto.lng);
+  }
+
+  async createStop(dto: CreateBusStopDto): Promise<BusStop> {
+    if (!(await this.repo.routeExists(dto.routeId))) {
+      throw new BadRequestException('Route not found in this tenant');
+    }
+    return this.repo.createStop({
+      routeId: dto.routeId,
+      name: dto.name,
+      sequence: dto.sequence ?? 0,
+      lat: dto.lat ?? null,
+      lng: dto.lng ?? null,
+      pickupTime: dto.pickupTime ?? null,
+    });
+  }
+
+  listStops(routeId: string): Promise<BusStop[]> {
+    return this.repo.listStops(routeId);
+  }
+
+  async assign(dto: AssignStudentDto): Promise<StudentBusAssignment> {
+    if (!(await this.repo.routeExists(dto.routeId))) {
+      throw new BadRequestException('Route not found in this tenant');
+    }
+    return this.repo.assign({
+      studentId: dto.studentId,
+      routeId: dto.routeId,
+      stopId: dto.stopId ?? null,
+    });
+  }
+
+  listAssignments(routeId?: string): Promise<StudentBusAssignment[]> {
+    return this.repo.listAssignments(routeId);
+  }
+}

@@ -227,6 +227,26 @@ enum AchievementCategory {
   GENERAL
 }
 
+// Advanced modules (Phase 14) — all gated by per-tenant feature flags, disabled by default.
+enum BookLoanStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+}
+
+enum InventoryTxnType {
+  IN
+  OUT
+  ADJUST
+}
+
+enum ClinicOutcome {
+  RESOLVED
+  SENT_HOME
+  REFERRED
+  HOSPITALIZED
+}
+
 enum RoleKey {
   // Platform plane
   PlatformOwner
@@ -299,6 +319,16 @@ model Tenant {
   achievements        Achievement[]
   studentAchievements StudentAchievement[]
   studentGamification StudentGamification[]
+  busRoutes           BusRoute[]
+  buses               Bus[]
+  busStops            BusStop[]
+  busAssignments      StudentBusAssignment[]
+  libraryBooks        LibraryBook[]
+  bookLoans           BookLoan[]
+  inventoryItems      InventoryItem[]
+  inventoryTxns       InventoryTransaction[]
+  medicalRecords      StudentMedicalRecord[]
+  clinicVisits        ClinicVisit[]
 
   @@index([status])
 }
@@ -480,20 +510,24 @@ model Student {
   updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt        DateTime?     @db.Timestamptz(6)
 
-  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user          User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
-  section       Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  parentLinks   ParentStudent[]
-  attendance    StudentAttendance[]
-  behaviorLogs  BehaviorLog[]
-  gradeRecords  GradeRecord[]
-  charges       Charge[]
-  transactions  Transaction[]
-  leaveRequests LeaveRequest[]
-  ptmBookings   PtmBooking[]
-  documents     Document[]
-  achievements  StudentAchievement[]
-  gamification  StudentGamification?
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user           User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  section        Section?               @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  parentLinks    ParentStudent[]
+  attendance     StudentAttendance[]
+  behaviorLogs   BehaviorLog[]
+  gradeRecords   GradeRecord[]
+  charges        Charge[]
+  transactions   Transaction[]
+  leaveRequests  LeaveRequest[]
+  ptmBookings    PtmBooking[]
+  documents      Document[]
+  achievements   StudentAchievement[]
+  gamification   StudentGamification?
+  busAssignments StudentBusAssignment[]
+  bookLoans      BookLoan[]
+  medicalRecord  StudentMedicalRecord?
+  clinicVisits   ClinicVisit[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -1358,4 +1392,207 @@ model StudentGamification {
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+}
+
+// ----------------------------------------------------------------------------
+// Advanced modules (Phase 14) — feature-flagged, OFF by default
+// ----------------------------------------------------------------------------
+
+// --- Bus tracking -----------------------------------------------------------
+model BusRoute {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @db.Uuid
+  name        String
+  description String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buses       Bus[]
+  stops       BusStop[]
+  assignments StudentBusAssignment[]
+
+  @@index([tenantId])
+}
+
+model Bus {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @db.Uuid
+  routeId     String?   @db.Uuid
+  plateNumber String
+  label       String?
+  capacity    Int?
+  driverName  String?
+  driverPhone String?
+  lastLat     Float?
+  lastLng     Float?
+  lastSeenAt  DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  route  BusRoute? @relation(fields: [routeId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, plateNumber])
+  @@index([tenantId])
+}
+
+model BusStop {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  routeId    String   @db.Uuid
+  name       String
+  sequence   Int      @default(0)
+  lat        Float?
+  lng        Float?
+  pickupTime String? // "HH:MM"
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  route       BusRoute               @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  assignments StudentBusAssignment[]
+
+  @@index([tenantId])
+  @@index([tenantId, routeId])
+}
+
+model StudentBusAssignment {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  studentId String   @db.Uuid
+  routeId   String   @db.Uuid
+  stopId    String?  @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  route   BusRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  stop    BusStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, routeId])
+  @@index([tenantId])
+  @@index([tenantId, routeId])
+}
+
+// --- Library management ------------------------------------------------------
+model LibraryBook {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @db.Uuid
+  title           String
+  author          String?
+  isbn            String?
+  category        String?
+  copiesTotal     Int       @default(1)
+  copiesAvailable Int       @default(1)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt       DateTime? @db.Timestamptz(6)
+
+  tenant Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  loans  BookLoan[]
+
+  @@index([tenantId])
+}
+
+model BookLoan {
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String         @db.Uuid
+  bookId       String         @db.Uuid
+  studentId    String?        @db.Uuid
+  borrowerName String?
+  status       BookLoanStatus @default(ACTIVE)
+  borrowedAt   DateTime       @default(now()) @db.Timestamptz(6)
+  dueDate      DateTime       @db.Date
+  returnedAt   DateTime?      @db.Timestamptz(6)
+  createdAt    DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime       @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  book    LibraryBook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  student Student?    @relation(fields: [studentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, bookId])
+  @@index([tenantId, status])
+}
+
+// --- Inventory management ----------------------------------------------------
+model InventoryItem {
+  id           String    @id @default(uuid()) @db.Uuid
+  tenantId     String    @db.Uuid
+  name         String
+  sku          String?
+  category     String?
+  unit         String?
+  quantity     Int       @default(0)
+  reorderLevel Int?
+  location     String?
+  createdAt    DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime? @db.Timestamptz(6)
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactions InventoryTransaction[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+}
+
+model InventoryTransaction {
+  id           String           @id @default(uuid()) @db.Uuid
+  tenantId     String           @db.Uuid
+  itemId       String           @db.Uuid
+  type         InventoryTxnType
+  quantity     Int
+  reason       String?
+  recordedById String?          @db.Uuid // plain ref (no FK relation)
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  item   InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, itemId])
+}
+
+// --- School clinic -----------------------------------------------------------
+model StudentMedicalRecord {
+  id                String   @id @default(uuid()) @db.Uuid
+  tenantId          String   @db.Uuid
+  studentId         String   @unique @db.Uuid
+  bloodType         String?
+  allergies         String?
+  chronicConditions String?
+  medications       String?
+  emergencyContact  String?
+  notes             String?
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model ClinicVisit {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @db.Uuid
+  studentId    String        @db.Uuid
+  reason       String
+  symptoms     String?
+  treatment    String?
+  temperature  Decimal?      @db.Decimal(4, 1)
+  outcome      ClinicOutcome @default(RESOLVED)
+  recordedById String?       @db.Uuid // plain ref (no FK relation)
+  visitedAt    DateTime      @default(now()) @db.Timestamptz(6)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, studentId])
 }

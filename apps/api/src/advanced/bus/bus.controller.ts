@@ -1,0 +1,84 @@
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Permission } from '@munaxa/domain';
+import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
+import { FeatureFlagGuard } from '../../feature-flags/feature-flag.guard';
+import { FeatureFlagKey, RequireFeature } from '../../feature-flags/require-feature.decorator';
+import { BusService } from './bus.service';
+import {
+  AssignStudentDto,
+  CreateBusDto,
+  CreateBusRouteDto,
+  CreateBusStopDto,
+  UpdateBusLocationDto,
+} from './bus.dto';
+
+@ApiTags('bus-tracking')
+@ApiBearerAuth()
+@Controller({ path: 'bus', version: '1' })
+@UseGuards(FeatureFlagGuard)
+@RequireFeature(FeatureFlagKey.BUS_TRACKING)
+export class BusController {
+  constructor(private readonly service: BusService) {}
+
+  @Post('routes')
+  @RequirePermissions(Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Create a bus route' })
+  createRoute(@Body() dto: CreateBusRouteDto) {
+    return this.service.createRoute(dto);
+  }
+
+  @Get('routes')
+  @RequirePermissions(Permission.BUS_READ)
+  listRoutes() {
+    return this.service.listRoutes();
+  }
+
+  @Post('routes/stops')
+  @RequirePermissions(Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Add a stop to a route' })
+  createStop(@Body() dto: CreateBusStopDto) {
+    return this.service.createStop(dto);
+  }
+
+  @Get('routes/:routeId/stops')
+  @RequirePermissions(Permission.BUS_READ)
+  listStops(@Param('routeId') routeId: string) {
+    return this.service.listStops(routeId);
+  }
+
+  @Post('vehicles')
+  @RequirePermissions(Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Register a bus' })
+  createBus(@Body() dto: CreateBusDto) {
+    return this.service.createBus(dto);
+  }
+
+  @Get('vehicles')
+  @RequirePermissions(Permission.BUS_READ)
+  @ApiOperation({ summary: 'List buses (with last known location)' })
+  listBuses() {
+    return this.service.listBuses();
+  }
+
+  @Post('vehicles/:id/location')
+  @RequirePermissions(Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Push a live GPS location for a bus' })
+  updateLocation(@Param('id') id: string, @Body() dto: UpdateBusLocationDto) {
+    return this.service.updateLocation(id, dto);
+  }
+
+  @Post('assignments')
+  @RequirePermissions(Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Assign a student to a route/stop' })
+  assign(@Body() dto: AssignStudentDto) {
+    return this.service.assign(dto);
+  }
+
+  @Get('assignments')
+  @RequirePermissions(Permission.BUS_READ)
+  @ApiQuery({ name: 'routeId', required: false })
+  listAssignments(@Query('routeId') routeId?: string) {
+    return this.service.listAssignments(routeId);
+  }
+}

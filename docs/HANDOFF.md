@@ -27,8 +27,8 @@ environment, conventions, or gotchas. Read this first, then `docs/architecture/`
 | 11 | Parent Portal | ✅ |
 | 12 | Student App | ✅ |
 | 13 | Reporting | ✅ |
-| 14 | **Advanced Modules** | ⬜ NEXT |
-| 15 | Production Hardening | ⬜ |
+| 14 | Advanced Modules | ✅ |
+| 15 | **Production Hardening** | ⬜ NEXT |
 
 Phase prompts are in `MunaxaPrompts/`. Per-phase delivery notes are in `docs/phases/`.
 
@@ -144,7 +144,7 @@ DIRECT_DATABASE_URL=postgresql://munaxa:munaxa_local_dev@localhost:5432/munaxa?s
 pnpm --filter @munaxa/api test:e2e
 ```
 Before e2e, clean leftover test tenants if a prior run crashed:
-`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **74 e2e across 12 suites**,
+`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **80 e2e across 13 suites**,
 plus **42 unit** (engine, auth/guards, gamification streaks, utils).
 
 CI (`.github/workflows/ci.yml`) already: starts Postgres service, `prisma:generate`, `prisma:deploy`,
@@ -162,18 +162,20 @@ build + a Flutter job + gitleaks/audit.
   interceptor). Keep it analyzable (no codegen `.g.dart`). Offline-first attendance queue lives in
   `lib/data/attendance` + `lib/features/attendance`.
 
-## 7. Phase 14 starting point (Advanced Modules)
+## 7. Phase 15 starting point (Production Hardening)
 
-Phase 13 (Reporting) is ✅ — see `docs/phases/phase-13-reporting.md`. It added the `reporting`
-module (no new tables): `ReportingRepository` aggregations over existing domains, a `ReportingService`
-producing a generic `ReportTable`, and an `ExportService` rendering CSV (dependency-free) / Excel
-(**exceljs**) / PDF (**pdfkit**, both lazily imported). Endpoints `GET /reports/{attendance,academic,
-financial,behavior}` (+ `/export?format=`) are gated by `report:read` / `report:export`. Admin Portal
-page at `apps/admin/src/app/reports`. New runtime deps: `exceljs`, `pdfkit` (+ `@types/pdfkit`).
+Phase 14 (Advanced Modules) is ✅ — see `docs/phases/phase-14-advanced-modules.md`. It added a
+**feature-flag framework** (`apps/api/src/feature-flags/`: `FeatureGate`, `FeatureFlagGuard`,
+`@RequireFeature`, a `@Global` module) gating four optional modules — Bus Tracking, Library,
+Inventory, School Clinic (`apps/api/src/advanced/`) — each **disabled by default** (403 until the
+tenant enables the flag via `PUT /feature-flags/:key`). 10 new RLS tables. New permissions `bus:*`,
+`library:*`, `inventory:*`, `clinic:*` were added/seeded (56 total). Admin page `apps/admin/src/app/
+modules`; Flutter `apps/mobile/lib/{data,features}/advanced`.
 
-Deliverables for **Phase 14** (`MunaxaPrompts/Phase 14 — Advanced Modules.txt`): read the prompt
-first to scope the modules. Likely new DB models + RLS (follow the per-phase migration recipe in
-§3), backend modules (§4 patterns), and tests (§5).
+Deliverables for **Phase 15** (`MunaxaPrompts/Phase 15 — Production Hardening.txt`): read the prompt
+first — likely httpOnly-cookie auth + silent refresh (deferred from Phase 3/10), rate-limit/security
+headers, secrets, observability/health, backup/DR runbooks, and CI/deploy hardening. Mostly
+cross-cutting (no big new domain), so expect changes across `apps/api`, `apps/admin`, and `infra/`.
 
 ## 8. Quick "resume work" checklist
 1. `pg_ctlcluster 16 main start` (restart DB if stopped); verify `_prisma_migrations` count.
