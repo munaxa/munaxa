@@ -83,6 +83,28 @@ enum ParentRelation {
   OTHER
 }
 
+enum DayOfWeek {
+  SUN
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+}
+
+enum ScheduleType {
+  REGULAR
+  RAMADAN
+}
+
+enum ExceptionType {
+  CANCELLATION
+  SUBSTITUTION
+  REPLACEMENT
+  HOLIDAY
+}
+
 enum RoleKey {
   // Platform plane
   PlatformOwner
@@ -112,25 +134,28 @@ model Tenant {
   createdAt DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt DateTime     @updatedAt @db.Timestamptz(6)
 
-  schools         School[]
-  campuses        Campus[]
-  academicYears   AcademicYear[]
-  semesters       Semester[]
-  grades          Grade[]
-  classrooms      Classroom[]
-  sections        Section[]
-  users           User[]
-  roles           Role[]
-  userRoles       UserRole[]
-  refreshTokens   RefreshToken[]
-  passwordResets  PasswordResetToken[]
-  students        Student[]
-  parents         Parent[]
-  teachers        Teacher[]
-  employees       Employee[]
-  parentStudents  ParentStudent[]
-  teacherSections TeacherSection[]
-  auditLogs       AuditLog[]
+  schools            School[]
+  campuses           Campus[]
+  academicYears      AcademicYear[]
+  semesters          Semester[]
+  grades             Grade[]
+  classrooms         Classroom[]
+  sections           Section[]
+  users              User[]
+  roles              Role[]
+  userRoles          UserRole[]
+  refreshTokens      RefreshToken[]
+  passwordResets     PasswordResetToken[]
+  students           Student[]
+  parents            Parent[]
+  teachers           Teacher[]
+  employees          Employee[]
+  parentStudents     ParentStudent[]
+  teacherSections    TeacherSection[]
+  timetableSlots     TimetableSlot[]
+  scheduleExceptions ScheduleException[]
+  timetableConfigs   TimetableConfig[]
+  auditLogs          AuditLog[]
 
   @@index([status])
 }
@@ -170,11 +195,12 @@ model Campus {
   updatedAt DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt DateTime? @db.Timestamptz(6)
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  academicYears AcademicYear[]
-  grades        Grade[]
-  classrooms    Classroom[]
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  school          School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYears   AcademicYear[]
+  grades          Grade[]
+  classrooms      Classroom[]
+  timetableConfig TimetableConfig?
 
   @@index([tenantId])
   @@index([tenantId, schoolId])
@@ -246,9 +272,11 @@ model Classroom {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campus   Campus    @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  sections Section[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus             Campus              @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  sections           Section[]
+  timetableSlots     TimetableSlot[]
+  scheduleExceptions ScheduleException[]
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
@@ -264,11 +292,13 @@ model Section {
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  grade           Grade            @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  classroom       Classroom?       @relation(fields: [classroomId], references: [id], onDelete: SetNull)
-  students        Student[]
-  teacherSections TeacherSection[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grade              Grade               @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  classroom          Classroom?          @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  students           Student[]
+  teacherSections    TeacherSection[]
+  timetableSlots     TimetableSlot[]
+  scheduleExceptions ScheduleException[]
 
   @@unique([tenantId, gradeId, name])
   @@index([tenantId, gradeId])
@@ -349,9 +379,12 @@ model Teacher {
   updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
   deletedAt      DateTime?        @db.Timestamptz(6)
 
-  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user     User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
-  sections TeacherSection[]
+  tenant                 Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sections               TeacherSection[]
+  timetableSlots         TimetableSlot[]
+  exceptionReplacements  ScheduleException[] @relation("ExceptionTeacher")
+  exceptionSubstitutions ScheduleException[] @relation("ExceptionSubstitute")
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -586,4 +619,79 @@ model AuditLog {
   @@index([tenantId, createdAt])
   @@index([tenantId, entityType, entityId])
   @@index([actorUserId])
+}
+
+// ----------------------------------------------------------------------------
+// Timetable engine
+// ----------------------------------------------------------------------------
+
+// A recurring weekly class slot for a section. The REGULAR set is the master timetable;
+// the RAMADAN set is used when Ramadan mode is active (see TimetableConfig). Times are
+// "HH:MM" (24h) local school time.
+model TimetableSlot {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @db.Uuid
+  sectionId    String       @db.Uuid
+  scheduleType ScheduleType @default(REGULAR)
+  dayOfWeek    DayOfWeek
+  periodIndex  Int
+  startTime    String // "HH:MM"
+  endTime      String // "HH:MM"
+  subject      String
+  teacherId    String?      @db.Uuid
+  classroomId  String?      @db.Uuid
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  section   Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  teacher   Teacher?   @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  classroom Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, sectionId, scheduleType, dayOfWeek, periodIndex])
+  @@index([tenantId, sectionId])
+}
+
+// A date-specific override of the master timetable: a cancelled period, a substitute teacher,
+// a replaced subject, or a whole-day holiday (periodIndex null + sectionId null => school-wide).
+model ScheduleException {
+  id                  String        @id @default(uuid()) @db.Uuid
+  tenantId            String        @db.Uuid
+  date                DateTime      @db.Date
+  sectionId           String?       @db.Uuid
+  periodIndex         Int?
+  type                ExceptionType
+  subject             String?
+  teacherId           String?       @db.Uuid // replacement teacher
+  substituteTeacherId String?       @db.Uuid
+  classroomId         String?       @db.Uuid
+  note                String?
+  createdAt           DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(6)
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  section    Section?   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  teacher    Teacher?   @relation("ExceptionTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
+  substitute Teacher?   @relation("ExceptionSubstitute", fields: [substituteTeacherId], references: [id], onDelete: SetNull)
+  classroom  Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, date])
+  @@index([tenantId, sectionId, date])
+}
+
+// Per-campus timetable settings, notably Ramadan mode and its active window.
+model TimetableConfig {
+  id                 String    @id @default(uuid()) @db.Uuid
+  tenantId           String    @db.Uuid
+  campusId           String    @unique @db.Uuid
+  ramadanModeEnabled Boolean   @default(false)
+  ramadanStartDate   DateTime? @db.Date
+  ramadanEndDate     DateTime? @db.Date
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus Campus @relation(fields: [campusId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }

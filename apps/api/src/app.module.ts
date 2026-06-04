@@ -9,6 +9,7 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { StructureModule } from './structure/structure.module';
 import { PeopleModule } from './people/people.module';
+import { TimetableModule } from './timetable/timetable.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
@@ -36,6 +37,7 @@ import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
     AuthModule,
     StructureModule,
     PeopleModule,
+    TimetableModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

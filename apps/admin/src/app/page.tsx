@@ -48,6 +48,12 @@ export default function Home() {
           >
             Students
           </Link>
+          <Link
+            href="/timetable"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+          >
+            Timetable
+          </Link>
           <button
             onClick={() => void onLogout()}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
