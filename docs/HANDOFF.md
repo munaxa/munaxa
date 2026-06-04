@@ -24,8 +24,8 @@ environment, conventions, or gotchas. Read this first, then `docs/architecture/`
 | 8 | Academics | ✅ |
 | 9 | Finance | ✅ |
 | 10 | Communication System | ✅ |
-| 11 | **Parent Portal** | ⬜ NEXT |
-| 12 | Student App | ⬜ |
+| 11 | Parent Portal | ✅ |
+| 12 | **Student App** | ⬜ NEXT |
 | 13 | Reporting | ⬜ |
 | 14 | Advanced Modules | ⬜ |
 | 15 | Production Hardening | ⬜ |
@@ -144,7 +144,7 @@ DIRECT_DATABASE_URL=postgresql://munaxa:munaxa_local_dev@localhost:5432/munaxa?s
 pnpm --filter @munaxa/api test:e2e
 ```
 Before e2e, clean leftover test tenants if a prior run crashed:
-`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **48 e2e across 9 suites**,
+`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **58 e2e across 10 suites**,
 plus unit tests (engine 14, auth/guards, utils).
 
 CI (`.github/workflows/ci.yml`) already: starts Postgres service, `prisma:generate`, `prisma:deploy`,
@@ -162,15 +162,20 @@ build + a Flutter job + gitleaks/audit.
   interceptor). Keep it analyzable (no codegen `.g.dart`). Offline-first attendance queue lives in
   `lib/data/attendance` + `lib/features/attendance`.
 
-## 7. Phase 11 starting point (Parent Portal)
+## 7. Phase 12 starting point (Student App)
 
-Deliverables (`MunaxaPrompts/Phase 11 — Parent Portal.txt`): Multi-Child Switcher, Leave Requests,
-Absence Requests, PTM Booking, Document Vault, Parent Dashboard. Generate Database, Backend, Flutter,
-Tests. **Key new concern: row-scoping a parent to their own linked children** (the `ParentStudent`
-links from Phase 5). Likely new models: `LeaveRequest`, `PtmSlot`/`PtmBooking`, `Document` (S3 vault).
-Add `leave:request`/`leave:approve`/`ptm:book`/`ptm:manage`/`document:manage` are already in the
-permission catalog. Implement a helper that, for a Parent principal, resolves their child studentIds
-and rejects access to non-linked students.
+Phase 11 (Parent Portal) is ✅ — see `docs/phases/phase-11-parent-portal.md`. It added the
+`parent-portal` module (`LeaveRequest`, `PtmSlot`, `PtmBooking`, `Document` + RLS), the
+`ParentScopeService` row-scoping helper (a parent only ever sees students linked via
+`ParentStudent`), and a `@RequireAnyPermission` decorator/guard for routes shared by parents and
+staff. The request-scoped `TenantContext` now also carries `permissions` (bound by the
+`TenantContextInterceptor`) so services can make scoping decisions.
+
+Deliverables for **Phase 12** (`MunaxaPrompts/Phase 12 — Student App.txt`): the student-facing
+experience (Flutter `main_student` flavor). Students already hold read permissions
+(`attendance:read`, `homework:read`, `behavior:read`, `grade:read`, `timetable:read`,
+`announcement:read`). The likely new concern is **scoping a student to their own record** (the
+`Student.userId` link) — mirror `ParentScopeService` with a `StudentScopeService`.
 
 ## 8. Quick "resume work" checklist
 1. `pg_ctlcluster 16 main start` (restart DB if stopped); verify `_prisma_migrations` count.

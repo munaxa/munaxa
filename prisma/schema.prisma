@@ -172,6 +172,43 @@ enum DevicePlatform {
   WEB
 }
 
+// Parent portal: a leave (planned future absence) or an explanation/excuse for a past absence.
+enum LeaveRequestType {
+  LEAVE
+  ABSENCE
+}
+
+enum LeaveRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// Parent-Teacher Meeting slot lifecycle.
+enum PtmSlotStatus {
+  OPEN
+  BOOKED
+  CANCELLED
+  COMPLETED
+}
+
+enum PtmBookingStatus {
+  BOOKED
+  CANCELLED
+  COMPLETED
+}
+
+// Document vault classification.
+enum DocumentCategory {
+  REPORT_CARD
+  CERTIFICATE
+  MEDICAL
+  ID_DOCUMENT
+  PERMISSION_SLIP
+  OTHER
+}
+
 enum RoleKey {
   // Platform plane
   PlatformOwner
@@ -236,6 +273,10 @@ model Tenant {
   deviceTokens        DeviceToken[]
   featureFlags        FeatureFlag[]
   auditLogs           AuditLog[]
+  leaveRequests       LeaveRequest[]
+  ptmSlots            PtmSlot[]
+  ptmBookings         PtmBooking[]
+  documents           Document[]
 
   @@index([status])
 }
@@ -384,6 +425,7 @@ model Section {
   homework           Homework[]
   gradeRecords       GradeRecord[]
   announcements      Announcement[]
+  ptmSlots           PtmSlot[]
 
   @@unique([tenantId, gradeId, name])
   @@index([tenantId, gradeId])
@@ -414,15 +456,18 @@ model Student {
   updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt        DateTime?     @db.Timestamptz(6)
 
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  section      Section?            @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  parentLinks  ParentStudent[]
-  attendance   StudentAttendance[]
-  behaviorLogs BehaviorLog[]
-  gradeRecords GradeRecord[]
-  charges      Charge[]
-  transactions Transaction[]
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  section       Section?            @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  parentLinks   ParentStudent[]
+  attendance    StudentAttendance[]
+  behaviorLogs  BehaviorLog[]
+  gradeRecords  GradeRecord[]
+  charges       Charge[]
+  transactions  Transaction[]
+  leaveRequests LeaveRequest[]
+  ptmBookings   PtmBooking[]
+  documents     Document[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -476,6 +521,7 @@ model Teacher {
   exceptionReplacements  ScheduleException[] @relation("ExceptionTeacher")
   exceptionSubstitutions ScheduleException[] @relation("ExceptionSubstitute")
   attendance             TeacherAttendance[]
+  ptmSlots               PtmSlot[]
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -575,6 +621,11 @@ model User {
   notifications          Notification[]
   deviceTokens           DeviceToken[]
   auditLogs              AuditLog[]           @relation("AuditActor")
+  leaveRequestsMade      LeaveRequest[]       @relation("LeaveRequestedBy")
+  leaveRequestsReviewed  LeaveRequest[]       @relation("LeaveReviewedBy")
+  ptmSlotsCreated        PtmSlot[]            @relation("PtmSlotCreatedBy")
+  ptmBookingsMade        PtmBooking[]         @relation("PtmBookedBy")
+  documentsUploaded      Document[]           @relation("DocumentUploadedBy")
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])
@@ -1075,4 +1126,110 @@ model FeatureFlag {
 
   @@unique([tenantId, key])
   @@index([tenantId])
+}
+
+// ----------------------------------------------------------------------------
+// Parent portal (Phase 11)
+// ----------------------------------------------------------------------------
+
+// A parent-submitted leave (planned) or absence (excuse) request for one of their children.
+// Reviewed (approved/rejected) by school staff holding leave:approve.
+model LeaveRequest {
+  id            String             @id @default(uuid()) @db.Uuid
+  tenantId      String             @db.Uuid
+  studentId     String             @db.Uuid
+  requestedById String?            @db.Uuid
+  type          LeaveRequestType
+  status        LeaveRequestStatus @default(PENDING)
+  startDate     DateTime           @db.Date
+  endDate       DateTime           @db.Date
+  reason        String
+  reviewedById  String?            @db.Uuid
+  reviewNote    String?
+  reviewedAt    DateTime?          @db.Timestamptz(6)
+  createdAt     DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student     Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  requestedBy User?   @relation("LeaveRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  reviewedBy  User?   @relation("LeaveReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+}
+
+// A Parent-Teacher Meeting slot offered by a teacher (optionally for a specific section).
+model PtmSlot {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @db.Uuid
+  teacherId   String        @db.Uuid
+  sectionId   String?       @db.Uuid
+  startsAt    DateTime      @db.Timestamptz(6)
+  endsAt      DateTime      @db.Timestamptz(6)
+  location    String?
+  capacity    Int           @default(1)
+  status      PtmSlotStatus @default(OPEN)
+  notes       String?
+  createdById String?       @db.Uuid
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacher   Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  section   Section?     @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  createdBy User?        @relation("PtmSlotCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  bookings  PtmBooking[]
+
+  @@index([tenantId])
+  @@index([tenantId, teacherId])
+  @@index([tenantId, startsAt])
+}
+
+// A parent's booking of a PTM slot for one of their children.
+model PtmBooking {
+  id         String           @id @default(uuid()) @db.Uuid
+  tenantId   String           @db.Uuid
+  slotId     String           @db.Uuid
+  studentId  String           @db.Uuid
+  bookedById String?          @db.Uuid
+  status     PtmBookingStatus @default(BOOKED)
+  note       String?
+  createdAt  DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime         @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  slot     PtmSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  student  Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  bookedBy User?   @relation("PtmBookedBy", fields: [bookedById], references: [id], onDelete: SetNull)
+
+  @@unique([slotId, studentId])
+  @@index([tenantId])
+  @@index([tenantId, slotId])
+  @@index([tenantId, studentId])
+}
+
+// Document vault: secure files attached to a student (report cards, certificates, medical, IDs).
+// Uploaded by parents (for their children) or staff, stored in S3 via the StorageService.
+model Document {
+  id           String           @id @default(uuid()) @db.Uuid
+  tenantId     String           @db.Uuid
+  studentId    String           @db.Uuid
+  title        String
+  category     DocumentCategory @default(OTHER)
+  fileKey      String
+  fileName     String
+  contentType  String
+  size         Int
+  uploadedById String?          @db.Uuid
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  deletedAt    DateTime?        @db.Timestamptz(6)
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student    Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  uploadedBy User?   @relation("DocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, studentId])
 }
