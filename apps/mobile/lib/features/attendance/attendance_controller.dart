@@ -1,0 +1,92 @@
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../data/attendance/attendance_api.dart';
+import '../../data/attendance/attendance_queue.dart';
+import '../auth/auth_providers.dart';
+
+final attendanceQueueProvider = Provider<AttendanceQueue>((ref) => AttendanceQueue());
+final attendanceApiProvider = Provider<AttendanceApi>((ref) => AttendanceApi(ref.watch(dioProvider)));
+
+/// Offline-first attendance controller.
+///
+/// Marking writes to the local write-ahead queue first (instant, works offline), then attempts
+/// a sync. A connectivity listener drains the queue automatically when the network returns.
+/// The server's bulk endpoint is idempotent, so replays never duplicate.
+class AttendanceController extends Notifier<int> {
+  StreamSubscription<List<ConnectivityResult>>? _sub;
+
+  @override
+  int build() {
+    final connectivity = Connectivity();
+    _sub = connectivity.onConnectivityChanged.listen((results) {
+      final online = results.any((r) => r != ConnectivityResult.none);
+      if (online) unawaited(sync());
+    });
+    ref.onDispose(() => _sub?.cancel());
+    unawaited(_refreshCount());
+    return 0; // pending count
+  }
+
+  AttendanceQueue get _queue => ref.read(attendanceQueueProvider);
+  AttendanceApi get _api => ref.read(attendanceApiProvider);
+
+  /// Record a mark locally (optimistic) and try to sync immediately.
+  Future<void> mark({
+    required String sectionId,
+    required String date,
+    required int periodIndex,
+    required String studentId,
+    required String status,
+  }) async {
+    await _queue.enqueue(
+      PendingMark(
+        clientRef: '$sectionId:$date:$periodIndex:$studentId',
+        sectionId: sectionId,
+        date: date,
+        periodIndex: periodIndex,
+        studentId: studentId,
+        status: status,
+      ),
+    );
+    await _refreshCount();
+    await sync();
+  }
+
+  /// Drain the queue: group by (section, date, period) and POST each batch idempotently.
+  Future<void> sync() async {
+    final pending = await _queue.pending();
+    if (pending.isEmpty) return;
+
+    final batches = <String, List<PendingMark>>{};
+    for (final mark in pending) {
+      batches.putIfAbsent('${mark.sectionId}|${mark.date}|${mark.periodIndex}', () => []).add(mark);
+    }
+
+    for (final marks in batches.values) {
+      final first = marks.first;
+      try {
+        await _api.syncBatch(
+          sectionId: first.sectionId,
+          date: first.date,
+          periodIndex: first.periodIndex,
+          marks: marks,
+        );
+        await _queue.removeByRefs(marks.map((m) => m.clientRef).toSet());
+      } catch (_) {
+        // Stay queued; the next connectivity change or manual sync retries.
+      }
+    }
+    await _refreshCount();
+  }
+
+  Future<void> _refreshCount() async {
+    state = await _queue.count();
+  }
+}
+
+/// Exposes the pending (unsynced) attendance mark count.
+final attendanceControllerProvider =
+    NotifierProvider<AttendanceController, int>(AttendanceController.new);

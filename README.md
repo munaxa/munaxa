@@ -71,6 +71,7 @@ pnpm dev                  # runs api + admin via Turborepo
 - ✅ Phase 4 — School Structure Management
 - ✅ Phase 5 — People Management
 - ✅ Phase 6 — Timetable Engine
-- ⬜ Phase 7 — Attendance System (next)
+- ✅ Phase 7 — Attendance System
+- ⬜ Phase 8 — Academics (next)
 
 Development is **phase-by-phase**; see `MunaxaPrompts/` for the phase specifications.

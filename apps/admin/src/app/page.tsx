@@ -54,6 +54,12 @@ export default function Home() {
           >
             Timetable
           </Link>
+          <Link
+            href="/attendance"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+          >
+            Attendance
+          </Link>
           <button
             onClick={() => void onLogout()}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"

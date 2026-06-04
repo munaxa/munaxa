@@ -37,6 +37,9 @@ dependencies:
   # i18n / RTL
   intl: ^0.19.0
 
+  # Connectivity (offline-first attendance sync trigger)
+  connectivity_plus: ^6.1.0
+
   # Observability
   sentry_flutter: ^8.12.0
 

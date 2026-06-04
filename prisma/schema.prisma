@@ -105,6 +105,25 @@ enum ExceptionType {
   HOLIDAY
 }
 
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum TeacherAttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  ON_LEAVE
+}
+
+enum AttendanceMethod {
+  MANUAL
+  QR
+}
+
 enum RoleKey {
   // Platform plane
   PlatformOwner
@@ -155,6 +174,8 @@ model Tenant {
   timetableSlots     TimetableSlot[]
   scheduleExceptions ScheduleException[]
   timetableConfigs   TimetableConfig[]
+  studentAttendance  StudentAttendance[]
+  teacherAttendance  TeacherAttendance[]
   auditLogs          AuditLog[]
 
   @@index([status])
@@ -299,6 +320,7 @@ model Section {
   teacherSections    TeacherSection[]
   timetableSlots     TimetableSlot[]
   scheduleExceptions ScheduleException[]
+  attendance         StudentAttendance[]
 
   @@unique([tenantId, gradeId, name])
   @@index([tenantId, gradeId])
@@ -329,10 +351,11 @@ model Student {
   updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt        DateTime?     @db.Timestamptz(6)
 
-  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  section     Section?        @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  section     Section?            @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   parentLinks ParentStudent[]
+  attendance  StudentAttendance[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -385,6 +408,7 @@ model Teacher {
   timetableSlots         TimetableSlot[]
   exceptionReplacements  ScheduleException[] @relation("ExceptionTeacher")
   exceptionSubstitutions ScheduleException[] @relation("ExceptionSubstitute")
+  attendance             TeacherAttendance[]
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -471,15 +495,17 @@ model User {
   updatedAt          DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?  @db.Timestamptz(6)
 
-  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles       UserRole[]
-  refreshTokens   RefreshToken[]
-  passwordResets  PasswordResetToken[]
-  studentProfile  Student?
-  parentProfile   Parent?
-  teacherProfile  Teacher?
-  employeeProfile Employee?
-  auditLogs       AuditLog[]           @relation("AuditActor")
+  tenant                 Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles              UserRole[]
+  refreshTokens          RefreshToken[]
+  passwordResets         PasswordResetToken[]
+  studentProfile         Student?
+  parentProfile          Parent?
+  teacherProfile         Teacher?
+  employeeProfile        Employee?
+  studentAttendanceMarks StudentAttendance[]  @relation("StudentAttendanceMarkedBy")
+  teacherAttendanceMarks TeacherAttendance[]  @relation("TeacherAttendanceMarkedBy")
+  auditLogs              AuditLog[]           @relation("AuditActor")
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])
@@ -694,4 +720,56 @@ model TimetableConfig {
   campus Campus @relation(fields: [campusId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+}
+
+// ----------------------------------------------------------------------------
+// Attendance
+// ----------------------------------------------------------------------------
+
+// Student attendance. periodIndex 0 = daily/homeroom; >0 = per-period. Unique per
+// (student, date, period) so offline re-sync is idempotent (upsert on that key).
+model StudentAttendance {
+  id          String           @id @default(uuid()) @db.Uuid
+  tenantId    String           @db.Uuid
+  studentId   String           @db.Uuid
+  sectionId   String           @db.Uuid
+  date        DateTime         @db.Date
+  periodIndex Int              @default(0)
+  status      AttendanceStatus
+  method      AttendanceMethod @default(MANUAL)
+  note        String?
+  markedById  String?          @db.Uuid
+  // Client-generated id from the offline queue (audit/debug; idempotency uses the unique key).
+  clientRef   String?
+  recordedAt  DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student  Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  section  Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  markedBy User?   @relation("StudentAttendanceMarkedBy", fields: [markedById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, studentId, date, periodIndex])
+  @@index([tenantId, sectionId, date])
+  @@index([tenantId, studentId, date])
+}
+
+model TeacherAttendance {
+  id         String                  @id @default(uuid()) @db.Uuid
+  tenantId   String                  @db.Uuid
+  teacherId  String                  @db.Uuid
+  date       DateTime                @db.Date
+  status     TeacherAttendanceStatus
+  checkInAt  DateTime?               @db.Timestamptz(6)
+  note       String?
+  markedById String?                 @db.Uuid
+  recordedAt DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime                @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacher  Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  markedBy User?   @relation("TeacherAttendanceMarkedBy", fields: [markedById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, teacherId, date])
+  @@index([tenantId, date])
 }
