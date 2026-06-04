@@ -13,6 +13,7 @@ import { TimetableModule } from './timetable/timetable.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AcademicsModule } from './academics/academics.module';
 import { FinanceModule } from './finance/finance.module';
+import { CommunicationModule } from './communication/communication.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
@@ -44,6 +45,7 @@ import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
     AttendanceModule,
     AcademicsModule,
     FinanceModule,
+    CommunicationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

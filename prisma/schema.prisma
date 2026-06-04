@@ -158,6 +158,20 @@ enum TransactionStatus {
   REJECTED
 }
 
+enum AnnouncementAudience {
+  ALL
+  PARENTS
+  TEACHERS
+  STUDENTS
+  SECTION
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
 enum RoleKey {
   // Platform plane
   PlatformOwner
@@ -217,6 +231,10 @@ model Tenant {
   feePlans            FeePlan[]
   charges             Charge[]
   transactions        Transaction[]
+  announcements       Announcement[]
+  notifications       Notification[]
+  deviceTokens        DeviceToken[]
+  featureFlags        FeatureFlag[]
   auditLogs           AuditLog[]
 
   @@index([status])
@@ -365,6 +383,7 @@ model Section {
   attendance         StudentAttendance[]
   homework           Homework[]
   gradeRecords       GradeRecord[]
+  announcements      Announcement[]
 
   @@unique([tenantId, gradeId, name])
   @@index([tenantId, gradeId])
@@ -553,6 +572,8 @@ model User {
   employeeProfile        Employee?
   studentAttendanceMarks StudentAttendance[]  @relation("StudentAttendanceMarkedBy")
   teacherAttendanceMarks TeacherAttendance[]  @relation("TeacherAttendanceMarkedBy")
+  notifications          Notification[]
+  deviceTokens           DeviceToken[]
   auditLogs              AuditLog[]           @relation("AuditActor")
 
   @@unique([tenantId, email])
@@ -980,4 +1001,78 @@ model Transaction {
 
   @@index([tenantId, studentId])
   @@index([tenantId, status])
+}
+
+// ----------------------------------------------------------------------------
+// Communication
+// ----------------------------------------------------------------------------
+
+model Announcement {
+  id            String               @id @default(uuid()) @db.Uuid
+  tenantId      String               @db.Uuid
+  title         String
+  body          String
+  audience      AnnouncementAudience @default(ALL)
+  sectionId     String?              @db.Uuid
+  publishedById String?              @db.Uuid
+  createdAt     DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  section       Section?       @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  notifications Notification[]
+
+  @@index([tenantId, createdAt])
+}
+
+// A per-user item in the in-app notification center. Fanned out from announcements/events.
+model Notification {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @db.Uuid
+  userId         String    @db.Uuid
+  title          String
+  body           String
+  category       String?
+  data           Json?
+  announcementId String?   @db.Uuid
+  readAt         DateTime? @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, userId, readAt])
+  @@index([tenantId, userId, createdAt])
+}
+
+model DeviceToken {
+  id         String         @id @default(uuid()) @db.Uuid
+  tenantId   String         @db.Uuid
+  userId     String         @db.Uuid
+  token      String         @unique
+  platform   DevicePlatform
+  lastSeenAt DateTime       @default(now()) @db.Timestamptz(6)
+  createdAt  DateTime       @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId])
+}
+
+// Per-tenant feature flags (e.g. the WhatsApp bridge). Disabled by default.
+model FeatureFlag {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  key       String
+  enabled   Boolean  @default(false)
+  config    Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
 }
