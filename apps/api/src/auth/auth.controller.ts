@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
 import { AuthService } from './services/auth.service';
 import { Public } from './decorators/public.decorator';
@@ -26,6 +27,8 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(200)
+  // Brute-force protection: a tighter per-IP limit than the global throttle.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Local login (email + password) → token pair' })
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     const result = await this.auth.login(dto, this.meta(req));

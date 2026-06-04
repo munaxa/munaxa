@@ -16,10 +16,14 @@ import { FinanceModule } from './finance/finance.module';
 import { CommunicationModule } from './communication/communication.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { StudentPortalModule } from './student-portal/student-portal.module';
+import { ReportingModule } from './reporting/reporting.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { AdvancedModule } from './advanced/advanced.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
 import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
+import { LoggingInterceptor } from './observability/logging.interceptor';
 
 /**
  * Application root module.
@@ -50,12 +54,16 @@ import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
     CommunicationModule,
     ParentPortalModule,
     StudentPortalModule,
+    ReportingModule,
+    FeatureFlagsModule,
+    AdvancedModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: TenantIsolationGuard },
+    { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
   ],
 })

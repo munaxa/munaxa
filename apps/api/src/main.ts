@@ -5,6 +5,8 @@ import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import compression from 'compression';
+import type { Application } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
@@ -26,6 +28,13 @@ async function bootstrap(): Promise<void> {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+
+  // --- Performance: gzip responses (skip when the client opts out) ---
+  app.use(compression());
+
+  // Trust the reverse proxy (TLS termination, real client IP for rate limiting).
+  const expressApp = app.getHttpAdapter().getInstance() as Application;
+  expressApp.set('trust proxy', 1);
 
   // --- Routing & versioning ---
   app.setGlobalPrefix(globalPrefix);

@@ -45,6 +45,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.RESOURCE_READ,
     Permission.RESOURCE_MANAGE,
     Permission.ACHIEVEMENT_MANAGE,
+    Permission.BUS_READ,
+    Permission.LIBRARY_READ,
+    Permission.INVENTORY_READ,
+    Permission.CLINIC_READ,
   ],
   VicePrincipal: [
     Permission.TIMETABLE_MANAGE,
@@ -97,6 +101,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.ATTENDANCE_READ,
     Permission.ANNOUNCEMENT_READ,
     Permission.TIMETABLE_READ,
+    // Advanced modules operations (gated by per-tenant feature flags)
+    Permission.BUS_MANAGE,
+    Permission.BUS_READ,
+    Permission.LIBRARY_MANAGE,
+    Permission.LIBRARY_READ,
+    Permission.INVENTORY_MANAGE,
+    Permission.INVENTORY_READ,
+    Permission.CLINIC_MANAGE,
+    Permission.CLINIC_READ,
   ],
   Parent: [
     Permission.ATTENDANCE_READ,

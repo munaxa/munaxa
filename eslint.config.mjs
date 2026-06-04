@@ -15,6 +15,7 @@ export default [
       '**/coverage/**',
       '**/.turbo/**',
       'apps/mobile/**',
+      'infra/**', // ops/load-test scripts (e.g. k6) run outside the app toolchain
       '**/*.config.{js,mjs,cjs,ts}',
       '**/*.d.ts',
     ],

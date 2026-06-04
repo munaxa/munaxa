@@ -62,6 +62,16 @@ export const Permission = {
   ACHIEVEMENT_MANAGE: 'achievement:manage',
   GAMIFICATION_READ: 'gamification:read',
 
+  // Advanced modules (feature-flagged, disabled by default)
+  BUS_MANAGE: 'bus:manage',
+  BUS_READ: 'bus:read',
+  LIBRARY_MANAGE: 'library:manage',
+  LIBRARY_READ: 'library:read',
+  INVENTORY_MANAGE: 'inventory:manage',
+  INVENTORY_READ: 'inventory:read',
+  CLINIC_MANAGE: 'clinic:manage',
+  CLINIC_READ: 'clinic:read',
+
   // Reporting & config
   REPORT_READ: 'report:read',
   REPORT_EXPORT: 'report:export',

@@ -26,9 +26,11 @@ environment, conventions, or gotchas. Read this first, then `docs/architecture/`
 | 10 | Communication System | ✅ |
 | 11 | Parent Portal | ✅ |
 | 12 | Student App | ✅ |
-| 13 | **Reporting** | ⬜ NEXT |
-| 14 | Advanced Modules | ⬜ |
-| 15 | Production Hardening | ⬜ |
+| 13 | Reporting | ✅ |
+| 14 | Advanced Modules | ✅ |
+| 15 | Production Hardening | ✅ |
+
+**All 15 phases complete.** 🎉
 
 Phase prompts are in `MunaxaPrompts/`. Per-phase delivery notes are in `docs/phases/`.
 
@@ -144,8 +146,8 @@ DIRECT_DATABASE_URL=postgresql://munaxa:munaxa_local_dev@localhost:5432/munaxa?s
 pnpm --filter @munaxa/api test:e2e
 ```
 Before e2e, clean leftover test tenants if a prior run crashed:
-`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **66 e2e across 11 suites**,
-plus **42 unit** (engine, auth/guards, gamification streaks, utils).
+`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **82 e2e across 14 suites**,
+plus **44 unit** (engine, auth/guards, gamification streaks, logging interceptor, utils).
 
 CI (`.github/workflows/ci.yml`) already: starts Postgres service, `prisma:generate`, `prisma:deploy`,
 provisions the restricted role via `app-role.sql`, `db:seed`, then lint/typecheck/test/**test:e2e**/
@@ -162,19 +164,18 @@ build + a Flutter job + gitleaks/audit.
   interceptor). Keep it analyzable (no codegen `.g.dart`). Offline-first attendance queue lives in
   `lib/data/attendance` + `lib/features/attendance`.
 
-## 7. Phase 13 starting point (Reporting)
+## 7. Project complete — all 15 phases ✅
 
-Phase 12 (Student App) is ✅ — see `docs/phases/phase-12-student-app.md`. It added the
-`student-portal` module (`Resource`, `Achievement`, `StudentAchievement`, `StudentGamification` +
-RLS), the `StudentScopeService` (self-scoping a student to their own `Student.userId` record), the
-self-scoped `/me/*` surface, staff resource/achievement management, and the attendance-streak
-gamification engine (`computeStreaks`, pure + unit-tested). New permissions `resource:*`,
-`achievement:*`, `gamification:read` were added to the catalog/role map and re-seeded.
+Phase 15 (Production Hardening) is ✅ — see `docs/phases/phase-15-production-hardening.md`. It added
+the login brute-force limiter, `compression`, the `FeatureGate` TTL cache (invalidated on toggle),
+the global structured `LoggingInterceptor`, Sentry PII scrubbing, a health-check e2e, the k6 load
+test (`infra/loadtest/k6-smoke.js`), and the full **operations documentation** set under `docs/ops/`
+(deployment, runbooks, monitoring, infrastructure, security review checklist, load testing, PRR).
 
-Deliverables for **Phase 13** (`MunaxaPrompts/Phase 13 — Reporting.txt`): reporting/analytics over
-the existing domains. Students/Parents already have `report:read`; Principal/FinanceOfficer have
-`report:read`/`report:export`. Likely concern: read-model aggregations (attendance/finance/academic
-summaries) and CSV/PDF export — read the prompt first.
+**There is no next phase.** For ongoing work, start from `docs/ops/production-readiness-review.md`
+(go/no-go gate) and the tracked follow-ups in the Phase 15 doc (httpOnly-cookie auth + CSRF,
+Redis-backed distributed cache/throttle, telemetry/reporting enrichments). Build/test/migration
+recipes in §3–§5 remain current.
 
 ## 8. Quick "resume work" checklist
 1. `pg_ctlcluster 16 main start` (restart DB if stopped); verify `_prisma_migrations` count.
