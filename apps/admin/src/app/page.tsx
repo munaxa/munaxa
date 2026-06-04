@@ -78,6 +78,12 @@ export default function Home() {
           >
             Communication
           </Link>
+          <Link
+            href="/reports"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+          >
+            Reports
+          </Link>
           <button
             onClick={() => void onLogout()}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"

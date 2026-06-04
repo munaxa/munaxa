@@ -26,8 +26,8 @@ environment, conventions, or gotchas. Read this first, then `docs/architecture/`
 | 10 | Communication System | ✅ |
 | 11 | Parent Portal | ✅ |
 | 12 | Student App | ✅ |
-| 13 | **Reporting** | ⬜ NEXT |
-| 14 | Advanced Modules | ⬜ |
+| 13 | Reporting | ✅ |
+| 14 | **Advanced Modules** | ⬜ NEXT |
 | 15 | Production Hardening | ⬜ |
 
 Phase prompts are in `MunaxaPrompts/`. Per-phase delivery notes are in `docs/phases/`.
@@ -144,7 +144,7 @@ DIRECT_DATABASE_URL=postgresql://munaxa:munaxa_local_dev@localhost:5432/munaxa?s
 pnpm --filter @munaxa/api test:e2e
 ```
 Before e2e, clean leftover test tenants if a prior run crashed:
-`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **66 e2e across 11 suites**,
+`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **74 e2e across 12 suites**,
 plus **42 unit** (engine, auth/guards, gamification streaks, utils).
 
 CI (`.github/workflows/ci.yml`) already: starts Postgres service, `prisma:generate`, `prisma:deploy`,
@@ -162,19 +162,18 @@ build + a Flutter job + gitleaks/audit.
   interceptor). Keep it analyzable (no codegen `.g.dart`). Offline-first attendance queue lives in
   `lib/data/attendance` + `lib/features/attendance`.
 
-## 7. Phase 13 starting point (Reporting)
+## 7. Phase 14 starting point (Advanced Modules)
 
-Phase 12 (Student App) is ✅ — see `docs/phases/phase-12-student-app.md`. It added the
-`student-portal` module (`Resource`, `Achievement`, `StudentAchievement`, `StudentGamification` +
-RLS), the `StudentScopeService` (self-scoping a student to their own `Student.userId` record), the
-self-scoped `/me/*` surface, staff resource/achievement management, and the attendance-streak
-gamification engine (`computeStreaks`, pure + unit-tested). New permissions `resource:*`,
-`achievement:*`, `gamification:read` were added to the catalog/role map and re-seeded.
+Phase 13 (Reporting) is ✅ — see `docs/phases/phase-13-reporting.md`. It added the `reporting`
+module (no new tables): `ReportingRepository` aggregations over existing domains, a `ReportingService`
+producing a generic `ReportTable`, and an `ExportService` rendering CSV (dependency-free) / Excel
+(**exceljs**) / PDF (**pdfkit**, both lazily imported). Endpoints `GET /reports/{attendance,academic,
+financial,behavior}` (+ `/export?format=`) are gated by `report:read` / `report:export`. Admin Portal
+page at `apps/admin/src/app/reports`. New runtime deps: `exceljs`, `pdfkit` (+ `@types/pdfkit`).
 
-Deliverables for **Phase 13** (`MunaxaPrompts/Phase 13 — Reporting.txt`): reporting/analytics over
-the existing domains. Students/Parents already have `report:read`; Principal/FinanceOfficer have
-`report:read`/`report:export`. Likely concern: read-model aggregations (attendance/finance/academic
-summaries) and CSV/PDF export — read the prompt first.
+Deliverables for **Phase 14** (`MunaxaPrompts/Phase 14 — Advanced Modules.txt`): read the prompt
+first to scope the modules. Likely new DB models + RLS (follow the per-phase migration recipe in
+§3), backend modules (§4 patterns), and tests (§5).
 
 ## 8. Quick "resume work" checklist
 1. `pg_ctlcluster 16 main start` (restart DB if stopped); verify `_prisma_migrations` count.

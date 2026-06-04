@@ -16,6 +16,7 @@ import { FinanceModule } from './finance/finance.module';
 import { CommunicationModule } from './communication/communication.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { StudentPortalModule } from './student-portal/student-portal.module';
+import { ReportingModule } from './reporting/reporting.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
@@ -50,6 +51,7 @@ import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
     CommunicationModule,
     ParentPortalModule,
     StudentPortalModule,
+    ReportingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

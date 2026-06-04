@@ -78,6 +78,7 @@ pnpm dev                  # runs api + admin via Turborepo
 - ✅ Phase 10 — Communication System
 - ✅ Phase 11 — Parent Portal
 - ✅ Phase 12 — Student App
-- ⬜ Phase 13 — Reporting (next)
+- ✅ Phase 13 — Reporting
+- ⬜ Phase 14 — Advanced Modules (next)
 
 Development is **phase-by-phase**; see `MunaxaPrompts/` for the phase specifications.
