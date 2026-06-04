@@ -58,6 +58,31 @@ enum RoleScope {
   SCHOOL
 }
 
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+  WITHDRAWN
+}
+
+enum EmploymentStatus {
+  ACTIVE
+  ON_LEAVE
+  TERMINATED
+}
+
+enum ParentRelation {
+  FATHER
+  MOTHER
+  GUARDIAN
+  OTHER
+}
+
 enum RoleKey {
   // Platform plane
   PlatformOwner
@@ -87,19 +112,25 @@ model Tenant {
   createdAt DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt DateTime     @updatedAt @db.Timestamptz(6)
 
-  schools        School[]
-  campuses       Campus[]
-  academicYears  AcademicYear[]
-  semesters      Semester[]
-  grades         Grade[]
-  classrooms     Classroom[]
-  sections       Section[]
-  users          User[]
-  roles          Role[]
-  userRoles      UserRole[]
-  refreshTokens  RefreshToken[]
-  passwordResets PasswordResetToken[]
-  auditLogs      AuditLog[]
+  schools         School[]
+  campuses        Campus[]
+  academicYears   AcademicYear[]
+  semesters       Semester[]
+  grades          Grade[]
+  classrooms      Classroom[]
+  sections        Section[]
+  users           User[]
+  roles           Role[]
+  userRoles       UserRole[]
+  refreshTokens   RefreshToken[]
+  passwordResets  PasswordResetToken[]
+  students        Student[]
+  parents         Parent[]
+  teachers        Teacher[]
+  employees       Employee[]
+  parentStudents  ParentStudent[]
+  teacherSections TeacherSection[]
+  auditLogs       AuditLog[]
 
   @@index([status])
 }
@@ -233,13 +264,153 @@ model Section {
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  grade     Grade      @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  classroom Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  grade           Grade            @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  classroom       Classroom?       @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  students        Student[]
+  teacherSections TeacherSection[]
 
   @@unique([tenantId, gradeId, name])
   @@index([tenantId, gradeId])
   @@index([tenantId, classroomId])
+}
+
+// ----------------------------------------------------------------------------
+// People management
+// ----------------------------------------------------------------------------
+
+model Student {
+  id               String        @id @default(uuid()) @db.Uuid
+  tenantId         String        @db.Uuid
+  userId           String?       @unique @db.Uuid
+  moeStudentNumber String? // Ministry of Education student number
+  nationalId       String? // Jordanian National ID (Raqam Watani)
+  firstNameEn      String
+  lastNameEn       String
+  firstNameAr      String
+  lastNameAr       String
+  dateOfBirth      DateTime?     @db.Date
+  gender           Gender?
+  sectionId        String?       @db.Uuid
+  qrCode           String        @unique
+  status           StudentStatus @default(ACTIVE)
+  enrollmentDate   DateTime      @default(now()) @db.Timestamptz(6)
+  createdAt        DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt        DateTime?     @db.Timestamptz(6)
+
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  section     Section?        @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  parentLinks ParentStudent[]
+
+  @@unique([tenantId, moeStudentNumber])
+  @@unique([tenantId, nationalId])
+  @@index([tenantId])
+  @@index([tenantId, sectionId])
+  @@index([tenantId, status])
+}
+
+model Parent {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @db.Uuid
+  userId      String?   @unique @db.Uuid
+  firstNameEn String
+  lastNameEn  String
+  firstNameAr String
+  lastNameAr  String
+  phone       String?
+  nationalId  String?
+  occupation  String?
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  studentLinks ParentStudent[]
+
+  @@unique([tenantId, nationalId])
+  @@index([tenantId])
+}
+
+model Teacher {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @db.Uuid
+  userId         String?          @unique @db.Uuid
+  employeeNumber String?
+  firstNameEn    String
+  lastNameEn     String
+  firstNameAr    String
+  lastNameAr     String
+  specialization String?
+  status         EmploymentStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime?        @db.Timestamptz(6)
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sections TeacherSection[]
+
+  @@unique([tenantId, employeeNumber])
+  @@index([tenantId])
+}
+
+model Employee {
+  id          String           @id @default(uuid()) @db.Uuid
+  tenantId    String           @db.Uuid
+  userId      String?          @unique @db.Uuid
+  firstNameEn String
+  lastNameEn  String
+  firstNameAr String
+  lastNameAr  String
+  jobTitle    String
+  department  String?
+  status      EmploymentStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime?        @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+}
+
+model ParentStudent {
+  id        String         @id @default(uuid()) @db.Uuid
+  tenantId  String         @db.Uuid
+  parentId  String         @db.Uuid
+  studentId String         @db.Uuid
+  relation  ParentRelation
+  isPrimary Boolean        @default(false)
+  createdAt DateTime       @default(now()) @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([parentId, studentId])
+  @@index([tenantId])
+  @@index([studentId])
+}
+
+model TeacherSection {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  teacherId String   @db.Uuid
+  sectionId String   @db.Uuid
+  subject   String?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([teacherId])
+  @@index([sectionId])
 }
 
 // ----------------------------------------------------------------------------
@@ -267,11 +438,15 @@ model User {
   updatedAt          DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?  @db.Timestamptz(6)
 
-  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles      UserRole[]
-  refreshTokens  RefreshToken[]
-  passwordResets PasswordResetToken[]
-  auditLogs      AuditLog[]           @relation("AuditActor")
+  tenant          Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles       UserRole[]
+  refreshTokens   RefreshToken[]
+  passwordResets  PasswordResetToken[]
+  studentProfile  Student?
+  parentProfile   Parent?
+  teacherProfile  Teacher?
+  employeeProfile Employee?
+  auditLogs       AuditLog[]           @relation("AuditActor")
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])

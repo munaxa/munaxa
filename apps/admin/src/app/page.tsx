@@ -42,6 +42,12 @@ export default function Home() {
           >
             School structure
           </Link>
+          <Link
+            href="/people/students"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
+          >
+            Students
+          </Link>
           <button
             onClick={() => void onLogout()}
             className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
