@@ -16,8 +16,11 @@ on:
         options: [staging, production]
 
 concurrency:
-  group: deploy-${{ github.ref }}
+  group: deploy-${{ github.ref }}-${{ github.event.inputs.environment || 'staging' }}
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   build-images:
