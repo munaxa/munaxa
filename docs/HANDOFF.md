@@ -28,7 +28,9 @@ environment, conventions, or gotchas. Read this first, then `docs/architecture/`
 | 12 | Student App | ✅ |
 | 13 | Reporting | ✅ |
 | 14 | Advanced Modules | ✅ |
-| 15 | **Production Hardening** | ⬜ NEXT |
+| 15 | Production Hardening | ✅ |
+
+**All 15 phases complete.** 🎉
 
 Phase prompts are in `MunaxaPrompts/`. Per-phase delivery notes are in `docs/phases/`.
 
@@ -144,8 +146,8 @@ DIRECT_DATABASE_URL=postgresql://munaxa:munaxa_local_dev@localhost:5432/munaxa?s
 pnpm --filter @munaxa/api test:e2e
 ```
 Before e2e, clean leftover test tenants if a prior run crashed:
-`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **80 e2e across 13 suites**,
-plus **42 unit** (engine, auth/guards, gamification streaks, utils).
+`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **82 e2e across 14 suites**,
+plus **44 unit** (engine, auth/guards, gamification streaks, logging interceptor, utils).
 
 CI (`.github/workflows/ci.yml`) already: starts Postgres service, `prisma:generate`, `prisma:deploy`,
 provisions the restricted role via `app-role.sql`, `db:seed`, then lint/typecheck/test/**test:e2e**/
@@ -162,20 +164,18 @@ build + a Flutter job + gitleaks/audit.
   interceptor). Keep it analyzable (no codegen `.g.dart`). Offline-first attendance queue lives in
   `lib/data/attendance` + `lib/features/attendance`.
 
-## 7. Phase 15 starting point (Production Hardening)
+## 7. Project complete — all 15 phases ✅
 
-Phase 14 (Advanced Modules) is ✅ — see `docs/phases/phase-14-advanced-modules.md`. It added a
-**feature-flag framework** (`apps/api/src/feature-flags/`: `FeatureGate`, `FeatureFlagGuard`,
-`@RequireFeature`, a `@Global` module) gating four optional modules — Bus Tracking, Library,
-Inventory, School Clinic (`apps/api/src/advanced/`) — each **disabled by default** (403 until the
-tenant enables the flag via `PUT /feature-flags/:key`). 10 new RLS tables. New permissions `bus:*`,
-`library:*`, `inventory:*`, `clinic:*` were added/seeded (56 total). Admin page `apps/admin/src/app/
-modules`; Flutter `apps/mobile/lib/{data,features}/advanced`.
+Phase 15 (Production Hardening) is ✅ — see `docs/phases/phase-15-production-hardening.md`. It added
+the login brute-force limiter, `compression`, the `FeatureGate` TTL cache (invalidated on toggle),
+the global structured `LoggingInterceptor`, Sentry PII scrubbing, a health-check e2e, the k6 load
+test (`infra/loadtest/k6-smoke.js`), and the full **operations documentation** set under `docs/ops/`
+(deployment, runbooks, monitoring, infrastructure, security review checklist, load testing, PRR).
 
-Deliverables for **Phase 15** (`MunaxaPrompts/Phase 15 — Production Hardening.txt`): read the prompt
-first — likely httpOnly-cookie auth + silent refresh (deferred from Phase 3/10), rate-limit/security
-headers, secrets, observability/health, backup/DR runbooks, and CI/deploy hardening. Mostly
-cross-cutting (no big new domain), so expect changes across `apps/api`, `apps/admin`, and `infra/`.
+**There is no next phase.** For ongoing work, start from `docs/ops/production-readiness-review.md`
+(go/no-go gate) and the tracked follow-ups in the Phase 15 doc (httpOnly-cookie auth + CSRF,
+Redis-backed distributed cache/throttle, telemetry/reporting enrichments). Build/test/migration
+recipes in §3–§5 remain current.
 
 ## 8. Quick "resume work" checklist
 1. `pg_ctlcluster 16 main start` (restart DB if stopped); verify `_prisma_migrations` count.

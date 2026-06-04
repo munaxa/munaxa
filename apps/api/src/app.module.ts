@@ -23,6 +23,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
 import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
+import { LoggingInterceptor } from './observability/logging.interceptor';
 
 /**
  * Application root module.
@@ -62,6 +63,7 @@ import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: TenantIsolationGuard },
+    { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
   ],
 })
