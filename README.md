@@ -60,6 +60,7 @@ pnpm dev                  # runs api + admin via Turborepo
 | `pnpm docker:up` / `pnpm docker:down` | Local infra |
 
 ## Documentation
+- **Session handoff / continuation guide**: [`docs/HANDOFF.md`](./docs/HANDOFF.md) — read first to resume work
 - Architecture blueprint: [`docs/architecture/`](./docs/architecture/README.md)
 - Phase deployment notes: [`docs/phases/`](./docs/phases/)
 
