@@ -42,6 +42,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.REPORT_EXPORT,
     Permission.AUDIT_READ,
     Permission.FINANCE_READ,
+    Permission.RESOURCE_READ,
+    Permission.RESOURCE_MANAGE,
+    Permission.ACHIEVEMENT_MANAGE,
   ],
   VicePrincipal: [
     Permission.TIMETABLE_MANAGE,
@@ -56,6 +59,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.LEAVE_APPROVE,
     Permission.PTM_MANAGE,
     Permission.REPORT_READ,
+    Permission.RESOURCE_READ,
+    Permission.RESOURCE_MANAGE,
+    Permission.ACHIEVEMENT_MANAGE,
   ],
   FinanceOfficer: [
     Permission.FINANCE_MANAGE,
@@ -80,6 +86,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.ANNOUNCEMENT_READ,
     Permission.NOTIFICATION_SEND,
     Permission.REPORT_READ,
+    Permission.RESOURCE_READ,
+    Permission.RESOURCE_MANAGE,
+    Permission.ACHIEVEMENT_MANAGE,
   ],
   Secretary: [
     Permission.STUDENT_MANAGE,
@@ -101,6 +110,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.LEAVE_REQUEST,
     Permission.PTM_BOOK,
     Permission.DOCUMENT_MANAGE,
+    Permission.RESOURCE_READ,
+    Permission.ACHIEVEMENT_READ,
+    Permission.GAMIFICATION_READ,
   ],
   Student: [
     Permission.ATTENDANCE_READ,
@@ -109,6 +121,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.GRADE_READ,
     Permission.TIMETABLE_READ,
     Permission.ANNOUNCEMENT_READ,
+    Permission.RESOURCE_READ,
+    Permission.ACHIEVEMENT_READ,
+    Permission.GAMIFICATION_READ,
   ],
 };
 

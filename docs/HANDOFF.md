@@ -25,8 +25,8 @@ environment, conventions, or gotchas. Read this first, then `docs/architecture/`
 | 9 | Finance | ✅ |
 | 10 | Communication System | ✅ |
 | 11 | Parent Portal | ✅ |
-| 12 | **Student App** | ⬜ NEXT |
-| 13 | Reporting | ⬜ |
+| 12 | Student App | ✅ |
+| 13 | **Reporting** | ⬜ NEXT |
 | 14 | Advanced Modules | ⬜ |
 | 15 | Production Hardening | ⬜ |
 
@@ -144,8 +144,8 @@ DIRECT_DATABASE_URL=postgresql://munaxa:munaxa_local_dev@localhost:5432/munaxa?s
 pnpm --filter @munaxa/api test:e2e
 ```
 Before e2e, clean leftover test tenants if a prior run crashed:
-`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **58 e2e across 10 suites**,
-plus unit tests (engine 14, auth/guards, utils).
+`psql … -c "DELETE FROM \"Tenant\" WHERE slug IN ('…');"`. Current totals: **66 e2e across 11 suites**,
+plus **42 unit** (engine, auth/guards, gamification streaks, utils).
 
 CI (`.github/workflows/ci.yml`) already: starts Postgres service, `prisma:generate`, `prisma:deploy`,
 provisions the restricted role via `app-role.sql`, `db:seed`, then lint/typecheck/test/**test:e2e**/
@@ -162,20 +162,19 @@ build + a Flutter job + gitleaks/audit.
   interceptor). Keep it analyzable (no codegen `.g.dart`). Offline-first attendance queue lives in
   `lib/data/attendance` + `lib/features/attendance`.
 
-## 7. Phase 12 starting point (Student App)
+## 7. Phase 13 starting point (Reporting)
 
-Phase 11 (Parent Portal) is ✅ — see `docs/phases/phase-11-parent-portal.md`. It added the
-`parent-portal` module (`LeaveRequest`, `PtmSlot`, `PtmBooking`, `Document` + RLS), the
-`ParentScopeService` row-scoping helper (a parent only ever sees students linked via
-`ParentStudent`), and a `@RequireAnyPermission` decorator/guard for routes shared by parents and
-staff. The request-scoped `TenantContext` now also carries `permissions` (bound by the
-`TenantContextInterceptor`) so services can make scoping decisions.
+Phase 12 (Student App) is ✅ — see `docs/phases/phase-12-student-app.md`. It added the
+`student-portal` module (`Resource`, `Achievement`, `StudentAchievement`, `StudentGamification` +
+RLS), the `StudentScopeService` (self-scoping a student to their own `Student.userId` record), the
+self-scoped `/me/*` surface, staff resource/achievement management, and the attendance-streak
+gamification engine (`computeStreaks`, pure + unit-tested). New permissions `resource:*`,
+`achievement:*`, `gamification:read` were added to the catalog/role map and re-seeded.
 
-Deliverables for **Phase 12** (`MunaxaPrompts/Phase 12 — Student App.txt`): the student-facing
-experience (Flutter `main_student` flavor). Students already hold read permissions
-(`attendance:read`, `homework:read`, `behavior:read`, `grade:read`, `timetable:read`,
-`announcement:read`). The likely new concern is **scoping a student to their own record** (the
-`Student.userId` link) — mirror `ParentScopeService` with a `StudentScopeService`.
+Deliverables for **Phase 13** (`MunaxaPrompts/Phase 13 — Reporting.txt`): reporting/analytics over
+the existing domains. Students/Parents already have `report:read`; Principal/FinanceOfficer have
+`report:read`/`report:export`. Likely concern: read-model aggregations (attendance/finance/academic
+summaries) and CSV/PDF export — read the prompt first.
 
 ## 8. Quick "resume work" checklist
 1. `pg_ctlcluster 16 main start` (restart DB if stopped); verify `_prisma_migrations` count.

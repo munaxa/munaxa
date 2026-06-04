@@ -209,6 +209,24 @@ enum DocumentCategory {
   OTHER
 }
 
+// Student app: learning resource kind. Munaxa is not an LMS — LINK/VIDEO deep-link out
+// (Google Classroom / MS Teams), FILE/DOCUMENT are stored in S3 via the StorageService.
+enum ResourceType {
+  LINK
+  FILE
+  VIDEO
+  DOCUMENT
+}
+
+// Gamification: how an achievement is earned. STREAK/TOTAL are auto-awarded from attendance;
+// ACADEMIC/GENERAL are awarded manually by staff.
+enum AchievementCategory {
+  ATTENDANCE_STREAK
+  ATTENDANCE_TOTAL
+  ACADEMIC
+  GENERAL
+}
+
 enum RoleKey {
   // Platform plane
   PlatformOwner
@@ -277,6 +295,10 @@ model Tenant {
   ptmSlots            PtmSlot[]
   ptmBookings         PtmBooking[]
   documents           Document[]
+  resources           Resource[]
+  achievements        Achievement[]
+  studentAchievements StudentAchievement[]
+  studentGamification StudentGamification[]
 
   @@index([status])
 }
@@ -375,9 +397,10 @@ model Grade {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campus   Campus    @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  sections Section[]
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus    Campus     @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  sections  Section[]
+  resources Resource[]
 
   @@unique([tenantId, campusId, level])
   @@index([tenantId, campusId])
@@ -426,6 +449,7 @@ model Section {
   gradeRecords       GradeRecord[]
   announcements      Announcement[]
   ptmSlots           PtmSlot[]
+  resources          Resource[]
 
   @@unique([tenantId, gradeId, name])
   @@index([tenantId, gradeId])
@@ -456,9 +480,9 @@ model Student {
   updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt        DateTime?     @db.Timestamptz(6)
 
-  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user          User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  section       Section?            @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  tenant        Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  section       Section?             @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   parentLinks   ParentStudent[]
   attendance    StudentAttendance[]
   behaviorLogs  BehaviorLog[]
@@ -468,6 +492,8 @@ model Student {
   leaveRequests LeaveRequest[]
   ptmBookings   PtmBooking[]
   documents     Document[]
+  achievements  StudentAchievement[]
+  gamification  StudentGamification?
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -626,6 +652,8 @@ model User {
   ptmSlotsCreated        PtmSlot[]            @relation("PtmSlotCreatedBy")
   ptmBookingsMade        PtmBooking[]         @relation("PtmBookedBy")
   documentsUploaded      Document[]           @relation("DocumentUploadedBy")
+  resourcesUploaded      Resource[]           @relation("ResourceUploadedBy")
+  achievementsAwarded    StudentAchievement[] @relation("AchievementAwardedBy")
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])
@@ -1232,4 +1260,102 @@ model Document {
 
   @@index([tenantId])
   @@index([tenantId, studentId])
+}
+
+// ----------------------------------------------------------------------------
+// Student app (Phase 12): resource library + gamification
+// ----------------------------------------------------------------------------
+
+// A learning resource visible to students. Scoped to a section, a whole grade, or the whole
+// school (both null). FILE/DOCUMENT live in S3; LINK/VIDEO deep-link out (not an LMS).
+model Resource {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @db.Uuid
+  sectionId    String?      @db.Uuid
+  gradeId      String?      @db.Uuid
+  subject      String?
+  title        String
+  description  String?
+  type         ResourceType @default(LINK)
+  url          String?
+  fileKey      String?
+  fileName     String?
+  contentType  String?
+  size         Int?
+  uploadedById String?      @db.Uuid
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime?    @db.Timestamptz(6)
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  section    Section? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  grade      Grade?   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  uploadedBy User?    @relation("ResourceUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, sectionId])
+  @@index([tenantId, gradeId])
+}
+
+// A per-tenant achievement/badge definition. ATTENDANCE_* are auto-awarded when a student's
+// streak/total reaches `threshold`; ACADEMIC/GENERAL are awarded manually by staff.
+model Achievement {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @db.Uuid
+  key         String
+  nameEn      String
+  nameAr      String
+  description String?
+  icon        String?
+  category    AchievementCategory @default(GENERAL)
+  points      Int                 @default(0)
+  threshold   Int?
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime            @updatedAt @db.Timestamptz(6)
+
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  studentAchievements StudentAchievement[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+}
+
+// A student's earned achievement (idempotent per student+achievement).
+model StudentAchievement {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @db.Uuid
+  studentId     String   @db.Uuid
+  achievementId String   @db.Uuid
+  awardedById   String?  @db.Uuid
+  note          String?
+  earnedAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+  awardedBy   User?       @relation("AchievementAwardedBy", fields: [awardedById], references: [id], onDelete: SetNull)
+
+  @@unique([studentId, achievementId])
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+}
+
+// Per-student gamification rollup: points, level, and attendance streaks (recomputed on sync).
+model StudentGamification {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @db.Uuid
+  studentId     String    @unique @db.Uuid
+  totalPoints   Int       @default(0)
+  level         Int       @default(1)
+  currentStreak Int       @default(0)
+  longestStreak Int       @default(0)
+  lastSyncedAt  DateTime? @db.Timestamptz(6)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
