@@ -55,6 +55,13 @@ export const Permission = {
   PTM_MANAGE: 'ptm:manage',
   DOCUMENT_MANAGE: 'document:manage',
 
+  // Student app (resources & gamification)
+  RESOURCE_READ: 'resource:read',
+  RESOURCE_MANAGE: 'resource:manage',
+  ACHIEVEMENT_READ: 'achievement:read',
+  ACHIEVEMENT_MANAGE: 'achievement:manage',
+  GAMIFICATION_READ: 'gamification:read',
+
   // Reporting & config
   REPORT_READ: 'report:read',
   REPORT_EXPORT: 'report:export',
