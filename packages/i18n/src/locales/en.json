@@ -5,7 +5,10 @@
     "loading": "Loading…",
     "save": "Save",
     "cancel": "Cancel",
-    "search": "Search"
+    "search": "Search",
+    "add": "Add",
+    "load": "Load",
+    "delete": "Delete"
   },
   "auth": {
     "signIn": "Sign in",
@@ -13,7 +16,44 @@
     "email": "Email",
     "password": "Password",
     "forgotPassword": "Forgot password?",
-    "changePassword": "Change password"
+    "changePassword": "Change password",
+    "welcome": "Welcome to Munaxa",
+    "signInToSchool": "Sign in to your school",
+    "school": "School"
+  },
+  "shell": {
+    "schoolPlane": "School plane",
+    "platformPlane": "Platform plane"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "structure": "School structure",
+    "people": "People",
+    "timetable": "Timetable",
+    "attendance": "Attendance",
+    "academics": "Academics",
+    "finance": "Finance",
+    "communication": "Communication",
+    "reports": "Reports",
+    "modules": "Modules"
+  },
+  "dashboard": {
+    "title": "Overview",
+    "subtitle": "Welcome back. Here's quick access to the areas you can manage.",
+    "yourAccess": "Your access",
+    "yourAccessDesc": "Roles and plane for this session",
+    "roles": "Roles",
+    "plane": "Plane",
+    "tenant": "Tenant",
+    "permissions": "Permissions"
+  },
+  "reports": {
+    "subtitle": "Summaries across attendance, academics, finance, and behavior — view or export.",
+    "run": "Run report",
+    "kindAttendance": "Attendance",
+    "kindAcademic": "Academic",
+    "kindFinancial": "Financial",
+    "kindBehavior": "Behavior"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

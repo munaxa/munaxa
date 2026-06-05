@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { cn } from '@munaxa/ui';
 import { login } from '@/lib/auth';
+import { useI18n } from '@/components/i18n-provider';
+import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
@@ -33,92 +35,63 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
-      <form
-        onSubmit={(e) => void onSubmit(e)}
-        className="w-full max-w-sm space-y-5 rounded-xl border border-border bg-card p-8"
-      >
-        <div className="space-y-1">
-          <h1 className="font-display text-2xl font-semibold">Munaxa</h1>
-          <p className="text-sm text-muted-foreground">Sign in to your school</p>
+      <div className="w-full max-w-sm space-y-6">
+        <div className="space-y-2 text-center">
+          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-grad-primary font-display text-xl font-bold text-primary-foreground shadow-glow">
+            M
+          </span>
+          <h1 className="font-display text-2xl font-semibold">{t('auth.welcome')}</h1>
+          <p className="text-sm text-muted-foreground">{t('auth.signInToSchool')}</p>
         </div>
 
-        <Field label="School" htmlFor="tenant">
-          <input
-            id="tenant"
-            value={tenantSlug}
-            onChange={(e) => setTenantSlug(e.target.value)}
-            placeholder="green-valley"
-            className={inputClass}
-            autoComplete="organization"
-          />
-        </Field>
+        <Card>
+          <CardContent className="pt-6">
+            <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
+              <Field label={t('auth.school')} htmlFor="tenant">
+                <Input
+                  id="tenant"
+                  value={tenantSlug}
+                  onChange={(e) => setTenantSlug(e.target.value)}
+                  placeholder="green-valley"
+                  autoComplete="organization"
+                />
+              </Field>
 
-        <Field label="Email" htmlFor="email">
-          <input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClass}
-            autoComplete="email"
-          />
-        </Field>
+              <Field label={t('auth.email')} htmlFor="email">
+                <Input
+                  id="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                />
+              </Field>
 
-        <Field label="Password" htmlFor="password">
-          <input
-            id="password"
-            type="password"
-            required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
-            autoComplete="current-password"
-          />
-        </Field>
+              <Field label={t('auth.password')} htmlFor="password">
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </Field>
 
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
+              {error ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
 
-        <button
-          type="submit"
-          disabled={loading}
-          className={cn(
-            'w-full rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground',
-            'transition disabled:opacity-50',
-          )}
-        >
-          {loading ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? `${t('common.loading')}` : t('auth.signIn')}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </main>
-  );
-}
-
-const inputClass =
-  'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring';
-
-function Field({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label
-        htmlFor={htmlFor}
-        className="font-mono text-xs uppercase tracking-wide text-muted-foreground"
-      >
-        {label}
-      </label>
-      {children}
-    </div>
   );
 }

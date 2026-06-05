@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { cn } from '@munaxa/ui';
 import { changePassword } from '@/lib/auth';
+import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -28,51 +28,49 @@ export default function ChangePasswordPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
-      <form
-        onSubmit={(e) => void onSubmit(e)}
-        className="w-full max-w-sm space-y-5 rounded-xl border border-border bg-card p-8"
-      >
-        <h1 className="font-display text-xl font-semibold">Set a new password</h1>
-        <p className="text-sm text-muted-foreground">
-          Choose a password with at least 10 characters, including upper, lower and a digit.
-        </p>
-        <input
-          type="password"
-          required
-          placeholder="Current password"
-          value={currentPassword}
-          onChange={(e) => setCurrent(e.target.value)}
-          className={inputClass}
-          autoComplete="current-password"
-        />
-        <input
-          type="password"
-          required
-          placeholder="New password"
-          value={newPassword}
-          onChange={(e) => setNew(e.target.value)}
-          className={inputClass}
-          autoComplete="new-password"
-        />
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
+      <div className="w-full max-w-sm space-y-6">
+        <div className="space-y-1 text-center">
+          <h1 className="font-display text-2xl font-semibold">Set a new password</h1>
+          <p className="text-sm text-muted-foreground">
+            At least 10 characters, including upper, lower and a digit.
           </p>
-        ) : null}
-        <button
-          type="submit"
-          disabled={loading}
-          className={cn(
-            'w-full rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground',
-            'transition disabled:opacity-50',
-          )}
-        >
-          {loading ? 'Saving…' : 'Update password'}
-        </button>
-      </form>
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
+              <Field label="Current password" htmlFor="current">
+                <Input
+                  id="current"
+                  type="password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrent(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </Field>
+              <Field label="New password" htmlFor="new">
+                <Input
+                  id="new"
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNew(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </Field>
+              {error ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? 'Saving…' : 'Update password'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </main>
   );
 }
-
-const inputClass =
-  'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring';

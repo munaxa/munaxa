@@ -5,7 +5,10 @@
     "loading": "جارٍ التحميل…",
     "save": "حفظ",
     "cancel": "إلغاء",
-    "search": "بحث"
+    "search": "بحث",
+    "add": "إضافة",
+    "load": "تحميل",
+    "delete": "حذف"
   },
   "auth": {
     "signIn": "تسجيل الدخول",
@@ -13,7 +16,44 @@
     "email": "البريد الإلكتروني",
     "password": "كلمة المرور",
     "forgotPassword": "هل نسيت كلمة المرور؟",
-    "changePassword": "تغيير كلمة المرور"
+    "changePassword": "تغيير كلمة المرور",
+    "welcome": "مرحبًا بك في مُناقسة",
+    "signInToSchool": "سجّل الدخول إلى مدرستك",
+    "school": "المدرسة"
+  },
+  "shell": {
+    "schoolPlane": "نطاق المدرسة",
+    "platformPlane": "نطاق المنصة"
+  },
+  "nav": {
+    "dashboard": "الرئيسية",
+    "structure": "هيكل المدرسة",
+    "people": "الأشخاص",
+    "timetable": "الجدول الدراسي",
+    "attendance": "الحضور",
+    "academics": "الشؤون الأكاديمية",
+    "finance": "المالية",
+    "communication": "التواصل",
+    "reports": "التقارير",
+    "modules": "الوحدات"
+  },
+  "dashboard": {
+    "title": "نظرة عامة",
+    "subtitle": "مرحبًا بعودتك. إليك وصولًا سريعًا إلى المجالات التي يمكنك إدارتها.",
+    "yourAccess": "صلاحياتك",
+    "yourAccessDesc": "الأدوار والنطاق لهذه الجلسة",
+    "roles": "الأدوار",
+    "plane": "النطاق",
+    "tenant": "المستأجر",
+    "permissions": "الصلاحيات"
+  },
+  "reports": {
+    "subtitle": "ملخّصات للحضور والشؤون الأكاديمية والمالية والسلوك — للعرض أو التصدير.",
+    "run": "تشغيل التقرير",
+    "kindAttendance": "الحضور",
+    "kindAcademic": "أكاديمي",
+    "kindFinancial": "مالي",
+    "kindBehavior": "السلوك"
   },
   "errors": {
     "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",

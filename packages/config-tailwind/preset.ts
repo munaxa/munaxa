@@ -66,6 +66,16 @@ const preset: Omit<Config, 'content'> = {
         body: ['var(--font-body)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-mono)', 'monospace'],
       },
+      boxShadow: {
+        // From the Munaxa Design System — soft elevation + a violet "glow" for primaries.
+        card: '0 24px 50px -28px rgba(11,5,24,0.55), 0 0 0 1px hsl(var(--border)) inset',
+        glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
+      },
+      backgroundImage: {
+        'grad-primary': 'linear-gradient(135deg, #7A3FFF 0%, #B97BFF 60%, #FF8E6E 120%)',
+        'grad-hero':
+          'radial-gradient(ellipse 80% 60% at 50% 0%, hsl(var(--primary) / 0.16) 0%, transparent 62%)',
+      },
     },
   },
   plugins: [animate],

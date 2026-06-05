@@ -18,6 +18,12 @@ export interface Campus {
   isMain: boolean;
 }
 
+export interface Section {
+  id: string;
+  gradeId: string;
+  name: string;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
@@ -44,4 +50,11 @@ export const campusesApi = {
       json<Campus>(r),
     ),
   remove: (id: string) => authFetch(`/campuses/${id}`, { method: 'DELETE' }).then(() => undefined),
+};
+
+export const sectionsApi = {
+  list: (gradeId?: string) =>
+    authFetch(`/sections${gradeId ? `?gradeId=${encodeURIComponent(gradeId)}` : ''}`).then((r) =>
+      json<Section[]>(r),
+    ),
 };
