@@ -17,15 +17,40 @@ export class StudentRepository extends TenantRepository {
     );
   }
 
-  findMany(filter: { sectionId?: string; status?: StudentStatus }): Promise<Student[]> {
+  findMany(filter: {
+    sectionId?: string;
+    status?: StudentStatus;
+    search?: string;
+  }): Promise<Student[]> {
+    const q = filter.search?.trim();
+    const contains = q ? ({ contains: q, mode: 'insensitive' } as Prisma.StringFilter) : undefined;
     return this.run((tx) =>
       tx.student.findMany({
         where: {
           deletedAt: null,
           ...(filter.sectionId ? { sectionId: filter.sectionId } : {}),
           ...(filter.status ? { status: filter.status } : {}),
+          // Search across every name part (given · father · grandfather · family, EN + AR)
+          // plus the national / MoE numbers.
+          ...(contains
+            ? {
+                OR: [
+                  { firstNameEn: contains },
+                  { firstNameAr: contains },
+                  { fatherNameEn: contains },
+                  { fatherNameAr: contains },
+                  { thirdNameEn: contains },
+                  { thirdNameAr: contains },
+                  { lastNameEn: contains },
+                  { lastNameAr: contains },
+                  { nationalId: contains },
+                  { moeStudentNumber: contains },
+                ],
+              }
+            : {}),
         },
         orderBy: { lastNameEn: 'asc' },
+        take: q ? 50 : undefined,
       }),
     );
   }

@@ -500,6 +500,11 @@ model Student {
   lastNameEn       String
   firstNameAr      String
   lastNameAr       String
+  // Full Arab/MoE name parts (given · father · grandfather · family). Optional/back-compat.
+  fatherNameEn     String?
+  fatherNameAr     String?
+  thirdNameEn      String?
+  thirdNameAr      String?
   dateOfBirth      DateTime?     @db.Date
   gender           Gender?
   sectionId        String?       @db.Uuid

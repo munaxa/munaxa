@@ -140,6 +140,49 @@ describe('People management (e2e)', () => {
     expect(qr.body.qrCode).toBe(res.body.qrCode);
   });
 
+  it('stores the full name parts and searches across father/grandfather/family names', async () => {
+    const created = await http()
+      .post('/api/v1/students')
+      .set(auth(adminAToken))
+      .send(
+        newStudent({
+          sectionId,
+          firstNameEn: 'Omar',
+          fatherNameEn: 'Khalid',
+          thirdNameEn: 'Sami',
+          lastNameEn: 'Haddad',
+          firstNameAr: 'عمر',
+          fatherNameAr: 'خالد',
+          thirdNameAr: 'سامي',
+          lastNameAr: 'الحداد',
+        }),
+      )
+      .expect(201);
+    expect(created.body.fatherNameEn).toBe('Khalid');
+    expect(created.body.thirdNameEn).toBe('Sami');
+
+    // Search by father name.
+    const byFather = await http()
+      .get('/api/v1/students?search=khalid')
+      .set(auth(adminAToken))
+      .expect(200);
+    expect(byFather.body.some((s: { id: string }) => s.id === created.body.id)).toBe(true);
+
+    // Search by family name in Arabic.
+    const byFamilyAr = await http()
+      .get(`/api/v1/students?search=${encodeURIComponent('الحداد')}`)
+      .set(auth(adminAToken))
+      .expect(200);
+    expect(byFamilyAr.body.some((s: { id: string }) => s.id === created.body.id)).toBe(true);
+
+    // A non-matching search excludes it.
+    const none = await http()
+      .get('/api/v1/students?search=zzzznomatch')
+      .set(auth(adminAToken))
+      .expect(200);
+    expect(none.body.some((s: { id: string }) => s.id === created.body.id)).toBe(false);
+  });
+
   it('links a parent to a student', async () => {
     const student = await http()
       .post('/api/v1/students')

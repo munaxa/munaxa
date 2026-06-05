@@ -36,6 +36,30 @@ export class CreateStudentDto {
   @MaxLength(100)
   lastNameAr!: string;
 
+  @ApiPropertyOptional({ description: 'Father (second) name — English' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  fatherNameEn?: string;
+
+  @ApiPropertyOptional({ description: 'اسم الأب — Arabic' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  fatherNameAr?: string;
+
+  @ApiPropertyOptional({ description: 'Grandfather (third) name — English' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  thirdNameEn?: string;
+
+  @ApiPropertyOptional({ description: 'اسم الجد — Arabic' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  thirdNameAr?: string;
+
   @ApiPropertyOptional({ description: 'Ministry of Education student number' })
   @IsOptional()
   @IsString()
@@ -89,7 +113,7 @@ export class LinkParentDto {
 export class ImportStudentsDto {
   @ApiProperty({
     description:
-      'CSV text. Header row required: firstNameEn,lastNameEn,firstNameAr,lastNameAr,moeStudentNumber,nationalId,gender',
+      'CSV text. Required header: firstNameEn,lastNameEn,firstNameAr,lastNameAr. Optional: fatherNameEn,fatherNameAr,thirdNameEn,thirdNameAr,moeStudentNumber,nationalId,gender',
   })
   @IsString()
   @MinLength(1)

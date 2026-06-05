@@ -8,9 +8,31 @@ export interface Student {
   lastNameEn: string;
   firstNameAr: string;
   lastNameAr: string;
+  // Full Arab/MoE name parts (given · father · grandfather · family).
+  fatherNameEn?: string | null;
+  fatherNameAr?: string | null;
+  thirdNameEn?: string | null;
+  thirdNameAr?: string | null;
+  nationalId?: string | null;
   moeStudentNumber?: string | null;
   qrCode: string;
   status: string;
+}
+
+/** Full English name from its parts: given · father · grandfather · family. */
+export function fullNameEn(s: Student): string {
+  return [s.firstNameEn, s.fatherNameEn, s.thirdNameEn, s.lastNameEn]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+/** Full Arabic name from its parts. */
+export function fullNameAr(s: Student): string {
+  return [s.firstNameAr, s.fatherNameAr, s.thirdNameAr, s.lastNameAr]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 }
 
 export interface ImportResult {
@@ -28,12 +50,21 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export const studentsApi = {
-  list: () => authFetch('/students').then((r) => json<Student[]>(r)),
+  list: (search?: string) =>
+    authFetch(`/students${search ? `?search=${encodeURIComponent(search)}` : ''}`).then((r) =>
+      json<Student[]>(r),
+    ),
   create: (data: {
     firstNameEn: string;
     lastNameEn: string;
     firstNameAr: string;
     lastNameAr: string;
+    fatherNameEn?: string;
+    fatherNameAr?: string;
+    thirdNameEn?: string;
+    thirdNameAr?: string;
+    nationalId?: string;
+    moeStudentNumber?: string;
   }) =>
     authFetch('/students', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<Student>(r),

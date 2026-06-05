@@ -19,7 +19,11 @@ export class StudentService {
     return this.repo.create(this.toCreateInput(dto));
   }
 
-  list(filter: { sectionId?: string; status?: Student['status'] }): Promise<Student[]> {
+  list(filter: {
+    sectionId?: string;
+    status?: Student['status'];
+    search?: string;
+  }): Promise<Student[]> {
     return this.repo.findMany(filter);
   }
 
@@ -37,6 +41,10 @@ export class StudentService {
       ...(dto.lastNameEn !== undefined ? { lastNameEn: dto.lastNameEn } : {}),
       ...(dto.firstNameAr !== undefined ? { firstNameAr: dto.firstNameAr } : {}),
       ...(dto.lastNameAr !== undefined ? { lastNameAr: dto.lastNameAr } : {}),
+      ...(dto.fatherNameEn !== undefined ? { fatherNameEn: dto.fatherNameEn } : {}),
+      ...(dto.fatherNameAr !== undefined ? { fatherNameAr: dto.fatherNameAr } : {}),
+      ...(dto.thirdNameEn !== undefined ? { thirdNameEn: dto.thirdNameEn } : {}),
+      ...(dto.thirdNameAr !== undefined ? { thirdNameAr: dto.thirdNameAr } : {}),
       ...(dto.moeStudentNumber !== undefined ? { moeStudentNumber: dto.moeStudentNumber } : {}),
       ...(dto.nationalId !== undefined ? { nationalId: dto.nationalId } : {}),
       ...(dto.dateOfBirth ? { dateOfBirth: new Date(dto.dateOfBirth) } : {}),
@@ -107,6 +115,10 @@ export class StudentService {
           lastNameEn: record.lastNameEn!,
           firstNameAr: record.firstNameAr!,
           lastNameAr: record.lastNameAr!,
+          fatherNameEn: record.fatherNameEn || undefined,
+          fatherNameAr: record.fatherNameAr || undefined,
+          thirdNameEn: record.thirdNameEn || undefined,
+          thirdNameAr: record.thirdNameAr || undefined,
           moeStudentNumber: record.moeStudentNumber || undefined,
           nationalId: record.nationalId || undefined,
         }),
@@ -130,6 +142,10 @@ export class StudentService {
       lastNameEn: dto.lastNameEn,
       firstNameAr: dto.firstNameAr,
       lastNameAr: dto.lastNameAr,
+      fatherNameEn: dto.fatherNameEn ?? null,
+      fatherNameAr: dto.fatherNameAr ?? null,
+      thirdNameEn: dto.thirdNameEn ?? null,
+      thirdNameAr: dto.thirdNameAr ?? null,
       moeStudentNumber: dto.moeStudentNumber ?? null,
       nationalId: dto.nationalId ?? null,
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
