@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext, Injectable, Logger, NestInterceptor } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { type Observable, tap } from 'rxjs';
+import type { Observable } from 'rxjs';
 import type { AuthenticatedUser } from '../auth/auth.types';
 
 /**
@@ -8,7 +8,9 @@ import type { AuthenticatedUser } from '../auth/auth.types';
  * the acting tenant/user — never the request body or headers (no PII / secrets). Health checks are
  * skipped to avoid drowning the logs in load-balancer probes.
  *
- * Pairs with Sentry (errors/traces) for full observability; this is the request audit trail.
+ * Logging is keyed off the response `finish` event so the **final** status code is read (after the
+ * exception filter has run), giving the correct level: 5xx → error, 4xx → warn, else → log. This
+ * pairs with Sentry (errors/traces) for full observability; this is the request audit trail.
  */
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -24,21 +26,17 @@ export class LoggingInterceptor implements NestInterceptor {
     if (req.path?.includes('/health/')) return next.handle();
 
     const startedAt = Date.now();
-    const log = (outcome: 'ok' | 'error') => {
+    res.once('finish', () => {
       const durationMs = Date.now() - startedAt;
+      const status = res.statusCode;
       const tenant = req.user?.tenantId ?? '-';
       const user = req.user?.userId ?? 'anon';
-      const line = `${req.method} ${req.originalUrl ?? req.url} ${res.statusCode} ${durationMs}ms tenant=${tenant} user=${user}`;
-      if (outcome === 'error' || res.statusCode >= 500) this.logger.error(line);
-      else if (res.statusCode >= 400) this.logger.warn(line);
+      const line = `${req.method} ${req.originalUrl ?? req.url} ${status} ${durationMs}ms tenant=${tenant} user=${user}`;
+      if (status >= 500) this.logger.error(line);
+      else if (status >= 400) this.logger.warn(line);
       else this.logger.log(line);
-    };
+    });
 
-    return next.handle().pipe(
-      tap({
-        next: () => log('ok'),
-        error: () => log('error'),
-      }),
-    );
+    return next.handle();
   }
 }
