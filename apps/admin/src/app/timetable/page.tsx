@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { timetableApi, type ResolvedDay } from '@/lib/timetable';
+import { Badge, Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 const STATUS_COLOR: Record<string, string> = {
   SCHEDULED: 'text-foreground',
@@ -32,23 +33,20 @@ export default function TimetablePage() {
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
         <h1 className="font-display text-2xl font-semibold">Timetable</h1>
+
         <form onSubmit={(e) => void load(e)} className="flex flex-wrap items-end gap-2">
-          <input
-            className={inputClass}
-            placeholder="Section ID"
-            value={sectionId}
-            onChange={(e) => setSectionId(e.target.value)}
-            required
-          />
-          <input
-            className={inputClass}
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <button type="submit" className={btnClass}>
-            Resolve day
-          </button>
+          <Field label="Section ID" className="flex-1">
+            <Input
+              placeholder="uuid"
+              value={sectionId}
+              onChange={(e) => setSectionId(e.target.value)}
+              required
+            />
+          </Field>
+          <Field label="Date">
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Button type="submit">Resolve day</Button>
         </form>
 
         {error ? (
@@ -58,34 +56,31 @@ export default function TimetablePage() {
         ) : null}
 
         {day ? (
-          <section className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              {day.dayOfWeek} · {day.scheduleType}
-              {day.isHoliday ? ' · Holiday (no classes)' : ''}
-            </p>
-            <ul className="divide-y divide-border rounded-xl border border-border">
-              {day.periods.map((p) => (
-                <li key={p.periodIndex} className="flex items-center justify-between p-3">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {p.startTime}–{p.endTime}
-                  </span>
-                  <span className={cn('font-medium', STATUS_COLOR[p.status])}>{p.subject}</span>
-                  <span className="text-xs text-muted-foreground">{p.status}</span>
-                </li>
-              ))}
-              {day.periods.length === 0 ? (
-                <li className="p-3 text-sm text-muted-foreground">No classes.</li>
-              ) : null}
-            </ul>
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="muted">{day.dayOfWeek}</Badge>
+              <Badge tone="muted">{day.scheduleType}</Badge>
+              {day.isHoliday ? <Badge tone="warning">Holiday — no classes</Badge> : null}
+            </div>
+            <Card>
+              <CardContent className="divide-y divide-border p-0">
+                {day.periods.map((p) => (
+                  <div key={p.periodIndex} className="flex items-center justify-between gap-3 p-3">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {p.startTime}–{p.endTime}
+                    </span>
+                    <span className={cn('font-medium', STATUS_COLOR[p.status])}>{p.subject}</span>
+                    <span className="text-xs text-muted-foreground">{p.status}</span>
+                  </div>
+                ))}
+                {day.periods.length === 0 ? (
+                  <p className="p-3 text-sm text-muted-foreground">No classes.</p>
+                ) : null}
+              </CardContent>
+            </Card>
           </section>
         ) : null}
       </div>
     </Shell>
   );
 }
-
-const inputClass = cn(
-  'rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none',
-  'focus:ring-2 focus:ring-ring',
-);
-const btnClass = 'rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground';

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { ADVANCED_MODULES, advancedApi, type FeatureFlag } from '@/lib/advanced';
+import { Button, Card, CardContent, Input } from '@/components/ui';
 
 export default function ModulesPage() {
   const [flags, setFlags] = useState<Record<string, boolean>>({});
@@ -69,26 +69,23 @@ export default function ModulesPage() {
           {ADVANCED_MODULES.map((m) => {
             const on = flags[m.key] ?? false;
             return (
-              <li
-                key={m.key}
-                className="flex items-center justify-between rounded-xl border border-border bg-card p-4"
-              >
-                <div>
-                  <p className="font-medium">{m.label}</p>
-                  <p className="text-sm text-muted-foreground">{m.description}</p>
-                </div>
-                <button
-                  onClick={() => void toggle(m.key)}
-                  className={cn(
-                    'rounded-lg px-3 py-1.5 text-sm font-medium',
-                    on
-                      ? 'bg-primary text-primary-foreground'
-                      : 'border border-border text-muted-foreground',
-                  )}
-                  aria-pressed={on}
-                >
-                  {on ? 'Enabled' : 'Disabled'}
-                </button>
+              <li key={m.key}>
+                <Card>
+                  <CardContent className="flex items-center justify-between gap-3 p-4">
+                    <div>
+                      <p className="font-medium">{m.label}</p>
+                      <p className="text-sm text-muted-foreground">{m.description}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={on ? 'default' : 'outline'}
+                      onClick={() => void toggle(m.key)}
+                      aria-pressed={on}
+                    >
+                      {on ? 'Enabled' : 'Disabled'}
+                    </Button>
+                  </CardContent>
+                </Card>
               </li>
             );
           })}
@@ -156,37 +153,34 @@ function ModulePanel({ kind }: { kind: Kind }) {
   }
 
   return (
-    <section className="space-y-2 rounded-xl border border-border bg-card p-4">
-      <h2 className="font-medium">{config[kind].title}</h2>
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {config[kind].canCreate ? (
-        <div className="flex gap-2">
-          <input
-            className="flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
-            placeholder="New name…"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <button
-            className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground"
-            onClick={() => void create()}
-          >
-            Add
-          </button>
-        </div>
-      ) : null}
-      <ul className="divide-y divide-border text-sm">
-        {rows.map((row, i) => (
-          <li key={i} className="py-1.5">
-            {label(row)}
-          </li>
-        ))}
-        {rows.length === 0 ? <li className="py-1.5 text-muted-foreground">None yet.</li> : null}
-      </ul>
-    </section>
+    <Card>
+      <CardContent className="space-y-2 pt-6">
+        <h2 className="font-display font-medium">{config[kind].title}</h2>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+        {config[kind].canCreate ? (
+          <div className="flex gap-2">
+            <Input
+              className="flex-1"
+              placeholder="New name…"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Button onClick={() => void create()}>Add</Button>
+          </div>
+        ) : null}
+        <ul className="divide-y divide-border text-sm">
+          {rows.map((row, i) => (
+            <li key={i} className="py-1.5">
+              {label(row)}
+            </li>
+          ))}
+          {rows.length === 0 ? <li className="py-1.5 text-muted-foreground">None yet.</li> : null}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }

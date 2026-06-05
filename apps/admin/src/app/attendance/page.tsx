@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { attendanceApi, type AttendanceSummary } from '@/lib/attendance';
+import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 const STATUSES: Array<'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'> = [
   'PRESENT',
@@ -47,54 +47,57 @@ export default function AttendancePage() {
         <h1 className="font-display text-2xl font-semibold">Attendance</h1>
 
         <div className="flex flex-wrap items-end gap-2">
-          <input
-            className={inputClass}
-            placeholder="Section ID"
-            value={sectionId}
-            onChange={(e) => setSectionId(e.target.value)}
-          />
-          <input
-            className={inputClass}
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
-          <button className={btnClass} onClick={() => void refresh()}>
-            Load summary
-          </button>
+          <Field label="Section ID" className="flex-1">
+            <Input
+              placeholder="uuid"
+              value={sectionId}
+              onChange={(e) => setSectionId(e.target.value)}
+            />
+          </Field>
+          <Field label="Date">
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Button onClick={() => void refresh()}>Load summary</Button>
         </div>
 
         {summary ? (
-          <div className="flex gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {STATUSES.map((s) => (
-              <div key={s} className="rounded-xl border border-border px-4 py-2 text-center">
-                <div className="font-display text-xl">{summary.counts[s]}</div>
-                <div className="font-mono text-xs text-muted-foreground">{s}</div>
-              </div>
+              <Card key={s}>
+                <CardContent className="p-4 text-center">
+                  <div className="font-display text-xl">{summary.counts[s]}</div>
+                  <div className="font-mono text-xs text-muted-foreground">{s}</div>
+                </CardContent>
+              </Card>
             ))}
-            <div className="rounded-xl border border-border px-4 py-2 text-center">
-              <div className="font-display text-xl">{summary.total}</div>
-              <div className="font-mono text-xs text-muted-foreground">TOTAL</div>
-            </div>
+            <Card>
+              <CardContent className="p-4 text-center">
+                <div className="font-display text-xl">{summary.total}</div>
+                <div className="font-mono text-xs text-muted-foreground">TOTAL</div>
+              </CardContent>
+            </Card>
           </div>
         ) : null}
 
-        <section className="space-y-2 rounded-xl border border-border p-4">
-          <h2 className="font-medium">Mark a student (period 1)</h2>
-          <input
-            className={cn(inputClass, 'w-full')}
-            placeholder="Student ID"
-            value={studentId}
-            onChange={(e) => setStudentId(e.target.value)}
-          />
-          <div className="flex gap-2">
-            {STATUSES.map((s) => (
-              <button key={s} className={btnClass} onClick={() => void mark(s)}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </section>
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <h2 className="font-display font-medium">Mark a student (period 1)</h2>
+            <Field label="Student ID">
+              <Input
+                placeholder="uuid"
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+              />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              {STATUSES.map((s) => (
+                <Button key={s} variant="secondary" size="sm" onClick={() => void mark(s)}>
+                  {s}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {message ? <p className="text-sm text-aqua">{message}</p> : null}
         {error ? (
@@ -106,9 +109,3 @@ export default function AttendancePage() {
     </Shell>
   );
 }
-
-const inputClass = cn(
-  'rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none',
-  'focus:ring-2 focus:ring-ring',
-);
-const btnClass = 'rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground';

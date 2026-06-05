@@ -4,6 +4,23 @@ import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { communicationApi, type Announcement } from '@/lib/communication';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '@/components/ui';
 
 const AUDIENCES = ['ALL', 'PARENTS', 'TEACHERS', 'STUDENTS'];
 
@@ -52,55 +69,60 @@ export default function CommunicationPage() {
       <div className="mx-auto max-w-3xl space-y-6">
         <h1 className="font-display text-2xl font-semibold">Communication</h1>
 
-        <form
-          onSubmit={(e) => void publish(e)}
-          className="space-y-2 rounded-xl border border-border p-4"
-        >
-          <h2 className="font-medium">New announcement</h2>
-          <input
-            className={cn(inputClass, 'w-full')}
-            placeholder="Title"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            required
-          />
-          <textarea
-            className={cn(inputClass, 'h-20 w-full')}
-            placeholder="Body"
-            value={form.body}
-            onChange={(e) => setForm({ ...form, body: e.target.value })}
-            required
-          />
-          <div className="flex gap-2">
-            <select
-              className={inputClass}
-              value={form.audience}
-              onChange={(e) => setForm({ ...form, audience: e.target.value })}
-            >
-              {AUDIENCES.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className={btnClass}>
-              Publish
-            </button>
-          </div>
-        </form>
+        <Card>
+          <CardHeader>
+            <CardTitle>New announcement</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={(e) => void publish(e)} className="space-y-3">
+              <Field label="Title">
+                <Input
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  required
+                />
+              </Field>
+              <Field label="Body">
+                <textarea
+                  className={cn(
+                    'h-24 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-sm',
+                    'outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
+                  )}
+                  value={form.body}
+                  onChange={(e) => setForm({ ...form, body: e.target.value })}
+                  required
+                />
+              </Field>
+              <div className="flex items-end gap-2">
+                <Field label="Audience" className="flex-1">
+                  <Select
+                    value={form.audience}
+                    onChange={(e) => setForm({ ...form, audience: e.target.value })}
+                  >
+                    {AUDIENCES.map((a) => (
+                      <option key={a} value={a}>
+                        {a}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Button type="submit">Publish</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
 
-        <div className="flex items-center gap-3 rounded-xl border border-border p-4">
-          <span className="font-medium">WhatsApp bridge</span>
-          <button className={btnClass} onClick={() => void toggleWhatsApp(true)}>
-            Enable
-          </button>
-          <button
-            className="rounded-lg border border-border px-3 py-2 text-sm"
-            onClick={() => void toggleWhatsApp(false)}
-          >
-            Disable
-          </button>
-        </div>
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3 pt-6">
+            <span className="font-medium">WhatsApp bridge</span>
+            <Button size="sm" onClick={() => void toggleWhatsApp(true)}>
+              Enable
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void toggleWhatsApp(false)}>
+              Disable
+            </Button>
+          </CardContent>
+        </Card>
 
         {message ? <p className="text-sm text-aqua">{message}</p> : null}
         {error ? (
@@ -109,24 +131,32 @@ export default function CommunicationPage() {
           </p>
         ) : null}
 
-        <ul className="divide-y divide-border rounded-xl border border-border">
-          {list.map((a) => (
-            <li key={a.id} className="flex justify-between p-3 text-sm">
-              <span>{a.title}</span>
-              <span className="font-mono text-xs text-muted-foreground">{a.audience}</span>
-            </li>
-          ))}
-          {list.length === 0 ? (
-            <li className="p-3 text-sm text-muted-foreground">No announcements yet.</li>
-          ) : null}
-        </ul>
+        <Table>
+          <THead>
+            <TR>
+              <TH>Announcement</TH>
+              <TH className="text-end">Audience</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {list.map((a) => (
+              <TR key={a.id}>
+                <TD>{a.title}</TD>
+                <TD className="text-end">
+                  <Badge tone="muted">{a.audience}</Badge>
+                </TD>
+              </TR>
+            ))}
+            {list.length === 0 ? (
+              <TR>
+                <TD colSpan={2} className="text-muted-foreground">
+                  No announcements yet.
+                </TD>
+              </TR>
+            ) : null}
+          </TBody>
+        </Table>
       </div>
     </Shell>
   );
 }
-
-const inputClass = cn(
-  'rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none',
-  'focus:ring-2 focus:ring-ring',
-);
-const btnClass = 'rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground';

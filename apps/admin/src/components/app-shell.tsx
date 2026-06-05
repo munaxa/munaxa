@@ -6,6 +6,7 @@ import { cn } from '@munaxa/ui';
 import { logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache } from '@/lib/session';
 import { Button } from './ui/button';
+import { ThemeLocaleToggle } from './theme-locale-toggle';
 
 interface NavItem {
   href: string;
@@ -97,6 +98,7 @@ export function AppShell({
             <span className="hidden text-xs text-muted-foreground sm:inline">
               {principal.isPlatform ? 'Platform' : 'School'} plane
             </span>
+            <ThemeLocaleToggle />
             <Button variant="outline" size="sm" onClick={() => void onLogout()}>
               Sign out
             </Button>

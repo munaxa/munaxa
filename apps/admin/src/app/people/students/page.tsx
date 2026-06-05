@@ -4,6 +4,21 @@ import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { studentsApi, type ImportResult, type Student } from '@/lib/people';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Input,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '@/components/ui';
 
 export default function StudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
@@ -35,7 +50,7 @@ export default function StudentsPage() {
 
   return (
     <Shell>
-      <div className="mx-auto max-w-3xl space-y-8">
+      <div className="mx-auto max-w-3xl space-y-6">
         <h1 className="font-display text-2xl font-semibold">Students</h1>
         {error ? (
           <p className="text-sm text-destructive" role="alert">
@@ -43,27 +58,59 @@ export default function StudentsPage() {
           </p>
         ) : null}
 
-        <CreateStudent onCreated={load} onError={setError} />
-        <ImportStudents onImported={load} onResult={setImportResult} onError={setError} />
-        {importResult ? (
-          <p className="text-sm text-muted-foreground">
-            Imported {importResult.created}; {importResult.failed.length} row(s) failed.
-          </p>
-        ) : null}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add a student</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CreateStudent onCreated={load} onError={setError} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Bulk import</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ImportStudents onImported={load} onResult={setImportResult} onError={setError} />
+              {importResult ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Imported {importResult.created}; {importResult.failed.length} row(s) failed.
+                </p>
+              ) : null}
+            </CardContent>
+          </Card>
+        </div>
 
-        <ul className="divide-y divide-border rounded-xl border border-border">
-          {students.map((s) => (
-            <li key={s.id} className="flex items-center justify-between p-3">
-              <span>
-                {s.firstNameEn} {s.lastNameEn} · {s.firstNameAr} {s.lastNameAr}
-              </span>
-              <span className="font-mono text-xs text-muted-foreground">{s.qrCode}</span>
-            </li>
-          ))}
-          {students.length === 0 ? (
-            <li className="p-3 text-sm text-muted-foreground">No students yet.</li>
-          ) : null}
-        </ul>
+        <Table>
+          <THead>
+            <TR>
+              <TH>Name</TH>
+              <TH>Arabic name</TH>
+              <TH className="text-end">QR</TH>
+            </TR>
+          </THead>
+          <TBody>
+            {students.map((s) => (
+              <TR key={s.id}>
+                <TD>
+                  {s.firstNameEn} {s.lastNameEn}
+                </TD>
+                <TD dir="rtl">
+                  {s.firstNameAr} {s.lastNameAr}
+                </TD>
+                <TD className="text-end font-mono text-xs text-muted-foreground">{s.qrCode}</TD>
+              </TR>
+            ))}
+            {students.length === 0 ? (
+              <TR>
+                <TD colSpan={3} className="text-muted-foreground">
+                  No students yet.
+                </TD>
+              </TR>
+            ) : null}
+          </TBody>
+        </Table>
       </div>
     </Shell>
   );
@@ -95,40 +142,36 @@ function CreateStudent({
   }
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="flex flex-wrap gap-2">
-      <input
-        className={inputClass}
+    <form onSubmit={(e) => void submit(e)} className="grid grid-cols-2 gap-2">
+      <Input
         placeholder="First (EN)"
         value={form.firstNameEn}
         onChange={(e) => setForm({ ...form, firstNameEn: e.target.value })}
         required
       />
-      <input
-        className={inputClass}
+      <Input
         placeholder="Last (EN)"
         value={form.lastNameEn}
         onChange={(e) => setForm({ ...form, lastNameEn: e.target.value })}
         required
       />
-      <input
-        className={inputClass}
+      <Input
         placeholder="الاسم (AR)"
         value={form.firstNameAr}
         onChange={(e) => setForm({ ...form, firstNameAr: e.target.value })}
         required
         dir="rtl"
       />
-      <input
-        className={inputClass}
+      <Input
         placeholder="العائلة (AR)"
         value={form.lastNameAr}
         onChange={(e) => setForm({ ...form, lastNameAr: e.target.value })}
         required
         dir="rtl"
       />
-      <button type="submit" className={btnClass}>
+      <Button type="submit" className="col-span-2">
         Add student
-      </button>
+      </Button>
     </form>
   );
 }
@@ -158,23 +201,19 @@ function ImportStudents({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-2">
-      <label className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
-        Bulk import (CSV)
-      </label>
-      <textarea
-        className={cn(inputClass, 'h-28 w-full font-mono text-xs')}
-        value={csv}
-        onChange={(e) => setCsv(e.target.value)}
-      />
-      <button type="submit" className={btnClass}>
+      <Field label="CSV">
+        <textarea
+          className={cn(
+            'h-28 w-full rounded-lg border border-input bg-background/60 px-3 py-2 font-mono text-xs',
+            'outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
+          )}
+          value={csv}
+          onChange={(e) => setCsv(e.target.value)}
+        />
+      </Field>
+      <Button type="submit" variant="secondary">
         Import CSV
-      </button>
+      </Button>
     </form>
   );
 }
-
-const inputClass = cn(
-  'rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none',
-  'focus:ring-2 focus:ring-ring',
-);
-const btnClass = 'rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground';

@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { schoolsApi, campusesApi, type School, type Campus } from '@/lib/structure';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 
 export default function SchoolsPage() {
   const [schools, setSchools] = useState<School[]>([]);
@@ -35,7 +35,7 @@ export default function SchoolsPage() {
 
   return (
     <Shell>
-      <div className="mx-auto max-w-3xl space-y-8">
+      <div className="mx-auto max-w-3xl space-y-6">
         <h1 className="font-display text-2xl font-semibold">School structure</h1>
         {error ? (
           <p className="text-sm text-destructive" role="alert">
@@ -43,29 +43,37 @@ export default function SchoolsPage() {
           </p>
         ) : null}
 
-        <section className="space-y-4">
-          <h2 className="font-medium">Schools</h2>
-          <CreateSchool onCreated={load} onError={setError} />
-          <ul className="divide-y divide-border rounded-xl border border-border">
-            {schools.map((s) => (
-              <li key={s.id} className="flex items-center justify-between p-3">
-                <button className="text-left" onClick={() => setSelected(s)}>
-                  <span className="font-medium">{s.nameEn}</span>{' '}
-                  <span className="text-muted-foreground">· {s.nameAr}</span>
-                </button>
-                <button
-                  className="text-xs text-destructive"
-                  onClick={() => void schoolsApi.remove(s.id).then(load)}
-                >
-                  Delete
-                </button>
-              </li>
-            ))}
-            {schools.length === 0 ? (
-              <li className="p-3 text-sm text-muted-foreground">No schools yet.</li>
-            ) : null}
-          </ul>
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>Schools</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <CreateSchool onCreated={load} onError={setError} />
+            <ul className="divide-y divide-border rounded-lg border border-border">
+              {schools.map((s) => (
+                <li key={s.id} className="flex items-center justify-between p-3">
+                  <button className="text-start" onClick={() => setSelected(s)}>
+                    <span className="font-medium">{s.nameEn}</span>{' '}
+                    <span className="text-muted-foreground" dir="rtl">
+                      · {s.nameAr}
+                    </span>
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => void schoolsApi.remove(s.id).then(load)}
+                  >
+                    Delete
+                  </Button>
+                </li>
+              ))}
+              {schools.length === 0 ? (
+                <li className="p-3 text-sm text-muted-foreground">No schools yet.</li>
+              ) : null}
+            </ul>
+          </CardContent>
+        </Card>
 
         {selected ? <Campuses school={selected} onError={setError} /> : null}
       </div>
@@ -97,24 +105,22 @@ function CreateSchool({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="flex flex-wrap gap-2">
-      <input
-        className={inputClass}
+      <Input
+        className="flex-1"
         placeholder="Name (EN)"
         value={nameEn}
         onChange={(e) => setNameEn(e.target.value)}
         required
       />
-      <input
-        className={inputClass}
+      <Input
+        className="flex-1"
         placeholder="الاسم (AR)"
         value={nameAr}
         onChange={(e) => setNameAr(e.target.value)}
         required
         dir="rtl"
       />
-      <button type="submit" className={btnClass}>
-        Add school
-      </button>
+      <Button type="submit">Add school</Button>
     </form>
   );
 }
@@ -149,53 +155,55 @@ function Campuses({ school, onError }: { school: School; onError: (m: string) =>
   }
 
   return (
-    <section className="space-y-4">
-      <h2 className="font-medium">Campuses · {school.nameEn}</h2>
-      <form onSubmit={(e) => void submit(e)} className="flex flex-wrap gap-2">
-        <input
-          className={inputClass}
-          placeholder="Campus (EN)"
-          value={nameEn}
-          onChange={(e) => setNameEn(e.target.value)}
-          required
-        />
-        <input
-          className={inputClass}
-          placeholder="الحرم (AR)"
-          value={nameAr}
-          onChange={(e) => setNameAr(e.target.value)}
-          required
-          dir="rtl"
-        />
-        <button type="submit" className={btnClass}>
-          Add campus
-        </button>
-      </form>
-      <ul className="divide-y divide-border rounded-xl border border-border">
-        {campuses.map((c) => (
-          <li key={c.id} className="flex items-center justify-between p-3">
-            <span>
-              {c.nameEn} · {c.nameAr}
-              {c.isMain ? <span className="ml-2 text-xs text-aqua">main</span> : null}
-            </span>
-            <button
-              className="text-xs text-destructive"
-              onClick={() => void campusesApi.remove(c.id).then(load)}
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-        {campuses.length === 0 ? (
-          <li className="p-3 text-sm text-muted-foreground">No campuses yet.</li>
-        ) : null}
-      </ul>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Campuses · {school.nameEn}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <form onSubmit={(e) => void submit(e)} className="flex flex-wrap gap-2">
+          <Input
+            className="flex-1"
+            placeholder="Campus (EN)"
+            value={nameEn}
+            onChange={(e) => setNameEn(e.target.value)}
+            required
+          />
+          <Input
+            className="flex-1"
+            placeholder="الحرم (AR)"
+            value={nameAr}
+            onChange={(e) => setNameAr(e.target.value)}
+            required
+            dir="rtl"
+          />
+          <Button type="submit">Add campus</Button>
+        </form>
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {campuses.map((c) => (
+            <li key={c.id} className="flex items-center justify-between p-3">
+              <span>
+                {c.nameEn} <span dir="rtl">· {c.nameAr}</span>
+                {c.isMain ? (
+                  <Badge tone="success" className="ms-2">
+                    main
+                  </Badge>
+                ) : null}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive"
+                onClick={() => void campusesApi.remove(c.id).then(load)}
+              >
+                Delete
+              </Button>
+            </li>
+          ))}
+          {campuses.length === 0 ? (
+            <li className="p-3 text-sm text-muted-foreground">No campuses yet.</li>
+          ) : null}
+        </ul>
+      </CardContent>
+    </Card>
   );
 }
-
-const inputClass = cn(
-  'rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none',
-  'focus:ring-2 focus:ring-ring',
-);
-const btnClass = 'rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground';
