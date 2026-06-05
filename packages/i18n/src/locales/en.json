@@ -47,6 +47,14 @@
     "tenant": "Tenant",
     "permissions": "Permissions"
   },
+  "reports": {
+    "subtitle": "Summaries across attendance, academics, finance, and behavior — view or export.",
+    "run": "Run report",
+    "kindAttendance": "Attendance",
+    "kindAcademic": "Academic",
+    "kindFinancial": "Financial",
+    "kindBehavior": "Behavior"
+  },
   "errors": {
     "generic": "Something went wrong. Please try again.",
     "unauthorized": "You are not authorized to perform this action.",

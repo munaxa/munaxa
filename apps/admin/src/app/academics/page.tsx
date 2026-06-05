@@ -6,6 +6,7 @@ import { Shell } from '@/components/shell';
 import { academicsApi, type GradeReport, type Homework } from '@/lib/academics';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
+import { useI18n } from '@/components/i18n-provider';
 import { loadSectionOptions, loadStudentOptions } from '@/lib/pickers';
 import {
   Badge,
@@ -25,10 +26,11 @@ import {
 } from '@/components/ui';
 
 export default function AcademicsPage() {
+  const { t } = useI18n();
   return (
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">Academics</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('nav.academics')}</h1>
         <HomeworkSection />
         <GradesSection />
       </div>

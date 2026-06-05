@@ -5,6 +5,7 @@ import { Shell } from '@/components/shell';
 import { financeApi, type Statement } from '@/lib/finance';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
+import { useI18n } from '@/components/i18n-provider';
 import { loadStudentOptions } from '@/lib/pickers';
 import {
   Badge,
@@ -29,6 +30,7 @@ const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = 
 
 export default function FinancePage() {
   const toast = useToast();
+  const { t } = useI18n();
   const [studentId, setStudentId] = useState('');
   const [statement, setStatement] = useState<Statement | null>(null);
   const [charge, setCharge] = useState({ description: '', amount: '' });
@@ -71,7 +73,7 @@ export default function FinancePage() {
   return (
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">Finance</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('nav.finance')}</h1>
 
         <div className="flex items-end gap-2">
           <Field label="Student" className="flex-1">

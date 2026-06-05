@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
+import { useI18n } from '@/components/i18n-provider';
 import { schoolsApi, campusesApi, type School, type Campus } from '@/lib/structure';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 
 export default function SchoolsPage() {
+  const { t } = useI18n();
   const [schools, setSchools] = useState<School[]>([]);
   const [selected, setSelected] = useState<School | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function SchoolsPage() {
   return (
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">School structure</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('nav.structure')}</h1>
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}

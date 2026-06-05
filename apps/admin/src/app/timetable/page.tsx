@@ -6,6 +6,7 @@ import { Shell } from '@/components/shell';
 import { timetableApi, type ResolvedDay } from '@/lib/timetable';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
+import { useI18n } from '@/components/i18n-provider';
 import { loadSectionOptions } from '@/lib/pickers';
 import { Badge, Button, Card, CardContent, Field, Input } from '@/components/ui';
 
@@ -18,6 +19,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function TimetablePage() {
   const toast = useToast();
+  const { t } = useI18n();
   const [sectionId, setSectionId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [day, setDay] = useState<ResolvedDay | null>(null);
@@ -35,7 +37,7 @@ export default function TimetablePage() {
   return (
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">Timetable</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('nav.timetable')}</h1>
 
         <form onSubmit={(e) => void load(e)} className="flex flex-wrap items-end gap-2">
           <Field label="Section" className="flex-1">

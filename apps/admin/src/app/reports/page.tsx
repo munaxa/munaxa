@@ -23,17 +23,19 @@ import {
   TR,
 } from '@/components/ui';
 import { Shell } from '@/components/shell';
+import { useI18n } from '@/components/i18n-provider';
 
-const KINDS: Array<{ key: ReportKind; label: string }> = [
-  { key: 'attendance', label: 'Attendance' },
-  { key: 'academic', label: 'Academic' },
-  { key: 'financial', label: 'Financial' },
-  { key: 'behavior', label: 'Behavior' },
+const KINDS: Array<{ key: ReportKind; labelKey: string }> = [
+  { key: 'attendance', labelKey: 'reports.kindAttendance' },
+  { key: 'academic', labelKey: 'reports.kindAcademic' },
+  { key: 'financial', labelKey: 'reports.kindFinancial' },
+  { key: 'behavior', labelKey: 'reports.kindBehavior' },
 ];
 
 const FORMATS: ReportFormat[] = ['csv', 'xlsx', 'pdf'];
 
 export default function ReportsPage() {
+  const { t } = useI18n();
   const [kind, setKind] = useState<ReportKind>('attendance');
   const [filters, setFilters] = useState<ReportFilters>({});
   const [table, setTable] = useState<ReportTable | null>(null);
@@ -74,10 +76,8 @@ export default function ReportsPage() {
     <Shell>
       <div className="mx-auto max-w-5xl space-y-6">
         <header className="space-y-1">
-          <h1 className="font-display text-2xl font-semibold">Reports</h1>
-          <p className="text-sm text-muted-foreground">
-            Summaries across attendance, academics, finance, and behavior — view or export.
-          </p>
+          <h1 className="font-display text-2xl font-semibold">{t('nav.reports')}</h1>
+          <p className="text-sm text-muted-foreground">{t('reports.subtitle')}</p>
         </header>
 
         <div className="flex flex-wrap gap-2">
@@ -91,7 +91,7 @@ export default function ReportsPage() {
                 setTable(null);
               }}
             >
-              {k.label}
+              {t(k.labelKey)}
             </Button>
           ))}
         </div>
@@ -120,7 +120,7 @@ export default function ReportsPage() {
               />
             </Field>
             <Button disabled={busy} onClick={() => void run()}>
-              {busy ? 'Loading…' : 'Run report'}
+              {busy ? t('common.loading') : t('reports.run')}
             </Button>
           </CardContent>
         </Card>

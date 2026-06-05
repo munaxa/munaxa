@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
+import { useI18n } from '@/components/i18n-provider';
 import { studentsApi, type ImportResult, type Student } from '@/lib/people';
 import {
   Button,
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui';
 
 export default function StudentsPage() {
+  const { t } = useI18n();
   const [students, setStudents] = useState<Student[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -51,7 +53,7 @@ export default function StudentsPage() {
   return (
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">Students</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('nav.people')}</h1>
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}

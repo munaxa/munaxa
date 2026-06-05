@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
+import { useI18n } from '@/components/i18n-provider';
 import { ADVANCED_MODULES, advancedApi, type FeatureFlag } from '@/lib/advanced';
 import { Button, Card, CardContent, Input } from '@/components/ui';
 
 export default function ModulesPage() {
+  const { t } = useI18n();
   const [flags, setFlags] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,7 @@ export default function ModulesPage() {
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Advanced Modules</h1>
+          <h1 className="font-display text-2xl font-semibold">{t('nav.modules')}</h1>
           <p className="text-sm text-muted-foreground">
             Optional modules are <strong>disabled by default</strong>. Enable one to expose its API
             and screens for this school.

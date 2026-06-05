@@ -5,6 +5,7 @@ import { Shell } from '@/components/shell';
 import { attendanceApi, type AttendanceSummary } from '@/lib/attendance';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
+import { useI18n } from '@/components/i18n-provider';
 import { loadSectionOptions, loadStudentOptions } from '@/lib/pickers';
 import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
@@ -17,6 +18,7 @@ const STATUSES: Array<'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'> = [
 
 export default function AttendancePage() {
   const toast = useToast();
+  const { t } = useI18n();
   const [sectionId, setSectionId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [studentId, setStudentId] = useState('');
@@ -44,7 +46,7 @@ export default function AttendancePage() {
   return (
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">Attendance</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('nav.attendance')}</h1>
 
         <div className="flex flex-wrap items-end gap-2">
           <Field label="Section" className="flex-1">

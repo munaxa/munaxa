@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
+import { useI18n } from '@/components/i18n-provider';
 import { communicationApi, type Announcement } from '@/lib/communication';
 import {
   Badge,
@@ -25,6 +26,7 @@ import {
 const AUDIENCES = ['ALL', 'PARENTS', 'TEACHERS', 'STUDENTS'];
 
 export default function CommunicationPage() {
+  const { t } = useI18n();
   const [list, setList] = useState<Announcement[]>([]);
   const [form, setForm] = useState({ title: '', body: '', audience: 'ALL' });
   const [message, setMessage] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export default function CommunicationPage() {
   return (
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">Communication</h1>
+        <h1 className="font-display text-2xl font-semibold">{t('nav.communication')}</h1>
 
         <Card>
           <CardHeader>
