@@ -26,8 +26,12 @@ const STEP_HELP: Record<string, string> = {
   MIGRATED:
     'Apply the schema: pnpm --filter @munaxa/api migrate:tenants (runs migrations + app-role).',
   DATA_COPIED:
-    "Move this school's rows from the shared DB into the new database (maintenance window).",
-  VERIFIED: 'Verify row counts and a smoke test against the new database.',
+    "Move this school's rows from the shared DB into the new database (maintenance window): " +
+    'TENANT_ID=… TARGET_DIRECT_URL=… [CREATE_TARGET=1] pnpm --filter @munaxa/api promote:tenant ' +
+    '(copies in FK-safe order, idempotent).',
+  VERIFIED:
+    'The promote:tenant run verifies per-table row counts automatically; also run a smoke test ' +
+    'against the new database (login + read) before activating.',
   ACTIVE:
     'Add the connection URL to TENANT_DATABASE_OVERRIDES (secrets) and redeploy to route traffic.',
 };

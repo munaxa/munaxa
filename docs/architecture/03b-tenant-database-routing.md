@@ -80,12 +80,30 @@ and redeploy so routing takes effect.
 
 ## Promoting a school to its own database (runbook)
 
+For the **same-server** case (split a pooled school onto its own database on the same Postgres
+server), steps 1–2 are a single command — `scripts/promote-tenant.cjs` provisions, migrates, applies
+the app role, copies the tenant's rows in FK-safe order (topo-sorted from the Prisma DMMF, with the
+global `Permission` catalog carried whole so ids align and `RolePermission` scoped to the tenant's
+roles), then verifies per-table row counts and exits non-zero on any mismatch. It is idempotent
+(`createMany` with `skipDuplicates`):
+
+```bash
+TENANT_ID=<uuid> \
+DIRECT_DATABASE_URL=<shared owner url> \
+TARGET_DIRECT_URL=<new db owner url> \
+CREATE_TARGET=1 \
+pnpm --filter @munaxa/api promote:tenant
+```
+
+For a **separate server / on-prem** target, do it as discrete steps:
+
 1. **Provision** the database: create it (own server / region / on-prem), then point the migration
    env at it and run `prisma migrate deploy` + `app-role.sql` (or add it to the registry and run
    `migrate:tenants`). Seed the permission catalog (`db:seed`).
 2. **Move the data**: export the tenant's rows from the shared DB and import into the new DB
    (the schema is identical; carry the `Tenant` row + its roles so FKs/RLS resolve). Do this in a
-   short maintenance window for that one school.
+   short maintenance window for that one school. (`promote-tenant.cjs` works here too whenever the
+   runner can reach both databases.)
 3. **Register**: add the tenant's URLs to `TENANT_DATABASE_OVERRIDES` (runtime) and
    `TENANT_DATABASE_DIRECT_OVERRIDES` (owner) in the secrets manager and redeploy. The
    `TenantConnectionManager` now routes that school to its own DB; all others are unaffected.

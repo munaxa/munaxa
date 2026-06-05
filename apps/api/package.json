@@ -15,6 +15,7 @@
     "prisma:migrate": "prisma migrate dev --schema=../../prisma/schema.prisma",
     "prisma:deploy": "prisma migrate deploy --schema=../../prisma/schema.prisma",
     "migrate:tenants": "node scripts/migrate-tenants.cjs",
+    "promote:tenant": "node scripts/promote-tenant.cjs",
     "prisma:studio": "prisma studio --schema=../../prisma/schema.prisma",
     "db:seed": "prisma db seed --schema=../../prisma/schema.prisma",
     "db:seed:demo": "node scripts/seed-demo.cjs"
