@@ -2,21 +2,24 @@
 
 import { useState } from 'react';
 import { cn } from '@munaxa/ui';
+import { Shell } from '@/components/shell';
 import { academicsApi, type GradeReport, type Homework } from '@/lib/academics';
 
 export default function AcademicsPage() {
   const [error, setError] = useState<string | null>(null);
   return (
-    <main className="mx-auto max-w-2xl space-y-8 p-8">
-      <h1 className="font-display text-2xl font-semibold">Academics</h1>
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <HomeworkSection onError={setError} />
-      <GradesSection onError={setError} />
-    </main>
+    <Shell>
+      <div className="mx-auto max-w-3xl space-y-8">
+        <h1 className="font-display text-2xl font-semibold">Academics</h1>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+        <HomeworkSection onError={setError} />
+        <GradesSection onError={setError} />
+      </div>
+    </Shell>
   );
 }
 

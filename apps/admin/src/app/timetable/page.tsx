@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { cn } from '@munaxa/ui';
+import { Shell } from '@/components/shell';
 import { timetableApi, type ResolvedDay } from '@/lib/timetable';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -28,56 +29,58 @@ export default function TimetablePage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-8">
-      <h1 className="font-display text-2xl font-semibold">Timetable</h1>
-      <form onSubmit={(e) => void load(e)} className="flex flex-wrap items-end gap-2">
-        <input
-          className={inputClass}
-          placeholder="Section ID"
-          value={sectionId}
-          onChange={(e) => setSectionId(e.target.value)}
-          required
-        />
-        <input
-          className={inputClass}
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
-        <button type="submit" className={btnClass}>
-          Resolve day
-        </button>
-      </form>
+    <Shell>
+      <div className="mx-auto max-w-3xl space-y-6">
+        <h1 className="font-display text-2xl font-semibold">Timetable</h1>
+        <form onSubmit={(e) => void load(e)} className="flex flex-wrap items-end gap-2">
+          <input
+            className={inputClass}
+            placeholder="Section ID"
+            value={sectionId}
+            onChange={(e) => setSectionId(e.target.value)}
+            required
+          />
+          <input
+            className={inputClass}
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <button type="submit" className={btnClass}>
+            Resolve day
+          </button>
+        </form>
 
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      {day ? (
-        <section className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            {day.dayOfWeek} · {day.scheduleType}
-            {day.isHoliday ? ' · Holiday (no classes)' : ''}
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
           </p>
-          <ul className="divide-y divide-border rounded-xl border border-border">
-            {day.periods.map((p) => (
-              <li key={p.periodIndex} className="flex items-center justify-between p-3">
-                <span className="font-mono text-xs text-muted-foreground">
-                  {p.startTime}–{p.endTime}
-                </span>
-                <span className={cn('font-medium', STATUS_COLOR[p.status])}>{p.subject}</span>
-                <span className="text-xs text-muted-foreground">{p.status}</span>
-              </li>
-            ))}
-            {day.periods.length === 0 ? (
-              <li className="p-3 text-sm text-muted-foreground">No classes.</li>
-            ) : null}
-          </ul>
-        </section>
-      ) : null}
-    </main>
+        ) : null}
+
+        {day ? (
+          <section className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              {day.dayOfWeek} · {day.scheduleType}
+              {day.isHoliday ? ' · Holiday (no classes)' : ''}
+            </p>
+            <ul className="divide-y divide-border rounded-xl border border-border">
+              {day.periods.map((p) => (
+                <li key={p.periodIndex} className="flex items-center justify-between p-3">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {p.startTime}–{p.endTime}
+                  </span>
+                  <span className={cn('font-medium', STATUS_COLOR[p.status])}>{p.subject}</span>
+                  <span className="text-xs text-muted-foreground">{p.status}</span>
+                </li>
+              ))}
+              {day.periods.length === 0 ? (
+                <li className="p-3 text-sm text-muted-foreground">No classes.</li>
+              ) : null}
+            </ul>
+          </section>
+        ) : null}
+      </div>
+    </Shell>
   );
 }
 

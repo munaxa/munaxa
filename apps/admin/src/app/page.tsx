@@ -1,19 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getMe, tokenStore, type Principal } from '@/lib/auth';
-import { AppShell } from '@/components/app-shell';
-import {
-  Badge,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Spinner,
-} from '@/components/ui';
+import { Shell, usePrincipal } from '@/components/shell';
+import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
 
 const QUICK_LINKS: Array<{ href: string; label: string; desc: string; perm?: string }> = [
   {
@@ -50,84 +39,68 @@ const QUICK_LINKS: Array<{ href: string; label: string; desc: string; perm?: str
 ];
 
 export default function Home() {
-  const router = useRouter();
-  const [principal, setPrincipal] = useState<Principal | null>(null);
-  const [loading, setLoading] = useState(true);
+  return (
+    <Shell>
+      <Dashboard />
+    </Shell>
+  );
+}
 
-  useEffect(() => {
-    if (!tokenStore.access) {
-      router.replace('/login');
-      return;
-    }
-    getMe()
-      .then(setPrincipal)
-      .catch(() => router.replace('/login'))
-      .finally(() => setLoading(false));
-  }, [router]);
-
-  if (loading || !principal) {
-    return (
-      <main className="flex min-h-screen items-center justify-center gap-2 text-muted-foreground">
-        <Spinner /> Loading…
-      </main>
-    );
-  }
-
+function Dashboard() {
+  const principal = usePrincipal();
   const held = new Set(principal.permissions);
   const links = QUICK_LINKS.filter((l) => !l.perm || held.has(l.perm));
 
   return (
-    <AppShell principal={principal}>
-      <div className="mx-auto max-w-5xl space-y-8">
-        <header className="space-y-1">
-          <h1 className="font-display text-3xl font-semibold">Overview</h1>
-          <p className="text-sm text-muted-foreground">
-            Welcome back. Here&apos;s quick access to the areas you can manage.
-          </p>
-        </header>
+    <div className="mx-auto max-w-5xl space-y-8">
+      <header className="space-y-1">
+        <h1 className="font-display text-3xl font-semibold">Overview</h1>
+        <p className="text-sm text-muted-foreground">
+          Welcome back. Here&apos;s quick access to the areas you can manage.
+        </p>
+      </header>
 
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {links.map((l) => (
-            <Link key={l.href} href={l.href as never} className="group">
-              <Card className="h-full transition group-hover:border-primary/40 group-hover:shadow-glow">
-                <CardHeader>
-                  <CardTitle>{l.label}</CardTitle>
-                  <CardDescription>{l.desc}</CardDescription>
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
-        </section>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {links.map((l) => (
+          <Link key={l.href} href={l.href as never} className="group">
+            <Card className="h-full transition group-hover:border-primary/40 group-hover:shadow-glow">
+              <CardHeader>
+                <CardTitle>{l.label}</CardTitle>
+                <CardDescription>{l.desc}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </section>
 
-        <section className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>Your access</CardTitle>
-              <CardDescription>Roles and plane for this session</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <Row label="Roles" value={principal.roles.join(', ') || '—'} />
-              <Row label="Plane" value={principal.isPlatform ? 'Platform' : 'School'} />
-              <Row label="Tenant" value={principal.tenantId} mono />
-            </CardContent>
-          </Card>
+      <section className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle>Your access</CardTitle>
+            <CardDescription>Roles and plane for this session</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <Row label="Roles" value={principal.roles.join(', ') || '—'} />
+            <Row label="Plane" value={principal.isPlatform ? 'Platform' : 'School'} />
+            <Row label="Tenant" value={principal.tenantId} mono />
+          </CardContent>
+        </Card>
 
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Permissions</CardTitle>
-              <CardDescription>{principal.permissions.length} granted</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-1.5">
-              {principal.permissions.map((p) => (
-                <Badge key={p} tone="muted" className="font-mono">
-                  {p}
-                </Badge>
-              ))}
-            </CardContent>
-          </Card>
-        </section>
-      </div>
-    </AppShell>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Permissions</CardTitle>
+            <CardDescription>{principal.permissions.length} granted</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-1.5">
+            {principal.permissions.map((p) => (
+              <Badge key={p} tone="muted" className="font-mono">
+                {p}
+              </Badge>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+    </div>
   );
 }
 

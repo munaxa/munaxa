@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@munaxa/ui';
 import { logout, type Principal } from '@/lib/auth';
+import { clearPrincipalCache } from '@/lib/session';
 import { Button } from './ui/button';
 
 interface NavItem {
@@ -46,6 +47,7 @@ export function AppShell({
 
   async function onLogout() {
     await logout();
+    clearPrincipalCache();
     router.replace('/login');
   }
 

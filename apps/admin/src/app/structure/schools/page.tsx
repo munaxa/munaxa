@@ -1,13 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { cn } from '@munaxa/ui';
-import { tokenStore } from '@/lib/auth';
+import { Shell } from '@/components/shell';
 import { schoolsApi, campusesApi, type School, type Campus } from '@/lib/structure';
 
 export default function SchoolsPage() {
-  const router = useRouter();
   const [schools, setSchools] = useState<School[]>([]);
   const [selected, setSelected] = useState<School | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,50 +22,54 @@ export default function SchoolsPage() {
   }, []);
 
   useEffect(() => {
-    if (!tokenStore.access) {
-      router.replace('/login');
-      return;
-    }
     void load();
-  }, [router, load]);
+  }, [load]);
 
-  if (loading) return <main className="p-8">Loading…</main>;
+  if (loading) {
+    return (
+      <Shell>
+        <p className="text-muted-foreground">Loading…</p>
+      </Shell>
+    );
+  }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-8 p-8">
-      <h1 className="font-display text-2xl font-semibold">School structure</h1>
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
+    <Shell>
+      <div className="mx-auto max-w-3xl space-y-8">
+        <h1 className="font-display text-2xl font-semibold">School structure</h1>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-      <section className="space-y-4">
-        <h2 className="font-medium">Schools</h2>
-        <CreateSchool onCreated={load} onError={setError} />
-        <ul className="divide-y divide-border rounded-xl border border-border">
-          {schools.map((s) => (
-            <li key={s.id} className="flex items-center justify-between p-3">
-              <button className="text-left" onClick={() => setSelected(s)}>
-                <span className="font-medium">{s.nameEn}</span>{' '}
-                <span className="text-muted-foreground">· {s.nameAr}</span>
-              </button>
-              <button
-                className="text-xs text-destructive"
-                onClick={() => void schoolsApi.remove(s.id).then(load)}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-          {schools.length === 0 ? (
-            <li className="p-3 text-sm text-muted-foreground">No schools yet.</li>
-          ) : null}
-        </ul>
-      </section>
+        <section className="space-y-4">
+          <h2 className="font-medium">Schools</h2>
+          <CreateSchool onCreated={load} onError={setError} />
+          <ul className="divide-y divide-border rounded-xl border border-border">
+            {schools.map((s) => (
+              <li key={s.id} className="flex items-center justify-between p-3">
+                <button className="text-left" onClick={() => setSelected(s)}>
+                  <span className="font-medium">{s.nameEn}</span>{' '}
+                  <span className="text-muted-foreground">· {s.nameAr}</span>
+                </button>
+                <button
+                  className="text-xs text-destructive"
+                  onClick={() => void schoolsApi.remove(s.id).then(load)}
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+            {schools.length === 0 ? (
+              <li className="p-3 text-sm text-muted-foreground">No schools yet.</li>
+            ) : null}
+          </ul>
+        </section>
 
-      {selected ? <Campuses school={selected} onError={setError} /> : null}
-    </main>
+        {selected ? <Campuses school={selected} onError={setError} /> : null}
+      </div>
+    </Shell>
   );
 }
 

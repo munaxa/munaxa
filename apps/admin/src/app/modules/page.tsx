@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { cn } from '@munaxa/ui';
+import { Shell } from '@/components/shell';
 import { ADVANCED_MODULES, advancedApi, type FeatureFlag } from '@/lib/advanced';
 
 export default function ModulesPage() {
@@ -40,59 +41,65 @@ export default function ModulesPage() {
   }
 
   if (loading) {
-    return <main className="mx-auto max-w-3xl p-8">Loading…</main>;
+    return (
+      <Shell>
+        <p className="text-muted-foreground">Loading…</p>
+      </Shell>
+    );
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-8">
-      <div>
-        <h1 className="font-display text-2xl font-semibold">Advanced Modules</h1>
-        <p className="text-sm text-muted-foreground">
-          Optional modules are <strong>disabled by default</strong>. Enable one to expose its API
-          and screens for this school.
-        </p>
-      </div>
+    <Shell>
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Advanced Modules</h1>
+          <p className="text-sm text-muted-foreground">
+            Optional modules are <strong>disabled by default</strong>. Enable one to expose its API
+            and screens for this school.
+          </p>
+        </div>
 
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
 
-      <ul className="space-y-3">
-        {ADVANCED_MODULES.map((m) => {
-          const on = flags[m.key] ?? false;
-          return (
-            <li
-              key={m.key}
-              className="flex items-center justify-between rounded-xl border border-border bg-card p-4"
-            >
-              <div>
-                <p className="font-medium">{m.label}</p>
-                <p className="text-sm text-muted-foreground">{m.description}</p>
-              </div>
-              <button
-                onClick={() => void toggle(m.key)}
-                className={cn(
-                  'rounded-lg px-3 py-1.5 text-sm font-medium',
-                  on
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border border-border text-muted-foreground',
-                )}
-                aria-pressed={on}
+        <ul className="space-y-3">
+          {ADVANCED_MODULES.map((m) => {
+            const on = flags[m.key] ?? false;
+            return (
+              <li
+                key={m.key}
+                className="flex items-center justify-between rounded-xl border border-border bg-card p-4"
               >
-                {on ? 'Enabled' : 'Disabled'}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                <div>
+                  <p className="font-medium">{m.label}</p>
+                  <p className="text-sm text-muted-foreground">{m.description}</p>
+                </div>
+                <button
+                  onClick={() => void toggle(m.key)}
+                  className={cn(
+                    'rounded-lg px-3 py-1.5 text-sm font-medium',
+                    on
+                      ? 'bg-primary text-primary-foreground'
+                      : 'border border-border text-muted-foreground',
+                  )}
+                  aria-pressed={on}
+                >
+                  {on ? 'Enabled' : 'Disabled'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
 
-      {flags.bus_tracking ? <ModulePanel kind="bus" /> : null}
-      {flags.library_management ? <ModulePanel kind="library" /> : null}
-      {flags.inventory_management ? <ModulePanel kind="inventory" /> : null}
-      {flags.school_clinic ? <ModulePanel kind="clinic" /> : null}
-    </main>
+        {flags.bus_tracking ? <ModulePanel kind="bus" /> : null}
+        {flags.library_management ? <ModulePanel kind="library" /> : null}
+        {flags.inventory_management ? <ModulePanel kind="inventory" /> : null}
+        {flags.school_clinic ? <ModulePanel kind="clinic" /> : null}
+      </div>
+    </Shell>
   );
 }
 

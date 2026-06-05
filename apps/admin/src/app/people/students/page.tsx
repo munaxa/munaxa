@@ -1,13 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { cn } from '@munaxa/ui';
-import { tokenStore } from '@/lib/auth';
+import { Shell } from '@/components/shell';
 import { studentsApi, type ImportResult, type Student } from '@/lib/people';
 
 export default function StudentsPage() {
-  const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -24,46 +22,50 @@ export default function StudentsPage() {
   }, []);
 
   useEffect(() => {
-    if (!tokenStore.access) {
-      router.replace('/login');
-      return;
-    }
     void load();
-  }, [router, load]);
+  }, [load]);
 
-  if (loading) return <main className="p-8">Loading…</main>;
+  if (loading) {
+    return (
+      <Shell>
+        <p className="text-muted-foreground">Loading…</p>
+      </Shell>
+    );
+  }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-8 p-8">
-      <h1 className="font-display text-2xl font-semibold">Students</h1>
-      {error ? (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      ) : null}
-
-      <CreateStudent onCreated={load} onError={setError} />
-      <ImportStudents onImported={load} onResult={setImportResult} onError={setError} />
-      {importResult ? (
-        <p className="text-sm text-muted-foreground">
-          Imported {importResult.created}; {importResult.failed.length} row(s) failed.
-        </p>
-      ) : null}
-
-      <ul className="divide-y divide-border rounded-xl border border-border">
-        {students.map((s) => (
-          <li key={s.id} className="flex items-center justify-between p-3">
-            <span>
-              {s.firstNameEn} {s.lastNameEn} · {s.firstNameAr} {s.lastNameAr}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground">{s.qrCode}</span>
-          </li>
-        ))}
-        {students.length === 0 ? (
-          <li className="p-3 text-sm text-muted-foreground">No students yet.</li>
+    <Shell>
+      <div className="mx-auto max-w-3xl space-y-8">
+        <h1 className="font-display text-2xl font-semibold">Students</h1>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
         ) : null}
-      </ul>
-    </main>
+
+        <CreateStudent onCreated={load} onError={setError} />
+        <ImportStudents onImported={load} onResult={setImportResult} onError={setError} />
+        {importResult ? (
+          <p className="text-sm text-muted-foreground">
+            Imported {importResult.created}; {importResult.failed.length} row(s) failed.
+          </p>
+        ) : null}
+
+        <ul className="divide-y divide-border rounded-xl border border-border">
+          {students.map((s) => (
+            <li key={s.id} className="flex items-center justify-between p-3">
+              <span>
+                {s.firstNameEn} {s.lastNameEn} · {s.firstNameAr} {s.lastNameAr}
+              </span>
+              <span className="font-mono text-xs text-muted-foreground">{s.qrCode}</span>
+            </li>
+          ))}
+          {students.length === 0 ? (
+            <li className="p-3 text-sm text-muted-foreground">No students yet.</li>
+          ) : null}
+        </ul>
+      </div>
+    </Shell>
   );
 }
 
