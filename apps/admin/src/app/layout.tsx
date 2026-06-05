@@ -3,6 +3,7 @@ import { Sora, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { PostHogProvider } from '@/lib/posthog';
 import { ToastProvider } from '@/components/toast';
+import { I18nProvider } from '@/components/i18n-provider';
 import { DEFAULT_LOCALE, directionForLocale } from '@/lib/i18n';
 
 // Munaxa Design System type pairing: Sora (display) / Inter (body) / JetBrains Mono.
@@ -33,7 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="min-h-screen bg-background bg-grad-hero font-body text-foreground antialiased">
         <PostHogProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <I18nProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </I18nProvider>
         </PostHogProvider>
       </body>
     </html>

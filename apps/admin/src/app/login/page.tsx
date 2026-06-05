@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
+import { useI18n } from '@/components/i18n-provider';
 import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
@@ -38,14 +40,14 @@ export default function LoginPage() {
           <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-grad-primary font-display text-xl font-bold text-primary-foreground shadow-glow">
             M
           </span>
-          <h1 className="font-display text-2xl font-semibold">Welcome to Munaxa</h1>
-          <p className="text-sm text-muted-foreground">Sign in to your school</p>
+          <h1 className="font-display text-2xl font-semibold">{t('auth.welcome')}</h1>
+          <p className="text-sm text-muted-foreground">{t('auth.signInToSchool')}</p>
         </div>
 
         <Card>
           <CardContent className="pt-6">
             <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
-              <Field label="School" htmlFor="tenant">
+              <Field label={t('auth.school')} htmlFor="tenant">
                 <Input
                   id="tenant"
                   value={tenantSlug}
@@ -55,7 +57,7 @@ export default function LoginPage() {
                 />
               </Field>
 
-              <Field label="Email" htmlFor="email">
+              <Field label={t('auth.email')} htmlFor="email">
                 <Input
                   id="email"
                   type="email"
@@ -66,7 +68,7 @@ export default function LoginPage() {
                 />
               </Field>
 
-              <Field label="Password" htmlFor="password">
+              <Field label={t('auth.password')} htmlFor="password">
                 <Input
                   id="password"
                   type="password"
@@ -84,7 +86,7 @@ export default function LoginPage() {
               ) : null}
 
               <Button type="submit" disabled={loading} className="w-full">
-                {loading ? 'Signing in…' : 'Sign in'}
+                {loading ? `${t('common.loading')}` : t('auth.signIn')}
               </Button>
             </form>
           </CardContent>

@@ -1,39 +1,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { DEFAULT_LOCALE, directionForLocale, type Locale } from '@/lib/i18n';
+import { useI18n } from './i18n-provider';
 import { Button } from './ui';
 
 const THEME_KEY = 'munaxa.theme';
-const LOCALE_KEY = 'munaxa.locale';
 type Theme = 'light' | 'dark';
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle('dark', theme === 'dark');
 }
 
-function applyLocale(locale: Locale) {
-  const el = document.documentElement;
-  el.lang = locale;
-  el.dir = directionForLocale(locale);
-}
-
 /**
- * Lightweight theme (light/dark) and locale (EN/AR → LTR/RTL) switcher for the shell top bar.
- * Persists to localStorage and applies to <html> so the whole app reflows. A full i18n message
- * catalog is a later step; this flips direction + theme today.
+ * Theme (light/dark) and locale (EN/AR → LTR/RTL) switcher for the shell top bar. Theme is local
+ * to this control; locale is driven through the i18n provider so the whole app re-translates and
+ * flips direction together. Both persist to localStorage.
  */
 export function ThemeLocaleToggle() {
+  const { locale, setLocale } = useI18n();
   const [theme, setTheme] = useState<Theme>('dark');
-  const [locale, setLocale] = useState<Locale>(DEFAULT_LOCALE);
 
   useEffect(() => {
-    const savedTheme = (localStorage.getItem(THEME_KEY) as Theme | null) ?? 'dark';
-    const savedLocale = (localStorage.getItem(LOCALE_KEY) as Locale | null) ?? DEFAULT_LOCALE;
-    setTheme(savedTheme);
-    setLocale(savedLocale);
-    applyTheme(savedTheme);
-    applyLocale(savedLocale);
+    const saved = (localStorage.getItem(THEME_KEY) as Theme | null) ?? 'dark';
+    setTheme(saved);
+    applyTheme(saved);
   }, []);
 
   function toggleTheme() {
@@ -43,16 +33,14 @@ export function ThemeLocaleToggle() {
     applyTheme(next);
   }
 
-  function toggleLocale() {
-    const next: Locale = locale === 'ar' ? 'en' : 'ar';
-    setLocale(next);
-    localStorage.setItem(LOCALE_KEY, next);
-    applyLocale(next);
-  }
-
   return (
     <div className="flex items-center gap-1.5">
-      <Button variant="ghost" size="sm" onClick={toggleLocale} aria-label="Toggle language">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setLocale(locale === 'ar' ? 'en' : 'ar')}
+        aria-label="Toggle language"
+      >
         {locale === 'ar' ? 'AR' : 'EN'}
       </Button>
       <Button variant="ghost" size="sm" onClick={toggleTheme} aria-label="Toggle theme">

@@ -7,25 +7,26 @@ import { logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache } from '@/lib/session';
 import { Button } from './ui/button';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
+import { useI18n } from './i18n-provider';
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
   /** Permission required to see this item; omitted = always visible. */
   perm?: string;
 }
 
 const NAV: NavItem[] = [
-  { href: '/', label: 'Dashboard' },
-  { href: '/structure/schools', label: 'School structure', perm: 'school:manage' },
-  { href: '/people/students', label: 'People', perm: 'student:manage' },
-  { href: '/timetable', label: 'Timetable', perm: 'timetable:read' },
-  { href: '/attendance', label: 'Attendance', perm: 'attendance:read' },
-  { href: '/academics', label: 'Academics', perm: 'grade:read' },
-  { href: '/finance', label: 'Finance', perm: 'finance:read' },
-  { href: '/communication', label: 'Communication', perm: 'announcement:manage' },
-  { href: '/reports', label: 'Reports', perm: 'report:read' },
-  { href: '/modules', label: 'Modules', perm: 'featureflag:manage' },
+  { href: '/', labelKey: 'nav.dashboard' },
+  { href: '/structure/schools', labelKey: 'nav.structure', perm: 'school:manage' },
+  { href: '/people/students', labelKey: 'nav.people', perm: 'student:manage' },
+  { href: '/timetable', labelKey: 'nav.timetable', perm: 'timetable:read' },
+  { href: '/attendance', labelKey: 'nav.attendance', perm: 'attendance:read' },
+  { href: '/academics', labelKey: 'nav.academics', perm: 'grade:read' },
+  { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
+  { href: '/communication', labelKey: 'nav.communication', perm: 'announcement:manage' },
+  { href: '/reports', labelKey: 'nav.reports', perm: 'report:read' },
+  { href: '/modules', labelKey: 'nav.modules', perm: 'featureflag:manage' },
 ];
 
 /**
@@ -41,6 +42,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useI18n();
   const held = new Set(principal.permissions);
   const items = NAV.filter(
     (i) => !i.perm || held.has(i.perm) || principal.permissions.length === 0,
@@ -76,7 +78,7 @@ export function AppShell({
                   : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
               )}
             >
-              {item.label}
+              {t(item.labelKey)}
             </Link>
           ))}
         </nav>
@@ -96,11 +98,11 @@ export function AppShell({
           </span>
           <div className="ms-auto flex items-center gap-3">
             <span className="hidden text-xs text-muted-foreground sm:inline">
-              {principal.isPlatform ? 'Platform' : 'School'} plane
+              {principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
             </span>
             <ThemeLocaleToggle />
             <Button variant="outline" size="sm" onClick={() => void onLogout()}>
-              Sign out
+              {t('auth.signOut')}
             </Button>
           </div>
         </header>

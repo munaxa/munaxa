@@ -2,37 +2,43 @@
 
 import Link from 'next/link';
 import { Shell, usePrincipal } from '@/components/shell';
+import { useI18n } from '@/components/i18n-provider';
 import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
 
-const QUICK_LINKS: Array<{ href: string; label: string; desc: string; perm?: string }> = [
+const QUICK_LINKS: Array<{ href: string; labelKey: string; desc: string; perm?: string }> = [
   {
     href: '/people/students',
-    label: 'People',
+    labelKey: 'nav.people',
     desc: 'Students, parents, staff',
     perm: 'student:manage',
   },
   {
     href: '/attendance',
-    label: 'Attendance',
+    labelKey: 'nav.attendance',
     desc: 'Daily marking & history',
     perm: 'attendance:read',
   },
   {
     href: '/academics',
-    label: 'Academics',
+    labelKey: 'nav.academics',
     desc: 'Homework, grades, behavior',
     perm: 'grade:read',
   },
-  { href: '/finance', label: 'Finance', desc: 'Charges, receipts, balances', perm: 'finance:read' },
+  {
+    href: '/finance',
+    labelKey: 'nav.finance',
+    desc: 'Charges, receipts, balances',
+    perm: 'finance:read',
+  },
   {
     href: '/reports',
-    label: 'Reports',
+    labelKey: 'nav.reports',
     desc: 'Attendance, academic, financial',
     perm: 'report:read',
   },
   {
     href: '/modules',
-    label: 'Modules',
+    labelKey: 'nav.modules',
     desc: 'Enable optional features',
     perm: 'featureflag:manage',
   },
@@ -48,16 +54,15 @@ export default function Home() {
 
 function Dashboard() {
   const principal = usePrincipal();
+  const { t } = useI18n();
   const held = new Set(principal.permissions);
   const links = QUICK_LINKS.filter((l) => !l.perm || held.has(l.perm));
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
       <header className="space-y-1">
-        <h1 className="font-display text-3xl font-semibold">Overview</h1>
-        <p className="text-sm text-muted-foreground">
-          Welcome back. Here&apos;s quick access to the areas you can manage.
-        </p>
+        <h1 className="font-display text-3xl font-semibold">{t('dashboard.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -65,7 +70,7 @@ function Dashboard() {
           <Link key={l.href} href={l.href as never} className="group">
             <Card className="h-full transition group-hover:border-primary/40 group-hover:shadow-glow">
               <CardHeader>
-                <CardTitle>{l.label}</CardTitle>
+                <CardTitle>{t(l.labelKey)}</CardTitle>
                 <CardDescription>{l.desc}</CardDescription>
               </CardHeader>
             </Card>
@@ -76,20 +81,23 @@ function Dashboard() {
       <section className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Your access</CardTitle>
-            <CardDescription>Roles and plane for this session</CardDescription>
+            <CardTitle>{t('dashboard.yourAccess')}</CardTitle>
+            <CardDescription>{t('dashboard.yourAccessDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <Row label="Roles" value={principal.roles.join(', ') || '—'} />
-            <Row label="Plane" value={principal.isPlatform ? 'Platform' : 'School'} />
-            <Row label="Tenant" value={principal.tenantId} mono />
+            <Row label={t('dashboard.roles')} value={principal.roles.join(', ') || '—'} />
+            <Row
+              label={t('dashboard.plane')}
+              value={principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
+            />
+            <Row label={t('dashboard.tenant')} value={principal.tenantId} mono />
           </CardContent>
         </Card>
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Permissions</CardTitle>
-            <CardDescription>{principal.permissions.length} granted</CardDescription>
+            <CardTitle>{t('dashboard.permissions')}</CardTitle>
+            <CardDescription>{principal.permissions.length}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-1.5">
             {principal.permissions.map((p) => (
