@@ -3,8 +3,51 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { cn } from '@munaxa/ui';
-import { getMe, logout, tokenStore, type Principal } from '@/lib/auth';
+import { getMe, tokenStore, type Principal } from '@/lib/auth';
+import { AppShell } from '@/components/app-shell';
+import {
+  Badge,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Spinner,
+} from '@/components/ui';
+
+const QUICK_LINKS: Array<{ href: string; label: string; desc: string; perm?: string }> = [
+  {
+    href: '/people/students',
+    label: 'People',
+    desc: 'Students, parents, staff',
+    perm: 'student:manage',
+  },
+  {
+    href: '/attendance',
+    label: 'Attendance',
+    desc: 'Daily marking & history',
+    perm: 'attendance:read',
+  },
+  {
+    href: '/academics',
+    label: 'Academics',
+    desc: 'Homework, grades, behavior',
+    perm: 'grade:read',
+  },
+  { href: '/finance', label: 'Finance', desc: 'Charges, receipts, balances', perm: 'finance:read' },
+  {
+    href: '/reports',
+    label: 'Reports',
+    desc: 'Attendance, academic, financial',
+    perm: 'report:read',
+  },
+  {
+    href: '/modules',
+    label: 'Modules',
+    desc: 'Enable optional features',
+    perm: 'featureflag:manage',
+  },
+];
 
 export default function Home() {
   const router = useRouter();
@@ -22,117 +65,77 @@ export default function Home() {
       .finally(() => setLoading(false));
   }, [router]);
 
-  async function onLogout() {
-    await logout();
-    router.replace('/login');
+  if (loading || !principal) {
+    return (
+      <main className="flex min-h-screen items-center justify-center gap-2 text-muted-foreground">
+        <Spinner /> Loading…
+      </main>
+    );
   }
 
-  if (loading) {
-    return <main className="flex min-h-screen items-center justify-center">Loading…</main>;
-  }
+  const held = new Set(principal.permissions);
+  const links = QUICK_LINKS.filter((l) => !l.perm || held.has(l.perm));
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 p-8">
-      <header className="flex items-center justify-between">
-        <span className="font-display text-2xl font-semibold">Munaxa</span>
-        <nav className="flex items-center gap-3">
-          <Link
-            href="/structure/schools"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            School structure
-          </Link>
-          <Link
-            href="/people/students"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Students
-          </Link>
-          <Link
-            href="/timetable"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Timetable
-          </Link>
-          <Link
-            href="/attendance"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Attendance
-          </Link>
-          <Link
-            href="/academics"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Academics
-          </Link>
-          <Link
-            href="/finance"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Finance
-          </Link>
-          <Link
-            href="/communication"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Communication
-          </Link>
-          <Link
-            href="/reports"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Reports
-          </Link>
-          <Link
-            href="/modules"
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Modules
-          </Link>
-          <button
-            onClick={() => void onLogout()}
-            className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground"
-          >
-            Sign out
-          </button>
-        </nav>
-      </header>
+    <AppShell principal={principal}>
+      <div className="mx-auto max-w-5xl space-y-8">
+        <header className="space-y-1">
+          <h1 className="font-display text-3xl font-semibold">Overview</h1>
+          <p className="text-sm text-muted-foreground">
+            Welcome back. Here&apos;s quick access to the areas you can manage.
+          </p>
+        </header>
 
-      <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-3 font-medium">Your access</h2>
-        <dl className="space-y-2 text-sm">
-          <Row label="Tenant" value={principal?.tenantId ?? '—'} />
-          <Row label="Roles" value={principal?.roles.join(', ') || '—'} />
-          <Row label="Plane" value={principal?.isPlatform ? 'Platform' : 'School'} />
-        </dl>
-      </section>
-
-      <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-3 font-medium">Permissions ({principal?.permissions.length ?? 0})</h2>
-        <div className="flex flex-wrap gap-1.5">
-          {principal?.permissions.map((p) => (
-            <span
-              key={p}
-              className={cn(
-                'rounded-md border border-border px-2 py-0.5 font-mono text-xs',
-                'text-muted-foreground',
-              )}
-            >
-              {p}
-            </span>
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {links.map((l) => (
+            <Link key={l.href} href={l.href as never} className="group">
+              <Card className="h-full transition group-hover:border-primary/40 group-hover:shadow-glow">
+                <CardHeader>
+                  <CardTitle>{l.label}</CardTitle>
+                  <CardDescription>{l.desc}</CardDescription>
+                </CardHeader>
+              </Card>
+            </Link>
           ))}
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-3">
+          <Card className="lg:col-span-1">
+            <CardHeader>
+              <CardTitle>Your access</CardTitle>
+              <CardDescription>Roles and plane for this session</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <Row label="Roles" value={principal.roles.join(', ') || '—'} />
+              <Row label="Plane" value={principal.isPlatform ? 'Platform' : 'School'} />
+              <Row label="Tenant" value={principal.tenantId} mono />
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Permissions</CardTitle>
+              <CardDescription>{principal.permissions.length} granted</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-1.5">
+              {principal.permissions.map((p) => (
+                <Badge key={p} tone="muted" className="font-mono">
+                  {p}
+                </Badge>
+              ))}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
+    </AppShell>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex justify-between gap-4">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right">{value}</dd>
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={mono ? 'truncate font-mono text-xs' : 'text-end'}>{value}</span>
     </div>
   );
 }

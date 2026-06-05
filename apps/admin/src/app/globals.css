@@ -8,10 +8,7 @@
  */
 @layer base {
   :root {
-    --font-display: 'Space Grotesk', system-ui, sans-serif;
-    --font-body: 'Inter', system-ui, sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-
+    /* --font-display / --font-body / --font-mono are provided by next/font (see layout.tsx). */
     --radius: 0.75rem;
 
     /* Light theme */
