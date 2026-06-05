@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { Shell } from '@/components/shell';
 import { attendanceApi, type AttendanceSummary } from '@/lib/attendance';
+import { EntityPicker } from '@/components/entity-picker';
+import { useToast } from '@/components/toast';
+import { loadSectionOptions, loadStudentOptions } from '@/lib/pickers';
 import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 const STATUSES: Array<'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'> = [
@@ -13,31 +16,28 @@ const STATUSES: Array<'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'> = [
 ];
 
 export default function AttendancePage() {
+  const toast = useToast();
   const [sectionId, setSectionId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [studentId, setStudentId] = useState('');
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   async function refresh() {
-    setError(null);
+    if (!sectionId) return;
     try {
       setSummary(await attendanceApi.summary(sectionId, date, 1));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load summary');
+      toast.error(e instanceof Error ? e.message : 'Failed to load summary');
     }
   }
 
   async function mark(status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED') {
-    setError(null);
-    setMessage(null);
     try {
       await attendanceApi.mark(sectionId, date, 1, [{ studentId, status }]);
-      setMessage(`Marked ${status}.`);
+      toast.success(`Marked ${status}`);
       await refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to mark');
+      toast.error(e instanceof Error ? e.message : 'Failed to mark');
     }
   }
 
@@ -47,11 +47,12 @@ export default function AttendancePage() {
         <h1 className="font-display text-2xl font-semibold">Attendance</h1>
 
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Section ID" className="flex-1">
-            <Input
-              placeholder="uuid"
+          <Field label="Section" className="flex-1">
+            <EntityPicker
               value={sectionId}
-              onChange={(e) => setSectionId(e.target.value)}
+              onChange={setSectionId}
+              load={loadSectionOptions}
+              placeholder="Search sections…"
             />
           </Field>
           <Field label="Date">
@@ -82,29 +83,29 @@ export default function AttendancePage() {
         <Card>
           <CardContent className="space-y-3 pt-6">
             <h2 className="font-display font-medium">Mark a student (period 1)</h2>
-            <Field label="Student ID">
-              <Input
-                placeholder="uuid"
+            <Field label="Student">
+              <EntityPicker
                 value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
+                onChange={setStudentId}
+                load={loadStudentOptions}
+                placeholder="Search students…"
               />
             </Field>
             <div className="flex flex-wrap gap-2">
               {STATUSES.map((s) => (
-                <Button key={s} variant="secondary" size="sm" onClick={() => void mark(s)}>
+                <Button
+                  key={s}
+                  variant="secondary"
+                  size="sm"
+                  disabled={!studentId || !sectionId}
+                  onClick={() => void mark(s)}
+                >
                   {s}
                 </Button>
               ))}
             </div>
           </CardContent>
         </Card>
-
-        {message ? <p className="text-sm text-aqua">{message}</p> : null}
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
       </div>
     </Shell>
   );

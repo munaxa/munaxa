@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Sora, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { PostHogProvider } from '@/lib/posthog';
+import { ToastProvider } from '@/components/toast';
 import { DEFAULT_LOCALE, directionForLocale } from '@/lib/i18n';
 
 // Munaxa Design System type pairing: Sora (display) / Inter (body) / JetBrains Mono.
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background bg-grad-hero font-body text-foreground antialiased">
-        <PostHogProvider>{children}</PostHogProvider>
+        <PostHogProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

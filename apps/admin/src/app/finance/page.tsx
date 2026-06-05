@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { Shell } from '@/components/shell';
 import { financeApi, type Statement } from '@/lib/finance';
+import { EntityPicker } from '@/components/entity-picker';
+import { useToast } from '@/components/toast';
+import { loadStudentOptions } from '@/lib/pickers';
 import {
   Badge,
   Button,
@@ -25,17 +28,17 @@ const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = 
 };
 
 export default function FinancePage() {
+  const toast = useToast();
   const [studentId, setStudentId] = useState('');
   const [statement, setStatement] = useState<Statement | null>(null);
   const [charge, setCharge] = useState({ description: '', amount: '' });
-  const [error, setError] = useState<string | null>(null);
 
   async function load() {
-    setError(null);
+    if (!studentId) return;
     try {
       setStatement(await financeApi.statement(studentId));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed');
+      toast.error(e instanceof Error ? e.message : 'Failed to load statement');
     }
   }
 
@@ -48,18 +51,20 @@ export default function FinancePage() {
         amount: Number(charge.amount),
       });
       setCharge({ description: '', amount: '' });
+      toast.success('Charge added');
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed');
+      toast.error(err instanceof Error ? err.message : 'Failed to add charge');
     }
   }
 
   async function act(id: string, action: 'verify' | 'reject') {
     try {
       await (action === 'verify' ? financeApi.verify(id) : financeApi.reject(id));
+      toast.success(`Transaction ${action === 'verify' ? 'verified' : 'rejected'}`);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed');
+      toast.error(err instanceof Error ? err.message : 'Failed');
     }
   }
 
@@ -69,21 +74,16 @@ export default function FinancePage() {
         <h1 className="font-display text-2xl font-semibold">Finance</h1>
 
         <div className="flex items-end gap-2">
-          <Field label="Student ID" className="flex-1">
-            <Input
-              placeholder="uuid"
+          <Field label="Student" className="flex-1">
+            <EntityPicker
               value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
+              onChange={setStudentId}
+              load={loadStudentOptions}
+              placeholder="Search students…"
             />
           </Field>
           <Button onClick={() => void load()}>Load statement</Button>
         </div>
-
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
 
         {statement ? (
           <>

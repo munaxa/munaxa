@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { academicsApi, type GradeReport, type Homework } from '@/lib/academics';
+import { EntityPicker } from '@/components/entity-picker';
+import { useToast } from '@/components/toast';
+import { loadSectionOptions, loadStudentOptions } from '@/lib/pickers';
 import {
   Badge,
   Button,
@@ -22,33 +25,29 @@ import {
 } from '@/components/ui';
 
 export default function AcademicsPage() {
-  const [error, setError] = useState<string | null>(null);
   return (
     <Shell>
       <div className="mx-auto max-w-3xl space-y-6">
         <h1 className="font-display text-2xl font-semibold">Academics</h1>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <HomeworkSection onError={setError} />
-        <GradesSection onError={setError} />
+        <HomeworkSection />
+        <GradesSection />
       </div>
     </Shell>
   );
 }
 
-function HomeworkSection({ onError }: { onError: (m: string) => void }) {
+function HomeworkSection() {
+  const toast = useToast();
   const [sectionId, setSectionId] = useState('');
   const [list, setList] = useState<Homework[]>([]);
   const [form, setForm] = useState({ subject: '', title: '', dueDate: '' });
 
   async function load() {
+    if (!sectionId) return;
     try {
       setList(await academicsApi.homeworkBySection(sectionId));
     } catch (e) {
-      onError(e instanceof Error ? e.message : 'Failed');
+      toast.error(e instanceof Error ? e.message : 'Failed to load homework');
     }
   }
   async function create(e: React.FormEvent) {
@@ -56,9 +55,10 @@ function HomeworkSection({ onError }: { onError: (m: string) => void }) {
     try {
       await academicsApi.createHomework({ sectionId, ...form });
       setForm({ subject: '', title: '', dueDate: '' });
+      toast.success('Homework added');
       await load();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Failed');
+      toast.error(err instanceof Error ? err.message : 'Failed to add homework');
     }
   }
 
@@ -69,11 +69,12 @@ function HomeworkSection({ onError }: { onError: (m: string) => void }) {
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-end gap-2">
-          <Field label="Section ID" className="flex-1">
-            <Input
+          <Field label="Section" className="flex-1">
+            <EntityPicker
               value={sectionId}
-              onChange={(e) => setSectionId(e.target.value)}
-              placeholder="uuid"
+              onChange={setSectionId}
+              load={loadSectionOptions}
+              placeholder="Search sections…"
             />
           </Field>
           <Button variant="secondary" onClick={() => void load()}>
@@ -103,7 +104,9 @@ function HomeworkSection({ onError }: { onError: (m: string) => void }) {
               required
             />
           </Field>
-          <Button type="submit">Add</Button>
+          <Button type="submit" disabled={!sectionId}>
+            Add
+          </Button>
         </form>
         <Table>
           <THead>
@@ -137,7 +140,8 @@ function HomeworkSection({ onError }: { onError: (m: string) => void }) {
   );
 }
 
-function GradesSection({ onError }: { onError: (m: string) => void }) {
+function GradesSection() {
+  const toast = useToast();
   const [csv, setCsv] = useState('studentId,subject,assessment,score,maxScore\n');
   const [studentId, setStudentId] = useState('');
   const [report, setReport] = useState<GradeReport | null>(null);
@@ -146,16 +150,17 @@ function GradesSection({ onError }: { onError: (m: string) => void }) {
     e.preventDefault();
     try {
       const r = await academicsApi.importGrades(csv);
-      onError(`Imported ${r.imported}; ${r.failed.length} failed.`);
+      toast.success(`Imported ${r.imported}; ${r.failed.length} failed`);
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Failed');
+      toast.error(err instanceof Error ? err.message : 'Import failed');
     }
   }
   async function loadReport() {
+    if (!studentId) return;
     try {
       setReport(await academicsApi.gradeReport(studentId));
     } catch (e) {
-      onError(e instanceof Error ? e.message : 'Failed');
+      toast.error(e instanceof Error ? e.message : 'Failed to load report');
     }
   }
 
@@ -181,11 +186,12 @@ function GradesSection({ onError }: { onError: (m: string) => void }) {
           </Button>
         </form>
         <div className="flex items-end gap-2">
-          <Field label="Student ID" className="flex-1">
-            <Input
+          <Field label="Student" className="flex-1">
+            <EntityPicker
               value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              placeholder="uuid"
+              onChange={setStudentId}
+              load={loadStudentOptions}
+              placeholder="Search students…"
             />
           </Field>
           <Button onClick={() => void loadReport()}>Report</Button>

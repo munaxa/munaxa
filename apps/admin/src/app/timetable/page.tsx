@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { timetableApi, type ResolvedDay } from '@/lib/timetable';
+import { EntityPicker } from '@/components/entity-picker';
+import { useToast } from '@/components/toast';
+import { loadSectionOptions } from '@/lib/pickers';
 import { Badge, Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -14,18 +17,18 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function TimetablePage() {
+  const toast = useToast();
   const [sectionId, setSectionId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [day, setDay] = useState<ResolvedDay | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   async function load(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    if (!sectionId) return;
     try {
       setDay(await timetableApi.day(sectionId, date));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resolve timetable');
+      toast.error(err instanceof Error ? err.message : 'Failed to resolve timetable');
     }
   }
 
@@ -35,12 +38,12 @@ export default function TimetablePage() {
         <h1 className="font-display text-2xl font-semibold">Timetable</h1>
 
         <form onSubmit={(e) => void load(e)} className="flex flex-wrap items-end gap-2">
-          <Field label="Section ID" className="flex-1">
-            <Input
-              placeholder="uuid"
+          <Field label="Section" className="flex-1">
+            <EntityPicker
               value={sectionId}
-              onChange={(e) => setSectionId(e.target.value)}
-              required
+              onChange={setSectionId}
+              load={loadSectionOptions}
+              placeholder="Search sections…"
             />
           </Field>
           <Field label="Date">
@@ -48,12 +51,6 @@ export default function TimetablePage() {
           </Field>
           <Button type="submit">Resolve day</Button>
         </form>
-
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
 
         {day ? (
           <section className="space-y-3">
