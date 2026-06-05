@@ -60,6 +60,24 @@ pnpm --filter @munaxa/api migrate:tenants
 both steps on every release; treat a partial failure as a failed deploy (one school's DB lagging
 the schema).
 
+## Super-admin wizard
+
+The promotion is driven by a platform-plane wizard (Admin Portal → **Tenant databases**, gated by
+`platform:tenant:manage`) backed by a tracked state machine on the `TenantDatabase` control-plane
+table:
+
+```
+REQUESTED → PROVISIONED → MIGRATED → DATA_COPIED → VERIFIED → ACTIVE   (or → FAILED / ABORTED)
+```
+
+Each step is idempotent and recorded with a checklist + guidance. The **safe** steps are automatic;
+the **destructive infra** steps (create the database, copy the data) are explicit operator‑confirmed
+gates — the wizard tracks them and shows the runbook, it does not silently move data. API:
+`POST /platform/tenant-databases` (start), `…/:tenantId/advance` (step), `GET …` (status/list). The
+connection URL/secret is **never** stored in the row — only a reference; the URL lives in the secrets
+manager, and the final `ACTIVE` step reminds the operator to add it to `TENANT_DATABASE_OVERRIDES`
+and redeploy so routing takes effect.
+
 ## Promoting a school to its own database (runbook)
 
 1. **Provision** the database: create it (own server / region / on-prem), then point the migration

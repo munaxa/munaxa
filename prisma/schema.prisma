@@ -218,6 +218,18 @@ enum ResourceType {
   DOCUMENT
 }
 
+// Tenant database promotion (pool → dedicated/silo) wizard state.
+enum TenantDbStatus {
+  REQUESTED
+  PROVISIONED
+  MIGRATED
+  DATA_COPIED
+  VERIFIED
+  ACTIVE
+  FAILED
+  ABORTED
+}
+
 // Gamification: how an achievement is earned. STREAK/TOTAL are auto-awarded from attendance;
 // ACADEMIC/GENERAL are awarded manually by staff.
 enum AchievementCategory {
@@ -329,6 +341,7 @@ model Tenant {
   inventoryTxns       InventoryTransaction[]
   medicalRecords      StudentMedicalRecord[]
   clinicVisits        ClinicVisit[]
+  tenantDatabase      TenantDatabase?
 
   @@index([status])
 }
@@ -1600,4 +1613,29 @@ model ClinicVisit {
 
   @@index([tenantId])
   @@index([tenantId, studentId])
+}
+
+// ----------------------------------------------------------------------------
+// Control plane: tenant database promotion (pool → dedicated/silo) wizard
+// ----------------------------------------------------------------------------
+// Tracks the super-admin-driven promotion of a school onto its own database. The actual
+// connection URL/secret lives in the secrets manager (TENANT_DATABASE_OVERRIDES), never here;
+// this row records intent, target reference, wizard state, and audit. Lives in the shared
+// control-plane database; managed on the platform plane.
+model TenantDatabase {
+  id            String         @id @default(uuid()) @db.Uuid
+  tenantId      String         @unique @db.Uuid
+  status        TenantDbStatus @default(REQUESTED)
+  connectionRef String? // reference/key for the target DB secret (NOT the URL itself)
+  hostLabel     String? // human label, e.g. "school-a / on-prem Amman"
+  note          String?
+  lastError     String?
+  requestedById String?        @db.Uuid
+  activatedAt   DateTime?      @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([status])
 }
