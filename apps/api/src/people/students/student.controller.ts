@@ -35,8 +35,18 @@ export class StudentController {
   @RequirePermissions(Permission.STUDENT_MANAGE)
   @ApiQuery({ name: 'sectionId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: StudentStatus })
-  list(@Query('sectionId') sectionId?: string, @Query('status') status?: StudentStatus) {
-    return this.service.list({ sectionId, status });
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description:
+      'Matches across name parts (given/father/grandfather/family, EN+AR), national ID, MoE no.',
+  })
+  list(
+    @Query('sectionId') sectionId?: string,
+    @Query('status') status?: StudentStatus,
+    @Query('search') search?: string,
+  ) {
+    return this.service.list({ sectionId, status, search });
   }
 
   @Get(':id')
