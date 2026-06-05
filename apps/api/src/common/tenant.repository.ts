@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { TenantConnectionManager } from '../prisma/tenant-connection.service';
 import { withTenant, type TxClient } from '../prisma/tenant.helpers';
 import { TenantContextStore } from '../prisma/tenant-context';
 import { requireTenantId } from './tenant.util';
@@ -10,15 +11,22 @@ import { requireTenantId } from './tenant.util';
  * `withTenant` transaction so PostgreSQL RLS physically scopes it to the active tenant
  * (resolved from the request-scoped TenantContext). The explicit `tenantId` is also
  * available to stamp on writes.
+ *
+ * The client is resolved per tenant via {@link TenantConnectionManager}: the shared database by
+ * default, or the tenant's own database when it has been siloed. RLS applies identically either
+ * way, so isolation is never weaker than the shared path.
  */
 @Injectable()
 export abstract class TenantRepository {
-  constructor(protected readonly prisma: PrismaService) {}
+  constructor(
+    protected readonly prisma: PrismaService,
+    protected readonly connections: TenantConnectionManager,
+  ) {}
 
-  /** Run a unit of work scoped to the current tenant. */
+  /** Run a unit of work scoped to the current tenant, against that tenant's database. */
   protected run<T>(fn: (tx: TxClient, tenantId: string) => Promise<T>): Promise<T> {
     const tenantId = requireTenantId();
-    return withTenant(this.prisma, tenantId, (tx) => fn(tx, tenantId));
+    return withTenant(this.connections.clientFor(tenantId), tenantId, (tx) => fn(tx, tenantId));
   }
 
   /**

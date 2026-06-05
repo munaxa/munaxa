@@ -12,6 +12,9 @@ export const envSchema = z.object({
 
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url().optional(),
+  // Hybrid tenant-DB routing: JSON `{ "<tenantId>": "<connection url>" }` for siloed schools
+  // (own/separate/on-prem database). Unset = every tenant shares the default DB. From secrets.
+  TENANT_DATABASE_OVERRIDES: z.string().optional(),
 
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
