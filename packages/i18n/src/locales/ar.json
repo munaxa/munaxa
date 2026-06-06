@@ -35,7 +35,8 @@
     "finance": "المالية",
     "communication": "التواصل",
     "reports": "التقارير",
-    "modules": "الوحدات"
+    "modules": "الوحدات",
+    "tenantDatabases": "قواعد بيانات المدارس"
   },
   "dashboard": {
     "title": "نظرة عامة",

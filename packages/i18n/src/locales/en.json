@@ -35,7 +35,8 @@
     "finance": "Finance",
     "communication": "Communication",
     "reports": "Reports",
-    "modules": "Modules"
+    "modules": "Modules",
+    "tenantDatabases": "Tenant databases"
   },
   "dashboard": {
     "title": "Overview",
