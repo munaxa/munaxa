@@ -27,6 +27,7 @@ const NAV: NavItem[] = [
   { href: '/communication', labelKey: 'nav.communication', perm: 'announcement:manage' },
   { href: '/reports', labelKey: 'nav.reports', perm: 'report:read' },
   { href: '/modules', labelKey: 'nav.modules', perm: 'featureflag:manage' },
+  { href: '/settings/integrations/jofotara', labelKey: 'nav.integrations', perm: 'finance:manage' },
   { href: '/platform/databases', labelKey: 'nav.tenantDatabases', perm: 'platform:tenant:manage' },
 ];
 

@@ -36,7 +36,8 @@
     "communication": "التواصل",
     "reports": "التقارير",
     "modules": "الوحدات",
-    "tenantDatabases": "قواعد بيانات المدارس"
+    "tenantDatabases": "قواعد بيانات المدارس",
+    "integrations": "التكاملات"
   },
   "dashboard": {
     "title": "نظرة عامة",

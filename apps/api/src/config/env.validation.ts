@@ -15,6 +15,10 @@ export const envSchema = z.object({
   // Hybrid tenant-DB routing: JSON `{ "<tenantId>": "<connection url>" }` for siloed schools
   // (own/separate/on-prem database). Unset = every tenant shares the default DB. From secrets.
   TENANT_DATABASE_OVERRIDES: z.string().optional(),
+  /** E-invoicing secrets master key (32 bytes, base64) — required only once a tenant enables it. */
+  EINVOICE_MASTER_KEY: z.string().optional(),
+  /** Set to '0' to disable the e-invoicing submission worker (tests). */
+  EINVOICE_WORKER: z.string().optional(),
 
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 

@@ -342,6 +342,11 @@ model Tenant {
   medicalRecords      StudentMedicalRecord[]
   clinicVisits        ClinicVisit[]
   tenantDatabase      TenantDatabase?
+  einvoiceSettings    EInvoiceSettings?
+  einvoiceCredentials EInvoiceCredential[]
+  einvoiceCounter     EInvoiceCounter?
+  einvoiceDocuments   EInvoiceDocument[]
+  einvoiceLogs        EInvoiceLog[]
 
   @@index([status])
 }
@@ -546,6 +551,7 @@ model Student {
   bookLoans      BookLoan[]
   medicalRecord  StudentMedicalRecord?
   clinicVisits   ClinicVisit[]
+  einvoiceDocuments EInvoiceDocument[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -1102,6 +1108,7 @@ model Charge {
   student      Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
   feePlan      FeePlan?      @relation(fields: [feePlanId], references: [id], onDelete: SetNull)
   transactions Transaction[]
+  einvoiceDocuments EInvoiceDocument[]
 
   @@index([tenantId, studentId])
   @@index([tenantId, status])
@@ -1129,6 +1136,7 @@ model Transaction {
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   charge  Charge? @relation(fields: [chargeId], references: [id], onDelete: SetNull)
+  einvoiceDocuments EInvoiceDocument[]
 
   @@index([tenantId, studentId])
   @@index([tenantId, status])
@@ -1638,4 +1646,189 @@ model TenantDatabase {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// E-Invoicing framework (Phase 16) — provider-agnostic engine; JoFotara = provider #1.
+// Per-tenant configuration lives in the DB (zero hardcoding); secrets encrypted at rest
+// (AES-256-GCM, see CryptoService). All rows are tenant-scoped + RLS like every module.
+// ----------------------------------------------------------------------------
+
+enum EInvoiceEnvironment {
+  SIMULATION // no real API calls — full pipeline with a locally faked PASS (JoFotara has no public sandbox)
+  PRODUCTION
+}
+
+enum EInvoiceTaxpayerType {
+  INCOME // not VAT-registered — invoices carry NO tax elements at all
+  SALES // general sales tax (16% standard; reduced rates allowed)
+  SPECIAL // special fixed tax + general tax per line
+}
+
+enum EInvoiceDocType {
+  INVOICE // UBL InvoiceTypeCode 388
+  CREDIT_NOTE // 381 — return; must reference the original document + reason
+}
+
+enum EInvoicePaymentKind {
+  CASH // نقدي
+  RECEIVABLE // ذمم — buyer info mandatory
+}
+
+enum EInvoiceDocStatus {
+  DRAFT
+  QUEUED
+  SUBMITTING
+  ACCEPTED
+  REJECTED // provider validation failed — no auto-retry; fix + requeue
+  DEAD_LETTER // transient retries exhausted — manual requeue
+  CANCELLED
+}
+
+/// Per-tenant e-invoicing configuration + wizard state. One row per tenant.
+model EInvoiceSettings {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @unique @db.Uuid
+  provider    String               @default("jofotara") // EInvoiceProvider key
+  enabled     Boolean              @default(false) // hard kill-switch (with the feature flag)
+  environment EInvoiceEnvironment  @default(SIMULATION)
+  endpointUrl String? // override; defaults to the provider's production URL
+  // Step 2 — seller (school) legal info
+  legalNameEn String?
+  legalNameAr String?
+  taxNumber   String? // TIN — digits only
+  vatNumber   String?
+  commercialRegistration String?
+  addressLine String?
+  city        String?
+  countryCode String               @default("JO")
+  phone       String?
+  email       String?
+  // Step 4/5 — mapping + tax config (JSON mapping engine; schema documented in the module)
+  taxpayerType EInvoiceTaxpayerType @default(INCOME)
+  vatEnabled   Boolean             @default(false)
+  vatPercent   Decimal?            @db.Decimal(5, 2) // e.g. 16.00
+  defaultTaxCategory String        @default("Z") // JoFotara: Z=exempt, O=zero-rated, S=standard
+  defaultPaymentKind EInvoicePaymentKind @default(RECEIVABLE)
+  fieldMappings Json? // fee-category → item naming / overrides
+  templateConfig Json? // Step 6 — PDF/print template options (logo, header, footer, AR/EN/bilingual)
+  // Wizard progress ("Save draft" / resume)
+  completedSteps Int               @default(0) // highest completed step (0..7)
+  lastTestAt     DateTime?         @db.Timestamptz(6)
+  lastTestOk     Boolean?
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  credentials EInvoiceCredential[]
+
+  @@index([tenantId])
+}
+
+/// Device credentials (Step 3). Secret encrypted at rest (AES-256-GCM, "v1:iv:tag:data");
+/// never returned to clients — masked hint only.
+model EInvoiceCredential {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @db.Uuid
+  settingsId      String   @db.Uuid
+  clientId        String
+  secretEncrypted String // AES-256-GCM ciphertext — NEVER the plaintext
+  secretHint      String // last 4 chars for display
+  incomeSourceSequence String // تسلسل مصدر الدخل — the registered activity number
+  deviceLabel     String?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  settings EInvoiceSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([settingsId])
+}
+
+/// Gapless per-tenant ICV allocation (row-locked in the issuing transaction).
+model EInvoiceCounter {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+  nextIcv  BigInt @default(1)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// An e-invoice document — the engine's own record; finance rows are never mutated.
+model EInvoiceDocument {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @db.Uuid
+  docType     EInvoiceDocType     @default(INVOICE)
+  paymentKind EInvoicePaymentKind @default(RECEIVABLE)
+  status      EInvoiceDocStatus   @default(DRAFT)
+  // Identity & numbering
+  invoiceNumber String // merchant's own number (sanitised: no '/')
+  uuid          String  @unique @db.Uuid // provider-side duplication key — stable across retries
+  icv           BigInt? // allocated when queued; gapless per tenant
+  // Finance source (one of)
+  chargeId      String? @db.Uuid
+  transactionId String? @db.Uuid
+  studentId     String? @db.Uuid
+  // Buyer snapshot (frozen at issue time — guardian or payer)
+  buyerName     String?
+  buyerIdScheme String? // TN | NIN | PN
+  buyerIdValue  String?
+  buyerPhone    String?
+  buyerCity     String?
+  // Credit notes
+  originalDocumentId String? @db.Uuid
+  creditReason       String?
+  // Money snapshot (JOD, 3dp)
+  currency        String   @default("JOD")
+  taxExclusive    Decimal  @db.Decimal(12, 3)
+  taxAmount       Decimal  @default(0) @db.Decimal(12, 3)
+  discountTotal   Decimal  @default(0) @db.Decimal(12, 3)
+  payableAmount   Decimal  @db.Decimal(12, 3)
+  lines           Json // [{ name, quantity, unitPrice, discount, taxCategory, taxPercent, taxAmount, lineTotal }]
+  // Submission artefacts (ISTD 4-year retention)
+  submittedXml    String? // exact UBL XML submitted (base64-decoded form)
+  signedInvoice   String? // provider-returned signed invoice (base64)
+  qrCode          String? // provider-returned QR string — rendered on the printed invoice
+  providerUuid    String? // provider-side uuid echo
+  validationResults Json? // full PASS/ERROR payload from the provider
+  lastError       String?
+  attempts        Int      @default(0)
+  nextAttemptAt   DateTime? @db.Timestamptz(6)
+  issuedAt        DateTime? @db.Timestamptz(6)
+  acceptedAt      DateTime? @db.Timestamptz(6)
+  createdById     String?   @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  charge      Charge?           @relation(fields: [chargeId], references: [id], onDelete: SetNull)
+  transaction Transaction?      @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  student     Student?          @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  original    EInvoiceDocument? @relation("CreditNoteOriginal", fields: [originalDocumentId], references: [id], onDelete: SetNull)
+  creditNotes EInvoiceDocument[] @relation("CreditNoteOriginal")
+  logs        EInvoiceLog[]
+
+  @@unique([tenantId, invoiceNumber, docType])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([status, nextAttemptAt]) // worker claim scan
+}
+
+/// Immutable audit trail of every transition & submission (who/when/what).
+model EInvoiceLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  documentId String   @db.Uuid
+  event      String // CREATED | QUEUED | SUBMITTED | ACCEPTED | REJECTED | RETRY_SCHEDULED | DEAD_LETTER | REQUEUED | CANCELLED | TEST_CONNECTION
+  detail     Json?
+  actorUserId String? @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document EInvoiceDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId])
+  @@index([tenantId, createdAt])
 }
