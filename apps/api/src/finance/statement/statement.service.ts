@@ -1,47 +1,68 @@
 import { Injectable } from '@nestjs/common';
-import type { Charge, Transaction } from '@prisma/client';
+import type { Charge, FeeAdjustment, Refund, Transaction } from '@prisma/client';
 import { ChargeRepository } from '../charges/charge.repository';
 import { TransactionRepository } from '../transactions/transaction.repository';
+import { BillingRepository, type ChargeBalance } from '../ledger/billing.repository';
 
 export interface StudentStatement {
   studentId: string;
   charges: Charge[];
   transactions: Transaction[];
+  adjustments: FeeAdjustment[];
+  refunds: Refund[];
+  /** Per-charge gross/discount/net/allocated/balance. */
+  chargeBalances: ChargeBalance[];
   totals: {
+    // Back-compat fields (unchanged formula when there are no deductions/refunds):
     charged: string;
     paid: string;
     outstanding: string;
+    // New ledger fields:
+    discounts: string; // deductions tied to charges
+    credits: string; // account-level credit memos
+    refunded: string; // verified refunds
+    creditBalance: string; // unapplied credit available to refund
   };
 }
 
 /**
- * Computes the outstanding balance for a student:
- *   Outstanding Balance = SUM(Charges) − SUM(verified Transactions)
- * (Charges that are CANCELLED/WAIVED are excluded from the sum.)
+ * Student financial statement. The headline numbers stay sum-based for back-compat —
+ *   outstanding = (Σ charges − Σ charge-discounts − Σ account-credits) − Σ verified payments
+ * — while the ledger detail (per-charge balances, deductions, refunds, credit) comes from the
+ * billing repository.
  */
 @Injectable()
 export class StatementService {
   constructor(
     private readonly charges: ChargeRepository,
     private readonly transactions: TransactionRepository,
+    private readonly billing: BillingRepository,
   ) {}
 
   async forStudent(studentId: string): Promise<StudentStatement> {
-    const [chargeList, txList, charged, paid] = await Promise.all([
+    const [chargeList, txList, adjustments, refunds, chargeBalances, summary] = await Promise.all([
       this.charges.findByStudent(studentId),
       this.transactions.findByStudent(studentId),
-      this.charges.sumForStudent(studentId),
-      this.transactions.sumVerifiedForStudent(studentId),
+      this.billing.listAdjustments(studentId),
+      this.billing.listRefunds(studentId),
+      this.billing.chargeBalances(studentId),
+      this.billing.accountSummary(studentId),
     ]);
-    const outstanding = charged.minus(paid);
     return {
       studentId,
       charges: chargeList,
       transactions: txList,
+      adjustments,
+      refunds,
+      chargeBalances,
       totals: {
-        charged: charged.toFixed(3),
-        paid: paid.toFixed(3),
-        outstanding: outstanding.toFixed(3),
+        charged: summary.charged,
+        paid: summary.paid,
+        outstanding: summary.outstanding,
+        discounts: summary.chargeDiscounts,
+        credits: summary.accountCredits,
+        refunded: summary.refunded,
+        creditBalance: summary.creditBalance,
       },
     };
   }

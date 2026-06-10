@@ -8,6 +8,7 @@ import type { Transaction } from '@prisma/client';
 import { TransactionRepository } from './transaction.repository';
 import { StorageService, type PresignedUpload } from '../../common/storage.service';
 import { requireTenantId } from '../../common/tenant.util';
+import { LedgerService } from '../ledger/ledger.service';
 import type {
   CreateTransactionDto,
   PresignReceiptDto,
@@ -19,6 +20,7 @@ export class TransactionService {
   constructor(
     private readonly repo: TransactionRepository,
     private readonly storage: StorageService,
+    private readonly ledger: LedgerService,
   ) {}
 
   presignReceipt(dto: PresignReceiptDto): Promise<PresignedUpload> {
@@ -48,7 +50,13 @@ export class TransactionService {
 
   async verify(id: string): Promise<Transaction> {
     const txn = await this.requirePending(id);
-    return this.repo.setStatus(txn.id, 'VERIFIED');
+    const verified = await this.repo.setStatus(txn.id, 'VERIFIED');
+    // If the payment targeted a specific charge, apply it there automatically so the
+    // per-charge status (PARTIAL/PAID) reflects reality. Unallocated payments become credit.
+    if (verified.chargeId) {
+      await this.ledger.autoAllocateOnVerify(verified.id, verified.chargeId);
+    }
+    return verified;
   }
 
   async reject(id: string, dto: RejectTransactionDto): Promise<Transaction> {
