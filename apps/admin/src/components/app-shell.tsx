@@ -31,6 +31,7 @@ const NAV: NavItem[] = [
   { href: '/modules', labelKey: 'nav.modules', perm: 'featureflag:manage' },
   { href: '/settings/integrations/jofotara', labelKey: 'nav.integrations', perm: 'finance:manage' },
   { href: '/settings/attendance', labelKey: 'nav.attendanceSettings', perm: 'attendance:read' },
+  { href: '/settings/users', labelKey: 'nav.users', perm: 'user:manage' },
   { href: '/settings/roles', labelKey: 'nav.roles', perm: 'role:manage' },
   { href: '/platform/databases', labelKey: 'nav.tenantDatabases', perm: 'platform:tenant:manage' },
 ];

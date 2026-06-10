@@ -41,7 +41,8 @@
     "attendanceSettings": "Attendance settings",
     "cards": "Student cards",
     "fleet": "Fleet & transport",
-    "roles": "Roles & permissions"
+    "roles": "Roles & permissions",
+    "users": "Users & staff"
   },
   "dashboard": {
     "title": "Overview",
