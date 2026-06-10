@@ -1,9 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { Shell, usePrincipal } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
-import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
+import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
 
 const QUICK_LINKS: Array<{ href: string; labelKey: string; desc: string; perm?: string }> = [
   {
@@ -19,17 +21,12 @@ const QUICK_LINKS: Array<{ href: string; labelKey: string; desc: string; perm?: 
     perm: 'attendance:read',
   },
   {
-    href: '/academics',
-    labelKey: 'nav.academics',
-    desc: 'Homework, grades, behavior',
-    perm: 'grade:read',
-  },
-  {
     href: '/finance',
     labelKey: 'nav.finance',
     desc: 'Charges, receipts, balances',
     perm: 'finance:read',
   },
+  { href: '/people/cards', labelKey: 'nav.cards', desc: 'NFC / RFID cards', perm: 'card:read' },
   {
     href: '/reports',
     labelKey: 'nav.reports',
@@ -57,6 +54,26 @@ function Dashboard() {
   const { t } = useI18n();
   const held = new Set(principal.permissions);
   const links = QUICK_LINKS.filter((l) => !l.perm || held.has(l.perm));
+  const canSeeKpis = held.has('report:read') || held.has('*');
+
+  const [data, setData] = useState<DashboardOverview | null>(null);
+  const [error, setError] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setData(await dashboardApi.overview());
+    } catch {
+      setError(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (canSeeKpis) void load();
+  }, [canSeeKpis, load]);
+
+  const att = data?.attendanceToday;
+  const rate =
+    att && att.total > 0 ? Math.round(((att.present + att.late) / att.total) * 100) : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -64,6 +81,80 @@ function Dashboard() {
         <h1 className="font-display text-3xl font-semibold">{t('dashboard.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
       </header>
+
+      {canSeeKpis && data ? (
+        <>
+          <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Kpi label="Students" value={String(data.students)} />
+            <Kpi label="Staff" value={String(data.staff)} />
+            <Kpi label="Attendance today" value={rate !== null ? `${rate}%` : '—'} tone="aqua" />
+            <Kpi
+              label="Outstanding"
+              value={Number(data.finance.outstanding).toFixed(3)}
+              tone="coral"
+            />
+            <Kpi
+              label="Collected (mo)"
+              value={Number(data.finance.collectedThisMonth).toFixed(3)}
+              tone="aqua"
+            />
+            <Kpi label="e-Invoice pending" value={String(data.einvoice.pending)} />
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-1">
+              <CardHeader>
+                <CardTitle>Attendance today</CardTitle>
+                <CardDescription>{att?.total ?? 0} marked</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {att ? (
+                  <>
+                    <Bar label="Present" n={att.present} total={att.total} className="bg-aqua" />
+                    <Bar label="Late" n={att.late} total={att.total} className="bg-coral" />
+                    <Bar
+                      label="Absent"
+                      n={att.absent}
+                      total={att.total}
+                      className="bg-destructive"
+                    />
+                    <Bar label="Excused" n={att.excused} total={att.total} className="bg-primary" />
+                  </>
+                ) : null}
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Recent activity</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5 text-sm">
+                {data.recentActivity.length === 0 ? (
+                  <p className="text-muted-foreground">No recent activity.</p>
+                ) : (
+                  data.recentActivity.map((a, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between gap-3 border-b border-border pb-1.5 last:border-0"
+                    >
+                      <span>
+                        <span className="font-medium">{a.action}</span>{' '}
+                        <span className="text-muted-foreground">· {a.entityType}</span>
+                      </span>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {new Date(a.at).toLocaleString()}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </>
+      ) : null}
+      {canSeeKpis && error && !data ? (
+        <p className="text-sm text-muted-foreground">Overview is unavailable right now.</p>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {links.map((l) => (
@@ -77,46 +168,45 @@ function Dashboard() {
           </Link>
         ))}
       </section>
-
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>{t('dashboard.yourAccess')}</CardTitle>
-            <CardDescription>{t('dashboard.yourAccessDesc')}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Row label={t('dashboard.roles')} value={principal.roles.join(', ') || '—'} />
-            <Row
-              label={t('dashboard.plane')}
-              value={principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
-            />
-            <Row label={t('dashboard.tenant')} value={principal.tenantId} mono />
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>{t('dashboard.permissions')}</CardTitle>
-            <CardDescription>{principal.permissions.length}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-1.5">
-            {principal.permissions.map((p) => (
-              <Badge key={p} tone="muted" className="font-mono">
-                {p}
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
-      </section>
     </div>
   );
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Kpi({ label, value, tone }: { label: string; value: string; tone?: 'aqua' | 'coral' }) {
+  const cls = tone === 'aqua' ? 'text-aqua' : tone === 'coral' ? 'text-coral' : '';
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={mono ? 'truncate font-mono text-xs' : 'text-end'}>{value}</span>
+    <Card>
+      <CardContent className="p-4">
+        <div className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+        <div className={`font-display text-2xl font-semibold ${cls}`}>{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Bar({
+  label,
+  n,
+  total,
+  className,
+}: {
+  label: string;
+  n: number;
+  total: number;
+  className: string;
+}) {
+  const pct = total > 0 ? Math.round((n / total) * 100) : 0;
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="text-muted-foreground">{label}</span>
+        <span className="font-mono">{n}</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-secondary">
+        <div className={`h-full rounded-full ${className}`} style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }

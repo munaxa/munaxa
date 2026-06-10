@@ -20,6 +20,7 @@ import { ReportingModule } from './reporting/reporting.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { EInvoicingModule } from './einvoicing/einvoicing.module';
 import { CardsModule } from './cards/cards.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { PresenceModule } from './presence/presence.module';
 import { AdvancedModule } from './advanced/advanced.module';
 import { PlatformModule } from './platform/platform.module';
@@ -63,6 +64,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     AdvancedModule,
     EInvoicingModule,
     CardsModule,
+    DashboardModule,
     PresenceModule,
     PlatformModule,
   ],
