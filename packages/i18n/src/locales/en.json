@@ -36,7 +36,8 @@
     "communication": "Communication",
     "reports": "Reports",
     "modules": "Modules",
-    "tenantDatabases": "Tenant databases"
+    "tenantDatabases": "Tenant databases",
+    "integrations": "Integrations"
   },
   "dashboard": {
     "title": "Overview",

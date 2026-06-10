@@ -11,14 +11,30 @@ import { TransactionService } from './transactions/transaction.service';
 import { TransactionRepository } from './transactions/transaction.repository';
 import { StatementController } from './statement/statement.controller';
 import { StatementService } from './statement/statement.service';
+import { LedgerController } from './ledger/ledger.controller';
+import { LedgerService } from './ledger/ledger.service';
+import { BillingRepository } from './ledger/billing.repository';
+import { CollectionsController } from './collections/collections.controller';
+import { CollectionsService } from './collections/collections.service';
+import { CollectionsRepository } from './collections/collections.repository';
+import { SmsService } from './collections/sms.service';
 
 /**
  * Finance: fee plans, charges, transactions (CliQ/e-wallet receipt uploads → verify/reject),
- * and the student statement with the outstanding-balance formula. There is no online payment
- * gateway. Every financial state change writes an AuditLog in the same transaction.
+ * the student statement, and the **billing ledger** (Phase 17): structured deductions
+ * (scholarships/discounts/waivers/credit memos), payment→charge allocation with status
+ * recompute, and refunds of available credit. There is no online payment gateway. Every
+ * financial state change writes an AuditLog in the same transaction.
  */
 @Module({
-  controllers: [FeePlanController, ChargeController, TransactionController, StatementController],
+  controllers: [
+    FeePlanController,
+    ChargeController,
+    TransactionController,
+    StatementController,
+    LedgerController,
+    CollectionsController,
+  ],
   providers: [
     StorageService,
     FeePlanService,
@@ -28,6 +44,11 @@ import { StatementService } from './statement/statement.service';
     TransactionService,
     TransactionRepository,
     StatementService,
+    LedgerService,
+    BillingRepository,
+    CollectionsService,
+    CollectionsRepository,
+    SmsService,
   ],
 })
 export class FinanceModule {}

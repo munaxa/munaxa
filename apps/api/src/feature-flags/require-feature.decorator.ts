@@ -8,6 +8,7 @@ export const FeatureFlagKey = {
   LIBRARY_MANAGEMENT: 'library_management',
   INVENTORY_MANAGEMENT: 'inventory_management',
   SCHOOL_CLINIC: 'school_clinic',
+  E_INVOICING: 'e_invoicing',
 } as const;
 
 export type FeatureFlagKey = (typeof FeatureFlagKey)[keyof typeof FeatureFlagKey];
