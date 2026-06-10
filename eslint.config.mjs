@@ -16,7 +16,6 @@ export default [
       '**/.turbo/**',
       'apps/mobile/**',
       'infra/**', // ops/load-test scripts (e.g. k6) run outside the app toolchain
-      'apps/*/scripts/**', // ops/seed scripts run via tsx/node, outside the app tsconfig
       '**/*.config.{js,mjs,cjs,ts}',
       '**/*.d.ts',
     ],
