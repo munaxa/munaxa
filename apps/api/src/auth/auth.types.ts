@@ -1,11 +1,12 @@
-import type { Permission, RoleKey } from '@munaxa/domain';
+import type { Permission } from '@munaxa/domain';
 
 /** The authenticated principal attached to each request after JWT verification. */
 export interface AuthenticatedUser {
   userId: string;
   tenantId: string;
   isPlatform: boolean;
-  roles: RoleKey[];
+  // System role keys (RoleKey) plus any custom per-tenant role keys (free text).
+  roles: string[];
   permissions: Permission[];
 }
 
@@ -14,7 +15,7 @@ export interface AccessTokenPayload {
   sub: string; // userId
   tid: string; // tenantId
   plat: boolean; // platform plane
-  roles: RoleKey[];
+  roles: string[];
   perms: Permission[];
 }
 

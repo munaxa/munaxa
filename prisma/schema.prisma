@@ -750,7 +750,9 @@ model User {
 model Role {
   id        String    @id @default(uuid()) @db.Uuid
   tenantId  String?   @db.Uuid
-  key       RoleKey
+  // System roles use a @munaxa/domain RoleKey (e.g. "Teacher"); custom per-tenant roles use a
+  // generated slug (e.g. "custom-front-desk"). Stored as text so tenants can define their own.
+  key       String
   scope     RoleScope
   isSystem  Boolean   @default(true)
   nameEn    String?
