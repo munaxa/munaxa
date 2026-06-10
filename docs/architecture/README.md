@@ -26,6 +26,13 @@ it is design, diagrams (Mermaid), and strategy.
 | 12 | [Disaster Recovery Strategy](./12-disaster-recovery-strategy.md) | DR tiers, failover runbook outline |
 | 13 | [Notification Architecture](./13-notification-architecture.md) | FCM, email (Resend), in-app, WhatsApp bridge |
 
+## Related references
+
+- [**Design System**](../design-system/README.md) — tokens, themes (light/dark), bilingual/RTL
+  rules, and the shared UI kit (the visual layer that sits on top of this architecture).
+- [Integrations — JoFotara e-invoicing](../integrations/jofotara/01-compliance-analysis.md) —
+  compliance analysis + framework architecture.
+
 ## Core principles (non-negotiable)
 
 - **Domain Driven Design** + **Clean Architecture**.
