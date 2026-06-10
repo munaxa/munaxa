@@ -14,6 +14,10 @@ import { StatementService } from './statement/statement.service';
 import { LedgerController } from './ledger/ledger.controller';
 import { LedgerService } from './ledger/ledger.service';
 import { BillingRepository } from './ledger/billing.repository';
+import { CollectionsController } from './collections/collections.controller';
+import { CollectionsService } from './collections/collections.service';
+import { CollectionsRepository } from './collections/collections.repository';
+import { SmsService } from './collections/sms.service';
 
 /**
  * Finance: fee plans, charges, transactions (CliQ/e-wallet receipt uploads → verify/reject),
@@ -29,6 +33,7 @@ import { BillingRepository } from './ledger/billing.repository';
     TransactionController,
     StatementController,
     LedgerController,
+    CollectionsController,
   ],
   providers: [
     StorageService,
@@ -41,6 +46,9 @@ import { BillingRepository } from './ledger/billing.repository';
     StatementService,
     LedgerService,
     BillingRepository,
+    CollectionsService,
+    CollectionsRepository,
+    SmsService,
   ],
 })
 export class FinanceModule {}

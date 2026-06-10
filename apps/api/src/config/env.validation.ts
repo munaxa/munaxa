@@ -19,6 +19,9 @@ export const envSchema = z.object({
   EINVOICE_MASTER_KEY: z.string().optional(),
   /** Set to '0' to disable the e-invoicing submission worker (tests). */
   EINVOICE_WORKER: z.string().optional(),
+  /** SMS gateway for fee reminders (no-op until both are set). */
+  SMS_PROVIDER: z.string().optional(),
+  SMS_API_KEY: z.string().optional(),
 
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
