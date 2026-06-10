@@ -12,7 +12,7 @@
  */
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { SCHOOL_ROLES, permissionsForRole } from '@munaxa/domain';
+import { ALL_PERMISSIONS, SCHOOL_ROLES, permissionsForRole } from '@munaxa/domain';
 
 const TENANT_ID = 'ac276a70-7af3-4147-aa68-6b126e8f3a92';
 const SLUG = 'demo';
@@ -31,6 +31,17 @@ function platform<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
 
 async function main(): Promise<void> {
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
+
+  // Seed the global permission catalog here too, so this script is order-independent
+  // (no need to run db:seed first). The Permission table is not tenant-scoped.
+  for (const key of ALL_PERMISSIONS) {
+    const category = key.split(':')[0] ?? 'general';
+    await prisma.permission.upsert({
+      where: { key },
+      update: { category },
+      create: { key, category },
+    });
+  }
 
   await platform(async (tx) => {
     await tx.tenant.upsert({
