@@ -18,6 +18,9 @@ browser; their URLs are confirmed live. Facts below are tagged:
   for consistency against production integrations.
 - **[SECONDARY]** — production-grade vendor code/docs, principally **Odoo SA's `l10n_jo_edi`**
   module (a shipping JoFotara integration), SAP CCO plugin `E2ABS/ISTD`, and independent SDKs.
+- **[SECONDARY: Daftra]** — Daftra's published Arabic linking guide (دليل الربط مع نظام الفوترة
+  الأردني), reviewed 2026-06; an independent shipping accounting product. Used to corroborate the
+  device-linking steps, credential terminology, the three invoice types, and the return flow.
 
 Official documents (download manually; they override everything below if they differ):
 
@@ -65,7 +68,20 @@ Official documents (download manually; they override everything below if they di
 - **Credit notes / returns** = type **381** "return invoice": must reference the original invoice's
   ID, **UUID** and total; a **return reason is mandatory**; returns are allowed **on quantities
   only**, cannot exceed the original quantity, partial returns allowed until exhausted.
-  [OFFICIAL-MIRROR Form2.vb]
+  [OFFICIAL-MIRROR Form2.vb] — Daftra confirms the return flow inputs are exactly **original
+  invoice number + return reason (سبب الإرجاع) + quantity to return (الكمية المراد إرجاعها)**
+  [SECONDARY: Daftra], matching our `createCreditNote` validation.
+  - **Channel nuance:** Daftra performs returns on the **JoFotara portal** (login as sub-user →
+    تنظيم الفاتورة → فاتورة إرجاع), not via its own API. Our engine instead submits the 381 credit
+    note **through the API** — equally valid (the 381 document with `BillingReference` +
+    `InstructionNote` is in the official manual/Form2.vb and shipping in Odoo). This is a vendor
+    workflow choice, not a constraint; nothing to change.
+- **Three invoice types — triple-confirmed** [OFFICIAL-MIRROR + Odoo + Daftra]:
+  **فاتورة الدخل / income** carries no tax and the tax-rate dropdown is disabled (→ our `INCOME`
+  omits all tax elements); **فاتورة الضريبة العامة / general tax** selects a rate from a dropdown
+  and computes tax (→ `SALES`); **فاتورة الضريبة الخاصة / special tax** enters a special-tax rate
+  and computes it (→ `SPECIAL`). Cash vs receivable (نقدي / ذمم) is chosen per invoice. Exactly our
+  `taxpayerType` × `paymentKind` model.
 
 ### Identifiers & numbering
 
@@ -106,9 +122,22 @@ Official documents (download manually; they override everything below if they di
   Devices', then click on 'Link a New Device'"* → enter a username, select the **income source
   sequence** (تسلسل مصدر الدخل — the taxpayer's registered activity number) → *"The system will
   automatically create the 'Client ID' and the 'Secret Key'"*. [OFFICIAL-MIRROR]
+  - Corroborated step-by-step by Daftra's published linking guide [SECONDARY: Daftra]: login →
+    **ربط الأجهزة** (Link Devices) → **ربط جديد** (New Link) → enter username + select **رقم تسلسل
+    مصدر الدخل** (income source sequence) → **إضافة** (Add) → copy the **رقم المستخدم** (user number
+    = Client-Id), **كلمة السر** (password = Secret-Key) and income-source-sequence; "the username
+    and password are assembled into a **(Header)**" for the API. Invoices are sent "matching the
+    **UBL 2.1** standard in **XML**, **Encoded**". Every term matches our model 1:1.
+- **Portal account roles** [SECONDARY: Daftra] — operationally useful for the school's onboarding
+  runbook (these live on the JoFotara portal, not in Munaxa):
+  - **admin / المستخدم الرئيسي:** sets a logo/brand **per income source sequence**, sees all
+    invoices across all income sources (portal, mobile app, or API-linked), exports to Excel, links
+    devices, and creates **sub-users** bound to an income source sequence.
+  - **sub-user / المستخدم الفرعي:** sees/searches/prints only its own invoices; can set custom
+    fields per invoice type.
 - **Credentials** = (`Client-Id`, `Secret-Key`, income source sequence). Sent as **static HTTP
   headers** on every call: `Client-Id`, `Secret-Key`, `Content-Type: application/json`.
-  [OFFICIAL-MIRROR; identical in Odoo]
+  [OFFICIAL-MIRROR; identical in Odoo; terminology confirmed by Daftra]
 - **No token lifecycle** — no OAuth, no refresh. HTTP **403 = bad/blocked credentials**.
 - **Storage requirement:** Secret-Key is a credential secret → encrypt at rest, restrict to
   finance-admin permission, never log it, never return it to the client after save (Odoo restricts
