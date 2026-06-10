@@ -40,13 +40,17 @@ cp apps/api/.env.example apps/api/.env
 cp apps/admin/.env.example apps/admin/.env.local
 
 pnpm install
-pnpm docker:up            # Postgres, Redis, LocalStack(S3), Mailhog
+pnpm docker:up            # Postgres (+ app role), Redis, LocalStack(S3), Mailhog
 pnpm prisma:generate
+pnpm prisma:migrate       # apply migrations (also seeds the global permission catalog)
+pnpm --filter @munaxa/api db:seed:demo   # demo school + admin login + a sample student
 pnpm dev                  # runs api + admin via Turborepo
 ```
 
 - API: http://localhost:4000/api/v1 — Swagger at `/api/docs`
 - Admin: http://localhost:3000
+
+**Demo login** (from `db:seed:demo`): tenant `demo` · `admin@demo.example` · `ChangeMe123!`
 
 ## Common scripts
 
@@ -56,7 +60,8 @@ pnpm dev                  # runs api + admin via Turborepo
 | `pnpm build` | Build all packages/apps |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | Quality gates |
 | `pnpm format` | Prettier write |
-| `pnpm prisma:migrate` | Create/apply a dev migration |
+| `pnpm prisma:migrate` | Create/apply a dev migration (+ seeds permissions) |
+| `pnpm --filter @munaxa/api db:seed:demo` | Seed a demo school + admin login |
 | `pnpm docker:up` / `pnpm docker:down` | Local infra |
 
 ## Documentation
