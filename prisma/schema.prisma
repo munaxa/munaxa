@@ -352,6 +352,9 @@ model Tenant {
   refunds             Refund[]
   billingProfiles     StudentBillingProfile[]
   paymentReminders    PaymentReminder[]
+  presenceEvents      StudentPresenceEvent[]
+  busAttendanceEvents BusAttendanceEvent[]
+  attendanceSourceConfig AttendanceSourceConfig?
 
   @@index([status])
 }
@@ -561,6 +564,8 @@ model Student {
   refunds        Refund[]
   billingProfile StudentBillingProfile?
   paymentReminders PaymentReminder[]
+  presenceEvents StudentPresenceEvent[]
+  busAttendanceEvents BusAttendanceEvent[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -1472,6 +1477,7 @@ model Bus {
 
   tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   route  BusRoute? @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  attendanceEvents BusAttendanceEvent[]
 
   @@unique([tenantId, plateNumber])
   @@index([tenantId])
@@ -2000,4 +2006,109 @@ model PaymentReminder {
 
   @@index([tenantId, studentId])
   @@index([tenantId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Campus Presence + Transportation (Phase 21) — NEW domains, fully additive.
+// Separate from Academic Attendance (StudentAttendance/TeacherAttendance), which is unchanged.
+// Append-only events; idempotent replay via @@unique([tenantId, clientRef]).
+// ----------------------------------------------------------------------------
+
+enum PresenceEventType {
+  GATE_IN
+  GATE_OUT
+  RECEPTION_CHECKIN
+  RECEPTION_CHECKOUT
+}
+
+enum PresenceMethod {
+  NFC
+  RFID
+  QR
+  MANUAL
+  FACE
+  BUS
+}
+
+enum BusEventType {
+  BOARD_AM
+  ARRIVE_SCHOOL
+  BOARD_PM
+  ARRIVE_HOME
+}
+
+enum TransportMethod {
+  NFC
+  RFID
+  QR
+  MANUAL
+}
+
+/// Per-tenant attendance-source configuration: whether arrival events auto-create PRESENT,
+/// plus presence/transport feature toggles and the default bus capture method.
+enum AttendanceSourceMode {
+  TEACHER_ONLY
+  GATE_ARRIVAL
+  BUS_ARRIVAL
+  HYBRID
+}
+
+/// Physical campus presence (gate / reception). NOT academic attendance.
+model StudentPresenceEvent {
+  id         String            @id @default(uuid()) @db.Uuid
+  tenantId   String            @db.Uuid
+  studentId  String            @db.Uuid
+  eventType  PresenceEventType
+  method     PresenceMethod    @default(MANUAL)
+  occurredAt DateTime          @db.Timestamptz(6)
+  deviceId   String?
+  /// Client-generated id from the offline queue — idempotent replay key.
+  clientRef  String?
+  createdAt  DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime          @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, clientRef])
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, occurredAt])
+}
+
+/// Transportation boarding/arrival events. NOT academic attendance; references the existing Bus.
+model BusAttendanceEvent {
+  id         String          @id @default(uuid()) @db.Uuid
+  tenantId   String          @db.Uuid
+  studentId  String          @db.Uuid
+  busId      String          @db.Uuid
+  eventType  BusEventType
+  method     TransportMethod @default(NFC)
+  occurredAt DateTime        @db.Timestamptz(6)
+  clientRef  String?
+  createdAt  DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime        @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  bus     Bus     @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, clientRef])
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, busId])
+  @@index([tenantId, occurredAt])
+}
+
+model AttendanceSourceConfig {
+  id               String               @id @default(uuid()) @db.Uuid
+  tenantId         String               @unique @db.Uuid
+  mode             AttendanceSourceMode @default(TEACHER_ONLY)
+  busMethod        TransportMethod      @default(NFC)
+  presenceEnabled  Boolean              @default(false)
+  transportEnabled Boolean              @default(false)
+  createdAt        DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
