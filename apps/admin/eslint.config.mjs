@@ -29,6 +29,29 @@ export default [
     },
   },
   {
+    // Design-system guardrail: no hardcoded hex colors in app source — use the token classes
+    // (text-coral, bg-card, border-border, …). Tokens live in packages/config-tailwind/preset.ts
+    // + apps/admin/src/app/globals.css. See docs/design-system/README.md.
+    files: ['src/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'Literal[value=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-fA-F])/]',
+          message:
+            'No hardcoded hex colors — use design-system token classes (e.g. text-coral, bg-card, border-border). Tokens: packages/config-tailwind/preset.ts + globals.css.',
+        },
+        {
+          selector:
+            'TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-fA-F])/]',
+          message:
+            'No hardcoded hex colors — use design-system token classes (e.g. text-coral, bg-card, border-border). Tokens: packages/config-tailwind/preset.ts + globals.css.',
+        },
+      ],
+    },
+  },
+  {
     ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts', '*.config.*', 'sentry.*.config.ts'],
   },
 ];

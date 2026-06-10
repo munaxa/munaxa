@@ -69,6 +69,18 @@ export class UpdateSettingsDto {
   @IsEnum(EInvoicePaymentKind)
   defaultPaymentKind?: EInvoicePaymentKind;
 
+  @ApiPropertyOptional({ description: 'Auto-issue a JoFotara invoice when a fee charge is raised' })
+  @IsOptional()
+  @IsBoolean()
+  autoIssueOnCharge?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Auto-issue a 381 credit note when an invoiced charge is reduced',
+  })
+  @IsOptional()
+  @IsBoolean()
+  autoCreditOnAdjustment?: boolean;
+
   @ApiPropertyOptional({ description: 'Fee-category → item naming (mapping engine)' })
   @IsOptional()
   @IsObject()

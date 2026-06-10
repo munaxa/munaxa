@@ -32,6 +32,8 @@ export interface EInvoiceSettings {
   vatPercent: string | number | null;
   defaultTaxCategory: string;
   defaultPaymentKind: EInvoicePaymentKind;
+  autoIssueOnCharge: boolean;
+  autoCreditOnAdjustment: boolean;
   completedSteps: number;
   lastTestAt: string | null;
   lastTestOk: boolean | null;
@@ -122,4 +124,13 @@ export const einvoicingApi = {
     ),
   runQueue: () =>
     authFetch(`${base}/queue/run`, { method: 'POST' }).then((r) => json<{ processed: number }>(r)),
+  issueFromCharge: (chargeId: string) =>
+    authFetch(`${base}/from-charge/${chargeId}`, { method: 'POST' }).then((r) =>
+      json<EInvoiceDocument>(r),
+    ),
+  creditFromCharge: (chargeId: string, amount: number, reason: string) =>
+    authFetch(`${base}/credit-from-charge/${chargeId}`, {
+      method: 'POST',
+      body: JSON.stringify({ amount, reason }),
+    }).then((r) => json<EInvoiceDocument>(r)),
 };

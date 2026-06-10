@@ -16,8 +16,10 @@ const preset: Omit<Config, 'content'> = {
           DEFAULT: '#7A3FFF',
           light: '#B97BFF',
         },
-        coral: '#FF8E6E',
-        aqua: '#4DF4E1',
+        // Theme-aware (CSS vars in globals.css): full-brightness on dark, darker on light so the
+        // accents stay legible in both themes. Alpha modifiers (e.g. text-coral/40) supported.
+        coral: 'hsl(var(--coral) / <alpha-value>)',
+        aqua: 'hsl(var(--aqua) / <alpha-value>)',
         // Surfaces (dark)
         ink: {
           900: '#0B0518',

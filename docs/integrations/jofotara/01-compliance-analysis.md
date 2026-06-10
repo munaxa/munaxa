@@ -26,17 +26,35 @@ Official documents (download manually; they override everything below if they di
 
 | Document | Status | URL |
 | --- | --- | --- |
-| Procedure Manual for **Linking** (EN) | not yet read | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedure_manual_for_linking_to_the_jordanian_national_electronic_invoicing_system.pdf> |
+| **الدليل التقني للربط — Technical Linking Guide v1.5 (2026-05-12, API)** | **✓ read — `official/procedure_manual_technical_linking_v1.5.pdf`** | (Arabic; the authoritative API spec) |
+| Procedure Manual for **Linking** (EN) | superseded by the technical guide above | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedure_manual_for_linking_to_the_jordanian_national_electronic_invoicing_system.pdf> |
 | Procedure Manual for **Joining** (EN) | **✓ read — `official/procedure_manual_for_joining.pdf`** | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedure_manual_for_joining_the_jordanian_national_electronic_invoicing_system.pdf> |
 | Procedures Manual **Organizing the Invoice** (EN) | not yet read | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedures_manual_organizing_the_invoice_in_the_jordanian_national_electronic_invoicing_system.pdf> |
 | دليل إجراءات الربط (AR) + joining/organizing manuals | — | `istd.gov.jo/ebv4.0/root_storage/ar/eb_list_page/…` |
 | Portal user guide | — | <https://portal.jofotara.gov.jo/ccb81f8923f9894ae4aa.pdf> |
 
-> **Open items still to confirm against the remaining PDFs** (the Joining manual does not cover
-> these — they live in the **Linking** and **Organizing the Invoice** manuals, not yet obtained):
-> exact `currencyID` in official samples ("JO" in the manual transcription vs "JOD" in all
-> production code — we emit **JOD**), the full official `EINV_CODE` error table, and whether an
-> official sandbox host exists. Uploading those two PDFs would close them.
+> **Open items — RESOLVED against the official Technical Linking Guide v1.5** (read directly,
+> `official/procedure_manual_technical_linking_v1.5.pdf`):
+> - **`currencyID`** — the manual is explicit and repeated: the `DocumentCurrencyCode` /
+>   `TaxCurrencyCode` **elements** are `JOD`, but every monetary **amount** carries
+>   `currencyID="JO"` (e.g. `<cbc:TaxAmount currencyID="JO">4.480`). The UBL builder was
+>   **corrected** from `currencyID="JOD"` → `currencyID="JO"` to match the manual (some production
+>   integrations emit `JOD`; the official manual is the source of truth here).
+> - **Error/response structure** — confirmed exactly as our adapter parses it: `EINV_RESULTS{status,
+>   INFO[],WARNINGS[],ERRORS[{EINV_CODE,EINV_CATEGORY,EINV_MESSAGE}]}`, `EINV_STATUS` ∈
+>   {`SUBMITTED`,`ALREADY_SUBMITTED`}, `EINV_QR`, `EINV_SINGED_INVOICE` (the official field, typo and
+>   all), `EINV_NUM`, `EINV_INV_UUID`. HTTP 200 = received → check `EINV_STATUS`. (Example
+>   `EINV_CODE`: `XSD_VALID` "Complied with UBL 2.1 standards"; the full common-error table is at
+>   manual §C / p.101 — a future pass can enumerate it for the dashboard.)
+> - **Sandbox** — the technical manual describes **no** test/sandbox host (registration → device
+>   linking → submit to the one production endpoint). Our `SIMULATION` environment (local PASS) is
+>   therefore the correct approach.
+>
+> Endpoint (`https://backend.jofotara.gov.jo/core/invoices/`), `Client-Id`/`Secret-Key` headers,
+> base64-XML JSON body, UBL 2.1 `Invoice` root, type codes (011/021/012/022/013/023; 388/381), ICV
+> reference, tax category block (`UN/ECE 5305` S/Z/O + `TaxScheme` VAT `UN/ECE 5153`), income-invoice
+> tax omission, per-line `DISCOUNT` allowance, and 3-dp amounts were all **verified to match** the
+> manual's worked examples.
 
 ## 1. Business requirements
 

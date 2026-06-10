@@ -8,7 +8,11 @@ import type { BuildContext, EInvoiceLineItem } from '../provider.types';
  * - UBL 2.1 `Invoice` root for BOTH invoices (388) and credit notes (381).
  * - `InvoiceTypeCode/@name` is the 3-digit composite `scope+payment+taxpayer`
  *   (local=0; cash=1/receivable=2; income=1/sales=2/special=3) → 011/021/012/022/013/023.
- * - JOD everywhere; amounts emitted with ≥3 and ≤9 decimals so line sums equal totals.
+ * - Currency: the `DocumentCurrencyCode`/`TaxCurrencyCode` ELEMENTS are "JOD", but every monetary
+ *   amount's `currencyID` ATTRIBUTE is "JO" — per the official ISTD Technical Linking Guide v1.5
+ *   (2026-05-12), which is explicit and repeated (e.g. `<cbc:TaxAmount currencyID="JO">4.480`).
+ *   (Some production integrations emit "JOD" here; the official manual is the source of truth.)
+ *   Amounts use ≥3 and ≤9 decimals so line sums equal totals.
  * - ICV counter in `AdditionalDocumentReference`.
  * - Tax categories use JoFotara semantics: Z=exempt, O=zero-rated, S=standard
  *   (the REVERSE of PEPPOL/ZATCA — do not "fix" this).
@@ -53,11 +57,11 @@ function lineXml(line: EInvoiceLineItem, index: number, withTax: boolean): strin
   const taxBlock = withTax
     ? `
       <cac:TaxTotal>
-        <cbc:TaxAmount currencyID="JOD">${fmtAmount(line.taxAmount)}</cbc:TaxAmount>
-        <cbc:RoundingAmount currencyID="JOD">${fmtAmount(line.lineTotal)}</cbc:RoundingAmount>
+        <cbc:TaxAmount currencyID="JO">${fmtAmount(line.taxAmount)}</cbc:TaxAmount>
+        <cbc:RoundingAmount currencyID="JO">${fmtAmount(line.lineTotal)}</cbc:RoundingAmount>
         <cac:TaxSubtotal>
-          <cbc:TaxableAmount currencyID="JOD">${fmtAmount(lineExtension)}</cbc:TaxableAmount>
-          <cbc:TaxAmount currencyID="JOD">${fmtAmount(line.taxAmount)}</cbc:TaxAmount>
+          <cbc:TaxableAmount currencyID="JO">${fmtAmount(lineExtension)}</cbc:TaxableAmount>
+          <cbc:TaxAmount currencyID="JO">${fmtAmount(line.taxAmount)}</cbc:TaxAmount>
           <cac:TaxCategory>
             <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="6">${line.taxCategory}</cbc:ID>
             <cbc:Percent>${fmtAmount(line.taxPercent)}</cbc:Percent>
@@ -72,16 +76,16 @@ function lineXml(line: EInvoiceLineItem, index: number, withTax: boolean): strin
     <cac:InvoiceLine>
       <cbc:ID>${index + 1}</cbc:ID>
       <cbc:InvoicedQuantity unitCode="PCE">${fmtAmount(line.quantity)}</cbc:InvoicedQuantity>
-      <cbc:LineExtensionAmount currencyID="JOD">${fmtAmount(lineExtension)}</cbc:LineExtensionAmount>${taxBlock}
+      <cbc:LineExtensionAmount currencyID="JO">${fmtAmount(lineExtension)}</cbc:LineExtensionAmount>${taxBlock}
       <cac:Item>
         <cbc:Name>${esc(line.name)}</cbc:Name>
       </cac:Item>
       <cac:Price>
-        <cbc:PriceAmount currencyID="JOD">${fmtAmount(line.unitPrice)}</cbc:PriceAmount>
+        <cbc:PriceAmount currencyID="JO">${fmtAmount(line.unitPrice)}</cbc:PriceAmount>
         <cac:AllowanceCharge>
           <cbc:ChargeIndicator>false</cbc:ChargeIndicator>
           <cbc:AllowanceChargeReason>DISCOUNT</cbc:AllowanceChargeReason>
-          <cbc:Amount currencyID="JOD">${fmtAmount(line.discount)}</cbc:Amount>
+          <cbc:Amount currencyID="JO">${fmtAmount(line.discount)}</cbc:Amount>
         </cac:AllowanceCharge>
       </cac:Price>
     </cac:InvoiceLine>`;
@@ -153,7 +157,7 @@ export function buildJoFotaraXml(doc: EInvoiceDocument, ctx: BuildContext): stri
   const docTaxTotal = withTax
     ? `
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="JOD">${fmtAmount(taxAmount)}</cbc:TaxAmount>
+    <cbc:TaxAmount currencyID="JO">${fmtAmount(taxAmount)}</cbc:TaxAmount>
   </cac:TaxTotal>`
     : '';
 
@@ -196,15 +200,15 @@ export function buildJoFotaraXml(doc: EInvoiceDocument, ctx: BuildContext): stri
     </cac:Party>
   </cac:SellerSupplierParty>${docTaxTotal}
   <cac:LegalMonetaryTotal>
-    <cbc:TaxExclusiveAmount currencyID="JOD">${fmtAmount(taxExclusive)}</cbc:TaxExclusiveAmount>
-    <cbc:TaxInclusiveAmount currencyID="JOD">${fmtAmount(taxInclusive)}</cbc:TaxInclusiveAmount>
-    <cbc:AllowanceTotalAmount currencyID="JOD">${fmtAmount(discountTotal)}</cbc:AllowanceTotalAmount>${
+    <cbc:TaxExclusiveAmount currencyID="JO">${fmtAmount(taxExclusive)}</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="JO">${fmtAmount(taxInclusive)}</cbc:TaxInclusiveAmount>
+    <cbc:AllowanceTotalAmount currencyID="JO">${fmtAmount(discountTotal)}</cbc:AllowanceTotalAmount>${
       doc.docType === 'CREDIT_NOTE'
         ? `
-    <cbc:PrepaidAmount currencyID="JOD">${fmtAmount(taxInclusive)}</cbc:PrepaidAmount>`
+    <cbc:PrepaidAmount currencyID="JO">${fmtAmount(taxInclusive)}</cbc:PrepaidAmount>`
         : ''
     }
-    <cbc:PayableAmount currencyID="JOD">${fmtAmount(payable)}</cbc:PayableAmount>
+    <cbc:PayableAmount currencyID="JO">${fmtAmount(payable)}</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>${lines}
 </Invoice>`;
 }

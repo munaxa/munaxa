@@ -29,6 +29,8 @@ const settings = (over: Partial<EInvoiceSettings> = {}): EInvoiceSettings => ({
   vatPercent: null,
   defaultTaxCategory: 'S',
   defaultPaymentKind: 'RECEIVABLE',
+  autoIssueOnCharge: false,
+  autoCreditOnAdjustment: false,
   fieldMappings: null,
   templateConfig: null,
   completedSteps: 7,
@@ -142,8 +144,11 @@ describe('buildJoFotaraXml — sales invoice', () => {
     expect(xml).toContain('<cbc:ID>INV-2026-0001</cbc:ID>');
     expect(xml).toContain('<cbc:UUID>7f1c0a45-9f1e-4d4a-9a8e-0b1c2d3e4f5a</cbc:UUID>');
     expect(xml).toContain('<cbc:IssueDate>2026-06-09</cbc:IssueDate>');
+    // Currency-code ELEMENTS are JOD; amount currencyID ATTRIBUTES are "JO" (manual v1.5).
     expect(xml).toContain('<cbc:DocumentCurrencyCode>JOD</cbc:DocumentCurrencyCode>');
-    expect(xml).toContain('currencyID="JOD"');
+    expect(xml).toContain('<cbc:TaxCurrencyCode>JOD</cbc:TaxCurrencyCode>');
+    expect(xml).toContain('currencyID="JO"');
+    expect(xml).not.toContain('currencyID="JOD"');
   });
 
   it('marks the type as receivable sales (022) and carries the ICV', () => {
@@ -171,13 +176,13 @@ describe('buildJoFotaraXml — sales invoice', () => {
 
   it('computes monetary totals with 3+dp amounts', () => {
     expect(xml).toContain(
-      '<cbc:TaxExclusiveAmount currencyID="JOD">750.000</cbc:TaxExclusiveAmount>',
+      '<cbc:TaxExclusiveAmount currencyID="JO">750.000</cbc:TaxExclusiveAmount>',
     );
     expect(xml).toContain(
-      '<cbc:TaxInclusiveAmount currencyID="JOD">870.000</cbc:TaxInclusiveAmount>',
+      '<cbc:TaxInclusiveAmount currencyID="JO">870.000</cbc:TaxInclusiveAmount>',
     );
-    expect(xml).toContain('<cbc:PayableAmount currencyID="JOD">870.000</cbc:PayableAmount>');
-    expect(xml).toContain('<cbc:RoundingAmount currencyID="JOD">870.000</cbc:RoundingAmount>');
+    expect(xml).toContain('<cbc:PayableAmount currencyID="JO">870.000</cbc:PayableAmount>');
+    expect(xml).toContain('<cbc:RoundingAmount currencyID="JO">870.000</cbc:RoundingAmount>');
   });
 
   it('sanitises slashes in the invoice number', () => {

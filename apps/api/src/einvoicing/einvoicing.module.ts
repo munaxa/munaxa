@@ -11,6 +11,8 @@ import { EInvoicingRepository } from './einvoicing.repository';
 import { EInvoicingService } from './einvoicing.service';
 import { JoFotaraProvider } from './jofotara/jofotara.provider';
 import { SubmissionWorker } from './submission.worker';
+import { FinanceBridgeService } from './finance-bridge.service';
+import { FinanceBridgeRepository } from './finance-bridge.repository';
 
 /**
  * E-Invoicing framework (Phase 16) — provider-agnostic engine with JoFotara (Jordan/ISTD)
@@ -28,7 +30,9 @@ import { SubmissionWorker } from './submission.worker';
     EInvoicingRepository,
     EInvoicingService,
     SubmissionWorker,
+    FinanceBridgeService,
+    FinanceBridgeRepository,
   ],
-  exports: [EInvoicingService],
+  exports: [EInvoicingService, FinanceBridgeService],
 })
 export class EInvoicingModule {}

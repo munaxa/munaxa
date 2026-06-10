@@ -16,7 +16,10 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { FeatureFlagKey, RequireFeature } from '../feature-flags/require-feature.decorator';
 import { EInvoicingService } from './einvoicing.service';
+import { FinanceBridgeService } from './finance-bridge.service';
 import { SubmissionWorker } from './submission.worker';
+import { IsNumber, IsString, Min, MaxLength } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   CreateCreditNoteDto,
   CreateInvoiceDto,
@@ -24,6 +27,18 @@ import {
   SaveCredentialsDto,
   UpdateSettingsDto,
 } from './einvoicing.dto';
+
+class CreditFromChargeDto {
+  @ApiProperty({ example: 150, description: 'Credit amount in JOD (≤ original invoice total)' })
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0.001)
+  amount!: number;
+
+  @ApiProperty({ example: 'Sibling discount applied after invoicing' })
+  @IsString()
+  @MaxLength(500)
+  reason!: string;
+}
 
 /**
  * E-invoicing (Phase 16): wizard configuration, document issuance, queue control and the
@@ -38,6 +53,7 @@ export class EInvoicingController {
   constructor(
     private readonly service: EInvoicingService,
     private readonly worker: SubmissionWorker,
+    private readonly bridge: FinanceBridgeService,
   ) {}
 
   // ------------------------------------------------------------------ wizard
@@ -117,6 +133,25 @@ export class EInvoicingController {
   @RequirePermissions(Permission.FINANCE_MANAGE)
   cancel(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.cancel(id);
+  }
+
+  // --------------------------------------------------------- finance bridge
+
+  @Post('from-charge/:chargeId')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Issue + queue a JoFotara invoice from a fee charge' })
+  issueFromCharge(@Param('chargeId', ParseUUIDPipe) chargeId: string) {
+    return this.bridge.issueForCharge(chargeId);
+  }
+
+  @Post('credit-from-charge/:chargeId')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: "Issue + queue a 381 credit note against a charge's accepted invoice" })
+  creditFromCharge(
+    @Param('chargeId', ParseUUIDPipe) chargeId: string,
+    @Body() dto: CreditFromChargeDto,
+  ) {
+    return this.bridge.issueCreditForCharge(chargeId, dto.amount, dto.reason);
   }
 
   // ------------------------------------------------------- dashboard / queue
