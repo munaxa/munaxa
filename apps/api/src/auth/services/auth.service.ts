@@ -47,10 +47,12 @@ export class AuthService {
   async login(dto: LoginDto, meta: RequestMeta): Promise<LoginResult> {
     // The transaction returns an outcome rather than throwing, so that failure audit logs
     // are COMMITTED. The HTTP error is raised afterwards, outside the transaction.
+    const handle = (dto.identifier ?? dto.email ?? '').trim();
+    if (!handle) throw new BadRequestException('An email or username is required');
     const outcome = await withPlatform(this.prisma, async (tx) => {
-      const user = await this.resolveUserByEmail(tx, dto.email, dto.tenantSlug);
+      const user = await this.resolveUserByIdentifier(tx, handle, dto.tenantSlug);
       if (!user || !user.passwordHash) {
-        await this.audit(tx, null, null, 'auth.login.failed', { email: dto.email }, meta);
+        await this.audit(tx, null, null, 'auth.login.failed', { identifier: handle }, meta);
         return { kind: 'invalid' as const };
       }
       const ok = await this.passwords.verify(dto.password, user.passwordHash);
@@ -266,6 +268,49 @@ export class AuthService {
     if (user.deletedAt || user.status === UserStatus.DISABLED) return 'Account is disabled';
     if (user.status === UserStatus.SUSPENDED) return 'Account is suspended';
     return null;
+  }
+
+  /** Loose email check: distinguishes an email handle from a username/national-id at login. */
+  private looksLikeEmail(handle: string): boolean {
+    return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(handle);
+  }
+
+  /**
+   * Resolve a login handle that may be an email, a username, or a National ID. Email handles use
+   * the existing per-tenant email lookup; non-email handles match username OR nationalId within
+   * the tenant. Without a tenant slug, the handle must be globally unique (else the caller must
+   * disambiguate by school).
+   */
+  private async resolveUserByIdentifier(
+    tx: TxClient,
+    handle: string,
+    tenantSlug?: string,
+  ): Promise<User | null> {
+    if (this.looksLikeEmail(handle)) {
+      return this.resolveUserByEmail(tx, handle, tenantSlug);
+    }
+    const username = handle.toLowerCase();
+    if (tenantSlug) {
+      const tenant = await tx.tenant.findUnique({ where: { slug: tenantSlug } });
+      if (!tenant) return null;
+      return tx.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          deletedAt: null,
+          OR: [{ username }, { nationalId: handle }],
+        },
+      });
+    }
+    const matches = await tx.user.findMany({
+      where: { deletedAt: null, OR: [{ username }, { nationalId: handle }] },
+      take: 2,
+    });
+    if (matches.length > 1) {
+      throw new BadRequestException(
+        'This handle is used at more than one school; specify the school.',
+      );
+    }
+    return matches[0] ?? null;
   }
 
   private async resolveUserByEmail(

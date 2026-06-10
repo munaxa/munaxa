@@ -228,6 +228,7 @@ function CreateUser({
 }) {
   const toast = useToast();
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [firstNameEn, setFirstNameEn] = useState('');
   const [lastNameEn, setLastNameEn] = useState('');
   const [phone, setPhone] = useState('');
@@ -249,6 +250,7 @@ function CreateUser({
     try {
       const { user, temporaryPassword } = await usersApi.create({
         email: email.trim(),
+        ...(username.trim() ? { username: username.trim() } : {}),
         ...(firstNameEn.trim() ? { firstNameEn: firstNameEn.trim() } : {}),
         ...(lastNameEn.trim() ? { lastNameEn: lastNameEn.trim() } : {}),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
@@ -271,12 +273,20 @@ function CreateUser({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Email" className="sm:col-span-2">
+          <Field label="Email">
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@school.edu.jo"
+            />
+          </Field>
+          <Field label="Username (optional)">
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="for students without email"
+              autoComplete="off"
             />
           </Field>
           <Field label="First name">
@@ -372,6 +382,9 @@ function UserEditor({
             <CardTitle>{displayName(user)}</CardTitle>
             <CardDescription>
               {user.email}
+              {user.username ? (
+                <span className="ms-2 font-mono text-xs">@{user.username}</span>
+              ) : null}
               {user.lastNameAr || user.firstNameAr ? (
                 <span className="ms-2" dir="rtl">
                   {[user.firstNameAr, user.lastNameAr].filter(Boolean).join(' ')}

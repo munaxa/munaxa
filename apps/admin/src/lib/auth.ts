@@ -53,7 +53,7 @@ async function parseError(res: Response): Promise<string> {
 }
 
 export async function login(input: {
-  email: string;
+  identifier: string;
   password: string;
   tenantSlug?: string;
 }): Promise<TokenPair> {

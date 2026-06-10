@@ -11,6 +11,7 @@ import type { CreateUserDto, SetUserRolesDto, UpdateUserDto } from './users.dto'
 export interface UserSummary {
   id: string;
   email: string;
+  username: string | null;
   firstNameEn: string | null;
   lastNameEn: string | null;
   firstNameAr: string | null;
@@ -56,12 +57,16 @@ export class UsersRepository extends TenantRepository {
       });
       if (existing) throw new BadRequestException('A user with this email already exists');
 
+      const username = normalizeUsername(dto.username);
+      if (username) await this.assertUsernameFree(tx, tenantId, username);
+
       const temporaryPassword = this.passwords.generateTemporary();
       const passwordHash = await this.passwords.hash(temporaryPassword);
       const created = await tx.user.create({
         data: {
           tenantId,
           email: dto.email,
+          username,
           firstNameEn: dto.firstNameEn ?? null,
           lastNameEn: dto.lastNameEn ?? null,
           firstNameAr: dto.firstNameAr ?? null,
@@ -86,9 +91,15 @@ export class UsersRepository extends TenantRepository {
   update(id: string, dto: UpdateUserDto): Promise<UserSummary> {
     return this.run(async (tx, tenantId) => {
       await tx.user.findFirstOrThrow({ where: { id, tenantId, deletedAt: null } });
+      let username: string | undefined;
+      if (dto.username !== undefined) {
+        username = normalizeUsername(dto.username) ?? undefined;
+        if (username) await this.assertUsernameFree(tx, tenantId, username, id);
+      }
       await tx.user.update({
         where: { id },
         data: {
+          ...(dto.username !== undefined ? { username: username ?? null } : {}),
           ...(dto.firstNameEn !== undefined ? { firstNameEn: dto.firstNameEn } : {}),
           ...(dto.lastNameEn !== undefined ? { lastNameEn: dto.lastNameEn } : {}),
           ...(dto.firstNameAr !== undefined ? { firstNameAr: dto.firstNameAr } : {}),
@@ -151,6 +162,24 @@ export class UsersRepository extends TenantRepository {
     });
   }
 
+  /** Reject a username already taken by another user in the tenant (friendly 400 vs raw P2002). */
+  private async assertUsernameFree(
+    tx: TxClient,
+    tenantId: string,
+    username: string,
+    exceptUserId?: string,
+  ): Promise<void> {
+    const clash = await tx.user.findFirst({
+      where: {
+        tenantId,
+        username,
+        ...(exceptUserId ? { id: { not: exceptUserId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (clash) throw new BadRequestException('This username is already taken at this school');
+  }
+
   private async loadSummary(tx: TxClient, tenantId: string, id: string): Promise<UserSummary> {
     const u = await tx.user.findFirstOrThrow({
       where: { id, tenantId },
@@ -164,6 +193,7 @@ export class UsersRepository extends TenantRepository {
   private toSummary(u: {
     id: string;
     email: string;
+    username: string | null;
     firstNameEn: string | null;
     lastNameEn: string | null;
     firstNameAr: string | null;
@@ -177,6 +207,7 @@ export class UsersRepository extends TenantRepository {
     return {
       id: u.id,
       email: u.email,
+      username: u.username,
       firstNameEn: u.firstNameEn,
       lastNameEn: u.lastNameEn,
       firstNameAr: u.firstNameAr,
@@ -188,4 +219,10 @@ export class UsersRepository extends TenantRepository {
       roles: u.userRoles.map((ur) => ur.role),
     };
   }
+}
+
+/** Normalize a username to a lowercase handle; empty/whitespace becomes null (no username). */
+function normalizeUsername(raw: string | undefined): string | null {
+  const v = raw?.trim().toLowerCase();
+  return v ? v : null;
 }

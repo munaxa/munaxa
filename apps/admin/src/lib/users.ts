@@ -7,6 +7,7 @@ export type UserStatus = 'INVITED' | 'ACTIVE' | 'SUSPENDED' | 'DISABLED';
 export interface UserSummary {
   id: string;
   email: string;
+  username: string | null;
   firstNameEn: string | null;
   lastNameEn: string | null;
   firstNameAr: string | null;
@@ -31,6 +32,7 @@ export const usersApi = {
   list: () => authFetch('/users').then((r) => json<UserSummary[]>(r)),
   create: (data: {
     email: string;
+    username?: string;
     firstNameEn?: string;
     lastNameEn?: string;
     firstNameAr?: string;
