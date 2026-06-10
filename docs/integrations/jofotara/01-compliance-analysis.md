@@ -10,7 +10,9 @@ The primary source of truth is the official ISTD documentation. `istd.gov.jo` an
 `portal.jofotara.gov.jo` return HTTP 403 to automated fetchers, so the PDFs must be downloaded in a
 browser; their URLs are confirmed live. Facts below are tagged:
 
-- **[OFFICIAL]** — istd.gov.jo / portal.jofotara.gov.jo document (URL listed).
+- **[OFFICIAL]** — istd.gov.jo / portal.jofotara.gov.jo document (URL listed). The **Joining**
+  manual has now been obtained and read directly (`official/procedure_manual_for_joining.pdf` in
+  this folder); its facts are marked **[OFFICIAL ✓read]**.
 - **[OFFICIAL-MIRROR]** — verbatim transcription of the official linking manual (EN+AR) found in
   `github.com/aboameen22/National-E-invoicing-System-JoFotara` (Form1.vb / Form2.vb), cross-checked
   for consistency against production integrations.
@@ -19,17 +21,19 @@ browser; their URLs are confirmed live. Facts below are tagged:
 
 Official documents (download manually; they override everything below if they differ):
 
-| Document | URL |
-| --- | --- |
-| Procedure Manual for **Linking** (EN) | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedure_manual_for_linking_to_the_jordanian_national_electronic_invoicing_system.pdf> |
-| Procedure Manual for **Joining** (EN) | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedure_manual_for_joining_the_jordanian_national_electronic_invoicing_system.pdf> |
-| Procedures Manual **Organizing the Invoice** (EN) | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedures_manual_organizing_the_invoice_in_the_jordanian_national_electronic_invoicing_system.pdf> |
-| دليل إجراءات الربط (AR) + joining/organizing manuals | `istd.gov.jo/ebv4.0/root_storage/ar/eb_list_page/…` |
-| Portal user guide | <https://portal.jofotara.gov.jo/ccb81f8923f9894ae4aa.pdf> |
+| Document | Status | URL |
+| --- | --- | --- |
+| Procedure Manual for **Linking** (EN) | not yet read | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedure_manual_for_linking_to_the_jordanian_national_electronic_invoicing_system.pdf> |
+| Procedure Manual for **Joining** (EN) | **✓ read — `official/procedure_manual_for_joining.pdf`** | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedure_manual_for_joining_the_jordanian_national_electronic_invoicing_system.pdf> |
+| Procedures Manual **Organizing the Invoice** (EN) | not yet read | <https://istd.gov.jo/ebv4.0/root_storage/en/eb_list_page/procedures_manual_organizing_the_invoice_in_the_jordanian_national_electronic_invoicing_system.pdf> |
+| دليل إجراءات الربط (AR) + joining/organizing manuals | — | `istd.gov.jo/ebv4.0/root_storage/ar/eb_list_page/…` |
+| Portal user guide | — | <https://portal.jofotara.gov.jo/ccb81f8923f9894ae4aa.pdf> |
 
-> **Open items to confirm against the PDFs:** exact `currencyID` in official samples ("JO" appears
-> in the manual transcription vs "JOD" in all production code — we emit **JOD**), the full official
-> `EINV_CODE` error table, and whether an official sandbox host exists.
+> **Open items still to confirm against the remaining PDFs** (the Joining manual does not cover
+> these — they live in the **Linking** and **Organizing the Invoice** manuals, not yet obtained):
+> exact `currencyID` in official samples ("JO" in the manual transcription vs "JOD" in all
+> production code — we emit **JOD**), the full official `EINV_CODE` error table, and whether an
+> official sandbox host exists. Uploading those two PDFs would close them.
 
 ## 1. Business requirements
 
@@ -84,7 +88,20 @@ Official documents (download manually; they override everything below if they di
 
 ## 2. Authentication
 
-- **Join**: taxpayer registers on <https://portal.jofotara.gov.jo> (per the Joining manual).
+- **Who joins** [OFFICIAL ✓read]: "all companies, establishments and institutions obligated with
+  organizing invoices" — whether they have **no** invoicing system, a **traditional** one, or a
+  **computerised/electronic** one. (Confirms the §1 universal mandate — a private school is in
+  scope regardless of its current billing setup.)
+- **Join workflow** [OFFICIAL ✓read] (`official/procedure_manual_for_joining.pdf`): on the ISTD
+  website → click **National Invoicing System** → **New User** → enter the company's **tax number,
+  username and password** → open the **National Invoicing** tab → enter the on-screen code → the
+  system shows the **Tax ID** → set the username/password (re-enter to confirm) → **Create an
+  account**. This provisions the *portal account*; device linking (which mints the Client-Id /
+  Secret-Key) is a separate step in the **Linking** manual (§ below).
+- **Portal password policy** [OFFICIAL ✓read]: exactly **8 characters**, must contain **numbers and
+  letters**, at least two letters, and **at least one uppercase**. (This governs the human portal
+  login, not the API — Munaxa never stores it; it is only relevant to the school's onboarding
+  runbook.)
 - **Device registration** (verbatim from the linking manual): *"Click on 'Linking Electronic
   Devices', then click on 'Link a New Device'"* → enter a username, select the **income source
   sequence** (تسلسل مصدر الدخل — the taxpayer's registered activity number) → *"The system will
