@@ -37,7 +37,12 @@
     "reports": "التقارير",
     "modules": "الوحدات",
     "tenantDatabases": "قواعد بيانات المدارس",
-    "integrations": "التكاملات"
+    "integrations": "التكاملات",
+    "attendanceSettings": "إعدادات الحضور",
+    "cards": "بطاقات الطلاب",
+    "fleet": "النقل والحافلات",
+    "roles": "الأدوار والصلاحيات",
+    "users": "المستخدمون والموظفون"
   },
   "dashboard": {
     "title": "نظرة عامة",

@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import type { User, Prisma } from '@prisma/client';
 import { UserStatus } from '@prisma/client';
-import { isPlatformRole, type RoleKey } from '@munaxa/domain';
+import { isPlatformRole } from '@munaxa/domain';
 import { PrismaService } from '../../prisma/prisma.service';
 import { withPlatform, type TxClient } from '../../prisma/tenant.helpers';
 import { TokenService } from './token.service';
@@ -287,7 +287,7 @@ export class AuthService {
 
   private async buildPrincipal(tx: TxClient, user: User): Promise<AuthenticatedUser> {
     const { roles, permissions } = await this.rbac.loadUserAuthz(tx, user.id);
-    const isPlatform = roles.some((r: RoleKey) => isPlatformRole(r));
+    const isPlatform = roles.some((r) => isPlatformRole(r));
     return { userId: user.id, tenantId: user.tenantId, isPlatform, roles, permissions };
   }
 

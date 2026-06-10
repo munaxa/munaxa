@@ -1,51 +1,105 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Shell } from '@/components/shell';
-import { attendanceApi, type AttendanceSummary } from '@/lib/attendance';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
-import { loadSectionOptions, loadStudentOptions } from '@/lib/pickers';
-import { Button, Card, CardContent, Field, Input } from '@/components/ui';
+import { loadSectionOptions } from '@/lib/pickers';
+import { attendanceApi } from '@/lib/attendance';
+import { studentsApi, fullNameEn, fullNameAr, type Student } from '@/lib/people';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Field,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '@/components/ui';
 
-const STATUSES: Array<'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'> = [
-  'PRESENT',
-  'ABSENT',
-  'LATE',
-  'EXCUSED',
-];
+type Status = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
+const STATUSES: Status[] = ['PRESENT', 'LATE', 'ABSENT', 'EXCUSED'];
+const TONE: Record<Status, string> = {
+  PRESENT: 'bg-aqua text-ink-900',
+  LATE: 'bg-coral text-ink-900',
+  ABSENT: 'bg-destructive text-white',
+  EXCUSED: 'bg-primary text-white',
+};
+const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
 
 export default function AttendancePage() {
   const toast = useToast();
   const { t } = useI18n();
   const [sectionId, setSectionId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [studentId, setStudentId] = useState('');
-  const [summary, setSummary] = useState<AttendanceSummary | null>(null);
+  const [periodIndex, setPeriodIndex] = useState(1);
+  const [roster, setRoster] = useState<Student[]>([]);
+  const [marks, setMarks] = useState<Record<string, Status>>({});
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  async function refresh() {
+  const load = useCallback(async () => {
     if (!sectionId) return;
+    setLoading(true);
     try {
-      setSummary(await attendanceApi.summary(sectionId, date, 1));
+      const [students, existing] = await Promise.all([
+        studentsApi.bySection(sectionId),
+        attendanceApi.list(sectionId, date, periodIndex),
+      ]);
+      setRoster(students);
+      const m: Record<string, Status> = {};
+      for (const r of existing) m[r.studentId] = r.status;
+      setMarks(m);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load summary');
+      toast.error(e instanceof Error ? e.message : 'Failed to load roster');
+    } finally {
+      setLoading(false);
     }
+  }, [sectionId, date, periodIndex, toast]);
+
+  const counts = useMemo(() => {
+    const c: Record<Status, number> = { PRESENT: 0, LATE: 0, ABSENT: 0, EXCUSED: 0 };
+    for (const s of roster) {
+      const st = marks[s.id];
+      if (st) c[st] += 1;
+    }
+    return c;
+  }, [roster, marks]);
+  const marked = counts.PRESENT + counts.LATE + counts.ABSENT + counts.EXCUSED;
+
+  function setAll(status: Status) {
+    setMarks(Object.fromEntries(roster.map((s) => [s.id, status])));
   }
 
-  async function mark(status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED') {
+  async function save() {
+    const records = roster
+      .filter((s) => marks[s.id])
+      .map((s) => ({ studentId: s.id, status: marks[s.id]! }));
+    if (records.length === 0) {
+      toast.error('Nothing to save');
+      return;
+    }
+    setSaving(true);
     try {
-      await attendanceApi.mark(sectionId, date, 1, [{ studentId, status }]);
-      toast.success(`Marked ${status}`);
-      await refresh();
+      const res = await attendanceApi.mark(sectionId, date, periodIndex, records);
+      toast.success(`Saved ${res.marked} mark(s)`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to mark');
+      toast.error(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <Shell>
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         <h1 className="font-display text-2xl font-semibold">{t('nav.attendance')}</h1>
 
         <div className="flex flex-wrap items-end gap-2">
@@ -60,54 +114,93 @@ export default function AttendancePage() {
           <Field label="Date">
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Button onClick={() => void refresh()}>Load summary</Button>
+          <Field label="Period">
+            <Select
+              value={String(periodIndex)}
+              onChange={(e) => setPeriodIndex(Number(e.target.value))}
+            >
+              {PERIODS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button onClick={() => void load()} disabled={!sectionId || loading}>
+            {loading ? 'Loading…' : 'Load roster'}
+          </Button>
         </div>
 
-        {summary ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-            {STATUSES.map((s) => (
-              <Card key={s}>
-                <CardContent className="p-4 text-center">
-                  <div className="font-display text-xl">{summary.counts[s]}</div>
-                  <div className="font-mono text-xs text-muted-foreground">{s}</div>
-                </CardContent>
-              </Card>
-            ))}
-            <Card>
-              <CardContent className="p-4 text-center">
-                <div className="font-display text-xl">{summary.total}</div>
-                <div className="font-mono text-xs text-muted-foreground">TOTAL</div>
-              </CardContent>
-            </Card>
-          </div>
-        ) : null}
+        {roster.length > 0 ? (
+          <Card>
+            <CardContent className="space-y-4 pt-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <Badge tone="success">Present {counts.PRESENT}</Badge>
+                  <Badge tone="warning">Late {counts.LATE}</Badge>
+                  <Badge tone="danger">Absent {counts.ABSENT}</Badge>
+                  <Badge tone="default">Excused {counts.EXCUSED}</Badge>
+                  <span className="text-muted-foreground">
+                    {marked}/{roster.length} marked
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setAll('PRESENT')}>
+                    Mark all present
+                  </Button>
+                  <Button size="sm" onClick={() => void save()} disabled={saving}>
+                    {saving ? 'Saving…' : 'Save attendance'}
+                  </Button>
+                </div>
+              </div>
 
-        <Card>
-          <CardContent className="space-y-3 pt-6">
-            <h2 className="font-display font-medium">Mark a student (period 1)</h2>
-            <Field label="Student">
-              <EntityPicker
-                value={studentId}
-                onChange={setStudentId}
-                load={loadStudentOptions}
-                placeholder="Search students…"
-              />
-            </Field>
-            <div className="flex flex-wrap gap-2">
-              {STATUSES.map((s) => (
-                <Button
-                  key={s}
-                  variant="secondary"
-                  size="sm"
-                  disabled={!studentId || !sectionId}
-                  onClick={() => void mark(s)}
-                >
-                  {s}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Student</TH>
+                    <TH className="text-end">Status</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {roster.map((s) => (
+                    <TR key={s.id}>
+                      <TD>
+                        {fullNameEn(s)}
+                        <span className="block text-xs text-muted-foreground" dir="rtl">
+                          {fullNameAr(s)}
+                        </span>
+                      </TD>
+                      <TD className="text-end">
+                        <span className="inline-flex overflow-hidden rounded-md border border-border">
+                          {STATUSES.map((st) => {
+                            const active = marks[s.id] === st;
+                            return (
+                              <button
+                                key={st}
+                                type="button"
+                                aria-label={`${fullNameEn(s)} ${st}`}
+                                onClick={() => setMarks((m) => ({ ...m, [s.id]: st }))}
+                                className={`px-2.5 py-1 text-xs transition-colors ${
+                                  active ? TONE[st] : 'text-muted-foreground hover:text-foreground'
+                                }`}
+                              >
+                                {st[0]}
+                              </button>
+                            );
+                          })}
+                        </span>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            </CardContent>
+          </Card>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Pick a section and load its roster to mark attendance.
+          </p>
+        )}
       </div>
     </Shell>
   );

@@ -23,6 +23,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   // School plane
   SchoolAdmin: '*',
   Principal: [
+    Permission.CARD_MANAGE,
+    Permission.CARD_READ,
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_READ,
+    Permission.ATTENDANCE_CONFIGURE,
     Permission.SCHOOL_MANAGE,
     Permission.CAMPUS_MANAGE,
     Permission.ACADEMICYEAR_MANAGE,
@@ -51,6 +56,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CLINIC_READ,
   ],
   VicePrincipal: [
+    Permission.CARD_READ,
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_READ,
+    Permission.ATTENDANCE_CONFIGURE,
     Permission.TIMETABLE_MANAGE,
     Permission.ATTENDANCE_CREATE,
     Permission.ATTENDANCE_READ,
@@ -77,7 +86,23 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.REPORT_EXPORT,
     Permission.AUDIT_READ,
   ],
+  // Accountant: finance operations + can register students (per product requirement).
+  Accountant: [
+    Permission.FINANCE_MANAGE,
+    Permission.FINANCE_READ,
+    Permission.FINANCE_EXPORT,
+    Permission.TRANSACTION_CREATE,
+    Permission.RECEIPT_UPLOAD,
+    Permission.STUDENT_MANAGE,
+    Permission.REPORT_READ,
+    Permission.REPORT_EXPORT,
+  ],
   Teacher: [
+    Permission.CARD_READ,
+    Permission.PRESENCE_CREATE,
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_CREATE,
+    Permission.TRANSPORT_READ,
     Permission.TIMETABLE_READ,
     Permission.ATTENDANCE_CREATE,
     Permission.ATTENDANCE_READ,
@@ -95,6 +120,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.ACHIEVEMENT_MANAGE,
   ],
   Secretary: [
+    Permission.CARD_MANAGE,
+    Permission.CARD_READ,
+    Permission.PRESENCE_CREATE,
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_READ,
     Permission.STUDENT_MANAGE,
     Permission.PARENT_MANAGE,
     Permission.DOCUMENT_MANAGE,
@@ -111,7 +141,56 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CLINIC_MANAGE,
     Permission.CLINIC_READ,
   ],
+  // Receptionist: front-desk — sends announcements/notifications, reads attendance, manages docs.
+  Receptionist: [
+    Permission.PRESENCE_CREATE,
+    Permission.PRESENCE_READ,
+    Permission.ANNOUNCEMENT_MANAGE,
+    Permission.NOTIFICATION_SEND,
+    Permission.ATTENDANCE_READ,
+    Permission.CARD_READ,
+    Permission.DOCUMENT_MANAGE,
+  ],
+  // Registrar: student/parent records and admissions documents.
+  Registrar: [
+    Permission.STUDENT_MANAGE,
+    Permission.PARENT_MANAGE,
+    Permission.DOCUMENT_MANAGE,
+    Permission.REPORT_READ,
+  ],
+  // Counselor: behaviour & achievements, reads attendance.
+  Counselor: [
+    Permission.BEHAVIOR_MANAGE,
+    Permission.BEHAVIOR_READ,
+    Permission.ATTENDANCE_READ,
+    Permission.ACHIEVEMENT_MANAGE,
+  ],
+  // HR: staff records & leave approvals.
+  HR: [Permission.EMPLOYEE_MANAGE, Permission.TEACHER_MANAGE, Permission.LEAVE_APPROVE],
+  // Nurse: clinic module + attendance visibility.
+  Nurse: [Permission.CLINIC_MANAGE, Permission.CLINIC_READ, Permission.ATTENDANCE_READ],
+  // Librarian: library module.
+  Librarian: [Permission.LIBRARY_MANAGE, Permission.LIBRARY_READ],
+  // StoreKeeper: inventory module.
+  StoreKeeper: [Permission.INVENTORY_MANAGE, Permission.INVENTORY_READ],
+  // FleetAdmin: configures buses/routes and assigns students (gated by bus_tracking).
+  FleetAdmin: [
+    Permission.BUS_MANAGE,
+    Permission.BUS_READ,
+    Permission.TRANSPORT_READ,
+    Permission.CARD_READ,
+  ],
+  // BusSupervisor: on-board boarding/alighting scans.
+  BusSupervisor: [
+    Permission.TRANSPORT_CREATE,
+    Permission.TRANSPORT_READ,
+    Permission.CARD_READ,
+    Permission.BUS_READ,
+    Permission.PRESENCE_READ,
+  ],
   Parent: [
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_READ,
     Permission.ATTENDANCE_READ,
     Permission.HOMEWORK_READ,
     Permission.BEHAVIOR_READ,

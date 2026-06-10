@@ -11,6 +11,6 @@ import { RbacService } from './services/rbac.service';
   imports: [JwtModule.register({})],
   controllers: [AuthController],
   providers: [AuthService, TokenService, PasswordService, FirebaseService, RbacService],
-  exports: [AuthService, TokenService, RbacService],
+  exports: [AuthService, TokenService, RbacService, PasswordService],
 })
 export class AuthModule {}

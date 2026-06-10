@@ -269,8 +269,18 @@ enum RoleKey {
   Principal
   VicePrincipal
   FinanceOfficer
+  Accountant
   Teacher
   Secretary
+  Receptionist
+  Registrar
+  Counselor
+  HR
+  Nurse
+  Librarian
+  StoreKeeper
+  FleetAdmin
+  BusSupervisor
   Parent
   Student
 }
@@ -352,6 +362,10 @@ model Tenant {
   refunds             Refund[]
   billingProfiles     StudentBillingProfile[]
   paymentReminders    PaymentReminder[]
+  presenceEvents      StudentPresenceEvent[]
+  busAttendanceEvents BusAttendanceEvent[]
+  attendanceSourceConfig AttendanceSourceConfig?
+  studentCards        StudentCard[]
 
   @@index([status])
 }
@@ -561,6 +575,9 @@ model Student {
   refunds        Refund[]
   billingProfile StudentBillingProfile?
   paymentReminders PaymentReminder[]
+  presenceEvents StudentPresenceEvent[]
+  busAttendanceEvents BusAttendanceEvent[]
+  cards          StudentCard[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -733,7 +750,9 @@ model User {
 model Role {
   id        String    @id @default(uuid()) @db.Uuid
   tenantId  String?   @db.Uuid
-  key       RoleKey
+  // System roles use a @munaxa/domain RoleKey (e.g. "Teacher"); custom per-tenant roles use a
+  // generated slug (e.g. "custom-front-desk"). Stored as text so tenants can define their own.
+  key       String
   scope     RoleScope
   isSystem  Boolean   @default(true)
   nameEn    String?
@@ -1472,6 +1491,7 @@ model Bus {
 
   tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   route  BusRoute? @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  attendanceEvents BusAttendanceEvent[]
 
   @@unique([tenantId, plateNumber])
   @@index([tenantId])
@@ -2000,4 +2020,148 @@ model PaymentReminder {
 
   @@index([tenantId, studentId])
   @@index([tenantId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Campus Presence + Transportation (Phase 21) — NEW domains, fully additive.
+// Separate from Academic Attendance (StudentAttendance/TeacherAttendance), which is unchanged.
+// Append-only events; idempotent replay via @@unique([tenantId, clientRef]).
+// ----------------------------------------------------------------------------
+
+enum PresenceEventType {
+  GATE_IN
+  GATE_OUT
+  RECEPTION_CHECKIN
+  RECEPTION_CHECKOUT
+}
+
+enum PresenceMethod {
+  NFC
+  RFID
+  QR
+  MANUAL
+  FACE
+  BUS
+}
+
+enum BusEventType {
+  BOARD_AM
+  ARRIVE_SCHOOL
+  BOARD_PM
+  ARRIVE_HOME
+}
+
+enum TransportMethod {
+  NFC
+  RFID
+  QR
+  MANUAL
+}
+
+/// Per-tenant attendance-source configuration: whether arrival events auto-create PRESENT,
+/// plus presence/transport feature toggles and the default bus capture method.
+enum AttendanceSourceMode {
+  TEACHER_ONLY
+  GATE_ARRIVAL
+  BUS_ARRIVAL
+  HYBRID
+}
+
+/// Physical campus presence (gate / reception). NOT academic attendance.
+model StudentPresenceEvent {
+  id         String            @id @default(uuid()) @db.Uuid
+  tenantId   String            @db.Uuid
+  studentId  String            @db.Uuid
+  eventType  PresenceEventType
+  method     PresenceMethod    @default(MANUAL)
+  occurredAt DateTime          @db.Timestamptz(6)
+  deviceId   String?
+  /// Client-generated id from the offline queue — idempotent replay key.
+  clientRef  String?
+  createdAt  DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime          @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, clientRef])
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, occurredAt])
+}
+
+/// Transportation boarding/arrival events. NOT academic attendance; references the existing Bus.
+model BusAttendanceEvent {
+  id         String          @id @default(uuid()) @db.Uuid
+  tenantId   String          @db.Uuid
+  studentId  String          @db.Uuid
+  busId      String          @db.Uuid
+  eventType  BusEventType
+  method     TransportMethod @default(NFC)
+  occurredAt DateTime        @db.Timestamptz(6)
+  clientRef  String?
+  createdAt  DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime        @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  bus     Bus     @relation(fields: [busId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, clientRef])
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, busId])
+  @@index([tenantId, occurredAt])
+}
+
+model AttendanceSourceConfig {
+  id               String               @id @default(uuid()) @db.Uuid
+  tenantId         String               @unique @db.Uuid
+  mode             AttendanceSourceMode @default(TEACHER_ONLY)
+  busMethod        TransportMethod      @default(NFC)
+  presenceEnabled  Boolean              @default(false)
+  transportEnabled Boolean              @default(false)
+  createdAt        DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ----------------------------------------------------------------------------
+// Student card registry (Phase 22) — NFC/RFID cards issued to students, with lifecycle.
+// NFC/RFID identification resolves a card UID → studentId only when the card is ACTIVE.
+// ----------------------------------------------------------------------------
+
+enum CardType {
+  NFC
+  RFID
+}
+
+enum CardStatus {
+  ACTIVE
+  SUSPENDED
+  STOLEN
+  LOST
+  REVOKED
+}
+
+model StudentCard {
+  id        String     @id @default(uuid()) @db.Uuid
+  tenantId  String     @db.Uuid
+  studentId String     @db.Uuid
+  cardUid   String // the physical card/tag UID
+  type      CardType   @default(NFC)
+  status    CardStatus @default(ACTIVE)
+  label     String?
+  issuedById String?   @db.Uuid
+  issuedAt  DateTime   @default(now()) @db.Timestamptz(6)
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, cardUid])
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
 }

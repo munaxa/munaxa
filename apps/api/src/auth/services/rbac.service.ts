@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { RoleScope } from '@prisma/client';
 import {
   type RoleKey,
   type Permission,
+  ALL_PERMISSIONS,
   SCHOOL_ROLES,
   PLATFORM_ROLES,
   permissionsForRole,
@@ -19,13 +20,13 @@ export class RbacService {
   async loadUserAuthz(
     tx: TxClient,
     userId: string,
-  ): Promise<{ roles: RoleKey[]; permissions: Permission[] }> {
+  ): Promise<{ roles: string[]; permissions: Permission[] }> {
     const assignments = await tx.userRole.findMany({
       where: { userId },
       include: { role: { include: { rolePermissions: { include: { permission: true } } } } },
     });
 
-    const roles = new Set<RoleKey>();
+    const roles = new Set<string>();
     const permissions = new Set<Permission>();
     for (const assignment of assignments) {
       roles.add(assignment.role.key);
@@ -87,4 +88,176 @@ export class RbacService {
       create: { tenantId, userId, roleId: role.id },
     });
   }
+
+  /** Replace a user's role assignments with the given tenant roles (ignores foreign role ids). */
+  async setUserRoles(
+    tx: TxClient,
+    tenantId: string,
+    userId: string,
+    roleIds: string[],
+  ): Promise<void> {
+    const valid = await tx.role.findMany({
+      where: { tenantId, id: { in: roleIds } },
+      select: { id: true },
+    });
+    await tx.userRole.deleteMany({ where: { userId, tenantId } });
+    for (const role of valid) {
+      await tx.userRole.create({ data: { tenantId, userId, roleId: role.id } });
+    }
+  }
+
+  // ----- Per-tenant role management ----------------------------------------
+
+  /** List a tenant's roles (system + custom) with their permission keys and assigned-user counts. */
+  async listRoles(tx: TxClient, tenantId: string): Promise<RoleSummary[]> {
+    const roles = await tx.role.findMany({
+      where: { tenantId },
+      include: {
+        rolePermissions: { include: { permission: { select: { key: true } } } },
+        _count: { select: { userRoles: true } },
+      },
+      orderBy: [{ isSystem: 'desc' }, { key: 'asc' }],
+    });
+    return roles.map((r) => ({
+      id: r.id,
+      key: r.key,
+      isSystem: r.isSystem,
+      nameEn: r.nameEn,
+      nameAr: r.nameAr,
+      permissions: r.rolePermissions.map((rp) => rp.permission.key),
+      userCount: r._count.userRoles,
+    }));
+  }
+
+  /**
+   * Create a custom (non-system) role for a tenant. The key is a generated, unique slug so it
+   * never collides with system RoleKey values. Permission keys outside the catalog are ignored.
+   */
+  async createCustomRole(
+    tx: TxClient,
+    tenantId: string,
+    input: { nameEn: string; nameAr?: string | null; permissions: string[] },
+  ): Promise<RoleSummary> {
+    const key = await this.uniqueCustomKey(tx, tenantId, input.nameEn);
+    const role = await tx.role.create({
+      data: {
+        tenantId,
+        key,
+        scope: RoleScope.SCHOOL,
+        isSystem: false,
+        nameEn: input.nameEn,
+        nameAr: input.nameAr ?? null,
+      },
+    });
+    await this.setRolePermissions(tx, role.id, input.permissions);
+    return this.getRoleSummary(tx, role.id);
+  }
+
+  /**
+   * Update a role's permission set (and optionally its display names). Allowed for both custom and
+   * system roles — editing a system role customizes that template for this tenant only. The role's
+   * `key` is immutable. Returns the updated summary.
+   */
+  async updateRole(
+    tx: TxClient,
+    tenantId: string,
+    roleId: string,
+    input: { nameEn?: string | null; nameAr?: string | null; permissions?: string[] },
+  ): Promise<RoleSummary> {
+    const role = await tx.role.findFirstOrThrow({ where: { id: roleId, tenantId } });
+    if (input.nameEn !== undefined || input.nameAr !== undefined) {
+      await tx.role.update({
+        where: { id: role.id },
+        data: {
+          ...(input.nameEn !== undefined ? { nameEn: input.nameEn } : {}),
+          ...(input.nameAr !== undefined ? { nameAr: input.nameAr } : {}),
+        },
+      });
+    }
+    if (input.permissions) {
+      await tx.rolePermission.deleteMany({ where: { roleId: role.id } });
+      await this.setRolePermissions(tx, role.id, input.permissions);
+    }
+    return this.getRoleSummary(tx, role.id);
+  }
+
+  /** Delete a custom role. System roles cannot be deleted; a role still assigned to users cannot. */
+  async deleteCustomRole(tx: TxClient, tenantId: string, roleId: string): Promise<void> {
+    const role = await tx.role.findFirstOrThrow({
+      where: { id: roleId, tenantId },
+      include: { _count: { select: { userRoles: true } } },
+    });
+    if (role.isSystem) throw new BadRequestException('System roles cannot be deleted');
+    if (role._count.userRoles > 0) {
+      throw new BadRequestException('Reassign its users before deleting this role');
+    }
+    await tx.role.delete({ where: { id: role.id } });
+  }
+
+  private async getRoleSummary(tx: TxClient, roleId: string): Promise<RoleSummary> {
+    const r = await tx.role.findUniqueOrThrow({
+      where: { id: roleId },
+      include: {
+        rolePermissions: { include: { permission: { select: { key: true } } } },
+        _count: { select: { userRoles: true } },
+      },
+    });
+    return {
+      id: r.id,
+      key: r.key,
+      isSystem: r.isSystem,
+      nameEn: r.nameEn,
+      nameAr: r.nameAr,
+      permissions: r.rolePermissions.map((rp) => rp.permission.key),
+      userCount: r._count.userRoles,
+    };
+  }
+
+  /** Map the given permission keys (only those that exist in the catalog) onto a role. */
+  private async setRolePermissions(
+    tx: TxClient,
+    roleId: string,
+    permissionKeys: string[],
+  ): Promise<void> {
+    const valid = permissionKeys.filter((k) => ALL_PERMISSIONS.includes(k as Permission));
+    if (valid.length === 0) return;
+    const permissions = await tx.permission.findMany({
+      where: { key: { in: valid } },
+      select: { id: true },
+    });
+    for (const permission of permissions) {
+      await tx.rolePermission.upsert({
+        where: { roleId_permissionId: { roleId, permissionId: permission.id } },
+        update: {},
+        create: { roleId, permissionId: permission.id },
+      });
+    }
+  }
+
+  /** Generate a `custom-…` slug from a name, ensuring uniqueness within the tenant. */
+  private async uniqueCustomKey(tx: TxClient, tenantId: string, name: string): Promise<string> {
+    const base =
+      'custom-' +
+      (name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40) || 'role');
+    let key = base;
+    let n = 1;
+    while (await tx.role.findFirst({ where: { tenantId, key }, select: { id: true } })) {
+      key = `${base}-${++n}`;
+    }
+    return key;
+  }
+}
+
+export interface RoleSummary {
+  id: string;
+  key: string;
+  isSystem: boolean;
+  nameEn: string | null;
+  nameAr: string | null;
+  permissions: string[];
+  userCount: number;
 }

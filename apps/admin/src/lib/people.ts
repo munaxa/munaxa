@@ -54,6 +54,8 @@ export const studentsApi = {
     authFetch(`/students${search ? `?search=${encodeURIComponent(search)}` : ''}`).then((r) =>
       json<Student[]>(r),
     ),
+  bySection: (sectionId: string) =>
+    authFetch(`/students?sectionId=${sectionId}`).then((r) => json<Student[]>(r)),
   create: (data: {
     firstNameEn: string;
     lastNameEn: string;

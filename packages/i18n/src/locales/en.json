@@ -37,7 +37,12 @@
     "reports": "Reports",
     "modules": "Modules",
     "tenantDatabases": "Tenant databases",
-    "integrations": "Integrations"
+    "integrations": "Integrations",
+    "attendanceSettings": "Attendance settings",
+    "cards": "Student cards",
+    "fleet": "Fleet & transport",
+    "roles": "Roles & permissions",
+    "users": "Users & staff"
   },
   "dashboard": {
     "title": "Overview",
