@@ -38,7 +38,8 @@
     "modules": "الوحدات",
     "tenantDatabases": "قواعد بيانات المدارس",
     "integrations": "التكاملات",
-    "attendanceSettings": "إعدادات الحضور"
+    "attendanceSettings": "إعدادات الحضور",
+    "cards": "بطاقات الطلاب"
   },
   "dashboard": {
     "title": "نظرة عامة",

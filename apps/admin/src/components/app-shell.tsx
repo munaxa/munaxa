@@ -20,6 +20,7 @@ const NAV: NavItem[] = [
   { href: '/', labelKey: 'nav.dashboard' },
   { href: '/structure/schools', labelKey: 'nav.structure', perm: 'school:manage' },
   { href: '/people/students', labelKey: 'nav.people', perm: 'student:manage' },
+  { href: '/people/cards', labelKey: 'nav.cards', perm: 'card:read' },
   { href: '/timetable', labelKey: 'nav.timetable', perm: 'timetable:read' },
   { href: '/attendance', labelKey: 'nav.attendance', perm: 'attendance:read' },
   { href: '/academics', labelKey: 'nav.academics', perm: 'grade:read' },

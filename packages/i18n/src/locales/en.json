@@ -38,7 +38,8 @@
     "modules": "Modules",
     "tenantDatabases": "Tenant databases",
     "integrations": "Integrations",
-    "attendanceSettings": "Attendance settings"
+    "attendanceSettings": "Attendance settings",
+    "cards": "Student cards"
   },
   "dashboard": {
     "title": "Overview",
