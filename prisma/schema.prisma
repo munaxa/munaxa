@@ -269,8 +269,18 @@ enum RoleKey {
   Principal
   VicePrincipal
   FinanceOfficer
+  Accountant
   Teacher
   Secretary
+  Receptionist
+  Registrar
+  Counselor
+  HR
+  Nurse
+  Librarian
+  StoreKeeper
+  FleetAdmin
+  BusSupervisor
   Parent
   Student
 }
