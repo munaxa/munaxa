@@ -23,7 +23,16 @@ async function json<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
 }
 
+export interface AttendanceMark {
+  studentId: string;
+  status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
+}
+
 export const attendanceApi = {
+  list: (sectionId: string, date: string, periodIndex: number) =>
+    authFetch(
+      `/attendance/students?sectionId=${sectionId}&date=${date}&periodIndex=${periodIndex}`,
+    ).then((r) => json<AttendanceMark[]>(r)),
   mark: (sectionId: string, date: string, periodIndex: number, records: AttendanceRecord[]) =>
     authFetch('/attendance/students/bulk', {
       method: 'POST',
