@@ -37,7 +37,8 @@
     "reports": "Reports",
     "modules": "Modules",
     "tenantDatabases": "Tenant databases",
-    "integrations": "Integrations"
+    "integrations": "Integrations",
+    "attendanceSettings": "Attendance settings"
   },
   "dashboard": {
     "title": "Overview",

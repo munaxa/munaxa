@@ -37,7 +37,8 @@
     "reports": "التقارير",
     "modules": "الوحدات",
     "tenantDatabases": "قواعد بيانات المدارس",
-    "integrations": "التكاملات"
+    "integrations": "التكاملات",
+    "attendanceSettings": "إعدادات الحضور"
   },
   "dashboard": {
     "title": "نظرة عامة",
