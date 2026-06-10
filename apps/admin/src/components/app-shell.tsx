@@ -26,6 +26,7 @@ const NAV: NavItem[] = [
   { href: '/academics', labelKey: 'nav.academics', perm: 'grade:read' },
   { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
   { href: '/communication', labelKey: 'nav.communication', perm: 'announcement:manage' },
+  { href: '/fleet', labelKey: 'nav.fleet', perm: 'bus:read' },
   { href: '/reports', labelKey: 'nav.reports', perm: 'report:read' },
   { href: '/modules', labelKey: 'nav.modules', perm: 'featureflag:manage' },
   { href: '/settings/integrations/jofotara', labelKey: 'nav.integrations', perm: 'finance:manage' },

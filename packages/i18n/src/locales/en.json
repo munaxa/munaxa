@@ -39,7 +39,8 @@
     "tenantDatabases": "Tenant databases",
     "integrations": "Integrations",
     "attendanceSettings": "Attendance settings",
-    "cards": "Student cards"
+    "cards": "Student cards",
+    "fleet": "Fleet & transport"
   },
   "dashboard": {
     "title": "Overview",

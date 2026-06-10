@@ -39,7 +39,8 @@
     "tenantDatabases": "قواعد بيانات المدارس",
     "integrations": "التكاملات",
     "attendanceSettings": "إعدادات الحضور",
-    "cards": "بطاقات الطلاب"
+    "cards": "بطاقات الطلاب",
+    "fleet": "النقل والحافلات"
   },
   "dashboard": {
     "title": "نظرة عامة",
