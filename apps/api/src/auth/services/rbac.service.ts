@@ -89,6 +89,23 @@ export class RbacService {
     });
   }
 
+  /** Replace a user's role assignments with the given tenant roles (ignores foreign role ids). */
+  async setUserRoles(
+    tx: TxClient,
+    tenantId: string,
+    userId: string,
+    roleIds: string[],
+  ): Promise<void> {
+    const valid = await tx.role.findMany({
+      where: { tenantId, id: { in: roleIds } },
+      select: { id: true },
+    });
+    await tx.userRole.deleteMany({ where: { userId, tenantId } });
+    for (const role of valid) {
+      await tx.userRole.create({ data: { tenantId, userId, roleId: role.id } });
+    }
+  }
+
   // ----- Per-tenant role management ----------------------------------------
 
   /** List a tenant's roles (system + custom) with their permission keys and assigned-user counts. */
