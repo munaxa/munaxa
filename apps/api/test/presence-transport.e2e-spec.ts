@@ -238,6 +238,97 @@ describe('Campus Presence + Transportation (e2e)', () => {
     expect(times).toEqual([...times].sort((a, b) => b.localeCompare(a)));
   });
 
+  // ---- Student card registry (Phase 22) -------------------------------------
+
+  let cardId: string;
+
+  it('issues an NFC card, lists it, and rejects a duplicate UID', async () => {
+    const res = await http()
+      .post('/api/v1/cards')
+      .set(auth(adminToken))
+      .send({ studentId, cardUid: 'CARD-UID-1', type: 'NFC', label: 'Blue lanyard' })
+      .expect(201);
+    cardId = res.body.id;
+    expect(res.body.status).toBe('ACTIVE');
+    await http()
+      .post('/api/v1/cards')
+      .set(auth(adminToken))
+      .send({ studentId, cardUid: 'CARD-UID-1' })
+      .expect(409); // duplicate UID
+    const list = await http()
+      .get(`/api/v1/cards?studentId=${studentId}`)
+      .set(auth(adminToken))
+      .expect(200);
+    expect(list.body.some((c: { id: string }) => c.id === cardId)).toBe(true);
+  });
+
+  it('an ACTIVE card resolves an NFC bus event by cardUid (no studentId needed)', async () => {
+    const res = await http()
+      .post('/api/v1/transport/events')
+      .set(auth(adminToken))
+      .send({
+        cardUid: 'CARD-UID-1',
+        busId,
+        eventType: 'BOARD_AM',
+        method: 'NFC',
+        clientRef: 'bus-card-1',
+      })
+      .expect(201);
+    expect(res.body.created).toBe(true);
+    expect(res.body.event.studentId).toBe(studentId); // resolved via the registry
+  });
+
+  it('marking the card STOLEN stops it resolving (event rejected)', async () => {
+    await http()
+      .patch(`/api/v1/cards/${cardId}`)
+      .set(auth(adminToken))
+      .send({ status: 'STOLEN' })
+      .expect(200);
+    await http()
+      .post('/api/v1/transport/events')
+      .set(auth(adminToken))
+      .send({
+        cardUid: 'CARD-UID-1',
+        busId,
+        eventType: 'BOARD_PM',
+        method: 'NFC',
+        clientRef: 'bus-card-2',
+      })
+      .expect(400); // stolen card no longer resolves
+  });
+
+  it('reactivating the card lets it resolve again, and delete removes it', async () => {
+    await http()
+      .patch(`/api/v1/cards/${cardId}`)
+      .set(auth(adminToken))
+      .send({ status: 'ACTIVE' })
+      .expect(200);
+    await http()
+      .post('/api/v1/presence/events')
+      .set(auth(adminToken))
+      .send({
+        cardUid: 'CARD-UID-1',
+        eventType: 'RECEPTION_CHECKIN',
+        method: 'NFC',
+        clientRef: 'pres-card-1',
+      })
+      .expect(201);
+    await http().delete(`/api/v1/cards/${cardId}`).set(auth(adminToken)).expect(200);
+    await http()
+      .post('/api/v1/transport/events')
+      .set(auth(adminToken))
+      .send({ cardUid: 'CARD-UID-1', busId, eventType: 'BOARD_AM', method: 'NFC' })
+      .expect(400); // deleted → no longer resolves
+  });
+
+  it('blocks card management for a role without card:manage (Parent)', async () => {
+    await http()
+      .post('/api/v1/cards')
+      .set(auth(parentToken))
+      .send({ studentId, cardUid: 'CARD-UID-X' })
+      .expect(403);
+  });
+
   // ---- RBAC ------------------------------------------------------------------
 
   it('blocks event creation for a role without the create permission (Parent)', async () => {

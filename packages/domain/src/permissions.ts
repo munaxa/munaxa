@@ -35,6 +35,8 @@ export const Permission = {
   TRANSPORT_CREATE: 'transport:create',
   TRANSPORT_READ: 'transport:read',
   ATTENDANCE_CONFIGURE: 'attendance:configure',
+  CARD_MANAGE: 'card:manage',
+  CARD_READ: 'card:read',
   HOMEWORK_MANAGE: 'homework:manage',
   HOMEWORK_READ: 'homework:read',
   BEHAVIOR_MANAGE: 'behavior:manage',

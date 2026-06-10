@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TenantRepository } from '../../common/tenant.repository';
+import { CardsService } from '../../cards/cards.service';
 
 /**
  * Resolves a physical identifier (NFC card UID, RFID tag, QR payload, or a manual selection)
@@ -37,23 +38,25 @@ export class QrProvider extends TenantRepository implements StudentIdentificatio
 }
 
 /**
- * NFC / RFID: a future StudentCard registry will map a card UID → studentId. Until that exists,
- * these accept a studentId passthrough so the offline bus workflow works today; the resolution
- * point is centralised here so adding the registry is a one-class change.
+ * NFC / RFID: resolve the physical card UID → studentId via the StudentCard registry (Phase 22),
+ * but ONLY when the card is ACTIVE — a SUSPENDED/STOLEN/LOST/REVOKED card resolves to null so it
+ * can no longer be used to capture events.
  */
 @Injectable()
 export class NfcProvider implements StudentIdentificationProvider {
   readonly method = 'NFC';
+  constructor(private readonly cards: CardsService) {}
   resolve(identifier: string): Promise<string | null> {
-    return Promise.resolve(identifier || null);
+    return identifier ? this.cards.resolveActive(identifier, 'NFC') : Promise.resolve(null);
   }
 }
 
 @Injectable()
 export class RfidProvider implements StudentIdentificationProvider {
   readonly method = 'RFID';
+  constructor(private readonly cards: CardsService) {}
   resolve(identifier: string): Promise<string | null> {
-    return Promise.resolve(identifier || null);
+    return identifier ? this.cards.resolveActive(identifier, 'RFID') : Promise.resolve(null);
   }
 }
 

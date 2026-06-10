@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { CardsModule } from '../cards/cards.module';
 import {
   AttendanceSettingsController,
   PresenceController,
@@ -22,6 +23,7 @@ import {
  * the multi-method identification providers (NFC/RFID/QR/MANUAL, Face-ready).
  */
 @Module({
+  imports: [CardsModule],
   controllers: [
     PresenceController,
     TransportController,

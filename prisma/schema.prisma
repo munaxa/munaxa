@@ -355,6 +355,7 @@ model Tenant {
   presenceEvents      StudentPresenceEvent[]
   busAttendanceEvents BusAttendanceEvent[]
   attendanceSourceConfig AttendanceSourceConfig?
+  studentCards        StudentCard[]
 
   @@index([status])
 }
@@ -566,6 +567,7 @@ model Student {
   paymentReminders PaymentReminder[]
   presenceEvents StudentPresenceEvent[]
   busAttendanceEvents BusAttendanceEvent[]
+  cards          StudentCard[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -2111,4 +2113,43 @@ model AttendanceSourceConfig {
   updatedAt        DateTime             @updatedAt @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ----------------------------------------------------------------------------
+// Student card registry (Phase 22) — NFC/RFID cards issued to students, with lifecycle.
+// NFC/RFID identification resolves a card UID → studentId only when the card is ACTIVE.
+// ----------------------------------------------------------------------------
+
+enum CardType {
+  NFC
+  RFID
+}
+
+enum CardStatus {
+  ACTIVE
+  SUSPENDED
+  STOLEN
+  LOST
+  REVOKED
+}
+
+model StudentCard {
+  id        String     @id @default(uuid()) @db.Uuid
+  tenantId  String     @db.Uuid
+  studentId String     @db.Uuid
+  cardUid   String // the physical card/tag UID
+  type      CardType   @default(NFC)
+  status    CardStatus @default(ACTIVE)
+  label     String?
+  issuedById String?   @db.Uuid
+  issuedAt  DateTime   @default(now()) @db.Timestamptz(6)
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, cardUid])
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
 }

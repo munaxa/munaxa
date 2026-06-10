@@ -21,9 +21,18 @@ import {
 import { Type } from 'class-transformer';
 
 export class CreatePresenceEventDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiPropertyOptional({ format: 'uuid', description: 'Provide studentId OR cardUid' })
+  @IsOptional()
   @IsUUID()
-  studentId!: string;
+  studentId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Physical card UID (resolved to a student via the registry)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  cardUid?: string;
 
   @ApiProperty({ enum: PresenceEventType })
   @IsEnum(PresenceEventType)
@@ -49,9 +58,18 @@ export class CreatePresenceEventDto {
 }
 
 export class CreateBusEventDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiPropertyOptional({ format: 'uuid', description: 'Provide studentId OR cardUid' })
+  @IsOptional()
   @IsUUID()
-  studentId!: string;
+  studentId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Physical card UID (resolved to a student via the registry)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  cardUid?: string;
 
   @ApiProperty({ format: 'uuid' })
   @IsUUID()

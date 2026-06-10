@@ -23,6 +23,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   // School plane
   SchoolAdmin: '*',
   Principal: [
+    Permission.CARD_MANAGE,
+    Permission.CARD_READ,
     Permission.PRESENCE_READ,
     Permission.TRANSPORT_READ,
     Permission.ATTENDANCE_CONFIGURE,
@@ -54,6 +56,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CLINIC_READ,
   ],
   VicePrincipal: [
+    Permission.CARD_READ,
     Permission.PRESENCE_READ,
     Permission.TRANSPORT_READ,
     Permission.ATTENDANCE_CONFIGURE,
@@ -84,6 +87,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.AUDIT_READ,
   ],
   Teacher: [
+    Permission.CARD_READ,
     Permission.PRESENCE_CREATE,
     Permission.PRESENCE_READ,
     Permission.TRANSPORT_CREATE,
@@ -105,6 +109,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.ACHIEVEMENT_MANAGE,
   ],
   Secretary: [
+    Permission.CARD_MANAGE,
+    Permission.CARD_READ,
     Permission.PRESENCE_CREATE,
     Permission.PRESENCE_READ,
     Permission.TRANSPORT_READ,

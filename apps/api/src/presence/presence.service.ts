@@ -5,6 +5,7 @@ import type {
   StudentPresenceEvent,
 } from '@prisma/client';
 import { PresenceRepository, type TimelineItem } from './presence.repository';
+import { IdentificationRegistry } from './identification/student-identification.provider';
 import type {
   CreateBusEventDto,
   CreatePresenceEventDto,
@@ -18,7 +19,29 @@ import type {
  */
 @Injectable()
 export class PresenceService {
-  constructor(private readonly repo: PresenceRepository) {}
+  constructor(
+    private readonly repo: PresenceRepository,
+    private readonly identification: IdentificationRegistry,
+  ) {}
+
+  /**
+   * Resolve the subject student: an explicit studentId, or a card UID via the matching
+   * identification provider (NFC/RFID resolve ACTIVE cards only; QR resolves the printed code).
+   */
+  private async resolveStudentId(
+    studentId: string | undefined,
+    cardUid: string | undefined,
+    method: string,
+  ): Promise<string> {
+    if (studentId) return studentId;
+    if (!cardUid) throw new BadRequestException('Provide either studentId or cardUid');
+    const provider = this.identification.get(method) ?? this.identification.get('NFC')!;
+    const resolved = await provider.resolve(cardUid);
+    if (!resolved) {
+      throw new BadRequestException('Card not recognised or not active');
+    }
+    return resolved;
+  }
 
   // ----------------------------------------------------------- settings
 
@@ -68,21 +91,23 @@ export class PresenceService {
   async createPresence(
     dto: CreatePresenceEventDto,
   ): Promise<{ event: StudentPresenceEvent; created: boolean }> {
-    if (!(await this.repo.studentExists(dto.studentId))) {
+    const method = dto.method ?? 'MANUAL';
+    const studentId = await this.resolveStudentId(dto.studentId, dto.cardUid, method);
+    if (!(await this.repo.studentExists(studentId))) {
       throw new BadRequestException('Student not found in this tenant');
     }
     const occurredAt = dto.occurredAt ? new Date(dto.occurredAt) : new Date();
     const result = await this.repo.createPresenceEvent({
-      studentId: dto.studentId,
+      studentId,
       eventType: dto.eventType,
-      method: dto.method ?? 'MANUAL',
+      method,
       occurredAt,
       deviceId: dto.deviceId ?? null,
       clientRef: dto.clientRef ?? null,
     });
     // Only run the engine for a freshly-created GATE_IN (idempotent replays don't re-trigger).
     if (result.created && dto.eventType === 'GATE_IN') {
-      await this.runSourceEngine('GATE_IN', dto.studentId, occurredAt);
+      await this.runSourceEngine('GATE_IN', studentId, occurredAt);
     }
     return result;
   }
@@ -96,7 +121,9 @@ export class PresenceService {
   async createBus(
     dto: CreateBusEventDto,
   ): Promise<{ event: BusAttendanceEvent; created: boolean }> {
-    if (!(await this.repo.studentExists(dto.studentId))) {
+    const method = dto.method ?? 'NFC';
+    const studentId = await this.resolveStudentId(dto.studentId, dto.cardUid, method);
+    if (!(await this.repo.studentExists(studentId))) {
       throw new BadRequestException('Student not found in this tenant');
     }
     if (!(await this.repo.busExists(dto.busId))) {
@@ -104,15 +131,15 @@ export class PresenceService {
     }
     const occurredAt = dto.occurredAt ? new Date(dto.occurredAt) : new Date();
     const result = await this.repo.createBusEvent({
-      studentId: dto.studentId,
+      studentId,
       busId: dto.busId,
       eventType: dto.eventType,
-      method: dto.method ?? 'NFC',
+      method,
       occurredAt,
       clientRef: dto.clientRef ?? null,
     });
     if (result.created && dto.eventType === 'ARRIVE_SCHOOL') {
-      await this.runSourceEngine('ARRIVE_SCHOOL', dto.studentId, occurredAt);
+      await this.runSourceEngine('ARRIVE_SCHOOL', studentId, occurredAt);
     }
     return result;
   }
