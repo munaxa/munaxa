@@ -76,6 +76,9 @@ Pattern examples (KPI stat card, collections banner, money cell) are shown in th
 
 1. **Don't introduce new patterns** — compose existing UI‑kit components and tokens.
 2. **Never hardcode hex** in components — use the Tailwind token classes so themes stay consistent.
+   This is **lint-enforced**: an ESLint `no-restricted-syntax` rule in
+   [`apps/admin/eslint.config.mjs`](../../apps/admin/eslint.config.mjs) errors on hex color
+   literals in `src/**` (string or template), caught by `turbo lint` / CI.
 3. Gradient is for **primary actions only** (and the logo / active nav); accents are for emphasis.
 4. Money is always mono, **3‑dp JOD**, LTR.
 
