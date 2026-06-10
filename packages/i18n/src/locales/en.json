@@ -40,7 +40,8 @@
     "integrations": "Integrations",
     "attendanceSettings": "Attendance settings",
     "cards": "Student cards",
-    "fleet": "Fleet & transport"
+    "fleet": "Fleet & transport",
+    "roles": "Roles & permissions"
   },
   "dashboard": {
     "title": "Overview",
