@@ -474,6 +474,28 @@ export default function JoFotaraPage() {
                   Uniform, Books, Activities…). Buyer = the fee-paying guardian (national ID),
                   frozen onto each document at issue time.
                 </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Auto-issue invoice when a charge is raised">
+                    <Select
+                      value={set.autoIssueOnCharge ? 'on' : 'off'}
+                      onChange={(e) => void patch({ autoIssueOnCharge: e.target.value === 'on' })}
+                    >
+                      <option value="off">Off (issue manually)</option>
+                      <option value="on">On (automatic)</option>
+                    </Select>
+                  </Field>
+                  <Field label="Auto credit note when an invoiced charge is reduced">
+                    <Select
+                      value={set.autoCreditOnAdjustment ? 'on' : 'off'}
+                      onChange={(e) =>
+                        void patch({ autoCreditOnAdjustment: e.target.value === 'on' })
+                      }
+                    >
+                      <option value="off">Off</option>
+                      <option value="on">On (automatic)</option>
+                    </Select>
+                  </Field>
+                </div>
                 <Button disabled={busy} onClick={() => void patch({}, 4)}>
                   Continue
                 </Button>

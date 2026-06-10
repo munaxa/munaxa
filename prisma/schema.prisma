@@ -1722,6 +1722,9 @@ model EInvoiceSettings {
   vatPercent   Decimal?            @db.Decimal(5, 2) // e.g. 16.00
   defaultTaxCategory String        @default("Z") // JoFotara: Z=exempt, O=zero-rated, S=standard
   defaultPaymentKind EInvoicePaymentKind @default(RECEIVABLE)
+  // Finance ↔ JoFotara automation (Phase 19)
+  autoIssueOnCharge      Boolean @default(false) // create+queue an invoice when a charge is raised
+  autoCreditOnAdjustment Boolean @default(false) // create+queue a 381 credit note when an invoiced charge is reduced
   fieldMappings Json? // fee-category → item naming / overrides
   templateConfig Json? // Step 6 — PDF/print template options (logo, header, footer, AR/EN/bilingual)
   // Wizard progress ("Save draft" / resume)

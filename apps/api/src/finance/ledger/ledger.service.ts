@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, type FeeAdjustment, type PaymentAllocation, type Refund } from '@prisma/client';
 import { BillingRepository } from './billing.repository';
+import { FinanceBridgeService } from '../../einvoicing/finance-bridge.service';
 import type { ApplyAdjustmentDto, AllocatePaymentDto, CreateRefundDto } from './ledger.dto';
 
 const ZERO = new Prisma.Decimal(0);
@@ -17,7 +18,10 @@ const ZERO = new Prisma.Decimal(0);
  */
 @Injectable()
 export class LedgerService {
-  constructor(private readonly repo: BillingRepository) {}
+  constructor(
+    private readonly repo: BillingRepository,
+    private readonly bridge: FinanceBridgeService,
+  ) {}
 
   // ------------------------------------------------------------- deductions
 
@@ -65,7 +69,7 @@ export class LedgerService {
       chargeId = null;
     }
 
-    return this.repo.applyAdjustment({
+    const adjustment = await this.repo.applyAdjustment({
       studentId: dto.studentId,
       chargeId,
       type: dto.type,
@@ -73,6 +77,11 @@ export class LedgerService {
       percent: dto.percent !== undefined ? new Prisma.Decimal(dto.percent) : null,
       reason: dto.reason,
     });
+    // Best-effort: if this reduced an already-invoiced charge, auto-issue a 381 credit note.
+    if (chargeId) {
+      await this.bridge.tryCreditForCharge(chargeId, Number(amount), dto.reason);
+    }
+    return adjustment;
   }
 
   async reverseAdjustment(id: string): Promise<FeeAdjustment> {

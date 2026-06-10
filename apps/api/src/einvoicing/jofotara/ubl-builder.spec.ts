@@ -29,6 +29,8 @@ const settings = (over: Partial<EInvoiceSettings> = {}): EInvoiceSettings => ({
   vatPercent: null,
   defaultTaxCategory: 'S',
   defaultPaymentKind: 'RECEIVABLE',
+  autoIssueOnCharge: false,
+  autoCreditOnAdjustment: false,
   fieldMappings: null,
   templateConfig: null,
   completedSteps: 7,

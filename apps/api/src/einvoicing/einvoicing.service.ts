@@ -77,6 +77,10 @@ export class EInvoicingService {
       ...(dto.defaultPaymentKind !== undefined
         ? { defaultPaymentKind: dto.defaultPaymentKind }
         : {}),
+      ...(dto.autoIssueOnCharge !== undefined ? { autoIssueOnCharge: dto.autoIssueOnCharge } : {}),
+      ...(dto.autoCreditOnAdjustment !== undefined
+        ? { autoCreditOnAdjustment: dto.autoCreditOnAdjustment }
+        : {}),
       ...(dto.fieldMappings !== undefined
         ? { fieldMappings: dto.fieldMappings as Prisma.InputJsonValue }
         : {}),
