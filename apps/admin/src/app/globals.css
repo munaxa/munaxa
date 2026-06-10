@@ -26,6 +26,9 @@
     --accent-foreground: 258 60% 10%;
     --destructive: 4 100% 67%;
     --destructive-foreground: 0 0% 100%;
+    /* Brand accents — theme-aware so they read correctly in light mode (design system v2). */
+    --coral: 2 65% 58%; /* light #D9534F */
+    --aqua: 175 84% 32%; /* light #0D9488 */
     --border: 258 20% 88%;
     --input: 258 20% 88%;
     --ring: 258 100% 62%;
@@ -46,6 +49,9 @@
     --accent-foreground: 263 56% 6%;
     --destructive: 4 100% 67%;
     --destructive-foreground: 0 0% 100%;
+    /* Brand accents — full-brightness on dark surfaces. */
+    --coral: 13 100% 72%; /* #FF8E6E */
+    --aqua: 173 88% 63%; /* #4DF4E1 */
     --border: 258 40% 22%;
     --input: 258 40% 22%;
     --ring: 264 100% 74%;
