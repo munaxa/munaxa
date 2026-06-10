@@ -29,6 +29,12 @@ export const Permission = {
   ATTENDANCE_CREATE: 'attendance:create',
   ATTENDANCE_READ: 'attendance:read',
   ATTENDANCE_EXPORT: 'attendance:export',
+  // Campus presence + transportation (Phase 21)
+  PRESENCE_CREATE: 'presence:create',
+  PRESENCE_READ: 'presence:read',
+  TRANSPORT_CREATE: 'transport:create',
+  TRANSPORT_READ: 'transport:read',
+  ATTENDANCE_CONFIGURE: 'attendance:configure',
   HOMEWORK_MANAGE: 'homework:manage',
   HOMEWORK_READ: 'homework:read',
   BEHAVIOR_MANAGE: 'behavior:manage',

@@ -23,6 +23,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   // School plane
   SchoolAdmin: '*',
   Principal: [
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_READ,
+    Permission.ATTENDANCE_CONFIGURE,
     Permission.SCHOOL_MANAGE,
     Permission.CAMPUS_MANAGE,
     Permission.ACADEMICYEAR_MANAGE,
@@ -51,6 +54,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CLINIC_READ,
   ],
   VicePrincipal: [
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_READ,
+    Permission.ATTENDANCE_CONFIGURE,
     Permission.TIMETABLE_MANAGE,
     Permission.ATTENDANCE_CREATE,
     Permission.ATTENDANCE_READ,
@@ -78,6 +84,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.AUDIT_READ,
   ],
   Teacher: [
+    Permission.PRESENCE_CREATE,
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_CREATE,
+    Permission.TRANSPORT_READ,
     Permission.TIMETABLE_READ,
     Permission.ATTENDANCE_CREATE,
     Permission.ATTENDANCE_READ,
@@ -95,6 +105,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.ACHIEVEMENT_MANAGE,
   ],
   Secretary: [
+    Permission.PRESENCE_CREATE,
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_READ,
     Permission.STUDENT_MANAGE,
     Permission.PARENT_MANAGE,
     Permission.DOCUMENT_MANAGE,
@@ -112,6 +125,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CLINIC_READ,
   ],
   Parent: [
+    Permission.PRESENCE_READ,
+    Permission.TRANSPORT_READ,
     Permission.ATTENDANCE_READ,
     Permission.HOMEWORK_READ,
     Permission.BEHAVIOR_READ,
