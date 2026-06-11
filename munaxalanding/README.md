@@ -125,8 +125,9 @@ using Workers Assets for static files and a KV namespace (`RATE_LIMIT_KV`, bound
    # then update the "id" in wrangler.jsonc
    ```
 2. **Configure secrets** (per environment) via `wrangler secret put <NAME>` or the Cloudflare
-   dashboard → Workers → Settings → Variables:
-   - `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+   dashboard → Workers → Settings → Variables. `SUPABASE_URL` is already set as a non-secret
+   `vars` entry in `wrangler.jsonc`; the rest must be set as encrypted secrets:
+   - `SUPABASE_SERVICE_ROLE_KEY`
    - `RESEND_API_KEY`, `EMAIL_FROM`
    - `TURNSTILE_SECRET_KEY` (and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` as a build-time var, if used)
    - `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN` (optional)
@@ -144,6 +145,21 @@ using Workers Assets for static files and a KV namespace (`RATE_LIMIT_KV`, bound
    ```
 5. **Custom domain:** attach a custom domain/route to the Worker from the Cloudflare dashboard
    (Workers & Pages → munaxa-landing → Settings → Domains & Routes), e.g. `www.munaxa.com`.
+
+### CI/CD (GitHub Actions)
+
+`.github/workflows/deploy-landing.yml` builds and deploys the Worker on every push to `main`
+that touches `munaxalanding/**`, and can also be run manually (`workflow_dispatch`). It needs
+the following **repository secrets** (Settings → Secrets and variables → Actions):
+
+- `CLOUDFLARE_API_TOKEN` — Workers Scripts: Edit permission
+- `CLOUDFLARE_ACCOUNT_ID`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `RESEND_API_KEY`
+- `EMAIL_FROM`
+
+The workflow runs `pnpm deploy` and then `wrangler secret put` for each of the secrets above
+so the Worker's runtime config stays in sync with the GitHub secrets on every deploy.
 
 ### Docker (alternative, self-hosted)
 
