@@ -106,7 +106,8 @@ sequenceDiagram
 - **Flavor home dashboards** (read models from the existing `data/*` API clients):
   - Parent — bottom-nav shell (Home · Requests · Meetings · Documents) with a shared app-bar
     child switcher: per-child dashboard, submit/cancel **leave & absence** requests, book/cancel
-    **PTM** slots, and a read-only **document vault** list.
+    **PTM** slots, and a **document vault** (open externally + upload from device via
+    `file_picker` → presign → PUT → confirm).
   - Student — bottom-nav shell (Home · Timetable · Homework · Resources): gamification
     (points/level/streak) + attendance dashboard, day-grouped timetable, due-date homework list,
     and learning resources that open externally (`url_launcher`).
@@ -124,6 +125,6 @@ sequenceDiagram
 - Drift-backed read caches / stale-while-revalidate (the attendance & presence queues already exist).
 - Firebase Auth sign-in, biometric unlock, certificate pinning; Firebase project config files
   (`google-services.json` / `GoogleService-Info.plist`) must be supplied to activate push.
-- AR/EN locale toggle + RTL goldens; document upload (file picker) and download.
+- AR/EN locale toggle + RTL goldens.
 - Cross-tenant **Account/Membership** school switcher (see
   `15-identity-and-cross-tenant-membership.md`) — lands with the parent multi-school experience.
