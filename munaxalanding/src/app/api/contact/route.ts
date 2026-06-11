@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   const userAgent = request.headers.get('user-agent');
 
   // 1. Rate limiting (per-IP sliding window).
-  const rateLimit = checkRateLimit(`contact:${ip}`, RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+  const rateLimit = await checkRateLimit(`contact:${ip}`, RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
   if (!rateLimit.allowed) {
     logger.warn('contact.rate_limited', { ip: maskIp(ip) });
     return NextResponse.json(

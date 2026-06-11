@@ -10,6 +10,11 @@ out/
 *.tsbuildinfo
 next-env.d.ts
 
+# OpenNext / Cloudflare Workers
+.open-next/
+.wrangler/
+.dev.vars
+
 # Turborepo
 .turbo/
 

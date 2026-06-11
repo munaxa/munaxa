@@ -1,34 +1,28 @@
-import { Pool } from 'pg';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { logger } from './logger';
 
 /**
- * Dedicated connection pool for the landing page's own `contact_inquiries` table
- * (see db/migrations/001_create_contact_inquiries.sql).
+ * Server-only Supabase client backed by the service role key (bypasses RLS).
  *
- * Kept independent from the main Munaxa Prisma schema/connection on purpose: the landing
- * page must be deployable (and its DB migratable) without touching `prisma/schema.prisma`
- * or the School OS's RLS-protected tenant database. Point `LANDING_DATABASE_URL` at the
- * same Postgres instance (different schema/role) or a separate database — either works.
+ * Submissions are stored in the shared Munaxa Supabase project's `early_access_requests`
+ * table (see db/migrations/002_add_contact_fields_to_early_access_requests.sql) so the
+ * landing page's "talk to us" inquiries land alongside other early-access signups. RLS is
+ * enabled on that table with no public policies, so only the service role (server-side,
+ * never exposed to the browser) can read/write it.
  */
-let pool: Pool | undefined;
+let client: SupabaseClient | undefined;
 
-function getPool(): Pool | null {
-  const connectionString = process.env.LANDING_DATABASE_URL;
-  if (!connectionString) return null;
+function getClient(): SupabaseClient | null {
+  const url = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) return null;
 
-  if (!pool) {
-    pool = new Pool({
-      connectionString,
-      max: 5,
-      idleTimeoutMillis: 30_000,
-      connectionTimeoutMillis: 5_000,
-      ssl: process.env.LANDING_DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
-    });
-    pool.on('error', (err) => {
-      logger.error('db.pool_error', { message: err.message });
+  if (!client) {
+    client = createClient(url, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
     });
   }
-  return pool;
+  return client;
 }
 
 export interface ContactInquiryRecord {
@@ -42,32 +36,41 @@ export interface ContactInquiryRecord {
 }
 
 /**
- * Persists a contact inquiry using a parameterized query (no string concatenation —
- * prevents SQL injection per OWASP A03). Returns the generated row id, or `null` if no
- * database is configured (the request can still proceed; emails are still sent).
+ * Persists a contact inquiry. Returns the row id, or `null` if Supabase isn't configured
+ * (the request can still proceed; emails are still sent).
+ *
+ * Uses an upsert keyed on `email` (the table has a unique constraint on it): a school that
+ * submits the form again gets its existing early-access request updated with the latest
+ * details rather than failing on a duplicate-key error.
  */
 export async function insertContactInquiry(record: ContactInquiryRecord): Promise<string | null> {
-  const db = getPool();
-  if (!db) {
-    logger.warn('db.not_configured', { reason: 'LANDING_DATABASE_URL not set' });
+  const supabase = getClient();
+  if (!supabase) {
+    logger.warn('db.not_configured', {
+      reason: 'SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set',
+    });
     return null;
   }
 
-  const result = await db.query<{ id: string }>(
-    `INSERT INTO contact_inquiries
-       (name, school_name, email, phone, message, ip_address, user_agent)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING id`,
-    [
-      record.name,
-      record.schoolName,
-      record.email,
-      record.phone,
-      record.message,
-      record.ipAddress,
-      record.userAgent,
-    ],
-  );
+  const { data, error } = await supabase
+    .from('early_access_requests')
+    .upsert(
+      {
+        name: record.name,
+        school: record.schoolName,
+        email: record.email,
+        phone: record.phone,
+        message: record.message,
+        website: '',
+        ip_address: record.ipAddress,
+        user_agent: record.userAgent,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'email' },
+    )
+    .select('id')
+    .single<{ id: string }>();
 
-  return result.rows[0]?.id ?? null;
+  if (error) throw new Error(error.message);
+  return data?.id ?? null;
 }

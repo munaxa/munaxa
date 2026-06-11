@@ -33,14 +33,17 @@ to this marketing site only.
 - User-supplied values are HTML-escaped (`escapeHtml`) before being interpolated into the
   internal notification email's HTML body, preventing HTML/script injection in the staff
   inbox.
-- The database layer (`src/lib/db.ts`) uses **parameterized queries exclusively** — no string
-  concatenation of user input into SQL (prevents SQL injection, OWASP A03).
+- The database layer (`src/lib/db.ts`) uses the Supabase client's query builder
+  exclusively — no string concatenation of user input into SQL (prevents SQL injection,
+  OWASP A03).
 
 ## Rate limiting & anti-spam
 
 - **Rate limiting**: `src/lib/rate-limit.ts` enforces a sliding-window limit
   (5 submissions / 10 minutes per IP) on `POST /api/contact`, returning `429` with
-  `Retry-After` when exceeded.
+  `Retry-After` when exceeded. On Cloudflare Workers, counters are stored in the
+  `RATE_LIMIT_KV` namespace so the limit is shared across all edge locations; outside of
+  Workers it falls back to an in-memory `Map` (correct for a single-instance deployment).
 - **Honeypot field**: a visually hidden `website` field (`src/components/sections/contact.tsx`)
   that real users never fill. If populated, the API returns `200 OK` but silently discards the
   submission — bots are not informed they were detected.
@@ -50,9 +53,14 @@ to this marketing site only.
 
 ## Secrets handling
 
-- All secrets (Resend API key, database URL, Turnstile secret, Sentry DSN) are read from
-  environment variables only — none are hardcoded. `.env.example` documents every variable
-  with placeholder values; real `.env*` files are git-ignored at the repo root.
+- All secrets (Resend API key, Supabase service role key, Turnstile secret, Sentry DSN) are
+  read from environment variables only — none are hardcoded. `.env.example` documents every
+  variable with placeholder values; real `.env*` files are git-ignored at the repo root.
+- **`SUPABASE_SERVICE_ROLE_KEY` is a highly privileged, server-only secret** — it bypasses
+  Row Level Security on the Supabase project. It must never be exposed to the client, logged,
+  or committed. On Cloudflare Workers it is configured as an encrypted secret via
+  `wrangler secret put SUPABASE_SERVICE_ROLE_KEY` (or the dashboard), never in
+  `wrangler.jsonc`.
 
 ## Logging & monitoring
 
@@ -60,7 +68,7 @@ to this marketing site only.
   honeypot triggers, CAPTCHA failures, DB errors, email send failures, and successful
   submissions.
 - IP addresses are masked (`maskIp`) before being logged for abuse triage, while the full
-  IP is stored in `contact_inquiries` and included in the internal notification email (as
+  IP is stored in `early_access_requests` and included in the internal notification email (as
   required for spam/abuse follow-up) — operators should define a retention/anonymization
   policy for this table.
 - `SENTRY_DSN` can be configured for error monitoring (optional, same pattern as
@@ -68,18 +76,30 @@ to this marketing site only.
 
 ## Dependency surface
 
-- New runtime dependencies introduced for this app: `pg` (parameterized Postgres client),
-  `resend` (transactional email), `lucide-react` (icons). All are widely used, actively
-  maintained packages already aligned with conventions used elsewhere in the monorepo
-  (Resend is referenced in `apps/api/.env.example`; `lucide` is the icon library configured
-  in `apps/admin/components.json`).
+- New runtime dependencies introduced for this app: `@supabase/supabase-js` (HTTP-based
+  Postgres client, edge-compatible), `resend` (transactional email), `lucide-react` (icons).
+  All are widely used, actively maintained packages already aligned with conventions used
+  elsewhere in the monorepo (Resend is referenced in `apps/api/.env.example`; `lucide` is the
+  icon library configured in `apps/admin/components.json`).
+- `@opennextjs/cloudflare` and `wrangler` (devDependencies) adapt the Next.js build for
+  deployment to Cloudflare Workers with the `nodejs_compat` compatibility flag.
+
+## Cloudflare Workers deployment model
+
+- The production runtime is a Cloudflare Worker (via `@opennextjs/cloudflare`), with static
+  assets served from Workers Assets (`ASSETS` binding) and the `RATE_LIMIT_KV` namespace
+  bound for distributed rate limiting.
+- `compatibility_flags: ["nodejs_compat"]` is required by the OpenNext adapter; it does not
+  expose Node's filesystem or process APIs to untrusted input — only standard library shims
+  used internally by Next.js/React.
+- `cloudflare-env.d.ts` (generated via `pnpm cf-typegen`) declares the shape of `env` —
+  binding names only, no secret values. It is committed for CI typecheck convenience.
 
 ## Out of scope / recommendations for production hardening
 
-- For multi-instance/multi-region deployments, replace the in-memory rate limiter with a
-  shared store (Redis/Upstash) — the function signature in `rate-limit.ts` is designed to be
-  swapped in place.
 - Configure a Web Application Firewall (e.g., Cloudflare WAF) in front of the deployment for
   an additional layer of bot/DDoS mitigation.
-- Periodically purge or anonymize old rows in `contact_inquiries` per your data retention
+- Periodically purge or anonymize old rows in `early_access_requests` per your data retention
   policy.
+- Consider adding a Supabase RLS policy + scoped key if any client-side reads/writes to this
+  table are introduced in the future; currently access is service-role-only (server-side).

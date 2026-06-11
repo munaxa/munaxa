@@ -1,8 +1,9 @@
+import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  output: 'standalone',
   images: {
     formats: ['image/avif', 'image/webp'],
   },
@@ -31,3 +32,7 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
+// Enables Cloudflare bindings (e.g. the rate-limit KV namespace) when running
+// `next dev` locally, mirroring the production Workers runtime.
+initOpenNextCloudflareForDev();
