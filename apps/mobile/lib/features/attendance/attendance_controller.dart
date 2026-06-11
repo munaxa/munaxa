@@ -55,6 +55,30 @@ class AttendanceController extends Notifier<int> {
     await sync();
   }
 
+  /// Record a whole roster locally (one queue write per student), then sync once.
+  /// Used by the class screen's "Save" so a 30-student roster is a single batch POST.
+  Future<void> markMany({
+    required String sectionId,
+    required String date,
+    required int periodIndex,
+    required Map<String, String> statusByStudentId,
+  }) async {
+    for (final entry in statusByStudentId.entries) {
+      await _queue.enqueue(
+        PendingMark(
+          clientRef: '$sectionId:$date:$periodIndex:${entry.key}',
+          sectionId: sectionId,
+          date: date,
+          periodIndex: periodIndex,
+          studentId: entry.key,
+          status: entry.value,
+        ),
+      );
+    }
+    await _refreshCount();
+    await sync();
+  }
+
   /// Drain the queue: group by (section, date, period) and POST each batch idempotently.
   Future<void> sync() async {
     final pending = await _queue.pending();

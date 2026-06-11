@@ -111,8 +111,12 @@ sequenceDiagram
   - Student — bottom-nav shell (Home · Timetable · Homework · Resources): gamification
     (points/level/streak) + attendance dashboard, day-grouped timetable, due-date homework list,
     and learning resources that open externally (`url_launcher`).
-  - Teacher — bottom-nav shell (Notifications · Account): unread metric + notification feed and an
-    identity/roles + sign-out tab (attendance capture remains the offline-first flow).
+  - Teacher — bottom-nav shell (Class · Notifications · Account). **Class** is the offline-first
+    attendance capture: section/date/period pickers, roster with P/L/A/E segments, "mark all
+    present", and Save → `AttendanceController.markMany` (write-ahead queue → idempotent
+    `/attendance/students/bulk`, auto-synced on reconnect, with a pending-sync banner + manual
+    "Sync now"). Section/roster reads use `GET /sections` and `GET /students?sectionId=`, now
+    granted to `attendance:create` holders (RequireAnyPermission alongside the manage permissions).
 - **Push (FCM)**: `core/push/PushService` initializes Firebase at startup, registers the device
   token with `POST /notifications/devices` once authenticated (and on token refresh), and routes
   notification taps to in-app destinations via the `route` data payload → `GoRouter.go`. No-op safe:

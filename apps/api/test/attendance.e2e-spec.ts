@@ -212,4 +212,41 @@ describe('Attendance (e2e)', () => {
       })
       .expect(403);
   });
+
+  it('lets an attendance marker (Teacher) list sections and a class roster', async () => {
+    // Provision a Teacher-role login (holds attendance:create but not section/student manage).
+    const passwords = app.get(PasswordService);
+    const rbac = app.get(RbacService);
+    const hash = await passwords.hash(PASSWORD);
+    await withPlatform(prisma, async (tx) => {
+      const u = await tx.user.create({
+        data: {
+          tenantId: TENANT,
+          email: 'teacher@att.example',
+          status: 'ACTIVE',
+          passwordHash: hash,
+          mustChangePassword: false,
+        },
+      });
+      await rbac.assignRole(tx, TENANT, u.id, RoleKey.Teacher);
+    });
+    const teacherToken = await login('teacher@att.example');
+
+    const sections = await http().get('/api/v1/sections').set(auth(teacherToken)).expect(200);
+    expect(sections.body.map((s: { id: string }) => s.id)).toContain(sectionId);
+
+    const roster = await http()
+      .get(`/api/v1/students?sectionId=${sectionId}`)
+      .set(auth(teacherToken))
+      .expect(200);
+    expect(roster.body.length).toBeGreaterThanOrEqual(2);
+
+    // Still cannot CREATE sections or students.
+    await http().post('/api/v1/sections').set(auth(teacherToken)).send({}).expect(403);
+    await http().post('/api/v1/students').set(auth(teacherToken)).send({}).expect(403);
+
+    // A Student role can do neither.
+    await http().get('/api/v1/sections').set(auth(studentRoleToken)).expect(403);
+    await http().get('/api/v1/students').set(auth(studentRoleToken)).expect(403);
+  });
 });
