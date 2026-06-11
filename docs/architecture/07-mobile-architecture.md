@@ -104,8 +104,9 @@ sequenceDiagram
 - **Login** uses the API's `identifier` field (email **or** username — see ADR 15), with an
   optional school slug; a **first-login password change** screen gates the temporary password.
 - **Flavor home dashboards** (read models from the existing `data/*` API clients):
-  - Parent — multi-child switcher + per-child dashboard (attendance %, homework, balance, unread,
-    pending leave, PTM bookings).
+  - Parent — bottom-nav shell (Home · Requests · Meetings · Documents) with a shared app-bar
+    child switcher: per-child dashboard, submit/cancel **leave & absence** requests, book/cancel
+    **PTM** slots, and a read-only **document vault** list.
   - Student — gamification (points/level/streak), attendance %, homework, achievements.
   - Teacher — notification feed + unread count (attendance capture remains the offline-first flow).
 - **Tests**: `test/smoke_test.dart` boots the app with an empty-token override and asserts it lands
@@ -114,6 +115,7 @@ sequenceDiagram
 ### Not yet wired (tracked for later phases)
 - Drift-backed read caches / stale-while-revalidate (the attendance & presence queues already exist).
 - Firebase Auth sign-in, FCM push registration, deep links, biometric unlock, cert pinning.
-- AR/EN locale toggle + RTL goldens; bottom-tab sub-navigation beyond the home dashboards.
+- AR/EN locale toggle + RTL goldens; bottom-tab sub-navigation for the student & teacher flavors
+  (the parent flavor already has it); document upload (file picker) and download.
 - Cross-tenant **Account/Membership** school switcher (see
   `15-identity-and-cross-tenant-membership.md`) — lands with the parent multi-school experience.

@@ -6,7 +6,7 @@ import '../config/flavor.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/change_password_screen.dart';
-import '../../features/parent_portal/parent_home_screen.dart';
+import '../../features/parent_portal/parent_shell.dart';
 import '../../features/student/student_home_screen.dart';
 import '../../features/teacher/teacher_home_screen.dart';
 
@@ -59,7 +59,7 @@ class _FlavorHome extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (AppConfig.instance.flavor) {
       case Flavor.parent:
-        return const ParentHomeScreen();
+        return const ParentShell();
       case Flavor.student:
         return const StudentHomeScreen();
       case Flavor.teacher:
