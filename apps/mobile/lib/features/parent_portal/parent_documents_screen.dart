@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'parent_portal_providers.dart';
 
@@ -36,6 +37,7 @@ class ParentDocumentsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final docsAsync = ref.watch(childDocumentsProvider);
     final childId = ref.watch(selectedChildIdProvider);
+    final s = ref.watch(stringsProvider);
 
     return Scaffold(
       body: RefreshIndicator(
@@ -51,10 +53,10 @@ class ParentDocumentsTab extends ConsumerWidget {
           data: (docs) {
             if (docs.isEmpty) {
               return ListView(
-                children: const [
+                children: [
                   Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('No documents for this child yet.'),
+                    padding: const EdgeInsets.all(24),
+                    child: Text(s.t('empty.noDocuments')),
                   ),
                 ],
               );
@@ -81,7 +83,7 @@ class ParentDocumentsTab extends ConsumerWidget {
                             );
                             if (!ok) {
                               messenger.showSnackBar(
-                                const SnackBar(content: Text('Could not open this document.')),
+                                SnackBar(content: Text(s.t('documents.openFailed'))),
                               );
                             }
                           },
@@ -95,7 +97,7 @@ class ParentDocumentsTab extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: childId == null ? null : () => _pickAndUpload(context, ref, childId),
         icon: const Icon(Icons.upload_file),
-        label: const Text('Upload'),
+        label: Text(s.t('documents.upload')),
       ),
     );
   }
@@ -155,8 +157,9 @@ class _UploadSheetState extends ConsumerState<_UploadSheet> {
   }
 
   Future<void> _submit() async {
+    final strings = ref.read(stringsProvider);
     if (_title.text.trim().isEmpty) {
-      setState(() => _error = 'Add a title.');
+      setState(() => _error = strings.t('documents.addTitle'));
       return;
     }
     setState(() {
@@ -175,7 +178,7 @@ class _UploadSheetState extends ConsumerState<_UploadSheet> {
       ref.invalidate(childDocumentsProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
-      setState(() => _error = 'Upload failed. Try again.');
+      setState(() => _error = strings.t('documents.uploadFailed'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -183,6 +186,7 @@ class _UploadSheetState extends ConsumerState<_UploadSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
@@ -190,18 +194,20 @@ class _UploadSheetState extends ConsumerState<_UploadSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Upload document', style: Theme.of(context).textTheme.titleLarge),
+          Text(s.t('documents.uploadTitle'), style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           Text(widget.fileName, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 16),
           TextField(
             controller: _title,
-            decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+            decoration:
+                InputDecoration(labelText: s.t('documents.title'), border: const OutlineInputBorder()),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             value: _category,
-            decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+            decoration: InputDecoration(
+                labelText: s.t('documents.category'), border: const OutlineInputBorder()),
             items: [
               for (final c in _categories) DropdownMenuItem(value: c, child: Text(c)),
             ],
@@ -214,7 +220,7 @@ class _UploadSheetState extends ConsumerState<_UploadSheet> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: _saving ? null : _submit,
-            child: Text(_saving ? 'Uploading…' : 'Upload'),
+            child: Text(_saving ? s.t('documents.uploading') : s.t('documents.upload')),
           ),
         ],
       ),

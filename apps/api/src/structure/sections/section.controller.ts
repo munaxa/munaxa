@@ -1,7 +1,10 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
-import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermissions,
+} from '../../auth/decorators/require-permissions.decorator';
 import { SectionService } from './section.service';
 import { CreateSectionDto, UpdateSectionDto } from './section.dto';
 
@@ -18,14 +21,15 @@ export class SectionController {
   }
 
   @Get()
-  @RequirePermissions(Permission.SECTION_MANAGE)
+  // Readable by structure managers AND attendance markers (teachers picking a class roster).
+  @RequireAnyPermission(Permission.SECTION_MANAGE, Permission.ATTENDANCE_CREATE)
   @ApiQuery({ name: 'gradeId', required: false })
   list(@Query('gradeId') gradeId?: string) {
     return this.service.list(gradeId);
   }
 
   @Get(':id')
-  @RequirePermissions(Permission.SECTION_MANAGE)
+  @RequireAnyPermission(Permission.SECTION_MANAGE, Permission.ATTENDANCE_CREATE)
   get(@Param('id') id: string) {
     return this.service.get(id);
   }

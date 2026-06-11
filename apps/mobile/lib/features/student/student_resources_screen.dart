@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'student_providers.dart';
 
@@ -39,8 +40,10 @@ class StudentResourcesTab extends ConsumerWidget {
         data: (resources) {
           if (resources.isEmpty) {
             return ListView(
-              children: const [
-                Padding(padding: EdgeInsets.all(24), child: Text('No resources yet.')),
+              children: [
+                Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(ref.read(stringsProvider).t('empty.noResources'))),
               ],
             );
           }
@@ -70,7 +73,8 @@ class StudentResourcesTab extends ConsumerWidget {
                           );
                           if (!ok) {
                             messenger.showSnackBar(
-                              const SnackBar(content: Text('Could not open this resource.')),
+                              SnackBar(
+                                  content: Text(ref.read(stringsProvider).t('resources.openFailed'))),
                             );
                           }
                         },

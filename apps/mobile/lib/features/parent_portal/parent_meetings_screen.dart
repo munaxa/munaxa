@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'parent_portal_providers.dart';
 
@@ -13,6 +14,7 @@ class ParentMeetingsTab extends ConsumerWidget {
     final slotsAsync = ref.watch(openPtmSlotsProvider);
     final bookingsAsync = ref.watch(ptmBookingsProvider);
     final selectedChild = ref.watch(selectedChildIdProvider);
+    final s = ref.watch(stringsProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -22,7 +24,7 @@ class ParentMeetingsTab extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Your bookings', style: Theme.of(context).textTheme.titleMedium),
+          Text(s.t('meetings.yourBookings'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           bookingsAsync.when(
             loading: () => const AsyncSection(loading: true, error: null, child: SizedBox()),
@@ -34,9 +36,9 @@ class ParentMeetingsTab extends ConsumerWidget {
             ),
             data: (bookings) {
               if (bookings.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text('No bookings yet.'),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(s.t('empty.noBookings')),
                 );
               }
               return Column(
@@ -45,8 +47,9 @@ class ParentMeetingsTab extends ConsumerWidget {
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.event),
-                        title: Text('Booking · ${b.status}'),
-                        subtitle: Text('Slot ${b.slotId}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                        title: Text('${s.t('meetings.booking')} · ${b.status}'),
+                        subtitle:
+                            Text('Slot ${b.slotId}', maxLines: 1, overflow: TextOverflow.ellipsis),
                         trailing: b.status != 'CANCELLED'
                             ? TextButton(
                                 onPressed: () async {
@@ -54,7 +57,7 @@ class ParentMeetingsTab extends ConsumerWidget {
                                   ref.invalidate(ptmBookingsProvider);
                                   ref.invalidate(openPtmSlotsProvider);
                                 },
-                                child: const Text('Cancel'),
+                                child: Text(s.t('common.cancel')),
                               )
                             : null,
                       ),
@@ -64,7 +67,7 @@ class ParentMeetingsTab extends ConsumerWidget {
             },
           ),
           const SizedBox(height: 24),
-          Text('Open slots', style: Theme.of(context).textTheme.titleMedium),
+          Text(s.t('meetings.openSlots'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           slotsAsync.when(
             loading: () => const AsyncSection(loading: true, error: null, child: SizedBox()),
@@ -76,19 +79,19 @@ class ParentMeetingsTab extends ConsumerWidget {
             ),
             data: (slots) {
               if (slots.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text('No open slots right now.'),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(s.t('empty.noOpenSlots')),
                 );
               }
               return Column(
                 children: [
-                  for (final s in slots)
+                  for (final slot in slots)
                     Card(
                       child: ListTile(
                         leading: const Icon(Icons.schedule),
-                        title: Text('${s.startsAt} → ${s.endsAt}'),
-                        subtitle: Text(s.location ?? 'Location TBD'),
+                        title: Text('${slot.startsAt} → ${slot.endsAt}'),
+                        subtitle: Text(slot.location ?? s.t('meetings.locationTbd')),
                         trailing: FilledButton(
                           onPressed: selectedChild == null
                               ? null
@@ -96,18 +99,18 @@ class ParentMeetingsTab extends ConsumerWidget {
                                   final messenger = ScaffoldMessenger.of(context);
                                   try {
                                     await ref.read(parentPortalApiProvider).bookSlot(
-                                          slotId: s.id,
+                                          slotId: slot.id,
                                           studentId: selectedChild,
                                         );
                                     ref.invalidate(ptmBookingsProvider);
                                     ref.invalidate(openPtmSlotsProvider);
                                   } catch (_) {
                                     messenger.showSnackBar(
-                                      const SnackBar(content: Text('Could not book this slot.')),
+                                      SnackBar(content: Text(s.t('meetings.bookFailed'))),
                                     );
                                   }
                                 },
-                          child: const Text('Book'),
+                          child: Text(s.t('meetings.book')),
                         ),
                       ),
                     ),

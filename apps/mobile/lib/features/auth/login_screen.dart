@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../settings/locale_toggle.dart';
 import 'auth_controller.dart';
 
@@ -42,7 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             tenantSlug: _school.text.trim().isEmpty ? null : _school.text.trim(),
           );
     } catch (e) {
-      setState(() => _error = 'Sign in failed. Check your credentials.');
+      setState(() => _error = ref.read(stringsProvider).t('auth.signInFailed'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -50,6 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
       body: SafeArea(
         child: Stack(
@@ -69,29 +71,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Munaxa', style: Theme.of(context).textTheme.headlineMedium),
+                        Text(s.t('auth.brand'),
+                            style: Theme.of(context).textTheme.headlineMedium),
                         const SizedBox(height: 24),
                         TextFormField(
                           controller: _school,
-                          decoration: const InputDecoration(labelText: 'School (optional)'),
+                          decoration: InputDecoration(labelText: s.t('auth.schoolOptional')),
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _identifier,
                           keyboardType: TextInputType.emailAddress,
                           autocorrect: false,
-                          decoration: const InputDecoration(labelText: 'Email or username'),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'Enter your email or username'
-                              : null,
+                          decoration: InputDecoration(labelText: s.t('auth.identifier')),
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty) ? s.t('auth.identifierRequired') : null,
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _password,
                           obscureText: true,
-                          decoration: const InputDecoration(labelText: 'Password'),
+                          decoration: InputDecoration(labelText: s.t('auth.password')),
                           validator: (v) =>
-                              (v == null || v.isEmpty) ? 'Enter your password' : null,
+                              (v == null || v.isEmpty) ? s.t('auth.passwordRequired') : null,
                         ),
                         if (_error != null) ...[
                           const SizedBox(height: 12),
@@ -101,7 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 24),
                         FilledButton(
                           onPressed: _loading ? null : _submit,
-                          child: Text(_loading ? 'Signing in…' : 'Sign in'),
+                          child: Text(_loading ? s.t('auth.signingIn') : s.t('auth.signIn')),
                         ),
                       ],
                     ),

@@ -2,7 +2,10 @@ import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } fr
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { StudentStatus } from '@prisma/client';
-import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermissions,
+} from '../../auth/decorators/require-permissions.decorator';
 import { StudentService } from './student.service';
 import {
   CreateStudentDto,
@@ -32,7 +35,8 @@ export class StudentController {
   }
 
   @Get()
-  @RequirePermissions(Permission.STUDENT_MANAGE)
+  // Listable by people managers AND attendance markers (teachers loading a class roster).
+  @RequireAnyPermission(Permission.STUDENT_MANAGE, Permission.ATTENDANCE_CREATE)
   @ApiQuery({ name: 'sectionId', required: false })
   @ApiQuery({ name: 'status', required: false, enum: StudentStatus })
   @ApiQuery({

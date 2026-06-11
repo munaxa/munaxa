@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/academics/academics_api.dart';
 import '../../data/student/student_api.dart';
+import '../academics/academics_providers.dart';
 import '../auth/auth_providers.dart';
 
 final studentApiProvider = Provider<StudentApi>((ref) => StudentApi(ref.watch(dioProvider)));
@@ -8,6 +10,12 @@ final studentApiProvider = Provider<StudentApi>((ref) => StudentApi(ref.watch(di
 /// The student dashboard (attendance, homework, grades, gamification rollup).
 final studentDashboardProvider = FutureProvider<StudentDashboard>((ref) async {
   return ref.watch(studentApiProvider).dashboard();
+});
+
+/// The signed-in student's own grade report (studentId resolved from the dashboard).
+final studentGradeReportProvider = FutureProvider<GradeReport>((ref) async {
+  final dash = await ref.watch(studentDashboardProvider.future);
+  return ref.watch(academicsApiProvider).gradeReport(dash.studentId);
 });
 
 final studentHomeworkProvider = FutureProvider<List<HomeworkItem>>((ref) async {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import '../../data/student/student_api.dart';
 import 'student_providers.dart';
@@ -27,8 +28,10 @@ class StudentTimetableTab extends ConsumerWidget {
         data: (entries) {
           if (entries.isEmpty) {
             return ListView(
-              children: const [
-                Padding(padding: EdgeInsets.all(24), child: Text('No timetable yet.')),
+              children: [
+                Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(ref.read(stringsProvider).t('empty.noTimetable'))),
               ],
             );
           }

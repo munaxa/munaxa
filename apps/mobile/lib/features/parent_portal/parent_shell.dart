@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../auth/auth_controller.dart';
 import '../settings/locale_toggle.dart';
+import 'parent_grades_screen.dart';
 import 'parent_portal_providers.dart';
 import 'parent_home_screen.dart';
 import 'parent_requests_screen.dart';
@@ -21,19 +23,26 @@ class ParentShell extends ConsumerStatefulWidget {
 class _ParentShellState extends ConsumerState<ParentShell> {
   int _index = 0;
 
-  static const _titles = ['Home', 'Requests', 'Meetings', 'Documents'];
+  static const _titleKeys = [
+    'parent.tab.home',
+    'parent.tab.grades',
+    'parent.tab.requests',
+    'parent.tab.meetings',
+    'parent.tab.documents',
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_index]),
+        title: Text(s.t(_titleKeys[_index])),
         actions: [
           const _ChildSwitcherAction(),
           const LocaleToggleButton(),
           IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
+            tooltip: s.t('common.signOut'),
             onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           ),
         ],
@@ -42,6 +51,7 @@ class _ParentShellState extends ConsumerState<ParentShell> {
         index: _index,
         children: const [
           ParentDashboardTab(),
+          ParentGradesTab(),
           ParentRequestsTab(),
           ParentMeetingsTab(),
           ParentDocumentsTab(),
@@ -50,11 +60,17 @@ class _ParentShellState extends ConsumerState<ParentShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.beach_access_outlined), label: 'Requests'),
-          NavigationDestination(icon: Icon(Icons.groups_outlined), label: 'Meetings'),
-          NavigationDestination(icon: Icon(Icons.folder_outlined), label: 'Documents'),
+        destinations: [
+          NavigationDestination(
+              icon: const Icon(Icons.dashboard_outlined), label: s.t('parent.tab.home')),
+          NavigationDestination(
+              icon: const Icon(Icons.grade_outlined), label: s.t('parent.tab.grades')),
+          NavigationDestination(
+              icon: const Icon(Icons.beach_access_outlined), label: s.t('parent.tab.requests')),
+          NavigationDestination(
+              icon: const Icon(Icons.groups_outlined), label: s.t('parent.tab.meetings')),
+          NavigationDestination(
+              icon: const Icon(Icons.folder_outlined), label: s.t('parent.tab.documents')),
         ],
       ),
     );

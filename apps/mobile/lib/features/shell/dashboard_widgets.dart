@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../l10n/strings.dart';
 
 /// A compact metric tile used across the parent/student/teacher dashboards.
 class MetricCard extends StatelessWidget {
@@ -60,7 +63,7 @@ class MetricCard extends StatelessWidget {
 }
 
 /// A loading/error/empty-aware wrapper for an async section body.
-class AsyncSection extends StatelessWidget {
+class AsyncSection extends ConsumerWidget {
   const AsyncSection({
     super.key,
     required this.loading,
@@ -75,7 +78,7 @@ class AsyncSection extends StatelessWidget {
   final VoidCallback? onRetry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (loading) {
       return const Padding(
         padding: EdgeInsets.all(32),
@@ -83,17 +86,18 @@ class AsyncSection extends StatelessWidget {
       );
     }
     if (error != null) {
+      final s = ref.watch(stringsProvider);
       return Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
             Text(
-              'Could not load this content.',
+              s.t('common.loadError'),
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 8),
-              OutlinedButton(onPressed: onRetry, child: const Text('Retry')),
+              OutlinedButton(onPressed: onRetry, child: Text(s.t('common.retry'))),
             ],
           ],
         ),

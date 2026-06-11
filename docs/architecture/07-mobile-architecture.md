@@ -104,15 +104,20 @@ sequenceDiagram
 - **Login** uses the API's `identifier` field (email **or** username — see ADR 15), with an
   optional school slug; a **first-login password change** screen gates the temporary password.
 - **Flavor home dashboards** (read models from the existing `data/*` API clients):
-  - Parent — bottom-nav shell (Home · Requests · Meetings · Documents) with a shared app-bar
-    child switcher: per-child dashboard, submit/cancel **leave & absence** requests, book/cancel
-    **PTM** slots, and a **document vault** (open externally + upload from device via
-    `file_picker` → presign → PUT → confirm).
-  - Student — bottom-nav shell (Home · Timetable · Homework · Resources): gamification
+  - Parent — bottom-nav shell (Home · Grades · Requests · Meetings · Documents) with a shared
+    app-bar child switcher: per-child dashboard, **grade report** (overall % + per-subject
+    averages), submit/cancel **leave & absence** requests, book/cancel **PTM** slots, and a
+    **document vault** (open externally + upload from device via `file_picker` → presign → PUT →
+    confirm).
+  - Student — bottom-nav shell (Home · Timetable · Homework · Resources · Grades): gamification
     (points/level/streak) + attendance dashboard, day-grouped timetable, due-date homework list,
-    and learning resources that open externally (`url_launcher`).
-  - Teacher — bottom-nav shell (Notifications · Account): unread metric + notification feed and an
-    identity/roles + sign-out tab (attendance capture remains the offline-first flow).
+    learning resources that open externally (`url_launcher`), and the student's own **grade report**.
+  - Teacher — bottom-nav shell (Class · Notifications · Account). **Class** is the offline-first
+    attendance capture: section/date/period pickers, roster with P/L/A/E segments, "mark all
+    present", and Save → `AttendanceController.markMany` (write-ahead queue → idempotent
+    `/attendance/students/bulk`, auto-synced on reconnect, with a pending-sync banner + manual
+    "Sync now"). Section/roster reads use `GET /sections` and `GET /students?sectionId=`, now
+    granted to `attendance:create` holders (RequireAnyPermission alongside the manage permissions).
 - **Push (FCM)**: `core/push/PushService` initializes Firebase at startup, registers the device
   token with `POST /notifications/devices` once authenticated (and on token refresh), and routes
   notification taps to in-app destinations via the `route` data payload → `GoRouter.go`. No-op safe:
@@ -130,8 +135,14 @@ sequenceDiagram
 - Drift-backed read caches / stale-while-revalidate (the attendance & presence queues already exist).
 - Firebase Auth sign-in, biometric unlock, certificate pinning; Firebase project config files
   (`google-services.json` / `GoogleService-Info.plist`) must be supplied to activate push.
-- Full **string-translation catalog** (gen-l10n / ARB) — the locale toggle + RTL direction are
-  wired, but in-app copy is still English literals; and pixel **golden** baselines (need a machine
-  with the Flutter SDK to capture) — the current RTL coverage is an assertion test.
+- **String translations**: a lightweight bilingual catalog (`l10n/strings.dart`, `stringsProvider`
+  keyed off `localeProvider`) now covers all user-facing copy across the three flavors — chrome
+  (tab titles, nav labels, sign-out, language toggle), auth (login + change-password), dashboard
+  metric labels, list empty-states, and the request/meeting/document/attendance forms — plus the
+  shared `AsyncSection` (load-error/retry). A move to gen-l10n/ARB can come later; the provider API
+  keeps call sites stable. (Server-sourced values — student names, statuses, category codes — are
+  passed through as-is.)
+- Pixel **golden** baselines (need a machine with the Flutter SDK to capture) — current RTL coverage
+  is an assertion test (`test/rtl_test.dart`).
 - Cross-tenant **Account/Membership** school switcher (see
   `15-identity-and-cross-tenant-membership.md`) — lands with the parent multi-school experience.

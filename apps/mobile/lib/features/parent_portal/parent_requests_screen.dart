@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'parent_portal_providers.dart';
 import '../../data/parent_portal/parent_portal_api.dart';
@@ -12,6 +13,7 @@ class ParentRequestsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final requestsAsync = ref.watch(leaveRequestsProvider);
+    final s = ref.watch(stringsProvider);
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(leaveRequestsProvider),
@@ -26,10 +28,10 @@ class ParentRequestsTab extends ConsumerWidget {
           data: (requests) {
             if (requests.isEmpty) {
               return ListView(
-                children: const [
+                children: [
                   Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Text('No leave or absence requests yet.'),
+                    padding: const EdgeInsets.all(24),
+                    child: Text(s.t('empty.noRequests')),
                   ),
                 ],
               );
@@ -45,7 +47,7 @@ class ParentRequestsTab extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openCreateSheet(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('New request'),
+        label: Text(s.t('requests.new')),
       ),
     );
   }
@@ -91,7 +93,7 @@ class _RequestTile extends ConsumerWidget {
                   await ref.read(parentPortalApiProvider).cancelLeaveRequest(request.id);
                   ref.invalidate(leaveRequestsProvider);
                 },
-                child: const Text('Cancel'),
+                child: Text(ref.read(stringsProvider).t('common.cancel')),
               ),
           ],
         ),
@@ -144,13 +146,14 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
   }
 
   Future<void> _submit() async {
+    final strings = ref.read(stringsProvider);
     final childId = ref.read(selectedChildIdProvider);
     if (childId == null) {
-      setState(() => _error = 'Select a child first.');
+      setState(() => _error = strings.t('requests.selectChildFirst'));
       return;
     }
     if (_start == null || _end == null || _reason.text.trim().isEmpty) {
-      setState(() => _error = 'Pick dates and add a reason.');
+      setState(() => _error = strings.t('requests.pickDatesReason'));
       return;
     }
     setState(() {
@@ -168,7 +171,7 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
       ref.invalidate(leaveRequestsProvider);
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
-      setState(() => _error = 'Could not submit the request. Try again.');
+      setState(() => _error = strings.t('requests.submitFailed'));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -176,6 +179,7 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
@@ -183,15 +187,15 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('New request', style: Theme.of(context).textTheme.titleLarge),
+          Text(s.t('requests.new'), style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 16),
           SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'LEAVE', label: Text('Leave')),
-              ButtonSegment(value: 'ABSENCE', label: Text('Absence')),
+            segments: [
+              ButtonSegment(value: 'LEAVE', label: Text(s.t('requests.leave'))),
+              ButtonSegment(value: 'ABSENCE', label: Text(s.t('requests.absence'))),
             ],
             selected: {_type},
-            onSelectionChanged: (s) => setState(() => _type = s.first),
+            onSelectionChanged: (sel) => setState(() => _type = sel.first),
           ),
           const SizedBox(height: 12),
           Row(
@@ -199,14 +203,14 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _pickDate(isStart: true),
-                  child: Text(_start == null ? 'Start date' : _fmt(_start!)),
+                  child: Text(_start == null ? s.t('requests.startDate') : _fmt(_start!)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _pickDate(isStart: false),
-                  child: Text(_end == null ? 'End date' : _fmt(_end!)),
+                  child: Text(_end == null ? s.t('requests.endDate') : _fmt(_end!)),
                 ),
               ),
             ],
@@ -214,7 +218,8 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
           const SizedBox(height: 12),
           TextField(
             controller: _reason,
-            decoration: const InputDecoration(labelText: 'Reason', border: OutlineInputBorder()),
+            decoration:
+                InputDecoration(labelText: s.t('requests.reason'), border: const OutlineInputBorder()),
             maxLines: 3,
           ),
           if (_error != null) ...[
@@ -224,7 +229,7 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: _saving ? null : _submit,
-            child: Text(_saving ? 'Submitting…' : 'Submit request'),
+            child: Text(_saving ? s.t('requests.submitting') : s.t('requests.submit')),
           ),
         ],
       ),
