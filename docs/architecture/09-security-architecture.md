@@ -91,3 +91,39 @@ sequenceDiagram
 - Minors' data (students) — data minimization, access strictly scoped, retention + purge policy.
 - Audit access to sensitive records; export/delete workflows for offboarding (doc 11/03).
 - PII redaction in logs and Sentry (scrubbing).
+
+## 10. Production hardening — implementation status (Phase 15)
+
+### Shipped
+- **Password KDF — scrypt** (`auth/services/password.service.ts`): Node's built-in scrypt
+  (memory-hard; N=2^15, r=8, p=1; 16-byte salt; timing-safe compare), stored as
+  `scrypt:N:r:p:salt:key`. Legacy bcrypt hashes still verify and are **transparently re-hashed on
+  the next successful login** (`needsRehash` + in-transaction upgrade in `AuthService.login`).
+- **Per-account lockout**: 5 failed logins within 15 minutes (counted from the committed audit
+  trail since the last success) → `403` even with the correct password, audited as
+  `auth.login.locked`. Complements the per-IP throttle (20/min on `/auth/login`).
+- **Env guards**: `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` are **required and must differ** when
+  `NODE_ENV=production` (fail-fast at boot, zod `superRefine`).
+- **Breach-list check (HIBP k-anonymity)** on password change/reset: only the first 5 SHA-1 chars
+  leave the server; fail-open on network errors; enabled with `PASSWORD_BREACH_CHECK=1`
+  (recommended in production).
+- **API runtime**: helmet, CORS allowlist from `CORS_ORIGINS`, compression, `trust proxy`,
+  global validation (`whitelist`+`forbidNonWhitelisted`), shutdown hooks, Swagger disabled in
+  production.
+- **Admin runtime**: Next.js `output: 'standalone'` (slim, self-contained image); production-only
+  **CSP** (blocks external script injection; `connect-src` pinned to the API origin + Sentry) and
+  **HSTS**, alongside nosniff/frame-deny/referrer/permissions headers.
+- **Containers**: both Dockerfiles are multi-stage, run as **non-root**, and define HEALTHCHECKs;
+  the admin image now ships only the standalone server output.
+- **Delivery**: `deploy.yml` builds and pushes both images to **GHCR** (sha + latest tags, GHA
+  layer cache), then runs `prisma migrate deploy` + re-applies the NOBYPASSRLS app-role grants —
+  gated per GitHub environment via the `DIRECT_DATABASE_URL` secret (skips with a warning when
+  unset). The final rollout step stays explicitly unbound until the hosting target is chosen.
+
+### Still open (tracked)
+- JWT **signing-key rotation** (kid) and `tokenVersion` claim; MFA enforcement for platform roles.
+  (Access tokens stay valid ≤15 min after suspension; refresh families are already revoked
+  immediately on password change/suspend — accepted trade-off to keep verification stateless.)
+- CSP **nonce** plumbing (currently `unsafe-inline` for Next hydration); Redis-backed distributed
+  rate limiting; Cloudflare edge rules.
+- ClamAV scanning on uploads; mobile cert pinning + biometric unlock.

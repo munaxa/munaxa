@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/formats.dart';
 import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'parent_portal_providers.dart';
@@ -69,6 +70,7 @@ class _RequestTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final f = ref.watch(formatsProvider);
     final color = switch (request.status) {
       'APPROVED' => scheme.tertiary,
       'REJECTED' => scheme.error,
@@ -77,7 +79,7 @@ class _RequestTile extends ConsumerWidget {
     };
     return Card(
       child: ListTile(
-        title: Text('${request.type} · ${request.startDate} → ${request.endDate}'),
+        title: Text('${request.type} · ${f.isoDate(request.startDate)} → ${f.isoDate(request.endDate)}'),
         subtitle: Text(request.reason, maxLines: 2, overflow: TextOverflow.ellipsis),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -180,6 +182,7 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(stringsProvider);
+    final f = ref.watch(formatsProvider);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
@@ -203,14 +206,14 @@ class _NewRequestSheetState extends ConsumerState<_NewRequestSheet> {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _pickDate(isStart: true),
-                  child: Text(_start == null ? s.t('requests.startDate') : _fmt(_start!)),
+                  child: Text(_start == null ? s.t('requests.startDate') : f.date(_start!)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: OutlinedButton(
                   onPressed: () => _pickDate(isStart: false),
-                  child: Text(_end == null ? s.t('requests.endDate') : _fmt(_end!)),
+                  child: Text(_end == null ? s.t('requests.endDate') : f.date(_end!)),
                 ),
               ),
             ],

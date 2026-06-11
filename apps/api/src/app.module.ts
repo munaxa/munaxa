@@ -44,12 +44,17 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
   imports: [
     SentryModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true, cache: true, validate: validateEnv }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: Number(process.env.THROTTLE_TTL ?? '60') * 1000,
-        limit: Number(process.env.THROTTLE_LIMIT ?? '120'),
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: Number(process.env.THROTTLE_TTL ?? '60') * 1000,
+          limit: Number(process.env.THROTTLE_LIMIT ?? '120'),
+        },
+      ],
+      // The e2e suite fires hundreds of requests from one IP in seconds; rate limiting is
+      // covered by its own dedicated assertions, not by destabilizing every other suite.
+      skipIf: () => process.env.NODE_ENV === 'test',
+    }),
     PrismaModule,
     HealthModule,
     AuthModule,

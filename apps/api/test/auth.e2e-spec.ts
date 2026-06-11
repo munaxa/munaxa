@@ -135,4 +135,66 @@ describe('Auth flow (e2e)', () => {
       .send({ email: EMAIL, password: 'N3wStrongPass!', tenantSlug: 'auth-e2e' })
       .expect(200);
   });
+
+  it('transparently upgrades a legacy bcrypt hash to scrypt on login', async () => {
+    const email = 'legacy@auth-e2e.example';
+    const bcrypt = await import('bcryptjs');
+    const legacyHash = await bcrypt.hash(PASSWORD, 10);
+    const userId = await withPlatform(prisma, async (tx) => {
+      const u = await tx.user.create({
+        data: {
+          tenantId: TENANT_ID,
+          email,
+          status: 'ACTIVE',
+          mustChangePassword: false,
+          passwordHash: legacyHash,
+        },
+      });
+      return u.id;
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password: PASSWORD, tenantSlug: 'auth-e2e' })
+      .expect(200);
+
+    const after = await withPlatform(prisma, (tx) =>
+      tx.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordHash: true } }),
+    );
+    expect(after.passwordHash!.startsWith('scrypt:')).toBe(true);
+
+    // The upgraded hash still authenticates.
+    await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email, password: PASSWORD, tenantSlug: 'auth-e2e' })
+      .expect(200);
+  });
+
+  it('locks the account after repeated failures — even with the correct password', async () => {
+    const email = 'lockout@auth-e2e.example';
+    const passwords = app.get(PasswordService);
+    await withPlatform(prisma, async (tx) => {
+      await tx.user.create({
+        data: {
+          tenantId: TENANT_ID,
+          email,
+          status: 'ACTIVE',
+          mustChangePassword: false,
+          passwordHash: await passwords.hash(PASSWORD),
+        },
+      });
+    });
+
+    const attempt = (password: string) =>
+      request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email, password, tenantSlug: 'auth-e2e' });
+
+    for (let i = 0; i < 5; i++) {
+      await attempt('Wr0ngPassword!').expect(401);
+    }
+    // Correct password is now rejected with 403 (locked), not 401 — guessing can't be confirmed.
+    const locked = await attempt(PASSWORD).expect(403);
+    expect(locked.body.message).toMatch(/failed attempts/i);
+  });
 });

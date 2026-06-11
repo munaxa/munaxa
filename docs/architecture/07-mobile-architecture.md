@@ -142,6 +142,11 @@ sequenceDiagram
   shared `AsyncSection` (load-error/retry). A move to gen-l10n/ARB can come later; the provider API
   keeps call sites stable. (Server-sourced values — student names, statuses, category codes — are
   passed through as-is.)
+- **Locale-aware dates & numerals** (`l10n/formats.dart`, `formatsProvider`): in Arabic, dates use
+  Arabic month names + Eastern Arabic-Indic digits and numbers/percentages use locale digits (CLDR
+  `ar`), via `intl`'s `DateFormat`/`NumberFormat` (date symbols initialized in `bootstrap`). Applied
+  to leave-request dates, homework due dates, the attendance date picker, and grade percentages.
+  Display-only — API payloads stay ISO/Western (e.g. leave submission still sends `YYYY-MM-DD`).
 - Pixel **golden** baselines (need a machine with the Flutter SDK to capture) — current RTL coverage
   is an assertion test (`test/rtl_test.dart`).
 - Cross-tenant **Account/Membership** school switcher (see

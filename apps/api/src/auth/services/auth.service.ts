@@ -55,6 +55,18 @@ export class AuthService {
         await this.audit(tx, null, null, 'auth.login.failed', { identifier: handle }, meta);
         return { kind: 'invalid' as const };
       }
+
+      // Per-account lockout (complements the per-IP throttle): too many recent failures since
+      // the last successful login locks the account for the remainder of the window — even with
+      // the correct password — so online guessing cannot be confirmed.
+      if (await this.isLockedOut(tx, user)) {
+        await this.audit(tx, user.tenantId, user.id, 'auth.login.locked', {}, meta);
+        return {
+          kind: 'blocked' as const,
+          message: 'Too many failed attempts. Try again in a few minutes.',
+        };
+      }
+
       const ok = await this.passwords.verify(dto.password, user.passwordHash);
       if (!ok) {
         await this.audit(tx, user.tenantId, user.id, 'auth.login.failed', {}, meta);
@@ -64,6 +76,13 @@ export class AuthService {
       if (blocked) {
         await this.audit(tx, user.tenantId, user.id, 'auth.login.blocked', { blocked }, meta);
         return { kind: 'blocked' as const, message: blocked };
+      }
+
+      // Transparent KDF upgrade: legacy (bcrypt) hashes are re-hashed with scrypt on the
+      // first successful login after the migration.
+      if (this.passwords.needsRehash(user.passwordHash)) {
+        const passwordHash = await this.passwords.hash(dto.password);
+        await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
       }
 
       const principal = await this.buildPrincipal(tx, user);
@@ -187,6 +206,7 @@ export class AuthService {
     meta: RequestMeta,
   ): Promise<void> {
     this.passwords.assertStrong(dto.newPassword);
+    await this.passwords.assertNotBreached(dto.newPassword);
     await withPlatform(this.prisma, async (tx) => {
       const user = await tx.user.findFirstOrThrow({ where: { id: userId, tenantId } });
       if (
@@ -231,6 +251,7 @@ export class AuthService {
 
   async confirmPasswordReset(dto: ConfirmPasswordResetDto, meta: RequestMeta): Promise<void> {
     this.passwords.assertStrong(dto.newPassword);
+    await this.passwords.assertNotBreached(dto.newPassword);
     const hash = this.tokens.hashRefreshToken(dto.token);
     await withPlatform(this.prisma, async (tx) => {
       const record = await tx.passwordResetToken.findUnique({ where: { tokenHash: hash } });
@@ -268,6 +289,24 @@ export class AuthService {
     if (user.deletedAt || user.status === UserStatus.DISABLED) return 'Account is disabled';
     if (user.status === UserStatus.SUSPENDED) return 'Account is suspended';
     return null;
+  }
+
+  private static readonly LOCKOUT_MAX_FAILURES = 5;
+  private static readonly LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
+
+  /**
+   * Locked when the account has accrued too many failed logins within the lockout window,
+   * counted since the last successful login (so a success naturally resets the counter).
+   * Backed by the committed audit trail — no extra state to maintain.
+   */
+  private async isLockedOut(tx: TxClient, user: User): Promise<boolean> {
+    const windowStart = new Date(Date.now() - AuthService.LOCKOUT_WINDOW_MS);
+    const since =
+      user.lastLoginAt && user.lastLoginAt > windowStart ? user.lastLoginAt : windowStart;
+    const failures = await tx.auditLog.count({
+      where: { actorUserId: user.id, action: 'auth.login.failed', createdAt: { gt: since } },
+    });
+    return failures >= AuthService.LOCKOUT_MAX_FAILURES;
   }
 
   /** Loose email check: distinguishes an email handle from a username/national-id at login. */
