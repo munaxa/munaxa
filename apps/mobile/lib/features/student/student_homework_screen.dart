@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/formats.dart';
 import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'student_providers.dart';
@@ -12,6 +13,7 @@ class StudentHomeworkTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final hwAsync = ref.watch(studentHomeworkProvider);
+    final f = ref.watch(formatsProvider);
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(studentHomeworkProvider),
       child: hwAsync.when(
@@ -48,7 +50,7 @@ class StudentHomeworkTab extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   trailing: Text(
-                    hw.dueDate,
+                    f.isoDate(hw.dueDate),
                     style: Theme.of(context).textTheme.labelSmall,
                   ),
                 ),

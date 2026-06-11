@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/structure/structure_api.dart';
+import '../../l10n/formats.dart';
 import '../../l10n/strings.dart';
 import '../attendance/attendance_controller.dart';
 import '../auth/auth_providers.dart';
@@ -85,6 +86,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
     final sectionsAsync = ref.watch(sectionsProvider);
     final pending = ref.watch(attendanceControllerProvider);
     final s = ref.watch(stringsProvider);
+    final f = ref.watch(formatsProvider);
 
     return Scaffold(
       body: ListView(
@@ -140,7 +142,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
                 child: OutlinedButton.icon(
                   onPressed: _pickDate,
                   icon: const Icon(Icons.calendar_today, size: 16),
-                  label: Text(_dateIso),
+                  label: Text(f.date(_date)),
                 ),
               ),
               const SizedBox(width: 12),

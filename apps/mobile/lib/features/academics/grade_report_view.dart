@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/academics/academics_api.dart';
+import '../../l10n/formats.dart';
 import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 
@@ -16,6 +17,7 @@ class GradeReportView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(stringsProvider);
+    final f = ref.watch(formatsProvider);
     return RefreshIndicator(
       onRefresh: () async => onRetry(),
       child: report.when(
@@ -37,7 +39,7 @@ class GradeReportView extends ConsumerWidget {
             children: [
               MetricCard(
                 label: s.t('grades.overall'),
-                value: '${r.overallPercent.toStringAsFixed(1)}%',
+                value: '${f.decimal1(r.overallPercent)}%',
                 icon: Icons.grade,
               ),
               const SizedBox(height: 16),
@@ -47,9 +49,9 @@ class GradeReportView extends ConsumerWidget {
                 Card(
                   child: ListTile(
                     title: Text(subject.subject),
-                    subtitle: Text('${subject.count} ${s.t('grades.assessments')}'),
+                    subtitle: Text('${f.number(subject.count)} ${s.t('grades.assessments')}'),
                     trailing: Text(
-                      '${subject.averagePercent.toStringAsFixed(1)}%',
+                      '${f.decimal1(subject.averagePercent)}%',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                   ),
