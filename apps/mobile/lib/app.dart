@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/push/push_service.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_controller.dart';
@@ -24,6 +25,9 @@ class _MunaxaAppState extends ConsumerState<MunaxaApp> {
     // Restore the session after the first frame so providers are ready.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(authControllerProvider.notifier).restore();
+      // Route notification taps through the app router.
+      PushService.instance.onOpenRoute = (route) => ref.read(routerProvider).go(route);
+      PushService.instance.wireDeepLinks();
     });
   }
 

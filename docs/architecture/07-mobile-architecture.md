@@ -112,12 +112,18 @@ sequenceDiagram
     and learning resources that open externally (`url_launcher`).
   - Teacher — bottom-nav shell (Notifications · Account): unread metric + notification feed and an
     identity/roles + sign-out tab (attendance capture remains the offline-first flow).
+- **Push (FCM)**: `core/push/PushService` initializes Firebase at startup, registers the device
+  token with `POST /notifications/devices` once authenticated (and on token refresh), and routes
+  notification taps to in-app destinations via the `route` data payload → `GoRouter.go`. No-op safe:
+  if Firebase isn't configured for the build, init fails gracefully and push becomes inert so the
+  app still runs in dev/CI.
 - **Tests**: `test/smoke_test.dart` boots the app with an empty-token override and asserts it lands
   on the sign-in screen.
 
 ### Not yet wired (tracked for later phases)
 - Drift-backed read caches / stale-while-revalidate (the attendance & presence queues already exist).
-- Firebase Auth sign-in, FCM push registration, deep links, biometric unlock, cert pinning.
+- Firebase Auth sign-in, biometric unlock, certificate pinning; Firebase project config files
+  (`google-services.json` / `GoogleService-Info.plist`) must be supplied to activate push.
 - AR/EN locale toggle + RTL goldens; document upload (file picker) and download.
 - Cross-tenant **Account/Membership** school switcher (see
   `15-identity-and-cross-tenant-membership.md`) — lands with the parent multi-school experience.
