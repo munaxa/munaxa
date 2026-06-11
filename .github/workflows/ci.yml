@@ -35,14 +35,16 @@ jobs:
       DATABASE_URL: postgresql://munaxa_app:munaxa_app_dev@localhost:5432/munaxa?schema=public
       # Migrations connect as the privileged owner.
       DIRECT_DATABASE_URL: postgresql://munaxa:munaxa_ci@localhost:5432/munaxa?schema=public
+      # psql rejects the Prisma-specific "schema" query param; use a clean libpq URI.
+      PSQL_DIRECT_URL: postgresql://munaxa:munaxa_ci@localhost:5432/munaxa
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
@@ -53,11 +55,14 @@ jobs:
       - name: Prisma generate
         run: pnpm prisma:generate
 
+      - name: Build internal packages
+        run: pnpm turbo run build --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils
+
       - name: Apply database migrations
         run: pnpm --filter @munaxa/api prisma:deploy
 
       - name: Provision restricted application role
-        run: psql "$DIRECT_DATABASE_URL" -v ON_ERROR_STOP=1 -f infra/postgres/app-role.sql
+        run: psql "$PSQL_DIRECT_URL" -v ON_ERROR_STOP=1 -f infra/postgres/app-role.sql
 
       - name: Seed database
         run: pnpm --filter @munaxa/api db:seed
@@ -84,10 +89,11 @@ jobs:
     name: Analyze · Test (Flutter)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
       - name: Prepare platform folders
         working-directory: apps/mobile
         run: flutter create --platforms=android,ios .
@@ -104,12 +110,17 @@ jobs:
   security:
     name: Security scans
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
