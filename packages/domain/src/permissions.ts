@@ -72,6 +72,8 @@ export const Permission = {
 
   // Advanced modules (feature-flagged, disabled by default)
   BUS_MANAGE: 'bus:manage',
+  // Assign students to routes/stops without being able to reconfigure routes or buses.
+  BUS_ASSIGN: 'bus:assign',
   BUS_READ: 'bus:read',
   LIBRARY_MANAGE: 'library:manage',
   LIBRARY_READ: 'library:read',

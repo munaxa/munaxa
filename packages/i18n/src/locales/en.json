@@ -61,7 +61,8 @@
     "kindAttendance": "Attendance",
     "kindAcademic": "Academic",
     "kindFinancial": "Financial",
-    "kindBehavior": "Behavior"
+    "kindBehavior": "Behavior",
+    "print": "Print"
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",

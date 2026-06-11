@@ -23,6 +23,7 @@ import { CardsModule } from './cards/cards.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { RolesModule } from './roles/roles.module';
 import { UsersModule } from './users/users.module';
+import { MailModule } from './mail/mail.module';
 import { PresenceModule } from './presence/presence.module';
 import { AdvancedModule } from './advanced/advanced.module';
 import { PlatformModule } from './platform/platform.module';
@@ -69,6 +70,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     DashboardModule,
     RolesModule,
     UsersModule,
+    MailModule,
     PresenceModule,
     PlatformModule,
   ],

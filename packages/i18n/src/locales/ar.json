@@ -61,7 +61,8 @@
     "kindAttendance": "الحضور",
     "kindAcademic": "أكاديمي",
     "kindFinancial": "مالي",
-    "kindBehavior": "السلوك"
+    "kindBehavior": "السلوك",
+    "print": "طباعة"
   },
   "errors": {
     "generic": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",

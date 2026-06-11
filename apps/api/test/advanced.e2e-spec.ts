@@ -237,4 +237,45 @@ describe('Advanced Modules (e2e)', () => {
     await http().get('/api/v1/bus/routes').set(auth(teacherToken)).expect(403);
     await http().post('/api/v1/bus/routes').set(auth(teacherToken)).send({ name: 'x' }).expect(403);
   });
+
+  it('bus:assign grants student assignment but not fleet configuration', async () => {
+    // Provision a custom role holding only bus:assign + bus:read and a user carrying it.
+    const rbac = app.get(RbacService);
+    const passwords = app.get(PasswordService);
+    const hash = await passwords.hash(PASSWORD);
+    await withPlatform(prisma, async (tx) => {
+      const role = await rbac.createCustomRole(tx, TENANT, {
+        nameEn: 'Assignment clerk',
+        permissions: ['bus:assign', 'bus:read'],
+      });
+      const u = await tx.user.create({
+        data: {
+          tenantId: TENANT,
+          email: 'clerk@adv.example',
+          status: 'ACTIVE',
+          passwordHash: hash,
+          mustChangePassword: false,
+        },
+      });
+      await rbac.setUserRoles(tx, TENANT, u.id, [role.id]);
+    });
+    const clerkToken = await login('clerk@adv.example');
+
+    // Cannot reconfigure the fleet…
+    await http().post('/api/v1/bus/routes').set(auth(clerkToken)).send({ name: 'x' }).expect(403);
+    await http()
+      .post('/api/v1/bus/vehicles')
+      .set(auth(clerkToken))
+      .send({ plateNumber: 'X-1' })
+      .expect(403);
+
+    // …but can read and assign students to an existing route.
+    const routes = await http().get('/api/v1/bus/routes').set(auth(clerkToken)).expect(200);
+    expect(routes.body.length).toBeGreaterThanOrEqual(1);
+    await http()
+      .post('/api/v1/bus/assignments')
+      .set(auth(clerkToken))
+      .send({ studentId, routeId: routes.body[0].id })
+      .expect(201);
+  });
 });

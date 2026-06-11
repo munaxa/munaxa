@@ -22,6 +22,9 @@ export const envSchema = z.object({
   /** SMS gateway for fee reminders (no-op until both are set). */
   SMS_PROVIDER: z.string().optional(),
   SMS_API_KEY: z.string().optional(),
+  /** Transactional email via Resend (no-op until the key is set). */
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('Munaxa <no-reply@munaxa.app>'),
 
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
 

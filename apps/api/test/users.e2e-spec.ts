@@ -99,6 +99,8 @@ describe('Users admin (e2e)', () => {
       .expect(201);
 
     expect(res.body.temporaryPassword).toEqual(expect.any(String));
+    // Mail is not configured in the test environment, so the password is admin-relayed only.
+    expect(res.body.emailed).toBe(false);
     expect(res.body.user.status).toBe('ACTIVE');
     expect(res.body.user.mustChangePassword).toBe(true);
     expect(res.body.user.roles.map((r: { key: string }) => r.key)).toEqual(['Receptionist']);

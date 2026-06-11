@@ -47,6 +47,8 @@ function Fleet() {
   const principal = usePrincipal();
   const held = new Set(principal.permissions);
   const canManage = held.has('bus:manage') || held.has('*');
+  // Narrower than canManage: may assign students to routes without reconfiguring the fleet.
+  const canAssign = canManage || held.has('bus:assign');
 
   const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
@@ -183,7 +185,7 @@ function Fleet() {
                 routeId={selectedRoute}
                 stops={stops}
                 assignments={assignments}
-                canManage={canManage}
+                canManage={canAssign}
                 studentName={studentName}
                 onAssigned={(a) => setAssignments((prev) => [...prev, a])}
               />
