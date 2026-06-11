@@ -140,9 +140,12 @@ export class UsersRepository extends TenantRepository {
   }
 
   /** Reset to a fresh temporary password and revoke sessions; returns the new password once. */
-  resetPassword(id: string): Promise<{ temporaryPassword: string }> {
+  resetPassword(id: string): Promise<{ temporaryPassword: string; email: string }> {
     return this.run(async (tx, tenantId) => {
-      await tx.user.findFirstOrThrow({ where: { id, tenantId, deletedAt: null } });
+      const target = await tx.user.findFirstOrThrow({
+        where: { id, tenantId, deletedAt: null },
+        select: { email: true },
+      });
       const temporaryPassword = this.passwords.generateTemporary();
       const passwordHash = await this.passwords.hash(temporaryPassword);
       await tx.user.update({
@@ -158,7 +161,7 @@ export class UsersRepository extends TenantRepository {
         entityType: 'User',
         entityId: id,
       });
-      return { temporaryPassword };
+      return { temporaryPassword, email: target.email };
     });
   }
 

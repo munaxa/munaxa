@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
-import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermissions,
+} from '../../auth/decorators/require-permissions.decorator';
 import { FeatureFlagGuard } from '../../feature-flags/feature-flag.guard';
 import { FeatureFlagKey, RequireFeature } from '../../feature-flags/require-feature.decorator';
 import { BusService } from './bus.service';
@@ -69,7 +72,8 @@ export class BusController {
   }
 
   @Post('assignments')
-  @RequirePermissions(Permission.BUS_MANAGE)
+  // Either the narrow assignment permission or full fleet management grants this.
+  @RequireAnyPermission(Permission.BUS_ASSIGN, Permission.BUS_MANAGE)
   @ApiOperation({ summary: 'Assign a student to a route/stop' })
   assign(@Body() dto: AssignStudentDto) {
     return this.service.assign(dto);

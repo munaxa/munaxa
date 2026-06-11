@@ -23,7 +23,56 @@ import {
   TR,
 } from '@/components/ui';
 import { Shell } from '@/components/shell';
+import { EntityPicker } from '@/components/entity-picker';
+import { loadSectionOptions } from '@/lib/pickers';
 import { useI18n } from '@/components/i18n-provider';
+
+/**
+ * Open the report in a print-friendly window and hand off to the OS print dialog, which
+ * reaches any installed printer (Windows, macOS, network) and "Save as PDF" alike.
+ */
+function printReport(table: ReportTable) {
+  const esc = (s: string | number | undefined) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>${esc(table.title)}</title>
+<style>
+  /* Standalone print document — plain CSS colors, outside the app's token system. */
+  body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color: black; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .meta { color: dimgray; font-size: 11px; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { border: 1px solid lightgray; padding: 5px 8px; text-align: start; }
+  th { background: rgb(243, 240, 250); }
+  tr { break-inside: avoid; }
+  @page { margin: 14mm; }
+</style>
+</head>
+<body>
+<h1>${esc(table.title)}</h1>
+<div class="meta">${table.subtitle ? `${esc(table.subtitle)} · ` : ''}Generated ${esc(
+    table.generatedAt,
+  )} · ${table.rows.length} row(s)</div>
+<table>
+<thead><tr>${table.columns.map((c) => `<th>${esc(c.header)}</th>`).join('')}</tr></thead>
+<tbody>${table.rows
+    .map((row) => `<tr>${table.columns.map((c) => `<td>${esc(row[c.key])}</td>`).join('')}</tr>`)
+    .join('')}</tbody>
+</table>
+<script>window.addEventListener('load', () => { window.print(); });</script>
+</body>
+</html>`;
+  const win = window.open('', '_blank', 'noopener,width=1000,height=700');
+  if (!win) return; // popup blocked; nothing to do
+  win.document.write(html);
+  win.document.close();
+}
 
 const KINDS: Array<{ key: ReportKind; labelKey: string }> = [
   { key: 'attendance', labelKey: 'reports.kindAttendance' },
@@ -98,11 +147,12 @@ export default function ReportsPage() {
 
         <Card>
           <CardContent className="flex flex-wrap items-end gap-3 pt-6">
-            <Field label="Section ID (optional)" className="min-w-48 flex-1">
-              <Input
+            <Field label="Section (optional)" className="min-w-48 flex-1">
+              <EntityPicker
                 value={filters.sectionId ?? ''}
-                onChange={(e) => setField('sectionId', e.target.value)}
-                placeholder="uuid"
+                onChange={(id) => setField('sectionId', id)}
+                load={loadSectionOptions}
+                placeholder="All sections"
               />
             </Field>
             <Field label="From">
@@ -148,6 +198,9 @@ export default function ReportsPage() {
                     {f.toUpperCase()}
                   </Button>
                 ))}
+                <Button size="sm" onClick={() => printReport(table)}>
+                  {t('reports.print')}
+                </Button>
               </div>
             </div>
 

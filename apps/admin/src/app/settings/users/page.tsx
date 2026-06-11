@@ -45,9 +45,11 @@ function UsersAdmin() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [tempPassword, setTempPassword] = useState<{ email: string; password: string } | null>(
-    null,
-  );
+  const [tempPassword, setTempPassword] = useState<{
+    email: string;
+    password: string;
+    emailed: boolean;
+  } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -104,7 +106,9 @@ function UsersAdmin() {
             <div className="text-sm">
               <p className="font-medium">Temporary password for {tempPassword.email}</p>
               <p className="text-muted-foreground">
-                Share it securely — it’s shown once and must be changed at first login.
+                {tempPassword.emailed
+                  ? 'It was also emailed to the user. Shown once; must be changed at first login.'
+                  : 'Share it securely — it’s shown once and must be changed at first login.'}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -160,11 +164,11 @@ function UsersAdmin() {
           <CreateUser
             roles={roles}
             onCancel={() => setCreating(false)}
-            onCreated={(u, password) => {
+            onCreated={(u, password, emailed) => {
               upsertUser(u);
               setCreating(false);
               setSelectedId(u.id);
-              setTempPassword({ email: u.email, password });
+              setTempPassword({ email: u.email, password, emailed });
             }}
           />
         ) : selected ? (
@@ -173,7 +177,9 @@ function UsersAdmin() {
             user={selected}
             roles={roles}
             onSaved={upsertUser}
-            onTempPassword={(password) => setTempPassword({ email: selected.email, password })}
+            onTempPassword={(password, emailed) =>
+              setTempPassword({ email: selected.email, password, emailed })
+            }
           />
         ) : (
           <Card>
@@ -224,7 +230,7 @@ function CreateUser({
 }: {
   roles: RoleSummary[];
   onCancel: () => void;
-  onCreated: (user: UserSummary, temporaryPassword: string) => void;
+  onCreated: (user: UserSummary, temporaryPassword: string, emailed: boolean) => void;
 }) {
   const toast = useToast();
   const [email, setEmail] = useState('');
@@ -248,7 +254,7 @@ function CreateUser({
     if (!email.trim()) return;
     setBusy(true);
     try {
-      const { user, temporaryPassword } = await usersApi.create({
+      const { user, temporaryPassword, emailed } = await usersApi.create({
         email: email.trim(),
         ...(username.trim() ? { username: username.trim() } : {}),
         ...(firstNameEn.trim() ? { firstNameEn: firstNameEn.trim() } : {}),
@@ -256,7 +262,7 @@ function CreateUser({
         ...(phone.trim() ? { phone: phone.trim() } : {}),
         roleIds: [...selected],
       });
-      onCreated(user, temporaryPassword);
+      onCreated(user, temporaryPassword, emailed);
       toast.success('User created');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to create user');
@@ -325,7 +331,7 @@ function UserEditor({
   user: UserSummary;
   roles: RoleSummary[];
   onSaved: (u: UserSummary) => void;
-  onTempPassword: (password: string) => void;
+  onTempPassword: (password: string, emailed: boolean) => void;
 }) {
   const toast = useToast();
   const [status, setStatus] = useState<UserStatus>(user.status);
@@ -387,8 +393,8 @@ function UserEditor({
   async function reset() {
     setResetting(true);
     try {
-      const { temporaryPassword } = await usersApi.resetPassword(user.id);
-      onTempPassword(temporaryPassword);
+      const { temporaryPassword, emailed } = await usersApi.resetPassword(user.id);
+      onTempPassword(temporaryPassword, emailed);
       toast.success('Password reset');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to reset password');

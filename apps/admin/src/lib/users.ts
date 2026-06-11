@@ -41,7 +41,7 @@ export const usersApi = {
     roleIds: string[];
   }) =>
     authFetch('/users', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
-      json<{ user: UserSummary; temporaryPassword: string }>(r),
+      json<{ user: UserSummary; temporaryPassword: string; emailed: boolean }>(r),
     ),
   update: (
     id: string,
@@ -64,6 +64,6 @@ export const usersApi = {
     ),
   resetPassword: (id: string) =>
     authFetch(`/users/${id}/reset-password`, { method: 'POST' }).then((r) =>
-      json<{ temporaryPassword: string }>(r),
+      json<{ temporaryPassword: string; emailed: boolean }>(r),
     ),
 };

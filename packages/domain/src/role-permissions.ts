@@ -133,6 +133,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.TIMETABLE_READ,
     // Advanced modules operations (gated by per-tenant feature flags)
     Permission.BUS_MANAGE,
+    Permission.BUS_ASSIGN,
     Permission.BUS_READ,
     Permission.LIBRARY_MANAGE,
     Permission.LIBRARY_READ,
@@ -176,6 +177,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   // FleetAdmin: configures buses/routes and assigns students (gated by bus_tracking).
   FleetAdmin: [
     Permission.BUS_MANAGE,
+    Permission.BUS_ASSIGN,
     Permission.BUS_READ,
     Permission.TRANSPORT_READ,
     Permission.CARD_READ,

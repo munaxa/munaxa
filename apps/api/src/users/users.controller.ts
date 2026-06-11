@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
+import { MailService } from '../mail/mail.service';
 import { UsersRepository } from './users.repository';
 import { CreateUserDto, SetUserRolesDto, UpdateUserDto } from './users.dto';
 
@@ -15,7 +16,10 @@ import { CreateUserDto, SetUserRolesDto, UpdateUserDto } from './users.dto';
 @Controller({ path: 'users', version: '1' })
 @RequirePermissions(Permission.USER_MANAGE)
 export class UsersController {
-  constructor(private readonly repo: UsersRepository) {}
+  constructor(
+    private readonly repo: UsersRepository,
+    private readonly mail: MailService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List tenant users with their roles and status' })
@@ -24,9 +28,18 @@ export class UsersController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a user; returns a one-time temporary password' })
-  create(@Body() dto: CreateUserDto) {
-    return this.repo.create(dto);
+  @ApiOperation({
+    summary: 'Create a user; emails the temporary password when mail is configured',
+  })
+  async create(@Body() dto: CreateUserDto) {
+    const result = await this.repo.create(dto);
+    // Best-effort, after the transaction committed; the admin still sees the password once.
+    const { sent } = await this.mail.sendTemporaryPassword({
+      to: result.user.email,
+      temporaryPassword: result.temporaryPassword,
+      isReset: false,
+    });
+    return { ...result, emailed: sent };
   }
 
   @Patch(':id')
@@ -42,8 +55,16 @@ export class UsersController {
   }
 
   @Post(':id/reset-password')
-  @ApiOperation({ summary: 'Reset to a new temporary password (returned once)' })
-  resetPassword(@Param('id') id: string) {
-    return this.repo.resetPassword(id);
+  @ApiOperation({
+    summary: 'Reset to a new temporary password (returned once, emailed if configured)',
+  })
+  async resetPassword(@Param('id') id: string) {
+    const { temporaryPassword, email } = await this.repo.resetPassword(id);
+    const { sent } = await this.mail.sendTemporaryPassword({
+      to: email,
+      temporaryPassword,
+      isReset: true,
+    });
+    return { temporaryPassword, emailed: sent };
   }
 }
