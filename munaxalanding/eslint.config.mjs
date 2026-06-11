@@ -50,6 +50,14 @@ export default [
     },
   },
   {
-    ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts', '*.config.*'],
+    ignores: [
+      '.next/**',
+      'node_modules/**',
+      'next-env.d.ts',
+      'cloudflare-env.d.ts',
+      '.open-next/**',
+      '.wrangler/**',
+      '*.config.*',
+    ],
   },
 ];

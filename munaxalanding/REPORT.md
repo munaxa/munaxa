@@ -31,6 +31,7 @@ munaxalanding/
 ```
 
 Workspace files updated:
+
 - `pnpm-workspace.yaml` — added `munaxalanding` as a workspace package.
 
 No files inside `apps/`, `packages/`, or `prisma/` were modified — the landing page is fully
@@ -133,3 +134,66 @@ All of the above is also documented in [`SECURITY.md`](./SECURITY.md).
 - Cloudflare Turnstile was chosen as the optional CAPTCHA provider (free, privacy-respecting,
   simple server-side verification) but can be swapped for another provider by replacing
   `src/lib/turnstile.ts` and the corresponding script tag in `contact.tsx`.
+
+## Addendum — Cloudflare Workers hosting, Supabase DB, notifications
+
+This addendum covers a follow-up pass that wires the landing page up to live infrastructure:
+Cloudflare Workers hosting, the Supabase Postgres database, and email notifications.
+
+### Database (Supabase)
+
+- Reused the existing Supabase project "Munaxa" (ref `fngkpuyvzqemkqnenryq`) and its
+  `early_access_requests` table instead of creating a new database/table, avoiding a second
+  Postgres instance for this single-purpose form.
+- Applied migration `db/migrations/002_add_contact_fields_to_early_access_requests.sql`,
+  adding `message`, `ip_address`, `user_agent`, and `updated_at` columns to
+  `early_access_requests`.
+- Rewrote `src/lib/db.ts` to use `@supabase/supabase-js` (HTTP-based, edge-compatible) with
+  the service role key instead of `pg` (raw TCP, incompatible with the Workers runtime).
+  Submissions are `upsert`'d on the `email` unique constraint — repeat inquiries from the
+  same address update the existing row rather than erroring.
+- Removed the now-obsolete `db/migrations/001_create_contact_inquiries.sql` and the `pg` /
+  `@types/pg` dependencies.
+
+### Cloudflare Workers hosting
+
+- Migrated the build to `@opennextjs/cloudflare` (`open-next.config.ts`, `wrangler.jsonc`),
+  replacing the standalone Node.js output. Static assets are served via Workers Assets;
+  `compatibility_flags: ["nodejs_compat"]` is enabled.
+- Created a Cloudflare KV namespace (`munaxa-landing-rate-limit`, binding `RATE_LIMIT_KV`)
+  and rewrote `src/lib/rate-limit.ts` to use it for distributed rate limiting on Workers,
+  with an in-memory fallback for `next dev`/`next start`.
+- Added `preview`, `deploy`, and `cf-typegen` scripts to `package.json`. `cloudflare-env.d.ts`
+  is generated via `pnpm cf-typegen` and committed for CI typecheck convenience.
+- Bumped `next` to `15.1.12` (latest 15.1.x patch) and `@opennextjs/cloudflare`/`wrangler` to
+  versions with compatible peer dependencies.
+- The Docker-based deployment path (`Dockerfile`) is retained as a self-hosting alternative
+  for environments that don't use Cloudflare.
+
+### Notifications (Resend)
+
+- The Resend integration (`src/lib/email.ts`) built in the original implementation is
+  unchanged and ready to use — it only needs `RESEND_API_KEY` and `EMAIL_FROM` configured as
+  secrets to start sending the applicant acknowledgment and internal notification emails.
+
+### Verification performed
+
+- `pnpm lint`, `pnpm typecheck`, and `pnpm build` all pass after the migration.
+- `npx opennextjs-cloudflare build` succeeds, producing `.open-next/worker.js`.
+- `wrangler dev --local` smoke tests against the built Worker:
+  - `/` → 200, all sections render, security headers/CSP/`csrf_token` cookie present.
+  - `/api/health` → `{"status":"ok","service":"landing", ...}`.
+  - `/robots.txt` → correct content.
+  - `POST /api/contact` with a valid payload → `{"ok":true}`.
+  - `POST /api/contact` with the honeypot field filled → `{"ok":true}` (silent discard).
+  - `POST /api/contact` with an invalid email → `400` with field-level validation errors.
+
+### Secrets required to go fully live
+
+These are not set in this environment and must be configured by the project owner:
+
+- `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` — for `pnpm deploy` / CI deploys.
+- `SUPABASE_SERVICE_ROLE_KEY` — from the Supabase dashboard (Project Settings → API),
+  configured as a Worker secret via `wrangler secret put SUPABASE_SERVICE_ROLE_KEY`.
+- `RESEND_API_KEY`, `EMAIL_FROM` — to enable transactional email notifications.
+- (Optional) `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` for CAPTCHA.

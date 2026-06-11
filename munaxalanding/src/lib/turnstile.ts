@@ -23,7 +23,7 @@ export async function verifyTurnstile(token: string | undefined, remoteIp: strin
         ...(remoteIp ? { remoteip: remoteIp } : {}),
       }),
     });
-    const result = (await response.json()) as { success: boolean };
+    const result: { success: boolean } = await response.json();
     return result.success === true;
   } catch (error) {
     logger.error('turnstile.verify_failed', {

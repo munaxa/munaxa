@@ -54,7 +54,7 @@ export function Contact({ nonce }: { nonce?: string | undefined }) {
         body: JSON.stringify(payload),
       });
 
-      const result = (await response.json()) as { ok: boolean; error?: string };
+      const result: { ok: boolean; error?: string } = await response.json();
 
       if (!response.ok || !result.ok) {
         setStatus('error');
