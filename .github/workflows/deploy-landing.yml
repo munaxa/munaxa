@@ -38,6 +38,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build @munaxa/ui
+        run: pnpm --filter @munaxa/ui build
+
       - name: Build & deploy
         working-directory: munaxalanding
         run: pnpm run deploy
