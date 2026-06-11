@@ -2,9 +2,22 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class LoginDto {
-  @ApiProperty({ example: 'admin@school.example' })
+  @ApiPropertyOptional({
+    description: 'Email or username. Preferred field; falls back to `email` for legacy clients.',
+    example: 'admin@school.example',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(320)
+  identifier?: string;
+
+  @ApiPropertyOptional({
+    description: 'Legacy: email address. Use `identifier` for email-or-username login.',
+    example: 'admin@school.example',
+  })
+  @IsOptional()
   @IsEmail()
-  email!: string;
+  email?: string;
 
   @ApiProperty({ example: 'Sup3rSecret!' })
   @IsString()
@@ -13,7 +26,7 @@ export class LoginDto {
   password!: string;
 
   @ApiPropertyOptional({
-    description: 'School (tenant) identifier. Required when an email exists across tenants.',
+    description: 'School (tenant) identifier. Required when the handle exists across tenants.',
     example: 'green-valley',
   })
   @IsOptional()

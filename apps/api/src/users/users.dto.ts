@@ -16,6 +16,15 @@ export class CreateUserDto {
   @IsEmail()
   email!: string;
 
+  @ApiPropertyOptional({
+    description: 'Optional login handle for accounts without email (e.g. students).',
+    example: 'rana.h',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  username?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -54,6 +63,12 @@ export class CreateUserDto {
 }
 
 export class UpdateUserDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  username?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

@@ -9,7 +9,7 @@ import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useI18n();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [tenantSlug, setTenantSlug] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +21,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const result = await login({
-        email,
+        identifier,
         password,
         ...(tenantSlug ? { tenantSlug } : {}),
       });
@@ -57,14 +57,15 @@ export default function LoginPage() {
                 />
               </Field>
 
-              <Field label={t('auth.email')} htmlFor="email">
+              <Field label={t('auth.identifier')} htmlFor="identifier">
                 <Input
-                  id="email"
-                  type="email"
+                  id="identifier"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  autoComplete="username"
+                  placeholder="name@school.edu.jo"
                 />
               </Field>
 

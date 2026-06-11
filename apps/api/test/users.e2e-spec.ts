@@ -120,6 +120,34 @@ describe('Users admin (e2e)', () => {
     expect(me.body.permissions).toContain('announcement:manage');
   });
 
+  it('creates a user with a username who can log in by username (no email)', async () => {
+    const res = await http()
+      .post('/api/v1/users')
+      .set(auth(adminToken))
+      .send({
+        email: 'student1@users.example',
+        username: 'Rana.H',
+        roleIds: [teacherRoleId],
+      })
+      .expect(201);
+    expect(res.body.user.username).toBe('rana.h'); // normalized lowercase
+
+    // Log in with the username via the generic identifier field (case-insensitive).
+    const loginRes = await http()
+      .post('/api/v1/auth/login')
+      .send({ identifier: 'RANA.H', password: res.body.temporaryPassword, tenantSlug: 'users' })
+      .expect(200);
+    expect(loginRes.body.accessToken).toEqual(expect.any(String));
+  });
+
+  it('rejects a duplicate username at the same school', async () => {
+    await http()
+      .post('/api/v1/users')
+      .set(auth(adminToken))
+      .send({ email: 'student2@users.example', username: 'rana.h', roleIds: [] })
+      .expect(400);
+  });
+
   it('rejects a duplicate email', async () => {
     await http()
       .post('/api/v1/users')

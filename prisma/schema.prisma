@@ -702,6 +702,8 @@ model User {
   tenantId           String     @db.Uuid
   firebaseUid        String?    @unique
   email              String
+  // Optional login handle (e.g. for students/parents without email). Unique per tenant.
+  username           String?
   phone              String?
   nationalId         String? // Jordanian National ID (Raqam Watani)
   firstNameEn        String?
@@ -741,6 +743,7 @@ model User {
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])
+  @@unique([tenantId, username])
   @@index([tenantId])
   @@index([tenantId, status])
 }

@@ -228,6 +228,7 @@ function CreateUser({
 }) {
   const toast = useToast();
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [firstNameEn, setFirstNameEn] = useState('');
   const [lastNameEn, setLastNameEn] = useState('');
   const [phone, setPhone] = useState('');
@@ -249,6 +250,7 @@ function CreateUser({
     try {
       const { user, temporaryPassword } = await usersApi.create({
         email: email.trim(),
+        ...(username.trim() ? { username: username.trim() } : {}),
         ...(firstNameEn.trim() ? { firstNameEn: firstNameEn.trim() } : {}),
         ...(lastNameEn.trim() ? { lastNameEn: lastNameEn.trim() } : {}),
         ...(phone.trim() ? { phone: phone.trim() } : {}),
@@ -271,12 +273,20 @@ function CreateUser({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Email" className="sm:col-span-2">
+          <Field label="Email">
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@school.edu.jo"
+            />
+          </Field>
+          <Field label="Username (optional)">
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="for students without email"
+              autoComplete="off"
             />
           </Field>
           <Field label="First name">
@@ -319,13 +329,26 @@ function UserEditor({
 }) {
   const toast = useToast();
   const [status, setStatus] = useState<UserStatus>(user.status);
+  const [firstNameEn, setFirstNameEn] = useState(user.firstNameEn ?? '');
+  const [lastNameEn, setLastNameEn] = useState(user.lastNameEn ?? '');
+  const [firstNameAr, setFirstNameAr] = useState(user.firstNameAr ?? '');
+  const [lastNameAr, setLastNameAr] = useState(user.lastNameAr ?? '');
+  const [username, setUsername] = useState(user.username ?? '');
+  const [phone, setPhone] = useState(user.phone ?? '');
   const [selected, setSelected] = useState<Set<string>>(new Set(user.roles.map((r) => r.id)));
   const [saving, setSaving] = useState(false);
   const [resetting, setResetting] = useState(false);
 
   const rolesDirty =
     selected.size !== user.roles.length || user.roles.some((r) => !selected.has(r.id));
-  const dirty = status !== user.status || rolesDirty;
+  const profileDirty =
+    firstNameEn !== (user.firstNameEn ?? '') ||
+    lastNameEn !== (user.lastNameEn ?? '') ||
+    firstNameAr !== (user.firstNameAr ?? '') ||
+    lastNameAr !== (user.lastNameAr ?? '') ||
+    username !== (user.username ?? '') ||
+    phone !== (user.phone ?? '');
+  const dirty = status !== user.status || rolesDirty || profileDirty;
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -340,7 +363,17 @@ function UserEditor({
     setSaving(true);
     try {
       let updated = user;
-      if (status !== user.status) updated = await usersApi.update(user.id, { status });
+      if (status !== user.status || profileDirty) {
+        updated = await usersApi.update(user.id, {
+          ...(status !== user.status ? { status } : {}),
+          firstNameEn,
+          lastNameEn,
+          firstNameAr,
+          lastNameAr,
+          username,
+          phone,
+        });
+      }
       if (rolesDirty) updated = await usersApi.setRoles(user.id, [...selected]);
       onSaved(updated);
       toast.success('User saved');
@@ -372,6 +405,9 @@ function UserEditor({
             <CardTitle>{displayName(user)}</CardTitle>
             <CardDescription>
               {user.email}
+              {user.username ? (
+                <span className="ms-2 font-mono text-xs">@{user.username}</span>
+              ) : null}
               {user.lastNameAr || user.firstNameAr ? (
                 <span className="ms-2" dir="rtl">
                   {[user.firstNameAr, user.lastNameAr].filter(Boolean).join(' ')}
@@ -394,6 +430,30 @@ function UserEditor({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="First name">
+            <Input value={firstNameEn} onChange={(e) => setFirstNameEn(e.target.value)} />
+          </Field>
+          <Field label="Last name">
+            <Input value={lastNameEn} onChange={(e) => setLastNameEn(e.target.value)} />
+          </Field>
+          <Field label="First name (Arabic)">
+            <Input value={firstNameAr} onChange={(e) => setFirstNameAr(e.target.value)} dir="rtl" />
+          </Field>
+          <Field label="Last name (Arabic)">
+            <Input value={lastNameAr} onChange={(e) => setLastNameAr(e.target.value)} dir="rtl" />
+          </Field>
+          <Field label="Username">
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="off"
+            />
+          </Field>
+          <Field label="Phone">
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </Field>
+        </div>
         <Field label="Status">
           <Select value={status} onChange={(e) => setStatus(e.target.value as UserStatus)}>
             <option value="ACTIVE">Active</option>

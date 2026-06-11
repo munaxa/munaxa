@@ -14,6 +14,7 @@
     "signIn": "Sign in",
     "signOut": "Sign out",
     "email": "Email",
+    "identifier": "Email or username",
     "password": "Password",
     "forgotPassword": "Forgot password?",
     "changePassword": "Change password",
