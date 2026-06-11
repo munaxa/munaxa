@@ -1,0 +1,46 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../auth/auth_controller.dart';
+
+/// Teacher account tab: identity, roles, and sign-out.
+class TeacherAccountTab extends ConsumerWidget {
+  const TeacherAccountTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+    final principal = auth is AuthAuthenticated ? auth.principal : null;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const Center(child: CircleAvatar(radius: 36, child: Icon(Icons.person, size: 36))),
+        const SizedBox(height: 24),
+        Card(
+          child: Column(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.badge_outlined),
+                title: const Text('Roles'),
+                subtitle: Text(principal?.roles.join(', ') ?? '—'),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.apartment_outlined),
+                title: const Text('School'),
+                subtitle: Text(principal?.tenantId ?? '—'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        FilledButton.icon(
+          onPressed: () => ref.read(authControllerProvider.notifier).logout(),
+          icon: const Icon(Icons.logout),
+          label: const Text('Sign out'),
+        ),
+      ],
+    );
+  }
+}

@@ -7,8 +7,8 @@ import '../../features/auth/auth_controller.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/change_password_screen.dart';
 import '../../features/parent_portal/parent_shell.dart';
-import '../../features/student/student_home_screen.dart';
-import '../../features/teacher/teacher_home_screen.dart';
+import '../../features/student/student_shell.dart';
+import '../../features/teacher/teacher_shell.dart';
 
 /// The app's router, auth-guarded by [authControllerProvider]:
 ///   AuthUnknown          → /splash (session restore in flight)
@@ -61,9 +61,9 @@ class _FlavorHome extends StatelessWidget {
       case Flavor.parent:
         return const ParentShell();
       case Flavor.student:
-        return const StudentHomeScreen();
+        return const StudentShell();
       case Flavor.teacher:
-        return const TeacherHomeScreen();
+        return const TeacherShell();
     }
   }
 }

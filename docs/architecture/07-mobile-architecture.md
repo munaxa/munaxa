@@ -107,15 +107,17 @@ sequenceDiagram
   - Parent — bottom-nav shell (Home · Requests · Meetings · Documents) with a shared app-bar
     child switcher: per-child dashboard, submit/cancel **leave & absence** requests, book/cancel
     **PTM** slots, and a read-only **document vault** list.
-  - Student — gamification (points/level/streak), attendance %, homework, achievements.
-  - Teacher — notification feed + unread count (attendance capture remains the offline-first flow).
+  - Student — bottom-nav shell (Home · Timetable · Homework · Resources): gamification
+    (points/level/streak) + attendance dashboard, day-grouped timetable, due-date homework list,
+    and learning resources that open externally (`url_launcher`).
+  - Teacher — bottom-nav shell (Notifications · Account): unread metric + notification feed and an
+    identity/roles + sign-out tab (attendance capture remains the offline-first flow).
 - **Tests**: `test/smoke_test.dart` boots the app with an empty-token override and asserts it lands
   on the sign-in screen.
 
 ### Not yet wired (tracked for later phases)
 - Drift-backed read caches / stale-while-revalidate (the attendance & presence queues already exist).
 - Firebase Auth sign-in, FCM push registration, deep links, biometric unlock, cert pinning.
-- AR/EN locale toggle + RTL goldens; bottom-tab sub-navigation for the student & teacher flavors
-  (the parent flavor already has it); document upload (file picker) and download.
+- AR/EN locale toggle + RTL goldens; document upload (file picker) and download.
 - Cross-tenant **Account/Membership** school switcher (see
   `15-identity-and-cross-tenant-membership.md`) — lands with the parent multi-school experience.
