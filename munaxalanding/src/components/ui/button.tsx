@@ -1,5 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
-import { cn } from '@munaxa/ui';
+import { cn } from '@/lib/cn';
 
 export type ButtonVariant = 'default' | 'secondary' | 'outline' | 'ghost';
 export type ButtonSize = 'sm' | 'md' | 'lg';

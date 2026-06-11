@@ -1,45 +1,42 @@
 # syntax=docker/dockerfile:1
-# Multi-stage build for the Munaxa Landing Page.
-# Build context MUST be the repo root: docker build -f munaxalanding/Dockerfile -t munaxa-landing .
+# Multi-stage build for the Munaxa Landing Page (standalone app).
+# Build context is this directory: docker build -t munaxa-landing .
 #
-# This image is fully independent of the School OS apps (apps/api, apps/admin) — it can be
-# built, deployed, and scaled on its own.
-#
-# NOTE: Cloudflare Workers (via `pnpm --filter @munaxa/landing deploy`, see README.md) is the
-# primary deployment target. This Dockerfile is for self-hosting the same app on any
-# Node-capable platform (e.g. behind your own reverse proxy / TLS termination).
+# NOTE: Cloudflare Workers (via `pnpm run deploy`, see README.md) is the primary deployment
+# target. This Dockerfile is for self-hosting the same app on any Node-capable platform
+# (e.g. behind your own reverse proxy / TLS termination).
 
 ARG NODE_VERSION=22-alpine
 
 FROM node:${NODE_VERSION} AS base
 RUN corepack enable
-WORKDIR /repo
+WORKDIR /app
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc turbo.json ./
-COPY munaxalanding/package.json munaxalanding/
-COPY packages/ packages/
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
 FROM deps AS build
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN pnpm --filter @munaxa/landing... build
+RUN pnpm build
 
-# Production-only node_modules for @munaxa/landing, with workspace deps (e.g. @munaxa/ui)
-# resolved into real files.
-FROM build AS pruned
-RUN pnpm --filter @munaxa/landing deploy --prod /prod/landing
+# Production-only node_modules.
+FROM base AS prod-deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile --prod
 
 FROM node:${NODE_VERSION} AS runtime
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
 
-COPY --from=pruned /prod/landing ./
-COPY --from=build /repo/munaxalanding/.next ./.next
-COPY --from=build /repo/munaxalanding/public ./public
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
 
 USER nextjs
 EXPOSE 3100

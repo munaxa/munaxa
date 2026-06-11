@@ -55,7 +55,7 @@ to this marketing site only.
 
 - All secrets (Resend API key, Supabase service role key, Turnstile secret, Sentry DSN) are
   read from environment variables only — none are hardcoded. `.env.example` documents every
-  variable with placeholder values; real `.env*` files are git-ignored at the repo root.
+  variable with placeholder values; real `.env*` files are git-ignored (see `.gitignore`).
 - **`SUPABASE_SERVICE_ROLE_KEY` is a highly privileged, server-only secret** — it bypasses
   Row Level Security on the Supabase project. It must never be exposed to the client, logged,
   or committed. On Cloudflare Workers it is configured as an encrypted secret via
@@ -71,16 +71,14 @@ to this marketing site only.
   IP is stored in `early_access_requests` and included in the internal notification email (as
   required for spam/abuse follow-up) — operators should define a retention/anonymization
   policy for this table.
-- `SENTRY_DSN` can be configured for error monitoring (optional, same pattern as
-  `apps/admin`).
+- `SENTRY_DSN` can be configured for error monitoring (optional).
 
 ## Dependency surface
 
-- New runtime dependencies introduced for this app: `@supabase/supabase-js` (HTTP-based
-  Postgres client, edge-compatible), `resend` (transactional email), `lucide-react` (icons).
-  All are widely used, actively maintained packages already aligned with conventions used
-  elsewhere in the monorepo (Resend is referenced in `apps/api/.env.example`; `lucide` is the
-  icon library configured in `apps/admin/components.json`).
+- Runtime dependencies: `@supabase/supabase-js` (HTTP-based Postgres client,
+  edge-compatible), `resend` (transactional email), `lucide-react` (icons), `clsx` +
+  `tailwind-merge` (className utilities), `zod` (validation). All are widely used, actively
+  maintained packages.
 - `@opennextjs/cloudflare` and `wrangler` (devDependencies) adapt the Next.js build for
   deployment to Cloudflare Workers with the `nodejs_compat` compatibility flag.
 
