@@ -206,6 +206,7 @@ export class AuthService {
     meta: RequestMeta,
   ): Promise<void> {
     this.passwords.assertStrong(dto.newPassword);
+    await this.passwords.assertNotBreached(dto.newPassword);
     await withPlatform(this.prisma, async (tx) => {
       const user = await tx.user.findFirstOrThrow({ where: { id: userId, tenantId } });
       if (
@@ -250,6 +251,7 @@ export class AuthService {
 
   async confirmPasswordReset(dto: ConfirmPasswordResetDto, meta: RequestMeta): Promise<void> {
     this.passwords.assertStrong(dto.newPassword);
+    await this.passwords.assertNotBreached(dto.newPassword);
     const hash = this.tokens.hashRefreshToken(dto.token);
     await withPlatform(this.prisma, async (tx) => {
       const record = await tx.passwordResetToken.findUnique({ where: { tokenHash: hash } });

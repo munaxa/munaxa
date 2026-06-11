@@ -1,5 +1,11 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { randomBytes, scrypt as scryptCb, timingSafeEqual, type ScryptOptions } from 'node:crypto';
+import {
+  createHash,
+  randomBytes,
+  scrypt as scryptCb,
+  timingSafeEqual,
+  type ScryptOptions,
+} from 'node:crypto';
 import * as bcrypt from 'bcryptjs';
 
 // Explicit wrapper: util.promisify drops the overload that accepts ScryptOptions.
@@ -95,8 +101,40 @@ export class PasswordService {
   }
 
   /**
+   * Breach-list check via HIBP's k-anonymity range API: only the first 5 chars of the SHA-1
+   * are ever sent, never the password. Enabled with PASSWORD_BREACH_CHECK=1 (recommended in
+   * production); FAIL-OPEN on network errors/timeouts so an outage can't block password changes.
+   * Throws BadRequestException when the password appears in a known breach.
+   */
+  async assertNotBreached(password: string): Promise<void> {
+    if (process.env.PASSWORD_BREACH_CHECK !== '1') return;
+    const sha1 = createHash('sha1').update(password).digest('hex').toUpperCase();
+    const prefix = sha1.slice(0, 5);
+    const suffix = sha1.slice(5);
+    try {
+      const res = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`, {
+        headers: { 'Add-Padding': 'true' },
+        signal: AbortSignal.timeout(2500),
+      });
+      if (!res.ok) return; // fail-open
+      const body = await res.text();
+      const hit = body
+        .split('\n')
+        .some((line) => line.startsWith(suffix) && Number(line.split(':')[1]) > 0);
+      if (hit) {
+        throw new BadRequestException(
+          'This password has appeared in a known data breach. Choose a different one.',
+        );
+      }
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      // Network failure/timeout: fail-open by design.
+    }
+  }
+
+  /**
    * Enforce the password policy: min 10 chars, with upper, lower and a digit.
-   * Throws BadRequestException on failure. (Breach-list checks are added in Phase 15.)
+   * Throws BadRequestException on failure.
    */
   assertStrong(password: string): void {
     const failures: string[] = [];

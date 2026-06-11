@@ -52,4 +52,49 @@ describe('PasswordService', () => {
       expect(() => service.assertStrong(weak)).toThrow(BadRequestException);
     },
   );
+
+  describe('assertNotBreached (HIBP k-anonymity)', () => {
+    const realFetch = global.fetch;
+
+    afterEach(() => {
+      global.fetch = realFetch;
+      delete process.env.PASSWORD_BREACH_CHECK;
+    });
+
+    it('is a no-op when the check is disabled', async () => {
+      const spy = jest.fn();
+      global.fetch = spy;
+      await expect(service.assertNotBreached('Sup3rSecret!')).resolves.toBeUndefined();
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('rejects a breached password (suffix found in the range response)', async () => {
+      process.env.PASSWORD_BREACH_CHECK = '1';
+      // SHA-1('Password123!') = 49EFEF5F70D47ADC2DB2EB397FBEF5F7BC560E29 → prefix 49EFE, suffix the rest.
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('F5F70D47ADC2DB2EB397FBEF5F7BC560E29:1234\r\nOTHER:0'),
+      });
+      await expect(service.assertNotBreached('Password123!')).rejects.toThrow(/data breach/);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.pwnedpasswords.com/range/49EFE',
+        expect.anything(),
+      );
+    });
+
+    it('accepts a password whose suffix is absent', async () => {
+      process.env.PASSWORD_BREACH_CHECK = '1';
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        text: () => Promise.resolve('DEADBEEF:42'),
+      });
+      await expect(service.assertNotBreached('Sup3rSecret!')).resolves.toBeUndefined();
+    });
+
+    it('fails open on network errors', async () => {
+      process.env.PASSWORD_BREACH_CHECK = '1';
+      global.fetch = jest.fn().mockRejectedValue(new Error('network down'));
+      await expect(service.assertNotBreached('Sup3rSecret!')).resolves.toBeUndefined();
+    });
+  });
 });

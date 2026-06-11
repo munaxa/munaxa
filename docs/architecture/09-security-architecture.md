@@ -104,6 +104,9 @@ sequenceDiagram
   `auth.login.locked`. Complements the per-IP throttle (20/min on `/auth/login`).
 - **Env guards**: `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` are **required and must differ** when
   `NODE_ENV=production` (fail-fast at boot, zod `superRefine`).
+- **Breach-list check (HIBP k-anonymity)** on password change/reset: only the first 5 SHA-1 chars
+  leave the server; fail-open on network errors; enabled with `PASSWORD_BREACH_CHECK=1`
+  (recommended in production).
 - **API runtime**: helmet, CORS allowlist from `CORS_ORIGINS`, compression, `trust proxy`,
   global validation (`whitelist`+`forbidNonWhitelisted`), shutdown hooks, Swagger disabled in
   production.
@@ -118,8 +121,9 @@ sequenceDiagram
   unset). The final rollout step stays explicitly unbound until the hosting target is chosen.
 
 ### Still open (tracked)
-- Password **breach-list check** (HIBP k-anonymity) on set/change.
 - JWT **signing-key rotation** (kid) and `tokenVersion` claim; MFA enforcement for platform roles.
+  (Access tokens stay valid ≤15 min after suspension; refresh families are already revoked
+  immediately on password change/suspend — accepted trade-off to keep verification stateless.)
 - CSP **nonce** plumbing (currently `unsafe-inline` for Next hydration); Redis-backed distributed
   rate limiting; Cloudflare edge rules.
 - ClamAV scanning on uploads; mobile cert pinning + biometric unlock.

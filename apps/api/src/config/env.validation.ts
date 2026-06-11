@@ -26,6 +26,8 @@ export const envSchema = z
     /** Transactional email via Resend (no-op until the key is set). */
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().default('Munaxa <no-reply@munaxa.app>'),
+    /** '1' enables the HIBP k-anonymity breach check on password set/change (fail-open). */
+    PASSWORD_BREACH_CHECK: z.string().optional(),
 
     CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
