@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
+import '../settings/locale_toggle.dart';
 import 'parent_portal_providers.dart';
 import 'parent_home_screen.dart';
 import 'parent_requests_screen.dart';
@@ -29,6 +30,7 @@ class _ParentShellState extends ConsumerState<ParentShell> {
         title: Text(_titles[_index]),
         actions: [
           const _ChildSwitcherAction(),
+          const LocaleToggleButton(),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sign out',

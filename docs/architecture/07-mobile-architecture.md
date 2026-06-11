@@ -118,13 +118,20 @@ sequenceDiagram
   notification taps to in-app destinations via the `route` data payload → `GoRouter.go`. No-op safe:
   if Firebase isn't configured for the build, init fails gracefully and push becomes inert so the
   app still runs in dev/CI.
-- **Tests**: `test/smoke_test.dart` boots the app with an empty-token override and asserts it lands
-  on the sign-in screen.
+- **Locale (AR/EN + RTL)**: `localeProvider` (persisted) drives `MaterialApp.locale`; a
+  `LocaleToggleButton` on the login screen and every shell flips English↔Arabic, switching the whole
+  app to RTL. Logical/directional layout (`AlignmentDirectional`, start/end paddings) mirrors
+  automatically.
+- **Tests**: `test/smoke_test.dart` boots with an empty-token override and asserts the sign-in
+  screen; `test/rtl_test.dart` pins the locale to Arabic and asserts the ambient
+  `Directionality` is RTL.
 
 ### Not yet wired (tracked for later phases)
 - Drift-backed read caches / stale-while-revalidate (the attendance & presence queues already exist).
 - Firebase Auth sign-in, biometric unlock, certificate pinning; Firebase project config files
   (`google-services.json` / `GoogleService-Info.plist`) must be supplied to activate push.
-- AR/EN locale toggle + RTL goldens.
+- Full **string-translation catalog** (gen-l10n / ARB) — the locale toggle + RTL direction are
+  wired, but in-app copy is still English literals; and pixel **golden** baselines (need a machine
+  with the Flutter SDK to capture) — the current RTL coverage is an assertion test.
 - Cross-tenant **Account/Membership** school switcher (see
   `15-identity-and-cross-tenant-membership.md`) — lands with the parent multi-school experience.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth/auth_controller.dart';
+import '../settings/locale_toggle.dart';
 import 'student_home_screen.dart';
 import 'student_timetable_screen.dart';
 import 'student_homework_screen.dart';
@@ -27,6 +28,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       appBar: AppBar(
         title: Text(_titles[_index]),
         actions: [
+          const LocaleToggleButton(),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sign out',

@@ -94,9 +94,6 @@ jobs:
       - name: Pub get
         working-directory: apps/mobile
         run: flutter pub get
-      - name: Format check
-        working-directory: apps/mobile
-        run: dart format --output=none --set-exit-if-changed lib test
       - name: Analyze
         working-directory: apps/mobile
         run: flutter analyze

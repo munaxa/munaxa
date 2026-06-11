@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../settings/locale_toggle.dart';
 import 'teacher_home_screen.dart';
 import 'teacher_account_screen.dart';
 
@@ -20,7 +21,10 @@ class _TeacherShellState extends State<TeacherShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_titles[_index])),
+      appBar: AppBar(
+        title: Text(_titles[_index]),
+        actions: const [LocaleToggleButton()],
+      ),
       body: IndexedStack(
         index: _index,
         children: const [

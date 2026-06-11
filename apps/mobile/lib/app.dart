@@ -7,6 +7,7 @@ import 'core/push/push_service.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/auth_controller.dart';
+import 'features/settings/locale_controller.dart';
 
 /// Root widget shared by all flavors. Supports Arabic (RTL) and English (LTR).
 /// Restores any persisted session on first build, then hands routing to the
@@ -40,6 +41,7 @@ class _MunaxaAppState extends ConsumerState<MunaxaApp> {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.dark,
+      locale: ref.watch(localeProvider),
       routerConfig: router,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
