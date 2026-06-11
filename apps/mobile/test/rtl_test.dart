@@ -46,8 +46,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The login screen is shown, and the ambient direction is RTL.
-    final context = tester.element(find.text('Sign in'));
+    // The login screen is shown, and the ambient direction is RTL (locale-independent check).
+    final context = tester.element(find.byType(Scaffold).first);
     expect(Directionality.of(context), TextDirection.rtl);
   });
 }

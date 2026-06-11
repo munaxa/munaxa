@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/structure/structure_api.dart';
+import '../../l10n/strings.dart';
 import '../attendance/attendance_controller.dart';
 import '../auth/auth_providers.dart';
 import '../people/people_providers.dart';
@@ -82,6 +83,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
   Widget build(BuildContext context) {
     final sectionsAsync = ref.watch(sectionsProvider);
     final pending = ref.watch(attendanceControllerProvider);
+    final s = ref.watch(stringsProvider);
 
     return Scaffold(
       body: ListView(
@@ -95,7 +97,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
                 title: Text('$pending mark(s) waiting to sync'),
                 trailing: TextButton(
                   onPressed: () => ref.read(attendanceControllerProvider.notifier).sync(),
-                  child: const Text('Sync now'),
+                  child: Text(s.t('common.syncNow')),
                 ),
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../auth/auth_controller.dart';
 import '../settings/locale_toggle.dart';
 import 'student_home_screen.dart';
@@ -20,18 +21,24 @@ class StudentShell extends ConsumerStatefulWidget {
 class _StudentShellState extends ConsumerState<StudentShell> {
   int _index = 0;
 
-  static const _titles = ['My day', 'Timetable', 'Homework', 'Resources'];
+  static const _titleKeys = [
+    'student.tab.home',
+    'student.tab.timetable',
+    'student.tab.homework',
+    'student.tab.resources',
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_titles[_index]),
+        title: Text(s.t(_titleKeys[_index])),
         actions: [
           const LocaleToggleButton(),
           IconButton(
             icon: const Icon(Icons.logout),
-            tooltip: 'Sign out',
+            tooltip: s.t('common.signOut'),
             onPressed: () => ref.read(authControllerProvider.notifier).logout(),
           ),
         ],
@@ -48,11 +55,15 @@ class _StudentShellState extends ConsumerState<StudentShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.calendar_today_outlined), label: 'Timetable'),
-          NavigationDestination(icon: Icon(Icons.assignment_outlined), label: 'Homework'),
-          NavigationDestination(icon: Icon(Icons.school_outlined), label: 'Resources'),
+        destinations: [
+          NavigationDestination(
+              icon: const Icon(Icons.dashboard_outlined), label: s.t('student.tab.home')),
+          NavigationDestination(
+              icon: const Icon(Icons.calendar_today_outlined), label: s.t('student.tab.timetable')),
+          NavigationDestination(
+              icon: const Icon(Icons.assignment_outlined), label: s.t('student.tab.homework')),
+          NavigationDestination(
+              icon: const Icon(Icons.school_outlined), label: s.t('student.tab.resources')),
         ],
       ),
     );

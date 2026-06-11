@@ -134,8 +134,13 @@ sequenceDiagram
 - Drift-backed read caches / stale-while-revalidate (the attendance & presence queues already exist).
 - Firebase Auth sign-in, biometric unlock, certificate pinning; Firebase project config files
   (`google-services.json` / `GoogleService-Info.plist`) must be supplied to activate push.
-- Full **string-translation catalog** (gen-l10n / ARB) — the locale toggle + RTL direction are
-  wired, but in-app copy is still English literals; and pixel **golden** baselines (need a machine
-  with the Flutter SDK to capture) — the current RTL coverage is an assertion test.
+- **String translations**: a lightweight bilingual catalog (`l10n/strings.dart`, `stringsProvider`
+  keyed off `localeProvider`) covers the app chrome (tab titles, nav labels, sign-out, language
+  toggle) and the auth screens (login + change-password). Remaining body copy (dashboard metric
+  labels, list empty-states, form labels in requests/meetings/documents) still uses English
+  literals and should be migrated onto the same catalog. A move to gen-l10n/ARB can come later;
+  the provider API keeps call sites stable.
+- Pixel **golden** baselines (need a machine with the Flutter SDK to capture) — current RTL coverage
+  is an assertion test (`test/rtl_test.dart`).
 - Cross-tenant **Account/Membership** school switcher (see
   `15-identity-and-cross-tenant-membership.md`) — lands with the parent multi-school experience.

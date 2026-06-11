@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import 'auth_providers.dart';
 import 'auth_controller.dart';
 
@@ -39,7 +40,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           );
       ref.read(authControllerProvider.notifier).markPasswordChanged();
     } catch (e) {
-      setState(() => _error = 'Could not change the password. Check the current one and try again.');
+      setState(() => _error = ref.read(stringsProvider).t('auth.changePasswordFailed'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -47,8 +48,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = ref.watch(stringsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Set a new password')),
+      appBar: AppBar(title: Text(s.t('auth.setNewPassword'))),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -62,30 +64,29 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Choose a new password',
+                      s.t('auth.chooseNewPassword'),
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Your account uses a temporary password. Set your own to continue.',
+                      s.t('auth.tempPasswordHint'),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 20),
                     TextFormField(
                       controller: _current,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Current (temporary) password'),
+                      decoration: InputDecoration(labelText: s.t('auth.currentPassword')),
                       validator: (v) =>
-                          (v == null || v.isEmpty) ? 'Enter the current password' : null,
+                          (v == null || v.isEmpty) ? s.t('auth.currentPasswordRequired') : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _next,
                       obscureText: true,
-                      decoration: const InputDecoration(labelText: 'New password'),
-                      validator: (v) => (v == null || v.length < 10)
-                          ? 'At least 10 characters, with upper, lower and a digit'
-                          : null,
+                      decoration: InputDecoration(labelText: s.t('auth.newPassword')),
+                      validator: (v) =>
+                          (v == null || v.length < 10) ? s.t('auth.passwordRule') : null,
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
@@ -94,7 +95,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     const SizedBox(height: 24),
                     FilledButton(
                       onPressed: _loading ? null : _submit,
-                      child: Text(_loading ? 'Saving…' : 'Save password'),
+                      child: Text(_loading ? s.t('auth.saving') : s.t('auth.savePassword')),
                     ),
                   ],
                 ),
