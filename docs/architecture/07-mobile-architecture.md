@@ -84,3 +84,36 @@ sequenceDiagram
 
 - Widget + unit tests (Riverpod overrides), golden tests for RTL/LTR, integration tests for the
   offline attendance flow. CI runs `flutter analyze` + tests as a separate pipeline job.
+
+## 8. Implementation status
+
+### Shipped
+- **Three flavors** wired via `lib/main_{parent,student,teacher}.dart` → `bootstrap()` →
+  `AppConfig` (flavor, app name, `API_URL`).
+- **Auth-guarded routing** (`core/router/app_router.dart`, `routerProvider`): a `ChangeNotifier`
+  bridges the Riverpod `authControllerProvider` to GoRouter's `refreshListenable`, and `redirect`
+  resolves the destination:
+  `AuthUnknown → /splash`, `AuthUnauthenticated → /login`,
+  `mustChangePassword → /change-password`, `AuthAuthenticated → /` (the flavor home).
+- **Session lifecycle**: `MunaxaApp` restores the persisted session after first frame
+  (`AuthController.restore()` → `GET /auth/me`); tokens live in `flutter_secure_storage`.
+- **Transparent token refresh**: the Dio `QueuedInterceptorsWrapper` attaches the bearer token and,
+  on a `401` (non-auth route), refreshes via a bare client, persists the rotated pair, and replays
+  the original request once — single-flight via the queued interceptor. Refresh failure clears
+  storage and returns the app to `/login`.
+- **Login** uses the API's `identifier` field (email **or** username — see ADR 15), with an
+  optional school slug; a **first-login password change** screen gates the temporary password.
+- **Flavor home dashboards** (read models from the existing `data/*` API clients):
+  - Parent — multi-child switcher + per-child dashboard (attendance %, homework, balance, unread,
+    pending leave, PTM bookings).
+  - Student — gamification (points/level/streak), attendance %, homework, achievements.
+  - Teacher — notification feed + unread count (attendance capture remains the offline-first flow).
+- **Tests**: `test/smoke_test.dart` boots the app with an empty-token override and asserts it lands
+  on the sign-in screen.
+
+### Not yet wired (tracked for later phases)
+- Drift-backed read caches / stale-while-revalidate (the attendance & presence queues already exist).
+- Firebase Auth sign-in, FCM push registration, deep links, biometric unlock, cert pinning.
+- AR/EN locale toggle + RTL goldens; bottom-tab sub-navigation beyond the home dashboards.
+- Cross-tenant **Account/Membership** school switcher (see
+  `15-identity-and-cross-tenant-membership.md`) — lands with the parent multi-school experience.

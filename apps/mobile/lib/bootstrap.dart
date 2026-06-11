@@ -11,7 +11,7 @@ Future<void> bootstrap(AppConfig config) async {
   AppConfig.init(config);
 
   runApp(
-    ProviderScope(
+    const ProviderScope(
       child: MunaxaApp(),
     ),
   );

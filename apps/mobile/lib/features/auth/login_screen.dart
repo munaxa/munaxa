@@ -15,7 +15,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _school = TextEditingController();
-  final _email = TextEditingController();
+  final _identifier = TextEditingController();
   final _password = TextEditingController();
   bool _loading = false;
   String? _error;
@@ -23,7 +23,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void dispose() {
     _school.dispose();
-    _email.dispose();
+    _identifier.dispose();
     _password.dispose();
     super.dispose();
   }
@@ -36,7 +36,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
     try {
       await ref.read(authControllerProvider.notifier).login(
-            email: _email.text.trim(),
+            identifier: _identifier.text.trim(),
             password: _password.text,
             tenantSlug: _school.text.trim().isEmpty ? null : _school.text.trim(),
           );
@@ -70,10 +70,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
-                      controller: _email,
+                      controller: _identifier,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(labelText: 'Email'),
-                      validator: (v) => (v == null || !v.contains('@')) ? 'Enter your email' : null,
+                      autocorrect: false,
+                      decoration: const InputDecoration(labelText: 'Email or username'),
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? 'Enter your email or username' : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(

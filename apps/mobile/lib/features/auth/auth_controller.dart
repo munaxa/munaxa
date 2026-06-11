@@ -48,14 +48,28 @@ class AuthController extends Notifier<AuthStatus> {
   }
 
   Future<void> login({
-    required String email,
+    required String identifier,
     required String password,
     String? tenantSlug,
   }) async {
-    final pair = await _api.login(email: email, password: password, tenantSlug: tenantSlug);
+    final pair =
+        await _api.login(identifier: identifier, password: password, tenantSlug: tenantSlug);
     await ref.read(tokenStorageProvider).save(access: pair.accessToken, refresh: pair.refreshToken);
     final principal = await _api.me();
     state = AuthAuthenticated(principal, mustChangePassword: pair.mustChangePassword);
+  }
+
+  /// Called after a successful first-login password change to clear the gate.
+  void markPasswordChanged() {
+    final current = state;
+    if (current is AuthAuthenticated) {
+      state = AuthAuthenticated(current.principal);
+    }
+  }
+
+  /// Force the app back to the sign-in screen (e.g. when refresh fails). No network call.
+  void forceUnauthenticated() {
+    state = const AuthUnauthenticated();
   }
 
   Future<void> logout() async {

@@ -1,25 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/auth_controller.dart';
 
 /// Root widget shared by all flavors. Supports Arabic (RTL) and English (LTR).
-class MunaxaApp extends StatelessWidget {
-  MunaxaApp({super.key});
+/// Restores any persisted session on first build, then hands routing to the
+/// auth-guarded [routerProvider].
+class MunaxaApp extends ConsumerStatefulWidget {
+  const MunaxaApp({super.key});
 
-  final _router = createRouter();
+  @override
+  ConsumerState<MunaxaApp> createState() => _MunaxaAppState();
+}
+
+class _MunaxaAppState extends ConsumerState<MunaxaApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Restore the session after the first frame so providers are ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authControllerProvider.notifier).restore();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: 'Munaxa',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.dark,
-      routerConfig: _router,
+      routerConfig: router,
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
