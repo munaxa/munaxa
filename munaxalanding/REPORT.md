@@ -40,9 +40,10 @@ additive and isolated.
 ## Architecture decisions
 
 1. **Standalone Next.js 15 app, same major versions as `apps/admin`** (Next 15.1.4, React 19,
-   TypeScript 5.7), reusing `@munaxa/config-tailwind` (brand tokens), `@munaxa/config-eslint`,
-   `@munaxa/config-typescript`, and `@munaxa/ui` (the `cn` helper). This keeps the visual
-   language and tooling consistent without coupling to the School OS runtime.
+   TypeScript 5.7). It originally reused the monorepo's shared Tailwind preset (brand tokens),
+   ESLint config, TypeScript config, and the shared `cn` helper; these have since been inlined
+   locally so the app is fully standalone (see [MIGRATION.md](./MIGRATION.md)). The visual
+   language and tooling remain consistent with the rest of Munaxa.
 
 2. **Independent backend via Next.js Route Handlers** (`/api/contact`, `/api/health`) instead
    of extending the NestJS API. This lets the landing page be built, deployed, and scaled as a
@@ -90,10 +91,10 @@ All of the above is also documented in [`SECURITY.md`](./SECURITY.md).
 
 ## Verification performed
 
-- `pnpm install` (workspace updated successfully)
-- `pnpm --filter @munaxa/landing typecheck` — passes
-- `pnpm --filter @munaxa/landing lint` — passes (0 errors, 0 warnings)
-- `pnpm --filter @munaxa/landing build` — production build succeeds (standalone output)
+- `pnpm install` (succeeds)
+- `pnpm typecheck` — passes
+- `pnpm lint` — passes (0 errors, 0 warnings)
+- `pnpm build` — production build succeeds (standalone output)
 - Manual smoke test against `next dev`:
   - Page renders all sections (hero, benefits, why Munaxa, modules, testimonials, FAQ,
     contact, footer)
@@ -122,8 +123,8 @@ All of the above is also documented in [`SECURITY.md`](./SECURITY.md).
 
 ## Assumptions
 
-- The landing page is **English-only** for v1 (Munaxa's bilingual `@munaxa/i18n` system can be
-  layered in later; layout uses logical CSS properties where practical to ease that).
+- The landing page is **English-only** for v1 (bilingual/RTL support can be layered in later;
+  layout uses logical CSS properties where practical to ease that).
 - Testimonials are **placeholders** and must be replaced with real, permissioned quotes before
   launch (clearly noted in `README.md` and as a code comment in `testimonials.tsx`).
 - Pricing is intentionally not published — FAQ directs prospects to contact sales.

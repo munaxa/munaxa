@@ -1,19 +1,20 @@
 # Munaxa Landing Page
 
-A standalone, independently deployable marketing website for **Munaxa — the School Operating
-System**. Built to attract school owners, principals, directors, and educational groups.
+A standalone marketing website for **Munaxa — the School Operating System**. Built to attract
+school owners, principals, directors, and educational groups.
 
-> This app is self-contained inside `/munaxalanding`. It does not modify or depend on the
-> School OS apps (`apps/api`, `apps/admin`) and can be built, deployed, and scaled separately.
+> This app is fully self-contained: it has its own dependencies, configuration, and lockfile,
+> and can be built and deployed from this directory (or its own Git repository) with no other
+> code or packages required.
 
 ## Stack
 
-- **Next.js 15** (App Router, React 19, TypeScript) — same major versions as `apps/admin`
-- **Tailwind CSS** via the shared `@munaxa/config-tailwind` design-system preset (same brand
-  tokens, fonts, and color palette as the rest of Munaxa)
+- **Next.js 15** (App Router, React 19, TypeScript)
+- **Tailwind CSS** with the Munaxa design-system tokens (brand colors, fonts, shadows) defined
+  locally in `tailwind.config.ts` + `src/app/globals.css`
 - **Resend** for transactional email (acknowledgment + internal notification)
 - **Supabase (Postgres)** via `@supabase/supabase-js` (service role, server-only) for storing
-  contact inquiries — separate table from the main Prisma-managed School OS database
+  contact inquiries
 - **Cloudflare Workers** (via `@opennextjs/cloudflare`) as the primary hosting target, with
   Cloudflare KV for distributed rate limiting
 - Optional **Cloudflare Turnstile** for CAPTCHA / bot protection
@@ -21,18 +22,17 @@ System**. Built to attract school owners, principals, directors, and educational
 ## Getting started
 
 ```bash
-# from the repo root
-cp munaxalanding/.env.example munaxalanding/.env.local
+cp .env.example .env.local
 pnpm install
-pnpm --filter @munaxa/landing dev
+pnpm dev
 ```
 
 The site runs at http://localhost:3100.
 
 ### Database (Supabase)
 
-Contact form submissions are upserted (keyed on email) into the shared Munaxa Supabase
-project's `early_access_requests` table. The schema change is in
+Contact form submissions are upserted (keyed on email) into the Munaxa Supabase project's
+`early_access_requests` table. The schema change is in
 [`db/migrations/002_add_contact_fields_to_early_access_requests.sql`](./db/migrations/002_add_contact_fields_to_early_access_requests.sql)
 (already applied to the live project).
 
@@ -69,16 +69,18 @@ and IP-based rate limiting either way.
 
 ## Available scripts
 
-| Command                                    | Description                                                                    |
-| ------------------------------------------ | ------------------------------------------------------------------------------ |
-| `pnpm --filter @munaxa/landing dev`        | Run the dev server on port 3100                                                |
-| `pnpm --filter @munaxa/landing build`      | Production build (`next build`)                                                |
-| `pnpm --filter @munaxa/landing start`      | Run the production build with `next start`                                     |
-| `pnpm --filter @munaxa/landing lint`       | Lint                                                                           |
-| `pnpm --filter @munaxa/landing typecheck`  | Type-check                                                                     |
-| `pnpm --filter @munaxa/landing preview`    | Build with OpenNext and run it locally in the Workers runtime (`wrangler dev`) |
-| `pnpm --filter @munaxa/landing deploy`     | Build with OpenNext and deploy to Cloudflare Workers                           |
-| `pnpm --filter @munaxa/landing cf-typegen` | Regenerate `cloudflare-env.d.ts` from `wrangler.jsonc`                         |
+| Command           | Description                                                                    |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `pnpm dev`        | Run the dev server on port 3100                                                |
+| `pnpm build`      | Production build (`next build`)                                                |
+| `pnpm start`      | Run the production build with `next start`                                     |
+| `pnpm lint`       | Lint                                                                           |
+| `pnpm typecheck`  | Type-check                                                                     |
+| `pnpm preview`    | Build with OpenNext and run it locally in the Workers runtime (`wrangler dev`) |
+| `pnpm run deploy` | Build with OpenNext and deploy to Cloudflare Workers                           |
+| `pnpm cf-typegen` | Regenerate `cloudflare-env.d.ts` from `wrangler.jsonc`                         |
+
+> Use `pnpm run deploy` (not `pnpm deploy`) — bare `deploy` is a reserved pnpm command.
 
 ## Project structure
 
@@ -98,13 +100,14 @@ munaxalanding/
 │   │       └── health/route.ts  # Health check
 │   ├── components/
 │   │   ├── sections/           # Hero, Benefits, Why Munaxa, Modules, Testimonials, FAQ, Contact, Footer
-│   │   ├── ui/                  # Shared primitives (Button, Card, Input, etc.)
+│   │   ├── ui/                  # Local primitives (Button, Card, Input, etc.)
 │   │   └── icons/                # Inline illustrations
-│   └── lib/                     # validation, csrf, rate-limit, db, email, turnstile, logger
+│   └── lib/                     # cn, validation, csrf, rate-limit, db, email, turnstile, logger
 ├── db/migrations/                # SQL migrations for early_access_requests (Supabase)
 ├── src/middleware.ts              # CSP nonce + CSRF cookie
 ├── wrangler.jsonc                 # Cloudflare Workers config (KV binding, assets)
 ├── open-next.config.ts            # OpenNext Cloudflare adapter config
+├── pnpm-workspace.yaml            # Marks this dir as its own pnpm root (standalone installs)
 ├── Dockerfile
 └── .env.example
 ```
@@ -121,7 +124,7 @@ using Workers Assets for static files and a KV namespace (`RATE_LIMIT_KV`, bound
    for this project: `munaxa-landing-rate-limit`, id `907601a57357499f83f2b7db83339834`,
    bound as `RATE_LIMIT_KV` in `wrangler.jsonc`). To create your own:
    ```bash
-   pnpm --filter @munaxa/landing exec wrangler kv namespace create munaxa-landing-rate-limit
+   pnpm exec wrangler kv namespace create munaxa-landing-rate-limit
    # then update the "id" in wrangler.jsonc
    ```
 2. **Configure secrets** (per environment) via `wrangler secret put <NAME>` or the Cloudflare
@@ -133,7 +136,7 @@ using Workers Assets for static files and a KV namespace (`RATE_LIMIT_KV`, bound
    - `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN` (optional)
 3. **Build & deploy:**
    ```bash
-   pnpm --filter @munaxa/landing deploy
+   pnpm run deploy
    ```
    This runs `opennextjs-cloudflare build` (bundles the Next.js app for Workers) followed by
    `opennextjs-cloudflare deploy` (`wrangler deploy` under the hood). Requires
@@ -141,7 +144,7 @@ using Workers Assets for static files and a KV namespace (`RATE_LIMIT_KV`, bound
    environment, or `wrangler login` for interactive use.
 4. **Preview locally in the Workers runtime** (more accurate than `next dev`):
    ```bash
-   pnpm --filter @munaxa/landing preview
+   pnpm preview
    ```
 5. **Custom domain:** attach a custom domain/route to the Worker from the Cloudflare dashboard
    (Workers & Pages → munaxa-landing → Settings → Domains & Routes), e.g. `www.munaxa.com`.
@@ -149,8 +152,8 @@ using Workers Assets for static files and a KV namespace (`RATE_LIMIT_KV`, bound
 ### CI/CD (GitHub Actions)
 
 `.github/workflows/deploy-landing.yml` builds and deploys the Worker on every push to `main`
-that touches `munaxalanding/**`, and can also be run manually (`workflow_dispatch`). It needs
-the following **repository secrets** (Settings → Secrets and variables → Actions):
+that touches this app, and can also be run manually (`workflow_dispatch`). It needs the
+following **repository secrets** (Settings → Secrets and variables → Actions):
 
 - `CLOUDFLARE_API_TOKEN` — Workers Scripts: Edit permission
 - `CLOUDFLARE_ACCOUNT_ID`
@@ -158,14 +161,17 @@ the following **repository secrets** (Settings → Secrets and variables → Act
 - `RESEND_API_KEY`
 - `EMAIL_FROM`
 
-The workflow runs `pnpm deploy` and then `wrangler secret put` for each of the secrets above
-so the Worker's runtime config stays in sync with the GitHub secrets on every deploy.
+The workflow runs `pnpm run deploy` and then `wrangler secret put` for each of the secrets
+above so the Worker's runtime config stays in sync with the GitHub secrets on every deploy.
+If this app is moved to its own repository, copy that workflow file into
+`.github/workflows/` of the new repo and remove the `working-directory` /
+`cache-dependency-path` settings (or point them at the repo root).
 
 ### Docker (alternative, self-hosted)
 
 ```bash
-docker build -f munaxalanding/Dockerfile -t munaxa-landing .
-docker run -p 3100:3100 --env-file munaxalanding/.env munaxa-landing
+docker build -t munaxa-landing .
+docker run -p 3100:3100 --env-file .env munaxa-landing
 ```
 
 Terminate TLS in front of the app (e.g. Nginx, ALB, Cloudflare in proxy mode) and ensure HTTPS
@@ -173,8 +179,8 @@ is enforced — the app sends `Strict-Transport-Security` assuming it is served 
 
 ### Other platforms (Vercel / Node hosts)
 
-The app has no dependency on the School OS database, auth, or APIs — set the **root
-directory** to `munaxalanding` and configure the environment variables from `.env.example`.
+The app is a plain Next.js 15 project — point the platform at this directory and configure
+the environment variables from `.env.example`.
 
 ## Security
 
@@ -183,11 +189,11 @@ See [SECURITY.md](./SECURITY.md) for a full breakdown of the security controls i
 
 ## Notes & assumptions
 
-- The landing page is **English-only** for this initial version. Munaxa's i18n system
-  (`@munaxa/i18n`, RTL/LTR) can be integrated later if a bilingual marketing site is required —
-  the layout already uses logical CSS properties (`ps-`/`text-start` etc.) where practical.
+- The landing page is **English-only** for this initial version. The layout already uses
+  logical CSS properties (`ps-`/`text-start` etc.) where practical, so RTL support can be
+  added later if a bilingual marketing site is required.
 - Testimonials in `src/components/sections/testimonials.tsx` are **placeholders** and must be
   replaced with real, permissioned customer quotes before launch.
 - Pricing is intentionally not published; the FAQ directs visitors to contact sales.
 - No internal architecture, API routes, database schema, or security control details from the
-  School OS are referenced anywhere in the page content.
+  Munaxa School OS are referenced anywhere in the page content.

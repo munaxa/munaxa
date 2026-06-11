@@ -1,5 +1,4 @@
 packages:
   - 'apps/api'
   - 'apps/admin'
-  - 'munaxalanding'
   - 'packages/*'

@@ -1,5 +1,5 @@
 import { forwardRef, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import { cn } from '@munaxa/ui';
+import { cn } from '@/lib/cn';
 
 const fieldBase =
   'w-full rounded-lg border border-input bg-background/60 px-3 text-sm text-foreground ' +
