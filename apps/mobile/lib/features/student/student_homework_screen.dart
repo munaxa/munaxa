@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'student_providers.dart';
 
@@ -24,8 +25,10 @@ class StudentHomeworkTab extends ConsumerWidget {
         data: (items) {
           if (items.isEmpty) {
             return ListView(
-              children: const [
-                Padding(padding: EdgeInsets.all(24), child: Text('No homework. Enjoy! 🎉')),
+              children: [
+                Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(ref.read(stringsProvider).t('empty.noHomework'))),
               ],
             );
           }

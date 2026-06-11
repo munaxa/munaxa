@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'student_providers.dart';
 
@@ -12,6 +13,7 @@ class StudentDashboardTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashAsync = ref.watch(studentDashboardProvider);
+    final s = ref.watch(stringsProvider);
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(studentDashboardProvider),
       child: ListView(
@@ -35,25 +37,31 @@ class StudentDashboardTab extends ConsumerWidget {
                 crossAxisSpacing: 12,
                 childAspectRatio: 1.5,
                 children: [
-                  MetricCard(label: 'Points', value: '${dash.totalPoints}', icon: Icons.stars),
-                  MetricCard(label: 'Level', value: '${dash.level}', icon: Icons.trending_up),
                   MetricCard(
-                    label: 'Streak',
+                      label: s.t('metric.points'),
+                      value: '${dash.totalPoints}',
+                      icon: Icons.stars),
+                  MetricCard(
+                      label: s.t('metric.level'),
+                      value: '${dash.level}',
+                      icon: Icons.trending_up),
+                  MetricCard(
+                    label: s.t('metric.streak'),
                     value: '${dash.currentStreak}d',
                     icon: Icons.local_fire_department,
                   ),
                   MetricCard(
-                    label: 'Attendance (30d)',
+                    label: s.t('metric.attendance30'),
                     value: rate != null ? '$rate%' : '—',
                     icon: Icons.event_available,
                   ),
                   MetricCard(
-                    label: 'Homework due',
+                    label: s.t('metric.homeworkDue'),
                     value: '${dash.upcomingHomework}',
                     icon: Icons.menu_book,
                   ),
                   MetricCard(
-                    label: 'Achievements',
+                    label: s.t('metric.achievements'),
                     value: '${dash.achievementCount}',
                     icon: Icons.emoji_events,
                   ),

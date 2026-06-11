@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../shell/dashboard_widgets.dart';
 import 'parent_portal_providers.dart';
 
@@ -12,6 +13,7 @@ class ParentDashboardTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashAsync = ref.watch(childDashboardProvider);
+    final s = ref.watch(stringsProvider);
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(childrenProvider);
@@ -30,9 +32,9 @@ class ParentDashboardTab extends ConsumerWidget {
             ),
             data: (dash) {
               if (dash == null) {
-                return const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No children are linked to your account yet.'),
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(s.t('empty.noChildren')),
                 );
               }
               final rate = attendanceRate(dash.attendanceLast30Days);
@@ -45,32 +47,32 @@ class ParentDashboardTab extends ConsumerWidget {
                 childAspectRatio: 1.5,
                 children: [
                   MetricCard(
-                    label: 'Attendance (30d)',
+                    label: s.t('metric.attendance30'),
                     value: rate != null ? '$rate%' : '—',
                     icon: Icons.event_available,
                   ),
                   MetricCard(
-                    label: 'Upcoming homework',
+                    label: s.t('metric.upcomingHomework'),
                     value: '${dash.upcomingHomework}',
                     icon: Icons.menu_book,
                   ),
                   MetricCard(
-                    label: 'Outstanding',
+                    label: s.t('metric.outstanding'),
                     value: dash.outstandingBalance,
                     icon: Icons.account_balance_wallet,
                   ),
                   MetricCard(
-                    label: 'Unread',
+                    label: s.t('metric.unread'),
                     value: '${dash.unreadNotifications}',
                     icon: Icons.notifications,
                   ),
                   MetricCard(
-                    label: 'Pending leave',
+                    label: s.t('metric.pendingLeave'),
                     value: '${dash.pendingLeaveRequests}',
                     icon: Icons.beach_access,
                   ),
                   MetricCard(
-                    label: 'PTM bookings',
+                    label: s.t('metric.ptmBookings'),
                     value: '${dash.upcomingPtmBookings}',
                     icon: Icons.groups,
                   ),

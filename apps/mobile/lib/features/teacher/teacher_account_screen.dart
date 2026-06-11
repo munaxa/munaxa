@@ -24,13 +24,13 @@ class TeacherAccountTab extends ConsumerWidget {
             children: [
               ListTile(
                 leading: const Icon(Icons.badge_outlined),
-                title: const Text('Roles'),
+                title: Text(s.t('account.roles')),
                 subtitle: Text(principal?.roles.join(', ') ?? '—'),
               ),
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.apartment_outlined),
-                title: const Text('School'),
+                title: Text(s.t('account.school')),
                 subtitle: Text(principal?.tenantId ?? '—'),
               ),
             ],

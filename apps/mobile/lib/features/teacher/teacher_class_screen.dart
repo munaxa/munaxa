@@ -57,6 +57,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
     if (sectionId == null || _marks.isEmpty) return;
     setState(() => _saving = true);
     final messenger = ScaffoldMessenger.of(context);
+    final strings = ref.read(stringsProvider);
     try {
       await ref.read(attendanceControllerProvider.notifier).markMany(
             sectionId: sectionId,
@@ -69,8 +70,8 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
         SnackBar(
           content: Text(
             pendingAfter == 0
-                ? 'Attendance saved (${_marks.length} students).'
-                : 'Saved locally — $pendingAfter mark(s) will sync when online.',
+                ? '${strings.t('class.saved')} (${_marks.length})'
+                : strings.t('class.queued'),
           ),
         ),
       );
@@ -94,7 +95,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
               color: Theme.of(context).colorScheme.secondaryContainer,
               child: ListTile(
                 leading: const Icon(Icons.cloud_off),
-                title: Text('$pending mark(s) waiting to sync'),
+                title: Text('$pending ${s.t('class.pendingSync')}'),
                 trailing: TextButton(
                   onPressed: () => ref.read(attendanceControllerProvider.notifier).sync(),
                   child: Text(s.t('common.syncNow')),
@@ -111,18 +112,19 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
             ),
             data: (sections) {
               if (sections.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No sections found for this school.'),
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(s.t('empty.noSections')),
                 );
               }
               return DropdownButtonFormField<String>(
                 value: _sectionId,
-                decoration:
-                    const InputDecoration(labelText: 'Section', border: OutlineInputBorder()),
+                decoration: InputDecoration(
+                    labelText: s.t('class.section'), border: const OutlineInputBorder()),
                 items: [
-                  for (final s in sections)
-                    DropdownMenuItem(value: s.id, child: Text('Section ${s.name}')),
+                  for (final sec in sections)
+                    DropdownMenuItem(
+                        value: sec.id, child: Text('${s.t('class.section')} ${sec.name}')),
                 ],
                 onChanged: (v) => setState(() {
                   _sectionId = v;
@@ -145,8 +147,8 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
               Expanded(
                 child: DropdownButtonFormField<int>(
                   value: _period,
-                  decoration:
-                      const InputDecoration(labelText: 'Period', border: OutlineInputBorder()),
+                  decoration: InputDecoration(
+                      labelText: s.t('class.period'), border: const OutlineInputBorder()),
                   items: [
                     for (var p = 1; p <= 8; p++) DropdownMenuItem(value: p, child: Text('P$p')),
                   ],
@@ -171,9 +173,9 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
               }),
             )
           else
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('Pick a section to load its roster.'),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(s.t('class.pickSection')),
             ),
         ],
       ),
@@ -184,7 +186,8 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
                 padding: const EdgeInsets.all(12),
                 child: FilledButton(
                   onPressed: _saving ? null : _save,
-                  child: Text(_saving ? 'Saving…' : 'Save attendance (${_marks.length})'),
+                  child: Text(
+                      _saving ? s.t('auth.saving') : '${s.t('class.save')} (${_marks.length})'),
                 ),
               ),
             ),
@@ -208,6 +211,7 @@ class _Roster extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rosterAsync = ref.watch(sectionStudentsProvider(sectionId));
+    final strings = ref.watch(stringsProvider);
     return rosterAsync.when(
       loading: () => const AsyncSection(loading: true, error: null, child: SizedBox()),
       error: (e, _) => AsyncSection(
@@ -218,9 +222,9 @@ class _Roster extends ConsumerWidget {
       ),
       data: (students) {
         if (students.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Text('No students in this section.'),
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(strings.t('empty.noStudents')),
           );
         }
         return Column(
@@ -230,12 +234,12 @@ class _Roster extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  '${marks.length}/${students.length} marked',
+                  '${marks.length}/${students.length} ${strings.t('class.marked')}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 TextButton(
                   onPressed: () => onMarkAll(students.map((s) => s.id).toList()),
-                  child: const Text('Mark all present'),
+                  child: Text(strings.t('class.markAllPresent')),
                 ),
               ],
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/strings.dart';
 import '../communication/notifications_providers.dart';
 import '../shell/dashboard_widgets.dart';
 
@@ -13,6 +14,7 @@ class TeacherNotificationsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final unread = ref.watch(unreadCountProvider);
     final feed = ref.watch(myNotificationsProvider);
+    final s = ref.watch(stringsProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -23,12 +25,12 @@ class TeacherNotificationsTab extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           MetricCard(
-            label: 'Unread notifications',
+            label: s.t('metric.unreadNotifications'),
             value: unread.maybeWhen(data: (n) => '$n', orElse: () => '—'),
             icon: Icons.notifications,
           ),
           const SizedBox(height: 16),
-          Text('Notifications', style: Theme.of(context).textTheme.titleMedium),
+          Text(s.t('teacher.tab.notifications'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           feed.when(
             loading: () => const AsyncSection(loading: true, error: null, child: SizedBox()),
@@ -40,9 +42,9 @@ class TeacherNotificationsTab extends ConsumerWidget {
             ),
             data: (items) {
               if (items.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('No notifications.'),
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(s.t('empty.noNotifications')),
                 );
               }
               return Column(
