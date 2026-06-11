@@ -40,7 +40,7 @@ jobs:
 
       - name: Build & deploy
         working-directory: munaxalanding
-        run: pnpm deploy
+        run: pnpm run deploy
 
       - name: Sync Supabase service role key
         working-directory: munaxalanding
