@@ -58,12 +58,13 @@ class AuthApi {
   final Dio _dio;
 
   Future<TokenPair> login({
-    required String email,
+    required String identifier,
     required String password,
     String? tenantSlug,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>('/auth/login', data: {
-      'email': email,
+      // The API accepts email or username via `identifier` (falls back to `email`).
+      'identifier': identifier,
       'password': password,
       if (tenantSlug != null && tenantSlug.isNotEmpty) 'tenantSlug': tenantSlug,
     });

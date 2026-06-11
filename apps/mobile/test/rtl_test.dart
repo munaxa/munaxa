@@ -1,12 +1,13 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:munaxa_mobile/app.dart';
 import 'package:munaxa_mobile/core/config/flavor.dart';
 import 'package:munaxa_mobile/data/auth/token_storage.dart';
 import 'package:munaxa_mobile/features/auth/auth_providers.dart';
+import 'package:munaxa_mobile/features/settings/locale_controller.dart';
 
-/// A token store with no persisted session, so the app boots to the login screen
-/// without touching platform secure storage or the network.
+/// No persisted session → the app boots to the login screen.
 class _EmptyTokenStorage implements TokenStorage {
   @override
   Future<String?> readAccess() async => null;
@@ -18,8 +19,14 @@ class _EmptyTokenStorage implements TokenStorage {
   Future<void> clear() async {}
 }
 
+/// Pins the locale to Arabic without touching secure storage.
+class _ArabicLocaleController extends LocaleController {
+  @override
+  Locale build() => const Locale('ar');
+}
+
 void main() {
-  testWidgets('Boots to the sign-in screen when there is no session', (tester) async {
+  testWidgets('Arabic locale renders the app right-to-left', (tester) async {
     AppConfig.init(
       const AppConfig(
         flavor: Flavor.parent,
@@ -30,13 +37,17 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [tokenStorageProvider.overrideWithValue(_EmptyTokenStorage())],
+        overrides: [
+          tokenStorageProvider.overrideWithValue(_EmptyTokenStorage()),
+          localeProvider.overrideWith(_ArabicLocaleController.new),
+        ],
         child: const MunaxaApp(),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign in'), findsOneWidget);
-    expect(find.text('Email or username'), findsOneWidget);
+    // The login screen is shown, and the ambient direction is RTL.
+    final context = tester.element(find.text('Sign in'));
+    expect(Directionality.of(context), TextDirection.rtl);
   });
 }

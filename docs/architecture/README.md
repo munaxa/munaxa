@@ -25,6 +25,9 @@ it is design, diagrams (Mermaid), and strategy.
 | 11 | [Backup Strategy](./11-backup-strategy.md) | RPO/RTO, backup tiers, retention |
 | 12 | [Disaster Recovery Strategy](./12-disaster-recovery-strategy.md) | DR tiers, failover runbook outline |
 | 13 | [Notification Architecture](./13-notification-architecture.md) | FCM, email (Resend), in-app, WhatsApp bridge |
+| 14 | [Attendance / Presence / Transport — Audit](./14-attendance-presence-transport-audit.md) | Pre-build compatibility audit (Phase 21) |
+| 14b | […Migration Report](./14b-attendance-presence-transport-migration-report.md) | Migration + RLS report (Phase 21) |
+| 15 | [Identity & Cross-Tenant Membership](./15-identity-and-cross-tenant-membership.md) | ADR — one human, many schools (deferred) |
 
 ## Related references
 
