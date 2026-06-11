@@ -104,13 +104,14 @@ sequenceDiagram
 - **Login** uses the API's `identifier` field (email **or** username — see ADR 15), with an
   optional school slug; a **first-login password change** screen gates the temporary password.
 - **Flavor home dashboards** (read models from the existing `data/*` API clients):
-  - Parent — bottom-nav shell (Home · Requests · Meetings · Documents) with a shared app-bar
-    child switcher: per-child dashboard, submit/cancel **leave & absence** requests, book/cancel
-    **PTM** slots, and a **document vault** (open externally + upload from device via
-    `file_picker` → presign → PUT → confirm).
-  - Student — bottom-nav shell (Home · Timetable · Homework · Resources): gamification
+  - Parent — bottom-nav shell (Home · Grades · Requests · Meetings · Documents) with a shared
+    app-bar child switcher: per-child dashboard, **grade report** (overall % + per-subject
+    averages), submit/cancel **leave & absence** requests, book/cancel **PTM** slots, and a
+    **document vault** (open externally + upload from device via `file_picker` → presign → PUT →
+    confirm).
+  - Student — bottom-nav shell (Home · Timetable · Homework · Resources · Grades): gamification
     (points/level/streak) + attendance dashboard, day-grouped timetable, due-date homework list,
-    and learning resources that open externally (`url_launcher`).
+    learning resources that open externally (`url_launcher`), and the student's own **grade report**.
   - Teacher — bottom-nav shell (Class · Notifications · Account). **Class** is the offline-first
     attendance capture: section/date/period pickers, roster with P/L/A/E segments, "mark all
     present", and Save → `AttendanceController.markMany` (write-ahead queue → idempotent

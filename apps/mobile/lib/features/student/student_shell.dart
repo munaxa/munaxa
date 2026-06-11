@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/strings.dart';
 import '../auth/auth_controller.dart';
 import '../settings/locale_toggle.dart';
+import 'student_grades_screen.dart';
 import 'student_home_screen.dart';
 import 'student_timetable_screen.dart';
 import 'student_homework_screen.dart';
@@ -26,6 +27,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
     'student.tab.timetable',
     'student.tab.homework',
     'student.tab.resources',
+    'student.tab.grades',
   ];
 
   @override
@@ -50,6 +52,7 @@ class _StudentShellState extends ConsumerState<StudentShell> {
           StudentTimetableTab(),
           StudentHomeworkTab(),
           StudentResourcesTab(),
+          StudentGradesTab(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -64,6 +67,8 @@ class _StudentShellState extends ConsumerState<StudentShell> {
               icon: const Icon(Icons.assignment_outlined), label: s.t('student.tab.homework')),
           NavigationDestination(
               icon: const Icon(Icons.school_outlined), label: s.t('student.tab.resources')),
+          NavigationDestination(
+              icon: const Icon(Icons.grade_outlined), label: s.t('student.tab.grades')),
         ],
       ),
     );

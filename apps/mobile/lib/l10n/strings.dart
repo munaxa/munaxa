@@ -80,12 +80,21 @@ const Map<String, Map<String, String>> _catalog = {
   'parent.tab.requests': {'en': 'Requests', 'ar': 'الطلبات'},
   'parent.tab.meetings': {'en': 'Meetings', 'ar': 'الاجتماعات'},
   'parent.tab.documents': {'en': 'Documents', 'ar': 'المستندات'},
+  'parent.tab.grades': {'en': 'Grades', 'ar': 'الدرجات'},
 
   // Student tabs
   'student.tab.home': {'en': 'My day', 'ar': 'يومي'},
   'student.tab.timetable': {'en': 'Timetable', 'ar': 'الجدول'},
   'student.tab.homework': {'en': 'Homework', 'ar': 'الواجبات'},
   'student.tab.resources': {'en': 'Resources', 'ar': 'المصادر'},
+  'student.tab.grades': {'en': 'Grades', 'ar': 'الدرجات'},
+
+  // Grades view
+  'grades.overall': {'en': 'Overall', 'ar': 'المعدل العام'},
+  'grades.subjects': {'en': 'Subjects', 'ar': 'المواد'},
+  'grades.empty': {'en': 'No grades recorded yet.', 'ar': 'لا توجد درجات مسجّلة بعد.'},
+  'grades.assessments': {'en': 'assessments', 'ar': 'تقييم'},
+  'grades.selectChild': {'en': 'Select a child to view grades.', 'ar': 'اختر طفلًا لعرض الدرجات.'},
 
   // Teacher tabs
   'teacher.tab.class': {'en': 'My class', 'ar': 'صفّي'},

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/strings.dart';
 import '../auth/auth_controller.dart';
 import '../settings/locale_toggle.dart';
+import 'parent_grades_screen.dart';
 import 'parent_portal_providers.dart';
 import 'parent_home_screen.dart';
 import 'parent_requests_screen.dart';
@@ -24,6 +25,7 @@ class _ParentShellState extends ConsumerState<ParentShell> {
 
   static const _titleKeys = [
     'parent.tab.home',
+    'parent.tab.grades',
     'parent.tab.requests',
     'parent.tab.meetings',
     'parent.tab.documents',
@@ -49,6 +51,7 @@ class _ParentShellState extends ConsumerState<ParentShell> {
         index: _index,
         children: const [
           ParentDashboardTab(),
+          ParentGradesTab(),
           ParentRequestsTab(),
           ParentMeetingsTab(),
           ParentDocumentsTab(),
@@ -60,6 +63,8 @@ class _ParentShellState extends ConsumerState<ParentShell> {
         destinations: [
           NavigationDestination(
               icon: const Icon(Icons.dashboard_outlined), label: s.t('parent.tab.home')),
+          NavigationDestination(
+              icon: const Icon(Icons.grade_outlined), label: s.t('parent.tab.grades')),
           NavigationDestination(
               icon: const Icon(Icons.beach_access_outlined), label: s.t('parent.tab.requests')),
           NavigationDestination(
