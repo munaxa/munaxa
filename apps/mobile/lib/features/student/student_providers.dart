@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../data/academics/academics_api.dart';
+// Only GradeReport: academics_api also defines a HomeworkItem that would clash with student_api's.
+import '../../data/academics/academics_api.dart' show GradeReport;
 import '../../data/student/student_api.dart';
 import '../academics/academics_providers.dart';
 import '../auth/auth_providers.dart';

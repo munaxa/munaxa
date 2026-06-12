@@ -205,7 +205,7 @@ class _UploadSheetState extends ConsumerState<_UploadSheet> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            value: _category,
+            initialValue: _category,
             decoration: InputDecoration(
                 labelText: s.t('documents.category'), border: const OutlineInputBorder()),
             items: [
