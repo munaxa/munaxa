@@ -120,7 +120,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
                 );
               }
               return DropdownButtonFormField<String>(
-                value: _sectionId,
+                initialValue: _sectionId,
                 decoration: InputDecoration(
                     labelText: s.t('class.section'), border: const OutlineInputBorder()),
                 items: [
@@ -148,7 +148,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<int>(
-                  value: _period,
+                  initialValue: _period,
                   decoration: InputDecoration(
                       labelText: s.t('class.period'), border: const OutlineInputBorder()),
                   items: [
