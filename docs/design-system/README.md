@@ -35,13 +35,22 @@ layout system with **light + dark** themes.
 The Munaxa mark is a stylised **ibex** drawn in the brand gradient (coral horns → violet base) on a
 **transparent** background. It is the single brand mark across every surface.
 
-- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 406×617, transparent).
-- **App copies (kept in sync with the source):** `apps/admin/public/munaxa-logo.png` +
-  `apps/admin/src/app/icon.png` (favicon); `apps/mobile/assets/munaxa-logo.png`;
-  `munaxalanding/public/munaxa-logo.png` + `munaxalanding/src/app/icon.png`.
+- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 406×617, transparent) — the portrait wordless
+  mark used in-app (shell rail, login, splash) and for SEO/`Organization` logo.
+- **App copies (kept in sync with the source):** `apps/admin/public/munaxa-logo.png`,
+  `apps/mobile/assets/munaxa-logo.png`, `munaxalanding/public/munaxa-logo.png`.
 - **Reusable components:** `apps/admin/src/components/logo.tsx` (`<Logo size={…} />`) and
   `apps/mobile/lib/core/widgets/munaxa_logo.dart` (`MunaxaLogo(height: …)`) — both preserve the
   intrinsic aspect ratio.
+- **Derived square icons** (generated from `logo.png`, the ibex padded onto a square; see
+  `scripts/gen-icons.py`):
+  - **Web favicons** via Next App Router file conventions in `src/app/` of both admin and landing:
+    `favicon.ico` (16/32/48/64, transparent), `icon.png` (512, transparent), `apple-icon.png`
+    (180, opaque on ink `#0B0518` — iOS disallows transparency).
+  - **Native app-launcher icons** (mobile): `apps/mobile/assets/icon/ic_launcher.png` (ibex on ink)
+    and `ic_launcher_foreground.png` (Android adaptive foreground), wired via the
+    `flutter_launcher_icons` config in `pubspec.yaml`. Generate after platform folders exist with
+    `dart run flutter_launcher_icons`.
 - **Usage:** app-shell rail, login, splash, favicon. Keep the gradient intact (never recolor),
   scale by **height** so the ratio holds, and don't crop the horns. The mark already carries the
   brand gradient, so place it on plain surfaces — not on top of `grad-primary`.
