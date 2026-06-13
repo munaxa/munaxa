@@ -46,9 +46,8 @@ export const metadata: Metadata = {
     follow: true,
     googleBot: { index: true, follow: true },
   },
-  icons: {
-    icon: '/munaxa-logo.png',
-  },
+  // Favicons are provided by the App Router file conventions:
+  // src/app/{favicon.ico, icon.png, apple-icon.png}.
 };
 
 const organizationJsonLd = {
