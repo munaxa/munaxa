@@ -38,13 +38,13 @@ The Munaxa mark is a stylised **ibex** drawn in the brand gradient (coral horns 
 - **Source of truth:** [`logo.png`](./logo.png) (RGBA, 406×617, transparent) — the portrait wordless
   mark used in-app (shell rail, login, splash) and for SEO/`Organization` logo.
 - **App copies (kept in sync with the source):** `apps/admin/public/munaxa-logo.png`,
-  `apps/mobile/assets/munaxa-logo.png`, `munaxalanding/public/munaxa-logo.png`.
+  `apps/mobile/assets/munaxa-logo.png`.
 - **Reusable components:** `apps/admin/src/components/logo.tsx` (`<Logo size={…} />`) and
   `apps/mobile/lib/core/widgets/munaxa_logo.dart` (`MunaxaLogo(height: …)`) — both preserve the
   intrinsic aspect ratio.
 - **Derived square icons** (generated from `logo.png`, the ibex padded onto a square; see
   `scripts/gen-icons.py`):
-  - **Web favicons** via Next App Router file conventions in `src/app/` of both admin and landing:
+  - **Web favicons** via Next App Router file conventions in `apps/admin/src/app/`:
     `favicon.ico` (16/32/48/64, transparent), `icon.png` (512, transparent), `apple-icon.png`
     (180, opaque on ink `#0B0518` — iOS disallows transparency).
   - **Native app-launcher icons** (mobile): `apps/mobile/assets/icon/ic_launcher.png` (ibex on ink)
