@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
 import { useI18n } from '@/components/i18n-provider';
+import { Logo } from '@/components/logo';
 import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 export default function LoginPage() {
@@ -37,9 +38,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-2 text-center">
-          <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-grad-primary font-display text-xl font-bold text-primary-foreground shadow-glow">
-            M
-          </span>
+          <Logo size={72} priority className="mx-auto" />
           <h1 className="font-display text-2xl font-semibold">{t('auth.welcome')}</h1>
           <p className="text-sm text-muted-foreground">{t('auth.signInToSchool')}</p>
         </div>

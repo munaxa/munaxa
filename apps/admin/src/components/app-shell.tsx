@@ -6,6 +6,7 @@ import { cn } from '@munaxa/ui';
 import { logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache } from '@/lib/session';
 import { Button } from './ui/button';
+import { Logo } from './logo';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
 import { useI18n } from './i18n-provider';
 
@@ -67,9 +68,7 @@ export function AppShell({
     <div className="flex min-h-screen">
       <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-card/40 p-4 md:flex">
         <div className="flex items-center gap-2 px-2 py-3">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-grad-primary font-display text-sm font-bold text-primary-foreground shadow-glow">
-            M
-          </span>
+          <Logo size={32} priority />
           <span className="font-display text-lg font-semibold">Munaxa</span>
         </div>
 

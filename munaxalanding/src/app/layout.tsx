@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true },
   },
   icons: {
-    icon: '/favicon.svg',
+    icon: '/munaxa-logo.png',
   },
 };
 
@@ -56,7 +56,7 @@ const organizationJsonLd = {
   '@type': 'Organization',
   name: SITE_NAME,
   url: SITE_URL,
-  logo: `${SITE_URL}/favicon.svg`,
+  logo: `${SITE_URL}/munaxa-logo.png`,
   description: SITE_DESCRIPTION,
   email: 'info@munaxa.com',
   sameAs: [],

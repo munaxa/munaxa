@@ -28,6 +28,24 @@ layout system with **light + dark** themes.
 | Shared UI kit | `apps/admin/src/components/ui/` |
 | App shell (nav rail, top bar, RTL) | `apps/admin/src/components/app-shell.tsx` |
 
+## Logo
+
+![Munaxa logo](./logo.png)
+
+The Munaxa mark is a stylised **ibex** drawn in the brand gradient (coral horns → violet base) on a
+**transparent** background. It is the single brand mark across every surface.
+
+- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 406×617, transparent).
+- **App copies (kept in sync with the source):** `apps/admin/public/munaxa-logo.png` +
+  `apps/admin/src/app/icon.png` (favicon); `apps/mobile/assets/munaxa-logo.png`;
+  `munaxalanding/public/munaxa-logo.png` + `munaxalanding/src/app/icon.png`.
+- **Reusable components:** `apps/admin/src/components/logo.tsx` (`<Logo size={…} />`) and
+  `apps/mobile/lib/core/widgets/munaxa_logo.dart` (`MunaxaLogo(height: …)`) — both preserve the
+  intrinsic aspect ratio.
+- **Usage:** app-shell rail, login, splash, favicon. Keep the gradient intact (never recolor),
+  scale by **height** so the ratio holds, and don't crop the horns. The mark already carries the
+  brand gradient, so place it on plain surfaces — not on top of `grad-primary`.
+
 ## Tokens
 
 ### Brand
