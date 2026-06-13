@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../config/flavor.dart';
+import '../widgets/munaxa_logo.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/change_password_screen.dart';
@@ -73,7 +74,18 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            MunaxaLogo(height: 120),
+            SizedBox(height: 28),
+            CircularProgressIndicator(),
+          ],
+        ),
+      ),
+    );
   }
 }
 

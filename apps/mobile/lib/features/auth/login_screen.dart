@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/widgets/munaxa_logo.dart';
 import '../../l10n/strings.dart';
 import '../settings/locale_toggle.dart';
 import 'auth_controller.dart';
@@ -71,8 +72,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(s.t('auth.brand'),
-                            style: Theme.of(context).textTheme.headlineMedium),
+                        const Center(child: MunaxaLogo(height: 96)),
+                        const SizedBox(height: 12),
+                        Center(
+                          child: Text(s.t('auth.brand'),
+                              style: Theme.of(context).textTheme.headlineMedium),
+                        ),
                         const SizedBox(height: 24),
                         TextFormField(
                           controller: _school,

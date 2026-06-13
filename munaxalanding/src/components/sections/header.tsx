@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NAV_LINKS, SITE_NAME } from '@/lib/constants';
@@ -11,7 +12,18 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur">
       <div className="section-shell flex h-16 items-center justify-between">
-        <a href="#top" className="font-display text-xl font-bold tracking-tight">
+        <a
+          href="#top"
+          className="flex items-center gap-2 font-display text-xl font-bold tracking-tight"
+        >
+          <Image
+            src="/munaxa-logo.png"
+            alt="Munaxa"
+            width={24}
+            height={36}
+            priority
+            className="h-9 w-auto object-contain"
+          />
           {SITE_NAME}
           <span className="text-primary">.</span>
         </a>
