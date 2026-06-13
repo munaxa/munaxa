@@ -4,7 +4,7 @@
 The brand mark is portrait + transparent; app icons and favicons must be square, and iOS
 launcher/apple-touch icons must be opaque. This pads the ibex onto square canvases and writes:
 
-  Web (copied into apps/admin/src/app/ and munaxalanding/src/app/):
+  Web (copied into apps/admin/src/app/):
     favicon.ico  (16/32/48/64, transparent)
     icon.png     (512, transparent)
     apple-icon.png (180, opaque on brand ink #0B0518)
@@ -42,7 +42,7 @@ def write(img, *paths, **kw):
         print("wrote", p)
 
 
-web = ["apps/admin/src/app", "munaxalanding/src/app"]
+web = ["apps/admin/src/app"]
 write(square(512, 0.84), *[f"{d}/icon.png" for d in web])
 write(square(180, 0.72, bg=INK), *[f"{d}/apple-icon.png" for d in web])
 write(square(256, 0.92), *[f"{d}/favicon.ico" for d in web],
