@@ -1,0 +1,61 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { getServerSession } from '@/lib/auth/session';
+import { createAccount, listAccounts, loginHistory } from '@/lib/auth/accounts';
+
+export const runtime = 'nodejs';
+
+async function requireAdmin() {
+  const session = await getServerSession();
+  if (!session || !session.admin) return null;
+  return session;
+}
+
+function publicAccount(a: Awaited<ReturnType<typeof listAccounts>>[number]) {
+  // Never expose password hashes.
+  const { passwordHash: _hash, ...rest } = a;
+  void _hash;
+  return rest;
+}
+
+export async function GET() {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  const [accounts, history] = await Promise.all([listAccounts(), loginHistory()]);
+  return NextResponse.json({ accounts: accounts.map(publicAccount), history });
+}
+
+export async function POST(req: NextRequest) {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+  let body: { organizationName?: string; username?: string; password?: string; expiresInDays?: number | null };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
+  }
+  const organizationName = (body.organizationName ?? '').trim();
+  const username = (body.username ?? '').trim();
+  const password = (body.password ?? '').trim();
+  const expiresInDays =
+    body.expiresInDays === null || body.expiresInDays === undefined
+      ? null
+      : Number(body.expiresInDays);
+
+  if (!organizationName || !username || !password) {
+    return NextResponse.json({ error: 'Organization, username and password are required' }, { status: 400 });
+  }
+  if (username.length < 3 || password.length < 6) {
+    return NextResponse.json(
+      { error: 'Username must be ≥ 3 chars and password ≥ 6 chars' },
+      { status: 400 },
+    );
+  }
+  try {
+    const acct = await createAccount({ organizationName, username, password, expiresInDays });
+    return NextResponse.json({ account: publicAccount(acct) }, { status: 201 });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 409 });
+  }
+}
