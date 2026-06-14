@@ -70,7 +70,24 @@ npx wrangler kv namespace create DEMO_ACCOUNTS
 
 # 2) Set the session signing secret (required; not a plaintext var):
 npx wrangler secret put DEMO_SESSION_SECRET        # paste: openssl rand -base64 48
+
+# 3) (Optional) Enable "Book a Demo" intake emails via Resend:
+#    - Create a Resend account and verify the munaxa.com domain (add the SPF/DKIM
+#      DNS records Resend shows you) so you can send from demo@munaxa.com.
+#    - Set the API key as a secret:
+npx wrangler secret put RESEND_API_KEY
+#    - Recipients/sender are set as vars in wrangler.jsonc:
+#      DEMO_NOTIFY_EMAIL (team inbox) and DEMO_FROM_EMAIL (verified sender).
 ```
+
+### "Book a Demo" emails
+
+When a visitor submits the public `/request-demo` form, the server stores the request **and**
+(via Resend) emails the details to `DEMO_NOTIFY_EMAIL` and sends the prospect an acknowledgement
+from `DEMO_FROM_EMAIL`. This is the only real outbound integration and is **fail-soft**: if
+`RESEND_API_KEY` is unset (or sending fails), the request is still saved and appears in the admin
+**Demo Requests** queue — only the emails are skipped. The munaxa.com domain must be verified in
+Resend to send from `demo@munaxa.com`.
 
 Preview locally on the Workers runtime (with real KV/secret bindings):
 

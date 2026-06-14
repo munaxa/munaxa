@@ -76,8 +76,8 @@ export default function RequestDemoPage() {
             <CardContent className="space-y-3 pt-6">
               <h1 className="font-display text-2xl font-semibold">Thank you</h1>
               <p className="text-sm text-muted-foreground">
-                Your demo request has been received. The Munaxa team will review it and contact you
-                shortly to schedule your guided demonstration and provide access credentials.
+                Your demo request has been received — a confirmation email is on its way. The Munaxa
+                team will review it and reply as soon as possible with your private demo access.
               </p>
               <Link
                 href="/login"

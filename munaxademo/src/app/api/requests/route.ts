@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createRequest } from '@/lib/requests';
 import { rateLimited } from '@/lib/auth/session';
 import { assertSameOrigin, clamp } from '@/lib/http';
+import { sendDemoRequestEmails } from '@/lib/email';
 
 export const runtime = 'nodejs';
 
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Please enter a valid email address.' }, { status: 400 });
   }
 
-  createRequest({
+  const request = createRequest({
     schoolName,
     contactPerson,
     jobTitle: clamp(body.jobTitle, 80),
@@ -55,6 +56,10 @@ export async function POST(req: NextRequest) {
     phone: clamp(body.phone, 40),
     notes: clamp(body.notes, 2000),
   });
+
+  // Notify the team (demo@munaxa.com) and acknowledge the prospect. Fail-soft: a
+  // mail error never blocks the submission — the request is already stored.
+  await sendDemoRequestEmails(request).catch(() => undefined);
 
   // The team reviews and contacts the prospect; no account is created here.
   return NextResponse.json({ ok: true });

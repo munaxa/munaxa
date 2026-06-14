@@ -22,7 +22,10 @@
     // Tuned down from the Node default (600k) to fit Workers CPU limits.
     "DEMO_PBKDF2_ITERATIONS": "10000",
     "DEMO_SESSION_TTL_MINUTES": "120",
-    "DEMO_DEFAULT_EXPIRY_DAYS": "14"
+    "DEMO_DEFAULT_EXPIRY_DAYS": "14",
+    // "Book a Demo" intake emails (sent via Resend). RESEND_API_KEY is a secret (below).
+    "DEMO_NOTIFY_EMAIL": "demo@munaxa.com",
+    "DEMO_FROM_EMAIL": "Munaxa Demo <demo@munaxa.com>"
   },
   // Persists admin-created demo accounts (no database). Create the namespace with:
   //   npx wrangler kv namespace create DEMO_ACCOUNTS
@@ -33,6 +36,7 @@
       "id": "768a66ef383d4713bcfd216d0a20c7a4"
     }
   ]
-  // DEMO_SESSION_SECRET is a secret, NOT a var — set it with:
-  //   npx wrangler secret put DEMO_SESSION_SECRET
+  // Secrets (NOT vars) — set each with `npx wrangler secret put <NAME>`:
+  //   DEMO_SESSION_SECRET   signing key for the session cookie
+  //   RESEND_API_KEY        Resend API key for the "Book a Demo" intake emails
 }
