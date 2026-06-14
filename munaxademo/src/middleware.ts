@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifySession } from '@/lib/auth/token';
-import { COOKIE_NAME } from '@/lib/auth/session';
+import { cookieName } from '@/lib/auth/session';
 
 /**
  * Access gate. The demo is NOT publicly accessible: every route except the login
@@ -24,7 +24,7 @@ export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   if (isPublic(pathname)) return NextResponse.next();
 
-  const token = req.cookies.get(COOKIE_NAME)?.value;
+  const token = req.cookies.get(cookieName())?.value;
   const claims = await verifySession(token);
 
   if (!claims) {

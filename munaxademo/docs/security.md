@@ -15,10 +15,17 @@ The demo is intentionally hermetic. This document describes the boundaries and t
 | Payment gateways       | **Mocked.** Returns a fake authorization; no charge occurs.           |
 
 A strict **Content-Security-Policy** (`connect-src 'self'`) means the browser physically cannot
-open a connection to any external host, even if code attempted to. `default-src 'self'`,
-`frame-ancestors 'none'`, `object-src 'none'`, and `form-action 'self'` are also enforced
-(see `next.config.mjs`), along with `X-Frame-Options`, `X-Content-Type-Options`, HSTS (prod) and
-`X-Robots-Tag: noindex`.
+open a connection to any external host, even if code attempted to. The full policy also sets
+`default-src 'self'`, `frame-src 'none'`, `frame-ancestors 'none'`, `object-src 'none'`,
+`base-uri 'self'`, `form-action 'self'`, `worker-src 'self' blob:`, `manifest-src 'self'`,
+`media-src 'self'` and `upgrade-insecure-requests` (see `next.config.mjs`).
+
+**Security headers** (all responses): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`,
+`Referrer-Policy: no-referrer`, a locked-down `Permissions-Policy` (camera/mic/geo/payment/usb/…
+all `()`), `Cross-Origin-Opener-Policy: same-origin`, `Cross-Origin-Resource-Policy: same-origin`,
+`X-Permitted-Cross-Domain-Policies: none`, `X-DNS-Prefetch-Control: off`, `Origin-Agent-Cluster`,
+`X-Robots-Tag: noindex`, and in production HSTS (`max-age=2y; includeSubDomains; preload`). API
+responses are sent `Cache-Control: no-store`.
 
 ## Access control
 
@@ -26,19 +33,30 @@ open a connection to any external host, even if code attempted to. `default-src 
   login page, the public "Book a Demo" form (`/request-demo`, `POST /api/requests`) and the auth
   endpoints. There are **no shared/public credentials** — access is provisioned per prospect from
   an approved demo request, so competitors cannot self-serve their way in.
-- **Role-locked accounts.** Prospect accounts carry an assigned role and cannot switch roles;
-  scope is controlled by the sales team per account.
+- **Single-role sessions.** Every prospect session is pinned to one persona (its assigned role, or
+  the role chosen at login) and the in-app role switcher is hidden — a Student can never switch to,
+  or view, another role's data. Only the demo-admin console may switch roles.
 - **Signed sessions.** The session token is an HMAC-SHA256-signed payload (Web Crypto), set as an
-  **httpOnly, SameSite=Strict, Secure** (in production) cookie. It carries an absolute expiry
-  (`exp`) that is verified on every request.
+  **httpOnly, SameSite=Strict, Secure** (in production) cookie that uses the **`__Host-` prefix**
+  in production (browser-enforced: Secure + Path=/ + no Domain → no cookie tossing). It carries an
+  absolute expiry (`exp`) verified on every request.
 - **Session cookie, not persistent.** No `maxAge`/`expires` → cleared when the browser closes.
+- **CSRF defense-in-depth.** Beyond SameSite=Strict, every state-changing request (login, logout,
+  account & request mutations, public submissions) is rejected if its Origin/Referer doesn't match
+  the host (`assertSameOrigin`).
 - **Account lifecycle.** Demo accounts have a status (Active/Disabled) and an optional expiry.
   Disabled or expired accounts are rejected at login and cannot hold a usable session.
-- **Password storage.** Account passwords are **PBKDF2-SHA256** hashed (100k iterations) and
-  compared in (near) constant time. Plaintext is never stored at rest in the running store.
-- **Brute-force protection.** An in-memory limiter throttles repeated failed logins per IP+user.
+- **Password storage.** Account passwords are **PBKDF2-HMAC-SHA256** hashed at the OWASP-recommended
+  **600,000 iterations** (work factor stored per-hash), compared in constant time. Plaintext is
+  never stored at rest.
+- **Input hardening.** All untrusted fields are length-clamped before use to prevent oversized-payload
+  abuse.
+- **Brute-force protection.** An in-memory limiter throttles repeated failed logins per IP+user, and
+  public demo requests per IP.
 - **Admin separation.** Only the demo-admin account can reach `/admin/*` and `/api/admin/*`
   (enforced in middleware **and** in the route handlers).
+- **Fails closed on misconfig.** In production the app refuses to sign/verify sessions unless a
+  strong `DEMO_SESSION_SECRET` (≥ 16 chars) is set — it will not fall back to the dev key.
 
 ## Competitor protection
 
@@ -51,9 +69,10 @@ The demo exposes **features and workflows only**:
 
 ## Secrets
 
-The only secret is `DEMO_SESSION_SECRET` (HMAC key for the session cookie). Set it in production;
-a dev-only fallback is used otherwise. There are no third-party API keys, because there are no
-third-party integrations.
+The only secret is `DEMO_SESSION_SECRET` (HMAC key for the session cookie). It is **required in
+production** (≥ 16 chars) — the app fails closed rather than using the dev fallback. A dev-only
+fallback applies solely when `NODE_ENV !== 'production'`. There are no third-party API keys, because
+there are no third-party integrations.
 
 ## Residual notes
 

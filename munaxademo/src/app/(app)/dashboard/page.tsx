@@ -9,15 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui
 
 export default function DashboardPage() {
   const { data } = useDemo();
-  const { persona, can } = useSession();
+  const { persona, can, org } = useSession();
   const k = kpis(data);
   const att = attendanceToday(data);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <PageHeader
-        title={`Welcome, ${persona.displayName.split(' ')[0]}`}
-        subtitle={`${data.school.nameEn} · ${data.school.academicYear} · ${data.school.term}`}
+        title={`Welcome, ${persona.displayName}`}
+        subtitle={`${persona.nameEn} · ${org} · ${data.school.academicYear} · ${data.school.term}`}
       />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
