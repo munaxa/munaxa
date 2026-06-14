@@ -42,9 +42,10 @@ export interface LoginEvent {
 }
 
 const enc = new TextEncoder();
-// OWASP-recommended work factor for PBKDF2-HMAC-SHA256 (2023+). Stored per-hash so
-// the factor can be raised later without invalidating existing hashes.
-const PBKDF2_ITERATIONS = 600_000;
+// OWASP-recommended work factor for PBKDF2-HMAC-SHA256, env-tunable so it can be lowered
+// to fit Cloudflare Workers CPU limits. Stored per-hash, so changing it never breaks
+// existing hashes (verify uses the factor recorded in the hash).
+const PBKDF2_ITERATIONS = Math.max(10_000, Number(process.env.DEMO_PBKDF2_ITERATIONS) || 600_000);
 
 function b64(bytes: Uint8Array): string {
   let bin = '';
@@ -113,26 +114,80 @@ function store(): Store {
   return g.__munaxaDemoStore;
 }
 
-/** Write the current accounts to disk. Best-effort: ignored on read-only filesystems. */
-async function persist(): Promise<void> {
-  const s = store();
+/**
+ * Storage backend for the accounts blob, resolved at runtime:
+ *   1. Cloudflare Workers KV (binding `DEMO_ACCOUNTS`) when deployed on Cloudflare.
+ *   2. A JSON file (`DEMO_DATA_DIR`) on a Node host with a writable filesystem.
+ *   3. In-memory only (read-only FS / no binding) — seed accounts still work.
+ * Workers have no filesystem, so KV is what makes created accounts survive deploys.
+ */
+type KVish = {
+  get(key: string): Promise<string | null>;
+  put(key: string, value: string): Promise<unknown>;
+};
+const KV_KEY = 'accounts';
+
+async function getKv(): Promise<KVish | null> {
+  try {
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+    const env = getCloudflareContext().env as Record<string, unknown> | undefined;
+    const ns = env?.['DEMO_ACCOUNTS'];
+    return ns && typeof (ns as KVish).get === 'function' ? (ns as KVish) : null;
+  } catch {
+    return null; // not running on Cloudflare (local/node) → fall through to fs
+  }
+}
+
+async function writeBlob(data: string): Promise<void> {
+  const ns = await getKv();
+  if (ns) {
+    try {
+      await ns.put(KV_KEY, data);
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
   try {
     await fs.mkdir(DATA_DIR, { recursive: true });
-    const payload = JSON.stringify({ seq: s.seq, accounts: [...s.accounts.values()] }, null, 2);
-    await fs.writeFile(DATA_FILE, payload, 'utf8');
+    await fs.writeFile(DATA_FILE, data, 'utf8');
   } catch {
     /* read-only / ephemeral FS — accounts remain in memory only */
   }
 }
 
-async function loadFromDisk(): Promise<{ seq: number; accounts: DemoAccount[] } | null> {
+async function readBlob(): Promise<string | null> {
+  const ns = await getKv();
+  if (ns) {
+    try {
+      return (await ns.get(KV_KEY)) ?? null;
+    } catch {
+      return null;
+    }
+  }
   try {
-    const parsed = JSON.parse(await fs.readFile(DATA_FILE, 'utf8'));
+    return await fs.readFile(DATA_FILE, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+/** Persist the current accounts (best-effort) to KV or the JSON file. */
+async function persist(): Promise<void> {
+  const s = store();
+  await writeBlob(JSON.stringify({ seq: s.seq, accounts: [...s.accounts.values()] }, null, 2));
+}
+
+async function loadFromDisk(): Promise<{ seq: number; accounts: DemoAccount[] } | null> {
+  const raw = await readBlob();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
     if (parsed && Array.isArray(parsed.accounts)) {
       return { seq: Number(parsed.seq) || 0, accounts: parsed.accounts as DemoAccount[] };
     }
   } catch {
-    /* missing or invalid file → fall back to seed */
+    /* invalid blob → fall back to seed */
   }
   return null;
 }

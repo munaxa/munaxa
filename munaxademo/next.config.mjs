@@ -39,6 +39,9 @@ const nextConfig = {
   // (the repo has a parent lockfile that Next would otherwise infer).
   outputFileTracingRoot: projectRoot,
   typedRoutes: true,
+  // The Cloudflare adapter is resolved at runtime (only on Workers); don't bundle it
+  // into the Node build. On non-Cloudflare hosts the dynamic import simply no-ops.
+  serverExternalPackages: ['@opennextjs/cloudflare'],
   async headers() {
     return [
       {

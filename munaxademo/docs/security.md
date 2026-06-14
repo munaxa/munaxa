@@ -76,7 +76,8 @@ there are no third-party integrations.
 
 ## Residual notes
 
-- Account and login-history state lives in server memory and resets on restart — acceptable and
-  intended for a demo (it is an explicit reset trigger), and avoids any persistent datastore.
-- For multi-instance deployments, run a single instance or a sticky session, since the access
-  store is in-process by design.
+- Admin-created demo accounts persist in **Cloudflare KV** (on Workers) or a **JSON file** (on a
+  Node host) — no SQL database. Login history stays in memory. The explorable school dataset is
+  always in-browser and resets on logout/refresh/close.
+- On Cloudflare Workers, set the Worker to the **Standard** plan (or lower `DEMO_PBKDF2_ITERATIONS`)
+  so PBKDF2 hashing fits the CPU limit; `DEMO_SESSION_SECRET` must be set as a Worker secret.

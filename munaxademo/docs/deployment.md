@@ -53,6 +53,50 @@ docker build -t munaxademo .
 docker run -p 4100:4100 -e DEMO_SESSION_SECRET="$(openssl rand -base64 48)" munaxademo
 ```
 
+## Cloudflare Workers (recommended) — built from this subfolder
+
+The app runs on Cloudflare Workers via the **OpenNext** adapter (`@opennextjs/cloudflare`). The
+build is scoped entirely to this `munaxademo/` directory — it is isolated from the Munaxa monorepo.
+
+One-time setup:
+
+```bash
+cd munaxademo
+npm install
+
+# 1) Create the KV namespace that persists admin-created demo accounts (no database):
+npx wrangler kv namespace create DEMO_ACCOUNTS
+#   → copy the printed id into wrangler.jsonc (kv_namespaces[0].id)
+
+# 2) Set the session signing secret (required; not a plaintext var):
+npx wrangler secret put DEMO_SESSION_SECRET        # paste: openssl rand -base64 48
+```
+
+Preview locally on the Workers runtime (with real KV/secret bindings):
+
+```bash
+npm run cf:preview      # opennextjs-cloudflare build && wrangler dev
+```
+
+Deploy:
+
+```bash
+npm run cf:deploy       # opennextjs-cloudflare build && wrangler deploy
+```
+
+**Cloudflare dashboard (CI builds / "Connect to Git"):** set the project **Root directory** to
+`munaxademo`, build command `npm run cf:build`, and deploy command `npx wrangler deploy`. Add the
+`DEMO_ACCOUNTS` KV binding and the `DEMO_SESSION_SECRET` secret in the Worker's settings. Attach a
+custom domain (e.g. `demo.munaxa.com`).
+
+Notes:
+
+- **CPU / PBKDF2.** Password hashing needs more CPU than the Workers free tier allows. Use the
+  **Workers Standard** plan (config sets `limits.cpu_ms = 300`) and/or lower the work factor via the
+  `DEMO_PBKDF2_ITERATIONS` var (defaults to `100000` on Cloudflare in `wrangler.jsonc`).
+- **Accounts** persist in KV across deploys; locally they use the JSON file (`DEMO_DATA_DIR`).
+- No `DATABASE_URL`, no external services — the demo stays hermetic on Cloudflare too.
+
 ## Platforms
 
 - **Vercel / Netlify:** import the repo, set `DEMO_SESSION_SECRET`, deploy. No database to provision.
