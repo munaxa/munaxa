@@ -15,9 +15,9 @@
   },
   // Allow PBKDF2 password hashing to complete (requires the Workers Standard plan).
   // Alternatively lower DEMO_PBKDF2_ITERATIONS below.
-  "limits": {
-    "cpu_ms": 300
-  },
+  // "limits": {
+    // "cpu_ms": 300
+  // },
   "vars": {
     // Tuned down from the Node default (600k) to fit Workers CPU limits.
     "DEMO_PBKDF2_ITERATIONS": "100000",
