@@ -30,7 +30,7 @@
   "kv_namespaces": [
     {
       "binding": "DEMO_ACCOUNTS",
-      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+      "id": "768a66ef383d4713bcfd216d0a20c7a4"
     }
   ]
   // DEMO_SESSION_SECRET is a secret, NOT a var — set it with:
