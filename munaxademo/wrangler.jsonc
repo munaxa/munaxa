@@ -20,7 +20,7 @@
   // },
   "vars": {
     // Tuned down from the Node default (600k) to fit Workers CPU limits.
-    "DEMO_PBKDF2_ITERATIONS": "100000",
+    "DEMO_PBKDF2_ITERATIONS": "10000",
     "DEMO_SESSION_TTL_MINUTES": "120",
     "DEMO_DEFAULT_EXPIRY_DAYS": "14"
   },
