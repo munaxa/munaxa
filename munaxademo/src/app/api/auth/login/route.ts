@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getAccountByUsername, isExpired, recordLogin, verifyPassword } from '@/lib/auth/accounts';
+import { getAccountByUsername, isExpired, recordLogin, checkPassword } from '@/lib/auth/accounts';
 import { signSession, ttlMinutes } from '@/lib/auth/token';
 import { cookieName, cookieOptions, rateLimited, clearRateLimit } from '@/lib/auth/session';
 import { assertSameOrigin, clamp } from '@/lib/http';
@@ -35,8 +35,7 @@ export async function POST(req: NextRequest) {
   }
 
   const account = await getAccountByUsername(username);
-  // Always run a hash comparison shape to reduce username enumeration timing signal.
-  const ok = account ? await verifyPassword(password, account.passwordHash) : false;
+  const ok = account ? await checkPassword(account, password) : false;
 
   if (!account || !ok) {
     if (account) await recordLogin({ accountId: account.id, username, outcome: 'FAILED', ip });

@@ -34,8 +34,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const acct = await updateAccount(id, patch);
   if (!acct) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const { passwordHash: _h, ...rest } = acct;
+  const { passwordHash: _h, seedPassword: _seed, ...rest } = acct;
   void _h;
+  void _seed;
   return NextResponse.json({ account: rest });
 }
 
