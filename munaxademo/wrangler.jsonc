@@ -34,5 +34,5 @@
     }
   ]
   // DEMO_SESSION_SECRET is a secret, NOT a var — set it with:
-     npx wrangler secret put DEMO_SESSION_SECRET LTZIjznwK3hwq535p04eqTngkhKv6NaO6epGyN1vlqcAeo/nntj3J2uSGMw9QelI
+  //   npx wrangler secret put DEMO_SESSION_SECRET
 }
