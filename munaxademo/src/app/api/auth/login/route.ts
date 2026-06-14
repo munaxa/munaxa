@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getAccountByUsername, isExpired, recordLogin, verifyPassword } from '@/lib/auth/accounts';
 import { signSession, ttlMinutes } from '@/lib/auth/token';
-import { COOKIE_NAME, cookieOptions, rateLimited, clearRateLimit } from '@/lib/auth/session';
+import { cookieName, cookieOptions, rateLimited, clearRateLimit } from '@/lib/auth/session';
+import { assertSameOrigin, clamp } from '@/lib/http';
 
 export const runtime = 'nodejs';
 
@@ -10,14 +11,17 @@ function ipOf(req: NextRequest): string {
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = assertSameOrigin(req);
+  if (csrf) return csrf;
+
   let body: { username?: string; password?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
-  const username = (body.username ?? '').trim();
-  const password = body.password ?? '';
+  const username = clamp(body.username, 64);
+  const password = clamp(body.password, 128);
   const ip = ipOf(req);
 
   if (!username || !password) {
@@ -69,6 +73,6 @@ export async function POST(req: NextRequest) {
     admin: account.admin,
     role: account.role,
   });
-  res.cookies.set(COOKIE_NAME, token, cookieOptions(process.env.NODE_ENV === 'production'));
+  res.cookies.set(cookieName(), token, cookieOptions(process.env.NODE_ENV === 'production'));
   return res;
 }

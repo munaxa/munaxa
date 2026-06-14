@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createRequest } from '@/lib/requests';
 import { rateLimited } from '@/lib/auth/session';
+import { assertSameOrigin, clamp } from '@/lib/http';
 
 export const runtime = 'nodejs';
 
@@ -8,8 +9,12 @@ function ipOf(req: NextRequest): string {
   return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'local';
 }
 
-/** Public "Book a Demo" submission. No auth; rate-limited. Never issues credentials. */
+const cap = (n: unknown, max: number) => Math.max(0, Math.min(max, Math.floor(Number(n) || 0)));
+
+/** Public "Book a Demo" submission. No auth; same-origin + rate-limited. Never issues credentials. */
 export async function POST(req: NextRequest) {
+  const csrf = assertSameOrigin(req);
+  if (csrf) return csrf;
   if (rateLimited(`req:${ipOf(req)}`)) {
     return NextResponse.json(
       { error: 'Too many requests. Please try again later.' },
@@ -24,10 +29,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
-  const str = (k: string) => String(body[k] ?? '').trim();
-  const schoolName = str('schoolName');
-  const contactPerson = str('contactPerson');
-  const email = str('email');
+  // Clamp every field to a sane maximum to prevent memory-abuse / oversized payloads.
+  const schoolName = clamp(body.schoolName, 120);
+  const contactPerson = clamp(body.contactPerson, 120);
+  const email = clamp(body.email, 160);
 
   if (!schoolName || !contactPerson || !email) {
     return NextResponse.json(
@@ -42,13 +47,13 @@ export async function POST(req: NextRequest) {
   createRequest({
     schoolName,
     contactPerson,
-    jobTitle: str('jobTitle'),
-    country: str('country'),
-    numStudents: Math.max(0, Number(body.numStudents) || 0),
-    numCampuses: Math.max(0, Number(body.numCampuses) || 0),
+    jobTitle: clamp(body.jobTitle, 80),
+    country: clamp(body.country, 64),
+    numStudents: cap(body.numStudents, 200000),
+    numCampuses: cap(body.numCampuses, 1000),
     email,
-    phone: str('phone'),
-    notes: str('notes'),
+    phone: clamp(body.phone, 40),
+    notes: clamp(body.notes, 2000),
   });
 
   // The team reviews and contacts the prospect; no account is created here.

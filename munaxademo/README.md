@@ -36,11 +36,22 @@ npm install                   # or: pnpm install --ignore-workspace
 npm run dev                   # http://localhost:4100
 ```
 
-Build for production:
+Build for production (Node):
 
 ```bash
 npm run build && npm run start
 ```
+
+Deploy to **Cloudflare Workers** (built only from this isolated subfolder, via OpenNext):
+
+```bash
+npx wrangler kv namespace create DEMO_ACCOUNTS   # → paste id into wrangler.jsonc
+npx wrangler secret put DEMO_SESSION_SECRET      # openssl rand -base64 48
+npm run cf:deploy
+```
+
+See [`docs/deployment.md`](./docs/deployment.md) for the full Cloudflare guide (KV, CPU limits,
+custom domain, dashboard "root directory = munaxademo").
 
 ## Access model — Book a Demo
 

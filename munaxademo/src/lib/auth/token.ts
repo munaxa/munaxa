@@ -10,8 +10,20 @@ const dec = new TextDecoder();
 function devFallbackSecret(): string {
   return 'munaxa-demo-dev-secret-do-not-use-in-production';
 }
+/**
+ * Resolve the HMAC signing secret. Fails CLOSED in production: if no strong
+ * DEMO_SESSION_SECRET is configured we refuse to sign/verify rather than fall back
+ * to a publicly-known dev key (which would let anyone forge a session).
+ */
 function secret(): string {
-  return process.env.DEMO_SESSION_SECRET || devFallbackSecret();
+  const s = process.env.DEMO_SESSION_SECRET;
+  if (s && s.length >= 16) return s;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'DEMO_SESSION_SECRET is required (>= 16 chars) in production. Refusing to use the dev fallback.',
+    );
+  }
+  return devFallbackSecret();
 }
 
 export interface SessionClaims {

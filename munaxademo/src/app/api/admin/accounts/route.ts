@@ -3,6 +3,7 @@ import { getServerSession } from '@/lib/auth/session';
 import { createAccount, listAccounts, loginHistory } from '@/lib/auth/accounts';
 import { updateRequest } from '@/lib/requests';
 import { PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
+import { assertSameOrigin, clamp } from '@/lib/http';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +29,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const csrf = assertSameOrigin(req);
+  if (csrf) return csrf;
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -44,9 +47,9 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
-  const organizationName = (body.organizationName ?? '').trim();
-  const username = (body.username ?? '').trim();
-  const password = (body.password ?? '').trim();
+  const organizationName = clamp(body.organizationName, 120);
+  const username = clamp(body.username, 64);
+  const password = clamp(body.password, 128);
   const expiresInDays =
     body.expiresInDays === null || body.expiresInDays === undefined
       ? null

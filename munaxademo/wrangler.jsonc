@@ -1,0 +1,38 @@
+{
+  // Cloudflare Workers config for the Munaxa demo (deployed via the OpenNext adapter).
+  // Build from this subdirectory only — it is fully isolated from the Munaxa monorepo.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "munaxademo",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-25",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Allow PBKDF2 password hashing to complete (requires the Workers Standard plan).
+  // Alternatively lower DEMO_PBKDF2_ITERATIONS below.
+  "limits": {
+    "cpu_ms": 300
+  },
+  "vars": {
+    // Tuned down from the Node default (600k) to fit Workers CPU limits.
+    "DEMO_PBKDF2_ITERATIONS": "100000",
+    "DEMO_SESSION_TTL_MINUTES": "120",
+    "DEMO_DEFAULT_EXPIRY_DAYS": "14"
+  },
+  // Persists admin-created demo accounts (no database). Create the namespace with:
+  //   npx wrangler kv namespace create DEMO_ACCOUNTS
+  // then paste the returned id below.
+  "kv_namespaces": [
+    {
+      "binding": "DEMO_ACCOUNTS",
+      "id": "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
+    }
+  ]
+  // DEMO_SESSION_SECRET is a secret, NOT a var — set it with:
+  //   npx wrangler secret put DEMO_SESSION_SECRET
+}

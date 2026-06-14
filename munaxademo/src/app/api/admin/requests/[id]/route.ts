@@ -1,10 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/auth/session';
 import { REQUEST_STATUSES, updateRequest, type RequestStatus } from '@/lib/requests';
+import { assertSameOrigin } from '@/lib/http';
 
 export const runtime = 'nodejs';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const csrf = assertSameOrigin(req);
+  if (csrf) return csrf;
   const session = await getServerSession();
   if (!session || !session.admin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   const { id } = await params;

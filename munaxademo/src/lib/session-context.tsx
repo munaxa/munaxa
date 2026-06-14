@@ -69,14 +69,19 @@ export function SessionProvider({
 }) {
   const router = useRouter();
   const { actions } = useDemo();
-  const locked = assignedRole !== null;
+  // Only the demo-admin console may switch roles. Every prospect session is pinned to
+  // a single persona — their assigned role, or (for accounts without one) the role they
+  // picked at login — so a Student can never switch to, or see, another role's data.
+  const locked = !isAdmin;
   const [personaId, setPersonaId] = useState<PersonaId>(assignedRole ?? 'owner');
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
   const [theme, setTheme] = useState<Theme>('dark');
 
   useEffect(() => {
-    // Locked accounts always use their assigned role; only free accounts restore it.
-    if (!locked) {
+    // An assigned role always wins; otherwise restore the persona chosen at login.
+    if (assignedRole) {
+      setPersonaId(assignedRole);
+    } else {
       const p = sessionStorage.getItem(PERSONA_KEY) as PersonaId | null;
       if (p && PERSONA_BY_ID[p]) setPersonaId(p);
     }
@@ -86,11 +91,11 @@ export function SessionProvider({
     const th = (sessionStorage.getItem(THEME_KEY) as Theme | null) ?? 'dark';
     setTheme(th);
     document.documentElement.classList.toggle('dark', th === 'dark');
-  }, [locked]);
+  }, [assignedRole]);
 
   const setPersona = useCallback(
     (idValue: PersonaId) => {
-      if (locked) return; // role-locked accounts cannot switch
+      if (locked) return; // only the admin console can switch roles
       setPersonaId(idValue);
       sessionStorage.setItem(PERSONA_KEY, idValue);
     },
