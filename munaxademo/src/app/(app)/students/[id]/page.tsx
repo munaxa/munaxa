@@ -84,8 +84,22 @@ function StudentProfile() {
       : undefined;
 
     return {
-      grade, section, parents, homeroom, invoices, payments, charged, paid, outstanding, overdue,
-      attendance, counts, attRate, grades, avg, route,
+      grade,
+      section,
+      parents,
+      homeroom,
+      invoices,
+      payments,
+      charged,
+      paid,
+      outstanding,
+      overdue,
+      attendance,
+      counts,
+      attRate,
+      grades,
+      avg,
+      route,
     };
   }, [student, data]);
 
@@ -158,8 +172,18 @@ function StudentProfile() {
           <Detail label="Gender" value={student.gender === 'M' ? 'Male' : 'Female'} />
           <Detail label="Admission date" value={fmtDate(student.admissionDate)} mono />
           <Detail label="Grade" value={derived.grade?.nameEn ?? '—'} />
-          <Detail label="Section" value={`${derived.section?.name ?? '—'} · Room ${derived.section?.room ?? '—'}`} />
-          <Detail label="Homeroom teacher" value={derived.homeroom ? `${derived.homeroom.firstNameEn} ${derived.homeroom.familyEn}` : '—'} />
+          <Detail
+            label="Section"
+            value={`${derived.section?.name ?? '—'} · Room ${derived.section?.room ?? '—'}`}
+          />
+          <Detail
+            label="Homeroom teacher"
+            value={
+              derived.homeroom
+                ? `${derived.homeroom.firstNameEn} ${derived.homeroom.familyEn}`
+                : '—'
+            }
+          />
           <Detail
             label="Transport"
             value={student.hasTransport ? (derived.route?.nameEn ?? 'Assigned') : 'Own transport'}
@@ -178,7 +202,8 @@ function StudentProfile() {
           <CardTitle>Finance</CardTitle>
           {derived.outstanding > 0 ? (
             <p className="text-sm text-muted-foreground">
-              Outstanding <strong className="font-mono text-coral">{jod(derived.outstanding)}</strong>
+              Outstanding{' '}
+              <strong className="font-mono text-coral">{jod(derived.outstanding)}</strong>
               {derived.overdue > 0 ? (
                 <>
                   {' · '}overdue{' '}
@@ -278,10 +303,30 @@ function StudentProfile() {
             </p>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Bar label="Present" n={derived.counts.PRESENT} total={derived.attendance.length} className="bg-aqua" />
-            <Bar label="Late" n={derived.counts.LATE} total={derived.attendance.length} className="bg-coral" />
-            <Bar label="Absent" n={derived.counts.ABSENT} total={derived.attendance.length} className="bg-destructive" />
-            <Bar label="Excused" n={derived.counts.EXCUSED} total={derived.attendance.length} className="bg-primary" />
+            <Bar
+              label="Present"
+              n={derived.counts.PRESENT}
+              total={derived.attendance.length}
+              className="bg-aqua"
+            />
+            <Bar
+              label="Late"
+              n={derived.counts.LATE}
+              total={derived.attendance.length}
+              className="bg-coral"
+            />
+            <Bar
+              label="Absent"
+              n={derived.counts.ABSENT}
+              total={derived.attendance.length}
+              className="bg-destructive"
+            />
+            <Bar
+              label="Excused"
+              n={derived.counts.EXCUSED}
+              total={derived.attendance.length}
+              className="bg-primary"
+            />
           </CardContent>
         </Card>
 
