@@ -84,10 +84,21 @@ Deploy:
 npm run cf:deploy       # opennextjs-cloudflare build && wrangler deploy
 ```
 
-**Cloudflare dashboard (CI builds / "Connect to Git"):** set the project **Root directory** to
-`munaxademo`, build command `npm run cf:build`, and deploy command `npx wrangler deploy`. Add the
-`DEMO_ACCOUNTS` KV binding and the `DEMO_SESSION_SECRET` secret in the Worker's settings. Attach a
-custom domain (e.g. `demo.munaxa.com`).
+**Cloudflare dashboard (Git-connected builds):** use **Workers** (not Pages — OpenNext outputs a
+Worker, not static assets). Configure:
+
+- **Root directory:** `munaxademo`
+- **Build command:** `npm ci --include=dev && npx opennextjs-cloudflare build`
+- **Deploy command:** `npx wrangler deploy`
+
+> Important: this folder is **not** part of the repo's pnpm workspace (by design — it's isolated),
+> so Cloudflare's default `pnpm install` at the repo root does **not** install the demo's
+> dependencies (you'll get `next: not found`). The build command above installs the demo's own npm
+> deps locally first. `--include=dev` is required because the build needs devDependencies
+> (Next/OpenNext/Tailwind/TypeScript) even when the platform sets `NODE_ENV=production`.
+
+Then add the `DEMO_ACCOUNTS` KV binding and the `DEMO_SESSION_SECRET` secret in the Worker's
+settings (and set the KV id in `wrangler.jsonc`). Attach a custom domain (e.g. `demo.munaxa.com`).
 
 Notes:
 
