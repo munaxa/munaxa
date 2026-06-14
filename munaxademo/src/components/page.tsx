@@ -39,7 +39,14 @@ export function Kpi({
   tone?: 'aqua' | 'coral' | 'primary';
   href?: string;
 }) {
-  const cls = tone === 'aqua' ? 'text-aqua' : tone === 'coral' ? 'text-coral' : tone === 'primary' ? 'text-primary' : '';
+  const cls =
+    tone === 'aqua'
+      ? 'text-aqua'
+      : tone === 'coral'
+        ? 'text-coral'
+        : tone === 'primary'
+          ? 'text-primary'
+          : '';
   const body = (
     <Card className={href ? 'h-full transition hover:border-primary/40 hover:shadow-glow' : ''}>
       <CardContent className="p-4">
@@ -60,7 +67,17 @@ export function Kpi({
 }
 
 /** Horizontal proportion bar used in attendance / distribution panels. */
-export function Bar({ label, n, total, className }: { label: string; n: number; total: number; className: string }) {
+export function Bar({
+  label,
+  n,
+  total,
+  className,
+}: {
+  label: string;
+  n: number;
+  total: number;
+  className: string;
+}) {
   const pctValue = total > 0 ? Math.round((n / total) * 100) : 0;
   return (
     <div>

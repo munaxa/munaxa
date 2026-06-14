@@ -7,11 +7,26 @@ import { fmtDate, num } from '@/lib/format';
 import { useToast } from '@/components/toast';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 import {
-  Badge, Button, Card, CardContent, Field, Input, Table, TBody, TD, TH, THead, TR,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Field,
+  Input,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 import type { Tone } from '@/components/ui';
 
-const LOAN_TONE: Record<string, Tone> = { BORROWED: 'default', RETURNED: 'success', OVERDUE: 'danger' };
+const LOAN_TONE: Record<string, Tone> = {
+  BORROWED: 'default',
+  RETURNED: 'success',
+  OVERDUE: 'danger',
+};
 
 export default function LibraryPage() {
   return (
@@ -28,7 +43,9 @@ function Library() {
 
   const books = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return data.books.filter((b) => !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)).slice(0, 40);
+    return data.books
+      .filter((b) => !q || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q))
+      .slice(0, 40);
   }, [data.books, query]);
 
   const activeLoans = data.loans.filter((l) => l.status !== 'RETURNED');
@@ -40,19 +57,30 @@ function Library() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <PageHeader title="Library" subtitle={`${data.books.length} titles · ${activeLoans.length} on loan`} />
+      <PageHeader
+        title="Library"
+        subtitle={`${data.books.length} titles · ${activeLoans.length} on loan`}
+      />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Titles" value={num(data.books.length)} />
         <Kpi label="Copies" value={num(data.books.reduce((s, b) => s + b.copies, 0))} />
         <Kpi label="On loan" value={num(activeLoans.length)} tone="coral" />
-        <Kpi label="Overdue" value={num(data.loans.filter((l) => l.status === 'OVERDUE').length)} tone="coral" />
+        <Kpi
+          label="Overdue"
+          value={num(data.loans.filter((l) => l.status === 'OVERDUE').length)}
+          tone="coral"
+        />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-3">
           <Field label="Search catalogue">
-            <Input value={query} placeholder="Title or author…" onChange={(e) => setQuery(e.target.value)} />
+            <Input
+              value={query}
+              placeholder="Title or author…"
+              onChange={(e) => setQuery(e.target.value)}
+            />
           </Field>
           <Card>
             <CardContent className="p-0">
@@ -84,7 +112,9 @@ function Library() {
         </div>
 
         <div className="space-y-3">
-          <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground">Active loans</p>
+          <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+            Active loans
+          </p>
           <Card>
             <CardContent className="p-0">
               <Table>

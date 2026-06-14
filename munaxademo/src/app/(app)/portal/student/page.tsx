@@ -6,11 +6,27 @@ import { studentName } from '@/lib/demo-store/selectors';
 import { pct } from '@/lib/format';
 import { PageHeader, Kpi } from '@/components/page';
 import {
-  Badge, Card, CardContent, CardHeader, CardTitle, Table, TBody, TD, TH, THead, TR,
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 import type { Tone } from '@/components/ui';
 
-const LETTER_TONE: Record<string, Tone> = { A: 'success', B: 'success', C: 'default', D: 'warning', F: 'danger' };
+const LETTER_TONE: Record<string, Tone> = {
+  A: 'success',
+  B: 'success',
+  C: 'default',
+  D: 'warning',
+  F: 'danger',
+};
 
 export default function StudentPortalPage() {
   const { data } = useDemo();

@@ -9,12 +9,28 @@ import { useToast } from '@/components/toast';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 import type { Invoice, InvoiceStatus, PaymentMethod } from '@/seed/types';
 import {
-  Badge, Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Table, TBody, TD,
-  TH, THead, TR,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 
 const STATUS_TONE: Record<InvoiceStatus, 'success' | 'warning' | 'danger' | 'default'> = {
-  PAID: 'success', PARTIAL: 'warning', OVERDUE: 'danger', PENDING: 'default',
+  PAID: 'success',
+  PARTIAL: 'warning',
+  OVERDUE: 'danger',
+  PENDING: 'default',
 };
 const METHODS: PaymentMethod[] = ['CASH', 'CLIQ', 'CARD', 'BANK_TRANSFER', 'CHEQUE'];
 
@@ -47,7 +63,11 @@ function Finance() {
     const q = query.trim().toLowerCase();
     return data.invoices
       .filter((i) => (status ? i.status === status : true))
-      .filter((i) => (q ? nameOf(i.studentId).toLowerCase().includes(q) || i.number.toLowerCase().includes(q) : true))
+      .filter((i) =>
+        q
+          ? nameOf(i.studentId).toLowerCase().includes(q) || i.number.toLowerCase().includes(q)
+          : true,
+      )
       .slice(0, 60);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.invoices, status, query]);
@@ -72,7 +92,9 @@ function Finance() {
       <PageHeader
         title="Finance"
         subtitle="Tuition invoices, payments and outstanding balances."
-        actions={canManage ? <Button onClick={() => setShowNew(true)}>New invoice</Button> : undefined}
+        actions={
+          canManage ? <Button onClick={() => setShowNew(true)}>New invoice</Button> : undefined
+        }
       />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -85,7 +107,11 @@ function Finance() {
 
       <div className="flex flex-wrap items-end gap-2">
         <Field label="Search" className="flex-1">
-          <Input value={query} placeholder="Student or invoice number…" onChange={(e) => setQuery(e.target.value)} />
+          <Input
+            value={query}
+            placeholder="Student or invoice number…"
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </Field>
         <Field label="Status">
           <Select value={status} onChange={(e) => setStatus(e.target.value as '' | InvoiceStatus)}>
@@ -130,15 +156,26 @@ function Finance() {
                     {canManage ? (
                       <TD className="text-end">
                         <span className="flex justify-end gap-1">
-                          <Button size="sm" variant="ghost" disabled={balance <= 0} onClick={() => setPayFor(inv)}>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={balance <= 0}
+                            onClick={() => setPayFor(inv)}
+                          >
                             Pay
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              actions.mockSend('JOFOTARA', inv.number, `Issue e-invoice for ${inv.number}`);
-                              toast.success(`e-Invoice issued for ${inv.number} (mocked — not submitted).`);
+                              actions.mockSend(
+                                'JOFOTARA',
+                                inv.number,
+                                `Issue e-invoice for ${inv.number}`,
+                              );
+                              toast.success(
+                                `e-Invoice issued for ${inv.number} (mocked — not submitted).`,
+                              );
                             }}
                           >
                             e-Invoice
@@ -148,7 +185,11 @@ function Finance() {
                             variant="ghost"
                             disabled={balance <= 0}
                             onClick={() => {
-                              actions.mockSend('SMS', nameOf(inv.studentId), `Fee reminder for ${inv.number}`);
+                              actions.mockSend(
+                                'SMS',
+                                nameOf(inv.studentId),
+                                `Fee reminder for ${inv.number}`,
+                              );
                               toast.success('Reminder sent (mocked — no real SMS).');
                             }}
                           >
@@ -165,7 +206,9 @@ function Finance() {
         </CardContent>
       </Card>
 
-      {payFor ? <PaymentDialog invoice={payFor} onClose={() => setPayFor(null)} onPay={recordPayment} /> : null}
+      {payFor ? (
+        <PaymentDialog invoice={payFor} onClose={() => setPayFor(null)} onPay={recordPayment} />
+      ) : null}
       {showNew ? <NewInvoiceDialog onClose={() => setShowNew(false)} /> : null}
     </div>
   );
@@ -194,7 +237,13 @@ function PaymentDialog({
         className="grid gap-3 sm:grid-cols-2"
       >
         <Field label={`Amount (max ${balance.toFixed(3)})`}>
-          <Input type="number" step="0.001" value={amount} onChange={(e) => setAmount(e.target.value)} className="font-mono" />
+          <Input
+            type="number"
+            step="0.001"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="font-mono"
+          />
         </Field>
         <Field label="Method">
           <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
@@ -259,7 +308,14 @@ function NewInvoiceDialog({ onClose }: { onClose: () => void }) {
           <Input value={description} onChange={(e) => setDescription(e.target.value)} required />
         </Field>
         <Field label="Amount (JOD)">
-          <Input type="number" step="0.001" value={amount} onChange={(e) => setAmount(e.target.value)} className="font-mono" required />
+          <Input
+            type="number"
+            step="0.001"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            className="font-mono"
+            required
+          />
         </Field>
         <div className="col-span-full flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
@@ -272,7 +328,15 @@ function NewInvoiceDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+function Dialog({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-ink-900/70 p-4 backdrop-blur-sm">
       <Card className="w-full max-w-lg">

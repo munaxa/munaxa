@@ -18,7 +18,9 @@ export interface MockResult {
 }
 
 function ref(prefix: string): string {
-  return `${prefix}-${Math.floor(Math.random() * 1e9).toString(36).toUpperCase()}`;
+  return `${prefix}-${Math.floor(Math.random() * 1e9)
+    .toString(36)
+    .toUpperCase()}`;
 }
 
 function make(channel: Channel, to: string, summary: string, prefix: string): MockResult {

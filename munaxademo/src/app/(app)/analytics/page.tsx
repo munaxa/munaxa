@@ -2,7 +2,11 @@
 
 import { useDemo } from '@/lib/demo-store/context';
 import {
-  kpis, enrollmentByGrade, gradeDistribution, financeSummary, attendanceRate,
+  kpis,
+  enrollmentByGrade,
+  gradeDistribution,
+  financeSummary,
+  attendanceRate,
 } from '@/lib/demo-store/selectors';
 import { jod, pct, num } from '@/lib/format';
 import { PageHeader, Gate, Kpi } from '@/components/page';
@@ -17,7 +21,17 @@ export default function AnalyticsPage() {
   );
 }
 
-function ChartBar({ label, value, max, tone }: { label: string; value: number; max: number; tone: string }) {
+function ChartBar({
+  label,
+  value,
+  max,
+  tone,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  tone: string;
+}) {
   const w = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -59,7 +73,13 @@ function Analytics() {
           </CardHeader>
           <CardContent className="space-y-1.5">
             {enroll.map((e) => (
-              <ChartBar key={e.grade.id} label={e.grade.nameEn} value={e.count} max={maxEnroll} tone="bg-grad-primary" />
+              <ChartBar
+                key={e.grade.id}
+                label={e.grade.nameEn}
+                value={e.count}
+                max={maxEnroll}
+                tone="bg-grad-primary"
+              />
             ))}
           </CardContent>
         </Card>
@@ -86,9 +106,24 @@ function Analytics() {
             <CardTitle>Fee collection</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1.5">
-            <ChartBar label="Collected" value={Math.round(fin.collected)} max={Math.round(fin.billed)} tone="bg-aqua" />
-            <ChartBar label="Outstanding" value={Math.round(fin.outstanding)} max={Math.round(fin.billed)} tone="bg-coral" />
-            <ChartBar label="Overdue" value={Math.round(fin.overdue)} max={Math.round(fin.billed)} tone="bg-destructive" />
+            <ChartBar
+              label="Collected"
+              value={Math.round(fin.collected)}
+              max={Math.round(fin.billed)}
+              tone="bg-aqua"
+            />
+            <ChartBar
+              label="Outstanding"
+              value={Math.round(fin.outstanding)}
+              max={Math.round(fin.billed)}
+              tone="bg-coral"
+            />
+            <ChartBar
+              label="Overdue"
+              value={Math.round(fin.overdue)}
+              max={Math.round(fin.billed)}
+              tone="bg-destructive"
+            />
           </CardContent>
         </Card>
 
@@ -98,7 +133,13 @@ function Analytics() {
           </CardHeader>
           <CardContent className="space-y-1.5">
             {data.routes.slice(0, 8).map((r) => (
-              <ChartBar key={r.id} label={r.area} value={r.studentIds.length} max={30} tone="bg-grad-primary" />
+              <ChartBar
+                key={r.id}
+                label={r.area}
+                value={r.studentIds.length}
+                max={30}
+                tone="bg-grad-primary"
+              />
             ))}
           </CardContent>
         </Card>

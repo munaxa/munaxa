@@ -6,8 +6,22 @@ import { PERSONAS, PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
 import { useToast } from '@/components/toast';
 import { PageHeader } from '@/components/page';
 import {
-  Badge, Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Spinner, Table,
-  TBody, TD, TH, THead, TR,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Input,
+  Select,
+  Spinner,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 import type { Tone } from '@/components/ui';
 
@@ -30,7 +44,10 @@ interface LoginEvent {
 }
 
 const OUTCOME_TONE: Record<LoginEvent['outcome'], Tone> = {
-  SUCCESS: 'success', FAILED: 'danger', EXPIRED: 'warning', DISABLED: 'muted',
+  SUCCESS: 'success',
+  FAILED: 'danger',
+  EXPIRED: 'warning',
+  DISABLED: 'muted',
 };
 
 export default function AccountsPage() {
@@ -114,7 +131,9 @@ export default function AccountsPage() {
 
   function randomPassword() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    setPassword(Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join(''));
+    setPassword(
+      Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join(''),
+    );
   }
 
   return (
@@ -131,14 +150,29 @@ export default function AccountsPage() {
         <CardContent>
           <form onSubmit={create} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="School name">
-              <Input value={org} onChange={(e) => setOrg(e.target.value)} placeholder="Future Academy" required />
+              <Input
+                value={org}
+                onChange={(e) => setOrg(e.target.value)}
+                placeholder="Future Academy"
+                required
+              />
             </Field>
             <Field label="Username">
-              <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="futureacademy-demo" required />
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="futureacademy-demo"
+                required
+              />
             </Field>
             <Field label="Password">
               <div className="flex gap-1">
-                <Input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="X9P4M2K8" required />
+                <Input
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="X9P4M2K8"
+                  required
+                />
                 <Button type="button" variant="outline" size="sm" onClick={randomPassword}>
                   Gen
                 </Button>
@@ -163,7 +197,9 @@ export default function AccountsPage() {
               </Select>
             </Field>
             <div className="flex items-end justify-end">
-              <Button type="submit" className="w-full sm:w-auto">Create account</Button>
+              <Button type="submit" className="w-full sm:w-auto">
+                Create account
+              </Button>
             </div>
           </form>
         </CardContent>
@@ -208,9 +244,13 @@ export default function AccountsPage() {
                         )}
                       </TD>
                       <TD className="font-mono text-xs">{fmtDate(a.createdAt)}</TD>
-                      <TD className="font-mono text-xs">{a.expiresAt ? fmtDate(a.expiresAt) : 'Never'}</TD>
+                      <TD className="font-mono text-xs">
+                        {a.expiresAt ? fmtDate(a.expiresAt) : 'Never'}
+                      </TD>
                       <TD>
-                        <Badge tone={expired ? 'warning' : a.status === 'ACTIVE' ? 'success' : 'muted'}>
+                        <Badge
+                          tone={expired ? 'warning' : a.status === 'ACTIVE' ? 'success' : 'muted'}
+                        >
                           {expired ? 'EXPIRED' : a.status}
                         </Badge>
                       </TD>
@@ -232,10 +272,21 @@ export default function AccountsPage() {
                             >
                               {a.status === 'ACTIVE' ? 'Disable' : 'Enable'}
                             </Button>
-                            <Button size="sm" variant="ghost" onClick={() => patch(a.id, { expiresInDays: 7 }, 'Expiry extended by 7 days.')}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                patch(a.id, { expiresInDays: 7 }, 'Expiry extended by 7 days.')
+                              }
+                            >
                               +7d
                             </Button>
-                            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove(a.id, a.username)}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive"
+                              onClick={() => remove(a.id, a.username)}
+                            >
                               Delete
                             </Button>
                           </span>

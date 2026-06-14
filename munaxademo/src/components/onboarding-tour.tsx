@@ -26,17 +26,72 @@ interface Module {
 }
 
 const MODULES: Module[] = [
-  { href: '/admissions', title: 'Admissions', desc: 'A full enquiry-to-enrolment pipeline with stages and offers.', perm: 'student:manage' },
-  { href: '/students', title: 'Student Information System', desc: 'The single record of every student, parent and section.', perm: 'student:manage' },
-  { href: '/attendance', title: 'Attendance', desc: 'Daily homeroom marking, history and live rates.', perm: 'attendance:read' },
-  { href: '/finance', title: 'Finance', desc: 'Tuition invoices, payments, balances and collections.', perm: 'finance:read' },
-  { href: '/hr', title: 'HR & Staff', desc: 'Employee records, departments, contracts and leave.', perm: 'employee:manage' },
-  { href: '/portal/parent', title: 'Parent Portal', desc: 'What families see — children, fees and messages.', personas: ['parent'] },
-  { href: '/portal/teacher', title: 'Teacher Portal', desc: 'Class lists, grade entry and homework.', personas: ['teacher'] },
-  { href: '/portal/student', title: 'Student Portal', desc: 'Timetable, grades and achievements.', personas: ['student'] },
-  { href: '/transport', title: 'Transport', desc: 'Buses, routes, drivers and live boarding scans.', perm: 'bus:read' },
-  { href: '/reports', title: 'Reports', desc: 'Academic, attendance and financial reports.', perm: 'report:read' },
-  { href: '/analytics', title: 'Analytics', desc: 'Dashboards, KPIs and charts across the school.', perm: 'report:read' },
+  {
+    href: '/admissions',
+    title: 'Admissions',
+    desc: 'A full enquiry-to-enrolment pipeline with stages and offers.',
+    perm: 'student:manage',
+  },
+  {
+    href: '/students',
+    title: 'Student Information System',
+    desc: 'The single record of every student, parent and section.',
+    perm: 'student:manage',
+  },
+  {
+    href: '/attendance',
+    title: 'Attendance',
+    desc: 'Daily homeroom marking, history and live rates.',
+    perm: 'attendance:read',
+  },
+  {
+    href: '/finance',
+    title: 'Finance',
+    desc: 'Tuition invoices, payments, balances and collections.',
+    perm: 'finance:read',
+  },
+  {
+    href: '/hr',
+    title: 'HR & Staff',
+    desc: 'Employee records, departments, contracts and leave.',
+    perm: 'employee:manage',
+  },
+  {
+    href: '/portal/parent',
+    title: 'Parent Portal',
+    desc: 'What families see — children, fees and messages.',
+    personas: ['parent'],
+  },
+  {
+    href: '/portal/teacher',
+    title: 'Teacher Portal',
+    desc: 'Class lists, grade entry and homework.',
+    personas: ['teacher'],
+  },
+  {
+    href: '/portal/student',
+    title: 'Student Portal',
+    desc: 'Timetable, grades and achievements.',
+    personas: ['student'],
+  },
+  {
+    href: '/transport',
+    title: 'Transport',
+    desc: 'Buses, routes, drivers and live boarding scans.',
+    perm: 'bus:read',
+  },
+  {
+    href: '/reports',
+    title: 'Reports',
+    desc: 'Academic, attendance and financial reports.',
+    perm: 'report:read',
+  },
+  {
+    href: '/analytics',
+    title: 'Analytics',
+    desc: 'Dashboards, KPIs and charts across the school.',
+    perm: 'report:read',
+  },
 ];
 
 interface OnboardingApi {

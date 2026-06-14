@@ -10,9 +10,19 @@ import type { SchoolEvent } from '@/seed/types';
 import { Badge, Button, Card, CardContent, Field, Input, Select } from '@/components/ui';
 import type { Tone } from '@/components/ui';
 
-const CATEGORIES: SchoolEvent['category'][] = ['ACADEMIC', 'SPORTS', 'CULTURAL', 'HOLIDAY', 'MEETING'];
+const CATEGORIES: SchoolEvent['category'][] = [
+  'ACADEMIC',
+  'SPORTS',
+  'CULTURAL',
+  'HOLIDAY',
+  'MEETING',
+];
 const CAT_TONE: Record<SchoolEvent['category'], Tone> = {
-  ACADEMIC: 'default', SPORTS: 'success', CULTURAL: 'warning', HOLIDAY: 'muted', MEETING: 'default',
+  ACADEMIC: 'default',
+  SPORTS: 'success',
+  CULTURAL: 'warning',
+  HOLIDAY: 'muted',
+  MEETING: 'default',
 };
 
 export default function EventsPage() {
@@ -22,7 +32,9 @@ export default function EventsPage() {
   const canManage = can('announcement:manage');
 
   const [title, setTitle] = useState('');
-  const [date, setDate] = useState(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
+  const [date, setDate] = useState(
+    new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10),
+  );
   const [category, setCategory] = useState<SchoolEvent['category']>('ACADEMIC');
   const [location, setLocation] = useState('Main Hall');
 
@@ -40,7 +52,14 @@ export default function EventsPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                actions.addEvent({ titleEn: title, titleAr: title, date, category, audience: 'Whole school', location });
+                actions.addEvent({
+                  titleEn: title,
+                  titleAr: title,
+                  date,
+                  category,
+                  audience: 'Whole school',
+                  location,
+                });
                 toast.success('Event added (demo only).');
                 setTitle('');
               }}
@@ -53,7 +72,10 @@ export default function EventsPage() {
                 <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
               </Field>
               <Field label="Category">
-                <Select value={category} onChange={(e) => setCategory(e.target.value as SchoolEvent['category'])}>
+                <Select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as SchoolEvent['category'])}
+                >
                   {CATEGORIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -79,7 +101,9 @@ export default function EventsPage() {
         ))}
         {past.length > 0 ? (
           <>
-            <p className="mt-4 font-mono text-xs uppercase tracking-wide text-muted-foreground">Past</p>
+            <p className="mt-4 font-mono text-xs uppercase tracking-wide text-muted-foreground">
+              Past
+            </p>
             {past.map((e) => (
               <EventRow key={e.id} event={e} muted />
             ))}

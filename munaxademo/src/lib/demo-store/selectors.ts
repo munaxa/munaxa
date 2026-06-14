@@ -21,7 +21,13 @@ export function financeSummary(b: Baseline) {
     outstanding += bal;
     if (inv.status === 'OVERDUE') overdue += bal;
   }
-  return { billed, collected, outstanding, overdue, collectionRate: billed ? (collected / billed) * 100 : 0 };
+  return {
+    billed,
+    collected,
+    outstanding,
+    overdue,
+    collectionRate: billed ? (collected / billed) * 100 : 0,
+  };
 }
 
 export function attendanceToday(b: Baseline) {
@@ -65,7 +71,10 @@ export function topOutstanding(b: Baseline, n = 8) {
     if (bal > 0) byStudent.set(inv.studentId, (byStudent.get(inv.studentId) ?? 0) + bal);
   }
   return [...byStudent.entries()]
-    .map(([studentId, balance]) => ({ student: b.students.find((s) => s.id === studentId), balance }))
+    .map(([studentId, balance]) => ({
+      student: b.students.find((s) => s.id === studentId),
+      balance,
+    }))
     .filter((x) => x.student)
     .sort((a, b2) => b2.balance - a.balance)
     .slice(0, n);

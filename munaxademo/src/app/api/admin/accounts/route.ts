@@ -51,11 +51,13 @@ export async function POST(req: NextRequest) {
     body.expiresInDays === null || body.expiresInDays === undefined
       ? null
       : Number(body.expiresInDays);
-  const role =
-    body.role && PERSONA_BY_ID[body.role as PersonaId] ? (body.role as PersonaId) : null;
+  const role = body.role && PERSONA_BY_ID[body.role as PersonaId] ? (body.role as PersonaId) : null;
 
   if (!organizationName || !username || !password) {
-    return NextResponse.json({ error: 'School name, username and password are required' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'School name, username and password are required' },
+      { status: 400 },
+    );
   }
   if (username.length < 3 || password.length < 6) {
     return NextResponse.json(

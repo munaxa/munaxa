@@ -6,8 +6,20 @@ import { studentName } from '@/lib/demo-store/selectors';
 import { useToast } from '@/components/toast';
 import { PageHeader, Kpi } from '@/components/page';
 import {
-  Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Table, TBody, TD, TH,
-  THead, TR,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 
 function letterFor(total: number): string {
@@ -26,7 +38,8 @@ export default function TeacherPortalPage() {
     () => data.teachers.find((t) => t.homeroomSectionId) ?? data.teachers[0]!,
     [data.teachers],
   );
-  const section = data.sections.find((s) => s.id === teacher.homeroomSectionId) ?? data.sections[0]!;
+  const section =
+    data.sections.find((s) => s.id === teacher.homeroomSectionId) ?? data.sections[0]!;
   const grade = data.grades.find((g) => g.id === section.gradeId);
   const roster = data.students.filter((s) => s.sectionId === section.id);
 
@@ -66,7 +79,12 @@ export default function TeacherPortalPage() {
             className="flex flex-wrap items-end gap-2"
           >
             <Field label="Homework / task" className="flex-1">
-              <Input value={homework} onChange={(e) => setHomework(e.target.value)} placeholder="Read chapter 4 and answer Q1–Q5" required />
+              <Input
+                value={homework}
+                onChange={(e) => setHomework(e.target.value)}
+                placeholder="Read chapter 4 and answer Q1–Q5"
+                required
+              />
             </Field>
             <Button type="submit">Post homework</Button>
           </form>
@@ -79,7 +97,11 @@ export default function TeacherPortalPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <Field label="Subject">
-            <Select value={subjectId} onChange={(e) => setSubjectId(e.target.value)} className="w-auto">
+            <Select
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              className="w-auto"
+            >
               {data.subjects.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.nameEn}
@@ -112,7 +134,10 @@ export default function TeacherPortalPage() {
                         onBlur={(e) => {
                           if (!rec) return;
                           const total = Math.max(0, Math.min(100, Number(e.target.value)));
-                          actions.updateGrade(rec.id, { totalPct: total, letter: letterFor(total) });
+                          actions.updateGrade(rec.id, {
+                            totalPct: total,
+                            letter: letterFor(total),
+                          });
                           toast.success(`${studentName(s)}: ${total}% saved (demo only).`);
                         }}
                       />

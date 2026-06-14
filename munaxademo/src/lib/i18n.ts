@@ -14,7 +14,15 @@ export function directionForLocale(locale: Locale): TextDirection {
 }
 
 const en = {
-  common: { appName: 'Munaxa', loading: 'Loading…', save: 'Save', cancel: 'Cancel', search: 'Search', add: 'Add', signOut: 'Sign out' },
+  common: {
+    appName: 'Munaxa',
+    loading: 'Loading…',
+    save: 'Save',
+    cancel: 'Cancel',
+    search: 'Search',
+    add: 'Add',
+    signOut: 'Sign out',
+  },
   nav: {
     dashboard: 'Dashboard',
     admissions: 'Admissions',
@@ -38,7 +46,15 @@ const en = {
 };
 
 const ar: typeof en = {
-  common: { appName: 'مُناقسة', loading: 'جارٍ التحميل…', save: 'حفظ', cancel: 'إلغاء', search: 'بحث', add: 'إضافة', signOut: 'تسجيل الخروج' },
+  common: {
+    appName: 'مُناقسة',
+    loading: 'جارٍ التحميل…',
+    save: 'حفظ',
+    cancel: 'إلغاء',
+    search: 'بحث',
+    add: 'إضافة',
+    signOut: 'تسجيل الخروج',
+  },
   nav: {
     dashboard: 'لوحة التحكم',
     admissions: 'القبول',
@@ -72,7 +88,8 @@ export function resolveMessage(messages: Messages, path: string): string {
   const val = path
     .split('.')
     .reduce<unknown>(
-      (acc, k) => (acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[k] : undefined),
+      (acc, k) =>
+        acc && typeof acc === 'object' ? (acc as Record<string, unknown>)[k] : undefined,
       messages,
     );
   return typeof val === 'string' ? val : path;

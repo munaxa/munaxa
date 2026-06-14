@@ -6,11 +6,29 @@ import { studentName, gradeDistribution, averageScore } from '@/lib/demo-store/s
 import { pct } from '@/lib/format';
 import { PageHeader, Gate, Bar } from '@/components/page';
 import {
-  Badge, Card, CardContent, CardHeader, CardTitle, Field, Select, Table, TBody, TD, TH, THead, TR,
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 import type { Tone } from '@/components/ui';
 
-const LETTER_TONE: Record<string, Tone> = { A: 'success', B: 'success', C: 'default', D: 'warning', F: 'danger' };
+const LETTER_TONE: Record<string, Tone> = {
+  A: 'success',
+  B: 'success',
+  C: 'default',
+  D: 'warning',
+  F: 'danger',
+};
 
 export default function AcademicsPage() {
   return (

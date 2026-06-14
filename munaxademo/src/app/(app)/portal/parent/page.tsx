@@ -56,14 +56,22 @@ export default function ParentPortalPage() {
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <Stat label="Attendance" value={pct(st.attRate)} tone="text-aqua" />
                   <Stat label="Average" value={pct(st.avg)} tone="text-aqua" />
-                  <Stat label="Balance" value={jod(st.balance)} tone={st.balance > 0 ? 'text-coral' : ''} />
+                  <Stat
+                    label="Balance"
+                    value={jod(st.balance)}
+                    tone={st.balance > 0 ? 'text-coral' : ''}
+                  />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      actions.mockSend('EMAIL', 'registrar@munaxa-academy.edu.jo', `Leave request for ${studentName(child)}`);
+                      actions.mockSend(
+                        'EMAIL',
+                        'registrar@munaxa-academy.edu.jo',
+                        `Leave request for ${studentName(child)}`,
+                      );
                       toast.success('Leave request submitted (demo only).');
                     }}
                   >
@@ -80,7 +88,11 @@ export default function ParentPortalPage() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        actions.mockSend('PAYMENT', 'CLIQ', `Online fee payment for ${studentName(child)}`);
+                        actions.mockSend(
+                          'PAYMENT',
+                          'CLIQ',
+                          `Online fee payment for ${studentName(child)}`,
+                        );
                         toast.success('Payment authorized (mocked — no real charge).');
                       }}
                     >
@@ -100,12 +112,17 @@ export default function ParentPortalPage() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {data.announcements.slice(0, 4).map((a) => (
-            <div key={a.id} className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0">
+            <div
+              key={a.id}
+              className="flex items-center justify-between gap-3 border-b border-border pb-2 last:border-0"
+            >
               <span>
                 <span className="font-medium">{a.titleEn}</span>{' '}
                 <span className="text-muted-foreground">· {a.body}</span>
               </span>
-              <span className="font-mono text-xs text-muted-foreground">{fmtDate(a.publishedAt)}</span>
+              <span className="font-mono text-xs text-muted-foreground">
+                {fmtDate(a.publishedAt)}
+              </span>
             </div>
           ))}
         </CardContent>
@@ -117,7 +134,9 @@ export default function ParentPortalPage() {
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div className="rounded-lg border border-border bg-background/40 p-2">
-      <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
       <div className={`font-display text-sm font-semibold ${tone ?? ''}`}>{value}</div>
     </div>
   );

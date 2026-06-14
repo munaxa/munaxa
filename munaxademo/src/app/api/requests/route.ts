@@ -11,7 +11,10 @@ function ipOf(req: NextRequest): string {
 /** Public "Book a Demo" submission. No auth; rate-limited. Never issues credentials. */
 export async function POST(req: NextRequest) {
   if (rateLimited(`req:${ipOf(req)}`)) {
-    return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 });
+    return NextResponse.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429 },
+    );
   }
 
   let body: Record<string, unknown>;

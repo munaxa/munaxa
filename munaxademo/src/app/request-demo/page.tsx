@@ -18,8 +18,15 @@ interface Form {
 }
 
 const EMPTY: Form = {
-  schoolName: '', contactPerson: '', jobTitle: '', country: 'Jordan',
-  numStudents: '', numCampuses: '1', email: '', phone: '', notes: '',
+  schoolName: '',
+  contactPerson: '',
+  jobTitle: '',
+  country: 'Jordan',
+  numStudents: '',
+  numCampuses: '1',
+  email: '',
+  phone: '',
+  notes: '',
 };
 
 export default function RequestDemoPage() {
@@ -72,7 +79,10 @@ export default function RequestDemoPage() {
                 Your demo request has been received. The Munaxa team will review it and contact you
                 shortly to schedule your guided demonstration and provide access credentials.
               </p>
-              <Link href="/login" className="inline-block text-sm font-medium text-primary hover:underline">
+              <Link
+                href="/login"
+                className="inline-block text-sm font-medium text-primary hover:underline"
+              >
                 Already have credentials? Sign in
               </Link>
             </CardContent>
@@ -98,25 +108,49 @@ export default function RequestDemoPage() {
           <CardContent className="pt-6">
             <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
               <Field label="School name" className="sm:col-span-2">
-                <Input value={form.schoolName} onChange={(e) => set('schoolName', e.target.value)} required />
+                <Input
+                  value={form.schoolName}
+                  onChange={(e) => set('schoolName', e.target.value)}
+                  required
+                />
               </Field>
               <Field label="Contact person">
-                <Input value={form.contactPerson} onChange={(e) => set('contactPerson', e.target.value)} required />
+                <Input
+                  value={form.contactPerson}
+                  onChange={(e) => set('contactPerson', e.target.value)}
+                  required
+                />
               </Field>
               <Field label="Job title">
-                <Input value={form.jobTitle} onChange={(e) => set('jobTitle', e.target.value)} placeholder="Principal, Owner…" />
+                <Input
+                  value={form.jobTitle}
+                  onChange={(e) => set('jobTitle', e.target.value)}
+                  placeholder="Principal, Owner…"
+                />
               </Field>
               <Field label="Email">
-                <Input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required />
+                <Input
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => set('email', e.target.value)}
+                  required
+                />
               </Field>
               <Field label="Phone">
-                <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+962…" />
+                <Input
+                  value={form.phone}
+                  onChange={(e) => set('phone', e.target.value)}
+                  placeholder="+962…"
+                />
               </Field>
               <Field label="Country">
                 <Input value={form.country} onChange={(e) => set('country', e.target.value)} />
               </Field>
               <Field label="Campuses">
-                <Select value={form.numCampuses} onChange={(e) => set('numCampuses', e.target.value)}>
+                <Select
+                  value={form.numCampuses}
+                  onChange={(e) => set('numCampuses', e.target.value)}
+                >
                   {['1', '2', '3', '4', '5+'].map((n) => (
                     <option key={n} value={n.replace('+', '')}>
                       {n}
@@ -134,7 +168,11 @@ export default function RequestDemoPage() {
                 />
               </Field>
               <Field label="Notes" className="sm:col-span-2">
-                <Input value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Anything you'd like us to know" />
+                <Input
+                  value={form.notes}
+                  onChange={(e) => set('notes', e.target.value)}
+                  placeholder="Anything you'd like us to know"
+                />
               </Field>
 
               {error ? (

@@ -5,7 +5,18 @@ import { useDemo } from '@/lib/demo-store/context';
 import { jod, fmtDate, num } from '@/lib/format';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 import {
-  Badge, Card, CardContent, Field, Input, Select, Table, TBody, TD, TH, THead, TR,
+  Badge,
+  Card,
+  CardContent,
+  Field,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 
 export default function HrPage() {
@@ -28,7 +39,11 @@ function Hr() {
 
   const filtered = data.employees.filter((e) => {
     if (dept && e.department !== dept) return false;
-    if (query && !e.nameEn.toLowerCase().includes(query.toLowerCase()) && !e.employeeNo.toLowerCase().includes(query.toLowerCase()))
+    if (
+      query &&
+      !e.nameEn.toLowerCase().includes(query.toLowerCase()) &&
+      !e.employeeNo.toLowerCase().includes(query.toLowerCase())
+    )
       return false;
     return true;
   });
@@ -41,14 +56,24 @@ function Hr() {
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Employees" value={num(data.employees.length)} />
-        <Kpi label="Teachers" value={num(data.employees.filter((e) => e.kind === 'TEACHER').length)} />
-        <Kpi label="Support staff" value={num(data.employees.filter((e) => e.kind === 'STAFF').length)} />
+        <Kpi
+          label="Teachers"
+          value={num(data.employees.filter((e) => e.kind === 'TEACHER').length)}
+        />
+        <Kpi
+          label="Support staff"
+          value={num(data.employees.filter((e) => e.kind === 'STAFF').length)}
+        />
         <Kpi label="Monthly payroll" value={jod(payroll)} tone="coral" />
       </section>
 
       <div className="flex flex-wrap items-end gap-2">
         <Field label="Search" className="flex-1">
-          <Input value={query} placeholder="Name or employee no…" onChange={(e) => setQuery(e.target.value)} />
+          <Input
+            value={query}
+            placeholder="Name or employee no…"
+            onChange={(e) => setQuery(e.target.value)}
+          />
         </Field>
         <Field label="Department">
           <Select value={dept} onChange={(e) => setDept(e.target.value)}>

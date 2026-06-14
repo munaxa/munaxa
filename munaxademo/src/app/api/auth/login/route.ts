@@ -1,10 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import {
-  getAccountByUsername,
-  isExpired,
-  recordLogin,
-  verifyPassword,
-} from '@/lib/auth/accounts';
+import { getAccountByUsername, isExpired, recordLogin, verifyPassword } from '@/lib/auth/accounts';
 import { signSession, ttlMinutes } from '@/lib/auth/token';
 import { COOKIE_NAME, cookieOptions, rateLimited, clearRateLimit } from '@/lib/auth/session';
 

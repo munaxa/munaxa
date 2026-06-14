@@ -5,15 +5,24 @@ import { fmtDate } from '@/lib/format';
 import { useToast } from '@/components/toast';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 import type { AdmissionStage } from '@/seed/types';
-import {
-  Badge, Card, CardContent, Select, Table, TBody, TD, TH, THead, TR,
-} from '@/components/ui';
+import { Badge, Card, CardContent, Select, Table, TBody, TD, TH, THead, TR } from '@/components/ui';
 import type { Tone } from '@/components/ui';
 
-const STAGES: AdmissionStage[] = ['INQUIRY', 'APPLIED', 'ASSESSMENT', 'OFFER', 'ENROLLED', 'REJECTED'];
+const STAGES: AdmissionStage[] = [
+  'INQUIRY',
+  'APPLIED',
+  'ASSESSMENT',
+  'OFFER',
+  'ENROLLED',
+  'REJECTED',
+];
 const STAGE_TONE: Record<AdmissionStage, Tone> = {
-  INQUIRY: 'muted', APPLIED: 'default', ASSESSMENT: 'default', OFFER: 'warning',
-  ENROLLED: 'success', REJECTED: 'danger',
+  INQUIRY: 'muted',
+  APPLIED: 'default',
+  ASSESSMENT: 'default',
+  OFFER: 'warning',
+  ENROLLED: 'success',
+  REJECTED: 'danger',
 };
 
 export default function AdmissionsPage() {
@@ -37,7 +46,12 @@ function Admissions() {
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {STAGES.map((s) => (
-          <Kpi key={s} label={s} value={String(count(s))} tone={s === 'ENROLLED' ? 'aqua' : s === 'OFFER' ? 'coral' : undefined} />
+          <Kpi
+            key={s}
+            label={s}
+            value={String(count(s))}
+            tone={s === 'ENROLLED' ? 'aqua' : s === 'OFFER' ? 'coral' : undefined}
+          />
         ))}
       </section>
 
@@ -61,7 +75,9 @@ function Admissions() {
                   <TD>{gradeName(a.gradeId)}</TD>
                   <TD>
                     {a.guardianName}
-                    <span className="block font-mono text-xs text-muted-foreground">{a.guardianPhone}</span>
+                    <span className="block font-mono text-xs text-muted-foreground">
+                      {a.guardianPhone}
+                    </span>
                   </TD>
                   <TD className="font-mono text-xs">{fmtDate(a.appliedAt)}</TD>
                   <TD>

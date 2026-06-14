@@ -109,7 +109,10 @@ export default function LoginPage() {
 
           <p className="text-center text-xs text-muted-foreground">
             Don’t have access yet?{' '}
-            <Link href={'/request-demo' as never} className="font-medium text-primary hover:underline">
+            <Link
+              href={'/request-demo' as never}
+              className="font-medium text-primary hover:underline"
+            >
               Book a demo
             </Link>
           </p>

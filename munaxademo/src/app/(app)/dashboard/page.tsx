@@ -21,10 +21,19 @@ export default function DashboardPage() {
       />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Kpi label="Students" value={num(k.students)} href={can('student:manage') ? '/students' : undefined} />
+        <Kpi
+          label="Students"
+          value={num(k.students)}
+          href={can('student:manage') ? '/students' : undefined}
+        />
         <Kpi label="Parents" value={num(k.parents)} />
         <Kpi label="Teachers" value={num(k.teachers)} />
-        <Kpi label="Attendance" value={pct(k.attendanceToday)} tone="aqua" href={can('attendance:read') ? '/attendance' : undefined} />
+        <Kpi
+          label="Attendance"
+          value={pct(k.attendanceToday)}
+          tone="aqua"
+          href={can('attendance:read') ? '/attendance' : undefined}
+        />
         {can('finance:read') ? (
           <Kpi label="Outstanding" value={jod(k.outstanding)} tone="coral" href="/finance" />
         ) : (
@@ -46,8 +55,18 @@ export default function DashboardPage() {
             <CardContent className="space-y-2">
               <Bar label="Present" n={att.counts.PRESENT} total={att.total} className="bg-aqua" />
               <Bar label="Late" n={att.counts.LATE} total={att.total} className="bg-coral" />
-              <Bar label="Absent" n={att.counts.ABSENT} total={att.total} className="bg-destructive" />
-              <Bar label="Excused" n={att.counts.EXCUSED} total={att.total} className="bg-primary" />
+              <Bar
+                label="Absent"
+                n={att.counts.ABSENT}
+                total={att.total}
+                className="bg-destructive"
+              />
+              <Bar
+                label="Excused"
+                n={att.counts.EXCUSED}
+                total={att.total}
+                className="bg-primary"
+              />
             </CardContent>
           </Card>
         ) : null}

@@ -16,12 +16,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  PERSONA_BY_ID,
-  personaPermissions,
-  type Persona,
-  type PersonaId,
-} from '@/lib/rbac';
+import { PERSONA_BY_ID, personaPermissions, type Persona, type PersonaId } from '@/lib/rbac';
 import {
   DEFAULT_LOCALE,
   directionForLocale,

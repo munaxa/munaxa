@@ -7,19 +7,21 @@
  * only this in-memory copy. Nothing is ever persisted, so the data resets to the
  * original seeded state on logout, browser close, session expiry, refresh and restart.
  */
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useReducer,
-  type ReactNode,
-} from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, type ReactNode } from 'react';
 import { Spinner } from '@/components/ui';
 import { cloneBaseline } from '@/seed';
 import type {
-  Baseline, Student, AttendanceRecord, Invoice, Payment, Announcement, SchoolEvent,
-  AdmissionApplication, OutboxMessage, Notification, GradeRecord,
+  Baseline,
+  Student,
+  AttendanceRecord,
+  Invoice,
+  Payment,
+  Announcement,
+  SchoolEvent,
+  AdmissionApplication,
+  OutboxMessage,
+  Notification,
+  GradeRecord,
 } from '@/seed/types';
 import { mockIntegrations, type Channel } from '@/lib/mock-integrations';
 
@@ -129,7 +131,12 @@ export interface DemoActions {
   setAttendance: (records: Array<Omit<AttendanceRecord, 'id'>>) => void;
   addInvoice: (i: Omit<Invoice, 'id'>) => Invoice;
   updateInvoice: (id: string, patch: Partial<Invoice>) => void;
-  recordPayment: (invoiceId: string, studentId: string, amount: number, method: Payment['method']) => void;
+  recordPayment: (
+    invoiceId: string,
+    studentId: string,
+    amount: number,
+    method: Payment['method'],
+  ) => void;
   addAnnouncement: (a: Omit<Announcement, 'id'>) => void;
   addEvent: (e: Omit<SchoolEvent, 'id'>) => void;
   setAdmissionStage: (id: string, stage: AdmissionApplication['stage']) => void;
@@ -164,8 +171,12 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
 
   const actions = useMemo<DemoActions>(() => {
     const channelLabel: Record<Channel, Notification['tone']> = {
-      EMAIL: 'default', SMS: 'default', WHATSAPP: 'success', PUSH: 'default',
-      JOFOTARA: 'success', PAYMENT: 'success',
+      EMAIL: 'default',
+      SMS: 'default',
+      WHATSAPP: 'success',
+      PUSH: 'default',
+      JOFOTARA: 'success',
+      PAYMENT: 'success',
     };
     return {
       reset: () => dispatch({ type: 'RESET' }),
@@ -189,13 +200,18 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       updateInvoice: (iid, patch) => dispatch({ type: 'UPDATE_INVOICE', id: iid, patch }),
       recordPayment: (invoiceId, studentId, amount, method) => {
         const payment: Payment = {
-          id: id('pay'), invoiceId, studentId, amount, method,
+          id: id('pay'),
+          invoiceId,
+          studentId,
+          amount,
+          method,
           paidAt: new Date().toISOString().slice(0, 10),
           reference: `RCPT-${Math.floor(Math.random() * 1e6)}`,
         };
         dispatch({ type: 'ADD_PAYMENT', payment });
       },
-      addAnnouncement: (a) => dispatch({ type: 'ADD_ANNOUNCEMENT', announcement: { ...a, id: id('ann') } }),
+      addAnnouncement: (a) =>
+        dispatch({ type: 'ADD_ANNOUNCEMENT', announcement: { ...a, id: id('ann') } }),
       addEvent: (e) => dispatch({ type: 'ADD_EVENT', event: { ...e, id: id('ev') } }),
       setAdmissionStage: (aid, stage) => dispatch({ type: 'UPDATE_ADMISSION', id: aid, stage }),
       updateGrade: (gid, patch) => dispatch({ type: 'UPDATE_GRADE', id: gid, patch }),
@@ -204,24 +220,39 @@ export function DemoDataProvider({ children }: { children: ReactNode }) {
       mockSend: (channel, to, summary) => {
         // Route through the pure mock so the "integration" is exercised, then log it.
         const fn =
-          channel === 'EMAIL' ? mockIntegrations.email
-          : channel === 'SMS' ? mockIntegrations.sms
-          : channel === 'WHATSAPP' ? mockIntegrations.whatsapp
-          : channel === 'PUSH' ? mockIntegrations.push
-          : channel === 'JOFOTARA' ? mockIntegrations.jofotara
-          : mockIntegrations.payment;
+          channel === 'EMAIL'
+            ? mockIntegrations.email
+            : channel === 'SMS'
+              ? mockIntegrations.sms
+              : channel === 'WHATSAPP'
+                ? mockIntegrations.whatsapp
+                : channel === 'PUSH'
+                  ? mockIntegrations.push
+                  : channel === 'JOFOTARA'
+                    ? mockIntegrations.jofotara
+                    : mockIntegrations.payment;
         const result = (fn as (a: string, b: string) => { reference: string })(to, summary);
         dispatch({
           type: 'OUTBOX',
-          message: { id: id('out'), channel, to, summary, at: new Date().toISOString(), status: 'MOCKED' },
+          message: {
+            id: id('out'),
+            channel,
+            to,
+            summary,
+            at: new Date().toISOString(),
+            status: 'MOCKED',
+          },
         });
         dispatch({
           type: 'PUSH_NOTIFICATION',
           notification: {
             id: id('ntf'),
-            titleEn: `${channel} sent (mock)`, titleAr: 'تم الإرسال (محاكاة)',
+            titleEn: `${channel} sent (mock)`,
+            titleAr: 'تم الإرسال (محاكاة)',
             body: `${summary} · ${result.reference}`,
-            at: new Date().toISOString(), read: false, tone: channelLabel[channel],
+            at: new Date().toISOString(),
+            read: false,
+            tone: channelLabel[channel],
           },
         });
       },

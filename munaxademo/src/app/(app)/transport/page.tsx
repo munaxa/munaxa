@@ -8,7 +8,19 @@ import { num } from '@/lib/format';
 import { useToast } from '@/components/toast';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 import {
-  Badge, Button, Card, CardContent, CardHeader, CardTitle, Select, Table, TBody, TD, TH, THead, TR,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 
 export default function TransportPage() {
@@ -36,7 +48,10 @@ function Transport() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader title="Transport" subtitle={`${data.buses.length} buses · ${num(totalRiders)} riders`} />
+      <PageHeader
+        title="Transport"
+        subtitle={`${data.buses.length} buses · ${num(totalRiders)} riders`}
+      />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Buses" value={num(data.buses.length)} />
@@ -64,10 +79,18 @@ function Transport() {
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-muted-foreground">
-            <span>Bus <span className="font-mono text-foreground">{bus.plate}</span></span>
-            <span>Driver <span className="text-foreground">{driver.nameEn}</span></span>
-            <span>Capacity <span className="font-mono text-foreground">{bus.capacity}</span></span>
-            <span>Riders <span className="font-mono text-foreground">{riders.length}</span></span>
+            <span>
+              Bus <span className="font-mono text-foreground">{bus.plate}</span>
+            </span>
+            <span>
+              Driver <span className="text-foreground">{driver.nameEn}</span>
+            </span>
+            <span>
+              Capacity <span className="font-mono text-foreground">{bus.capacity}</span>
+            </span>
+            <span>
+              Riders <span className="font-mono text-foreground">{riders.length}</span>
+            </span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {route.stops.map((stop, i) => (
@@ -94,7 +117,7 @@ function Transport() {
                 <TR key={s.id}>
                   <TD>{studentName(s)}</TD>
                   <TD>
-                    <Badge tone="success">Boarded 07:1{(s.id.length % 9)}</Badge>
+                    <Badge tone="success">Boarded 07:1{s.id.length % 9}</Badge>
                   </TD>
                   {can('transport:create') ? (
                     <TD className="text-end">

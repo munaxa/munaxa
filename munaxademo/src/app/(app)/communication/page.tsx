@@ -7,8 +7,21 @@ import { fmtDate } from '@/lib/format';
 import { useToast } from '@/components/toast';
 import { PageHeader, Gate } from '@/components/page';
 import {
-  Badge, Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Table, TBody, TD,
-  TH, THead, TR,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 
 const CHANNELS = ['IN_APP', 'EMAIL', 'SMS', 'WHATSAPP', 'PUSH'] as const;
@@ -44,7 +57,11 @@ function Communication() {
       channels: [channel],
     });
     if (channel !== 'IN_APP') {
-      actions.mockSend(channel as 'EMAIL' | 'SMS' | 'WHATSAPP' | 'PUSH', audience, `Announcement: ${title}`);
+      actions.mockSend(
+        channel as 'EMAIL' | 'SMS' | 'WHATSAPP' | 'PUSH',
+        audience,
+        `Announcement: ${title}`,
+      );
     }
     toast.success(`Announcement published to ${audience} via ${channel} (mocked).`);
     setTitle('');
@@ -53,7 +70,10 @@ function Communication() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader title="Communication" subtitle="Announcements and multi-channel messaging (all sends are mocked)." />
+      <PageHeader
+        title="Communication"
+        subtitle="Announcements and multi-channel messaging (all sends are mocked)."
+      />
 
       {canSend ? (
         <Card>
@@ -77,7 +97,10 @@ function Communication() {
                 </Select>
               </Field>
               <Field label="Channel">
-                <Select value={channel} onChange={(e) => setChannel(e.target.value as (typeof CHANNELS)[number])}>
+                <Select
+                  value={channel}
+                  onChange={(e) => setChannel(e.target.value as (typeof CHANNELS)[number])}
+                >
                   {CHANNELS.map((c) => (
                     <option key={c} value={c}>
                       {c.replace('_', ' ')}
@@ -108,7 +131,9 @@ function Communication() {
                       {c}
                     </Badge>
                   ))}
-                  <span className="font-mono text-xs text-muted-foreground">{fmtDate(a.publishedAt)}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {fmtDate(a.publishedAt)}
+                  </span>
                 </span>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">{a.body}</p>

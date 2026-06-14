@@ -8,7 +8,19 @@ import { useToast } from '@/components/toast';
 import { PageHeader, Gate } from '@/components/page';
 import type { Student } from '@/seed/types';
 import {
-  Badge, Button, Card, CardContent, Field, Input, Select, Table, TBody, TD, TH, THead, TR,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Field,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 
 const PAGE_SIZE = 12;
@@ -151,7 +163,12 @@ function Students() {
                       >
                         Edit
                       </Button>
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => remove(s)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => remove(s)}
+                      >
                         Delete
                       </Button>
                     </span>
@@ -175,7 +192,12 @@ function Students() {
           Page {page + 1} of {pageCount}
         </span>
         <span className="flex gap-2">
-          <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
             Previous
           </Button>
           <Button

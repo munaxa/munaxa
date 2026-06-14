@@ -54,7 +54,9 @@ export async function signSession(claims: SessionClaims): Promise<string> {
 }
 
 /** Verify signature AND expiry. Returns claims or null. */
-export async function verifySession(token: string | undefined | null): Promise<SessionClaims | null> {
+export async function verifySession(
+  token: string | undefined | null,
+): Promise<SessionClaims | null> {
   if (!token || !token.includes('.')) return null;
   const [payload, sig] = token.split('.');
   if (!payload || !sig) return null;

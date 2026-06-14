@@ -3,13 +3,28 @@
 import { useMemo, useState } from 'react';
 import { useDemo } from '@/lib/demo-store/context';
 import {
-  financeSummary, attendanceRate, averageScore, enrollmentByGrade, gradeDistribution,
+  financeSummary,
+  attendanceRate,
+  averageScore,
+  enrollmentByGrade,
+  gradeDistribution,
 } from '@/lib/demo-store/selectors';
 import { jod, pct, num } from '@/lib/format';
 import { useToast } from '@/components/toast';
 import { PageHeader, Gate } from '@/components/page';
 import {
-  Button, Card, CardContent, CardHeader, CardTitle, Select, Table, TBody, TD, TH, THead, TR,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 
 type Kind = 'attendance' | 'academic' | 'financial';
@@ -48,7 +63,11 @@ function Reports() {
         subtitle="Academic, attendance and financial summaries — generated entirely in your browser."
         actions={
           <>
-            <Select value={kind} onChange={(e) => setKind(e.target.value as Kind)} className="w-auto">
+            <Select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as Kind)}
+              className="w-auto"
+            >
               <option value="attendance">Attendance report</option>
               <option value="academic">Academic report</option>
               <option value="financial">Financial report</option>
@@ -62,7 +81,9 @@ function Reports() {
         {report.kpis.map((k) => (
           <Card key={k.label}>
             <CardContent className="p-4">
-              <div className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">{k.label}</div>
+              <div className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                {k.label}
+              </div>
               <div className="font-display text-xl font-semibold">{k.value}</div>
             </CardContent>
           </Card>
@@ -122,7 +143,10 @@ function buildReport(kind: Kind, data: ReturnType<typeof useDemo>['data']) {
       ],
       columns: ['Fee type', 'Billed', 'Collected', 'Outstanding'],
       rows: [...byDesc.entries()].map(([desc, e]) => [
-        desc, e.billed.toFixed(3), e.collected.toFixed(3), (e.billed - e.collected).toFixed(3),
+        desc,
+        e.billed.toFixed(3),
+        e.collected.toFixed(3),
+        (e.billed - e.collected).toFixed(3),
       ]),
     };
   }

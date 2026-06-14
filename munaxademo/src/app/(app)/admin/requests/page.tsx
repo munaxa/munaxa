@@ -6,8 +6,22 @@ import { PERSONAS, type PersonaId } from '@/lib/rbac';
 import { useToast } from '@/components/toast';
 import { PageHeader, Kpi } from '@/components/page';
 import {
-  Badge, Button, Card, CardContent, CardHeader, CardTitle, Field, Input, Select, Spinner, Table,
-  TBody, TD, TH, THead, TR,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Input,
+  Select,
+  Spinner,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 import type { Tone } from '@/components/ui';
 
@@ -27,8 +41,12 @@ interface DemoRequest {
 }
 
 const STATUS_TONE: Record<DemoRequest['status'], Tone> = {
-  NEW: 'default', CONTACTED: 'default', SCHEDULED: 'warning',
-  APPROVED: 'success', REJECTED: 'danger', CONVERTED: 'success',
+  NEW: 'default',
+  CONTACTED: 'default',
+  SCHEDULED: 'warning',
+  APPROVED: 'success',
+  REJECTED: 'danger',
+  CONVERTED: 'success',
 };
 const NEXT_ACTIONS: Record<DemoRequest['status'], DemoRequest['status'][]> = {
   NEW: ['CONTACTED', 'REJECTED'],
@@ -130,7 +148,9 @@ export default function RequestsPage() {
                       <span className="block text-xs text-muted-foreground">
                         {r.jobTitle} · {r.email}
                       </span>
-                      <span className="block font-mono text-xs text-muted-foreground">{r.phone}</span>
+                      <span className="block font-mono text-xs text-muted-foreground">
+                        {r.phone}
+                      </span>
                     </TD>
                     <TD>{r.country}</TD>
                     <TD className="text-end font-mono">{num(r.numStudents)}</TD>
@@ -141,12 +161,21 @@ export default function RequestsPage() {
                     <TD className="text-end">
                       <span className="flex flex-wrap justify-end gap-1">
                         {NEXT_ACTIONS[r.status].map((s) => (
-                          <Button key={s} size="sm" variant="ghost" onClick={() => setStatus(r.id, s)}>
-                            {s === 'CONTACTED' ? 'Mark contacted'
-                              : s === 'SCHEDULED' ? 'Schedule'
-                              : s === 'APPROVED' ? 'Approve'
-                              : s === 'REJECTED' ? 'Reject'
-                              : 'Reopen'}
+                          <Button
+                            key={s}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setStatus(r.id, s)}
+                          >
+                            {s === 'CONTACTED'
+                              ? 'Mark contacted'
+                              : s === 'SCHEDULED'
+                                ? 'Schedule'
+                                : s === 'APPROVED'
+                                  ? 'Approve'
+                                  : s === 'REJECTED'
+                                    ? 'Reject'
+                                    : 'Reopen'}
                           </Button>
                         ))}
                         {r.status === 'APPROVED' ? (
@@ -179,7 +208,11 @@ export default function RequestsPage() {
 }
 
 function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 24);
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+    .slice(0, 24);
 }
 function genPassword(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -260,7 +293,12 @@ function ProvisionDialog({
               <Field label="Password">
                 <div className="flex gap-1">
                   <Input value={password} onChange={(e) => setPassword(e.target.value)} required />
-                  <Button type="button" variant="outline" size="sm" onClick={() => setPassword(genPassword())}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPassword(genPassword())}
+                  >
                     Gen
                   </Button>
                 </div>

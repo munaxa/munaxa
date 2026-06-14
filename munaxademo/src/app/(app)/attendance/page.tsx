@@ -9,13 +9,28 @@ import { useToast } from '@/components/toast';
 import { PageHeader, Gate, Bar } from '@/components/page';
 import type { AttendanceStatus } from '@/seed/types';
 import {
-  Badge, Button, Card, CardContent, CardHeader, CardTitle, Field, Select, Table, TBody, TD, TH,
-  THead, TR,
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
 } from '@/components/ui';
 
 const STATUSES: AttendanceStatus[] = ['PRESENT', 'LATE', 'ABSENT', 'EXCUSED'];
 const TONE: Record<AttendanceStatus, 'success' | 'warning' | 'danger' | 'default'> = {
-  PRESENT: 'success', LATE: 'warning', ABSENT: 'danger', EXCUSED: 'default',
+  PRESENT: 'success',
+  LATE: 'warning',
+  ABSENT: 'danger',
+  EXCUSED: 'default',
 };
 
 export default function AttendancePage() {
@@ -59,7 +74,9 @@ function Attendance() {
     const records = roster.map((s) => ({ studentId: s.id, date, status: statusFor(s.id) }));
     actions.setAttendance(records);
     setDraft({});
-    toast.success(`Attendance saved for ${roster.length} students on ${fmtDate(date)} (demo only).`);
+    toast.success(
+      `Attendance saved for ${roster.length} students on ${fmtDate(date)} (demo only).`,
+    );
   }
 
   const sectionLabel = (id: string) => {
@@ -70,7 +87,10 @@ function Attendance() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <PageHeader title="Attendance" subtitle="Mark daily homeroom attendance and review history." />
+      <PageHeader
+        title="Attendance"
+        subtitle="Mark daily homeroom attendance and review history."
+      />
 
       <div className="flex flex-wrap items-end gap-2">
         <Field label="Section">
@@ -105,10 +125,25 @@ function Attendance() {
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          <Bar label="Present" n={summary.counts.PRESENT} total={summary.total} className="bg-aqua" />
+          <Bar
+            label="Present"
+            n={summary.counts.PRESENT}
+            total={summary.total}
+            className="bg-aqua"
+          />
           <Bar label="Late" n={summary.counts.LATE} total={summary.total} className="bg-coral" />
-          <Bar label="Absent" n={summary.counts.ABSENT} total={summary.total} className="bg-destructive" />
-          <Bar label="Excused" n={summary.counts.EXCUSED} total={summary.total} className="bg-primary" />
+          <Bar
+            label="Absent"
+            n={summary.counts.ABSENT}
+            total={summary.total}
+            className="bg-destructive"
+          />
+          <Bar
+            label="Excused"
+            n={summary.counts.EXCUSED}
+            total={summary.total}
+            className="bg-primary"
+          />
         </CardContent>
       </Card>
 
