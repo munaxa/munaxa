@@ -65,7 +65,7 @@ export interface EmailResult {
  * Never throws — returns what happened so the caller can still respond 200.
  */
 export async function sendDemoRequestEmails(req: DemoRequest): Promise<EmailResult> {
-  const apiKey = await readEnv('RESEND_API_KEY');
+  const apiKey = await readEnv('RESEND_DEMO');
   const from = (await readEnv('DEMO_FROM_EMAIL')) || 'Munaxa Demo <demo@munaxa.com>';
   const notify = (await readEnv('DEMO_NOTIFY_EMAIL')) || 'demo@munaxa.com';
 
