@@ -32,6 +32,7 @@ const en = {
     parentPortal: 'Parent portal',
     studentPortal: 'Student portal',
     teacherPortal: 'Teacher portal',
+    requests: 'Demo requests',
     accounts: 'Demo accounts',
   },
 };
@@ -55,6 +56,7 @@ const ar: typeof en = {
     parentPortal: 'بوابة ولي الأمر',
     studentPortal: 'بوابة الطالب',
     teacherPortal: 'بوابة المعلم',
+    requests: 'طلبات العرض',
     accounts: 'حسابات العرض',
   },
 };

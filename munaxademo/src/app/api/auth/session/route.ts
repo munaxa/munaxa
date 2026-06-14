@@ -11,6 +11,7 @@ export async function GET() {
     organizationName: session.org,
     username: session.username,
     admin: session.admin,
+    role: session.role,
     expiresAt: new Date(session.exp * 1000).toISOString(),
   });
 }

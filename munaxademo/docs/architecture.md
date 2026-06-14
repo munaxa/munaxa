@@ -73,6 +73,24 @@ the baseline.
 (`components/app-shell.tsx`) filters navigation by the active persona's permissions, so each role
 sees a different dashboard, navigation and reports — exactly like production RBAC.
 
+## Book a Demo funnel (controlled access)
+
+There are no public credentials. Access is provisioned by the team:
+
+```
+Visitor → /request-demo (public form) → POST /api/requests
+        → DemoRequest{status:NEW} (in-memory, lib/requests.ts)
+   admin → /admin/requests : NEW → CONTACTED → SCHEDULED → APPROVED | REJECTED
+        → "Create account" → POST /api/admin/accounts {role, expiresInDays, requestId}
+        → DemoAccount provisioned (role-locked, expiring) + request → CONVERTED
+   prospect → /login (provisioned creds) → opens directly in the assigned role
+```
+
+`/request-demo` and `POST /api/requests` are the only public surfaces besides `/login`. Demo
+requests live in server memory (no DB) and reset on restart, like everything else. Provisioned
+prospect accounts carry an **assigned role** (`DemoAccount.role`), so they enter directly in that
+persona and the in-app role switcher is hidden (admins keep free switching).
+
 ## Folder map
 
 ```

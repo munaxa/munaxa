@@ -17,9 +17,10 @@ function secret(): string {
 export interface SessionClaims {
   sid: string; // session id (random per login)
   aid: string; // account id
-  org: string; // organization name
+  org: string; // organization (school) name
   username: string;
   admin: boolean; // demo-admin (can manage demo accounts)
+  role: string | null; // assigned persona id for role-locked prospect accounts
   iat: number; // issued-at (epoch seconds)
   exp: number; // expiry (epoch seconds)
 }

@@ -40,6 +40,8 @@ interface SessionValue {
   org: string;
   isAdmin: boolean;
   persona: Persona;
+  /** True when the account is locked to a single assigned role (no switching). */
+  locked: boolean;
   permissions: string[];
   setPersona: (id: PersonaId) => void;
   can: (perm?: string) => boolean;
@@ -62,33 +64,43 @@ export function useSession(): SessionValue {
 export function SessionProvider({
   org,
   isAdmin,
+  assignedRole,
   children,
 }: {
   org: string;
   isAdmin: boolean;
+  assignedRole: PersonaId | null;
   children: ReactNode;
 }) {
   const router = useRouter();
   const { actions } = useDemo();
-  const [personaId, setPersonaId] = useState<PersonaId>('owner');
+  const locked = assignedRole !== null;
+  const [personaId, setPersonaId] = useState<PersonaId>(assignedRole ?? 'owner');
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE);
   const [theme, setTheme] = useState<Theme>('dark');
 
   useEffect(() => {
-    const p = sessionStorage.getItem(PERSONA_KEY) as PersonaId | null;
-    if (p && PERSONA_BY_ID[p]) setPersonaId(p);
+    // Locked accounts always use their assigned role; only free accounts restore it.
+    if (!locked) {
+      const p = sessionStorage.getItem(PERSONA_KEY) as PersonaId | null;
+      if (p && PERSONA_BY_ID[p]) setPersonaId(p);
+    }
     const l = (sessionStorage.getItem(LOCALE_KEY) as Locale | null) ?? DEFAULT_LOCALE;
     setLocaleState(l);
     applyLocale(l);
     const th = (sessionStorage.getItem(THEME_KEY) as Theme | null) ?? 'dark';
     setTheme(th);
     document.documentElement.classList.toggle('dark', th === 'dark');
-  }, []);
+  }, [locked]);
 
-  const setPersona = useCallback((idValue: PersonaId) => {
-    setPersonaId(idValue);
-    sessionStorage.setItem(PERSONA_KEY, idValue);
-  }, []);
+  const setPersona = useCallback(
+    (idValue: PersonaId) => {
+      if (locked) return; // role-locked accounts cannot switch
+      setPersonaId(idValue);
+      sessionStorage.setItem(PERSONA_KEY, idValue);
+    },
+    [locked],
+  );
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
@@ -125,6 +137,7 @@ export function SessionProvider({
       org,
       isAdmin,
       persona,
+      locked,
       permissions,
       setPersona,
       can: (perm?: string) => !perm || (permissions as string[]).includes(perm),
@@ -135,7 +148,7 @@ export function SessionProvider({
       t: (path: string) => resolveMessage(messages, path),
       logout,
     };
-  }, [org, isAdmin, personaId, locale, theme, setPersona, setLocale, toggleTheme, logout]);
+  }, [org, isAdmin, locked, personaId, locale, theme, setPersona, setLocale, toggleTheme, logout]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

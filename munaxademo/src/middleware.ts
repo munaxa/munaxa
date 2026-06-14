@@ -7,7 +7,14 @@ import { COOKIE_NAME } from '@/lib/auth/session';
  * page and the auth endpoints requires a valid, unexpired, signed session cookie.
  * Expired/forged cookies are rejected here before any page or data is served.
  */
-const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/logout', '/api/auth/session'];
+const PUBLIC_PATHS = [
+  '/login',
+  '/request-demo',
+  '/api/auth/login',
+  '/api/auth/logout',
+  '/api/auth/session',
+  '/api/requests',
+];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { fmtDateTime, fmtDate } from '@/lib/format';
+import { PERSONAS, PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
 import { useToast } from '@/components/toast';
 import { PageHeader } from '@/components/page';
 import {
@@ -18,6 +19,7 @@ interface Account {
   expiresAt: string | null;
   status: 'ACTIVE' | 'DISABLED';
   admin: boolean;
+  role: PersonaId | null;
 }
 interface LoginEvent {
   id: string;
@@ -40,7 +42,8 @@ export default function AccountsPage() {
   const [org, setOrg] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [expiry, setExpiry] = useState('7');
+  const [role, setRole] = useState<PersonaId>('owner');
+  const [expiry, setExpiry] = useState('14');
 
   const load = useCallback(async () => {
     const res = await fetch('/api/admin/accounts');
@@ -68,6 +71,7 @@ export default function AccountsPage() {
         organizationName: org,
         username,
         password,
+        role,
         expiresInDays: expiry === 'never' ? null : Number(expiry),
       }),
     });
@@ -125,8 +129,8 @@ export default function AccountsPage() {
           <CardTitle>Create demo account</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={create} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Organization">
+          <form onSubmit={create} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="School name">
               <Input value={org} onChange={(e) => setOrg(e.target.value)} placeholder="Future Academy" required />
             </Field>
             <Field label="Username">
@@ -140,6 +144,15 @@ export default function AccountsPage() {
                 </Button>
               </div>
             </Field>
+            <Field label="Assigned role">
+              <Select value={role} onChange={(e) => setRole(e.target.value as PersonaId)}>
+                {PERSONAS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nameEn}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Expiration">
               <Select value={expiry} onChange={(e) => setExpiry(e.target.value)}>
                 <option value="1">1 day</option>
@@ -149,8 +162,8 @@ export default function AccountsPage() {
                 <option value="never">Never</option>
               </Select>
             </Field>
-            <div className="col-span-full flex justify-end">
-              <Button type="submit">Create account</Button>
+            <div className="flex items-end justify-end">
+              <Button type="submit" className="w-full sm:w-auto">Create account</Button>
             </div>
           </form>
         </CardContent>
@@ -169,8 +182,9 @@ export default function AccountsPage() {
             <Table>
               <THead>
                 <TR>
-                  <TH>Organization</TH>
+                  <TH>School</TH>
                   <TH>Username</TH>
+                  <TH>Role</TH>
                   <TH>Created</TH>
                   <TH>Expires</TH>
                   <TH>Status</TH>
@@ -184,6 +198,15 @@ export default function AccountsPage() {
                     <TR key={a.id}>
                       <TD>{a.organizationName}</TD>
                       <TD className="font-mono text-xs">{a.username}</TD>
+                      <TD>
+                        {a.admin ? (
+                          <Badge tone="default">Admin</Badge>
+                        ) : a.role ? (
+                          <Badge tone="muted">{PERSONA_BY_ID[a.role]?.nameEn ?? a.role}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">Any</span>
+                        )}
+                      </TD>
                       <TD className="font-mono text-xs">{fmtDate(a.createdAt)}</TD>
                       <TD className="font-mono text-xs">{a.expiresAt ? fmtDate(a.expiresAt) : 'Never'}</TD>
                       <TD>

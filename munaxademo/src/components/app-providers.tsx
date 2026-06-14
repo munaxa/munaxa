@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { DemoDataProvider } from '@/lib/demo-store/context';
 import { SessionProvider } from '@/lib/session-context';
+import type { PersonaId } from '@/lib/rbac';
 import { OnboardingProvider } from './onboarding-tour';
 import { DemoBanner } from './demo-banner';
 import { AppShell } from './app-shell';
@@ -18,15 +19,17 @@ import { AppShell } from './app-shell';
 export function AppProviders({
   org,
   isAdmin,
+  assignedRole,
   children,
 }: {
   org: string;
   isAdmin: boolean;
+  assignedRole: PersonaId | null;
   children: ReactNode;
 }) {
   return (
     <DemoDataProvider>
-      <SessionProvider org={org} isAdmin={isAdmin}>
+      <SessionProvider org={org} isAdmin={isAdmin} assignedRole={assignedRole}>
         <OnboardingProvider>
           <DemoBanner />
           <AppShell>{children}</AppShell>

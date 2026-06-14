@@ -6,6 +6,8 @@
  * on restart (an accepted reset trigger). There is no database.
  */
 
+import type { PersonaId } from '@/lib/rbac';
+
 export interface SeedAccount {
   organizationName: string;
   username: string;
@@ -14,10 +16,13 @@ export interface SeedAccount {
   expiresInDays: number | null;
   status: 'ACTIVE' | 'DISABLED';
   admin?: boolean;
+  /** Assigned persona for prospect accounts (locked to this role). */
+  role?: PersonaId;
 }
 
 export const SEED_ACCOUNTS: SeedAccount[] = [
-  // The demo administrator who manages all other demo accounts.
+  // The demo administrator who reviews requests and provisions all other accounts.
+  // This is the ONLY built-in account; prospect access is created from approved requests.
   {
     organizationName: 'Munaxa Demo Admin',
     username: 'munaxa-admin',
@@ -26,20 +31,14 @@ export const SEED_ACCOUNTS: SeedAccount[] = [
     status: 'ACTIVE',
     admin: true,
   },
-  // A general-purpose demo login for prospects / sales.
-  {
-    organizationName: 'Munaxa Academy (Demo)',
-    username: 'demo',
-    password: 'MunaxaDemo#2026',
-    expiresInDays: null,
-    status: 'ACTIVE',
-  },
-  // Example time-boxed prospect account (mirrors the spec's "Future Academy / 7 days").
+  // Example of an already-provisioned, time-boxed prospect account (role-locked).
+  // Mirrors the spec's "Future Academy / 7 days" example.
   {
     organizationName: 'Future Academy',
     username: 'futureacademy-demo',
     password: 'X9P4M2K8',
     expiresInDays: 7,
     status: 'ACTIVE',
+    role: 'owner',
   },
 ];

@@ -37,12 +37,13 @@ const NAV: NavItem[] = [
   { href: '/portal/parent', labelKey: 'nav.parentPortal', personas: ['parent'] },
   { href: '/portal/student', labelKey: 'nav.studentPortal', personas: ['student'] },
   { href: '/portal/teacher', labelKey: 'nav.teacherPortal', personas: ['teacher'] },
+  { href: '/admin/requests', labelKey: 'nav.requests', adminOnly: true },
   { href: '/admin/accounts', labelKey: 'nav.accounts', adminOnly: true },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { t, can, persona, org, isAdmin, locale, logout } = useSession();
+  const { t, can, persona, org, isAdmin, locked, locale, logout } = useSession();
   const { data } = useDemo();
   const onboarding = useOnboarding();
 
@@ -96,7 +97,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </span>
           <div className="ms-auto flex items-center gap-2 sm:gap-3">
             <span className="hidden text-xs text-muted-foreground sm:inline">Viewing as</span>
-            <RoleSwitcher />
+            {locked ? (
+              <span className="rounded-lg border border-border px-2.5 py-1.5 text-sm">
+                {locale === 'ar' ? persona.nameAr : persona.nameEn}
+              </span>
+            ) : (
+              <RoleSwitcher />
+            )}
             <Button
               variant="ghost"
               size="sm"

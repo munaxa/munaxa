@@ -23,7 +23,11 @@ open a connection to any external host, even if code attempted to. `default-src 
 ## Access control
 
 - **Not publicly accessible.** `middleware.ts` requires a valid session on every route except the
-  login page and the auth endpoints.
+  login page, the public "Book a Demo" form (`/request-demo`, `POST /api/requests`) and the auth
+  endpoints. There are **no shared/public credentials** — access is provisioned per prospect from
+  an approved demo request, so competitors cannot self-serve their way in.
+- **Role-locked accounts.** Prospect accounts carry an assigned role and cannot switch roles;
+  scope is controlled by the sales team per account.
 - **Signed sessions.** The session token is an HMAC-SHA256-signed payload (Web Crypto), set as an
   **httpOnly, SameSite=Strict, Secure** (in production) cookie. It carries an absolute expiry
   (`exp`) that is verified on every request.

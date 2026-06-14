@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     org: account.organizationName,
     username: account.username,
     admin: account.admin,
+    role: account.role,
     iat: now,
     exp: now + ttlMinutes() * 60,
   });
@@ -71,6 +72,7 @@ export async function POST(req: NextRequest) {
     organizationName: account.organizationName,
     username: account.username,
     admin: account.admin,
+    role: account.role,
   });
   res.cookies.set(COOKIE_NAME, token, cookieOptions(process.env.NODE_ENV === 'production'));
   return res;

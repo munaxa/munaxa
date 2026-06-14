@@ -18,10 +18,11 @@ external service.
 - **Session-only changes.** Create/edit/delete anything — students, attendance, invoices,
   announcements. Nothing is persisted; everything resets to the seeded baseline.
 - **8 roles** with different permissions, dashboards and navigation: School Owner, Principal,
-  Registrar, Finance Manager, Teacher, Parent, Student, Bus Supervisor. Switch from the login
-  page or the top bar.
-- **Login-protected.** Not publicly accessible: a signed, httpOnly session cookie gates every
-  route. Admins manage time-boxed demo accounts (create / disable / delete / expiry / history).
+  Registrar, Finance Manager, Teacher, Parent, Student, Bus Supervisor. Prospect accounts are
+  locked to an assigned role; the admin can switch freely.
+- **Sales-driven access (Book a Demo).** No public credentials. A prospect submits a request,
+  the team reviews/contacts/schedules, then an admin **provisions** a role-locked, time-boxed
+  account from the approved request. A signed, httpOnly session cookie gates every route.
 - **All integrations mocked.** Email, SMS, WhatsApp, push, JoFotara e-invoicing and payments are
   stubbed and recorded in an in-app outbox — never sent. The CSP blocks all outbound connections.
 - **Guided onboarding** + a permanent demo banner with one-click reset.
@@ -41,15 +42,26 @@ Build for production:
 npm run build && npm run start
 ```
 
-## Demo credentials
+## Access model — Book a Demo
 
-| Username             | Password           | Role        | Notes                         |
-| -------------------- | ------------------ | ----------- | ----------------------------- |
-| `demo`               | `MunaxaDemo#2026`  | prospect    | General exploration login     |
-| `futureacademy-demo` | `X9P4M2K8`         | prospect    | Example, expires in 7 days    |
-| `munaxa-admin`       | `MunaxaAdmin#2026` | demo admin  | Can manage demo accounts      |
+The demo is **not** publicly accessible. The flow is sales-driven:
 
-After signing in, pick a role to explore. Switch roles any time from the top bar.
+1. Visitor clicks **Book a Demo** on the landing page → `/request-demo` (public form).
+2. The request lands in **Demo requests** (admin). The team marks it Contacted → Scheduled →
+   **Approved** (or Rejected).
+3. From an approved request the admin clicks **Create account** → assigns a role + expiry → the
+   account is provisioned and the request becomes **Converted**.
+4. Credentials are shared manually with the prospect, who signs in at `/login`. Their account is
+   **locked to its assigned role** and **expires automatically**.
+
+### Built-in account
+
+| Username       | Password           | Notes                                                  |
+| -------------- | ------------------ | ------------------------------------------------------ |
+| `munaxa-admin` | `MunaxaAdmin#2026` | Demo admin: reviews requests, provisions/manages accts |
+
+> A sample provisioned prospect account `futureacademy-demo` / `X9P4M2K8` (role: School Owner,
+> 7-day expiry) is seeded for testing. Remove it from `src/seed/accounts.ts` for a clean deploy.
 
 ## Documentation
 

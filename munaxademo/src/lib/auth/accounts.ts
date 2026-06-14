@@ -4,16 +4,25 @@
  * the server restarts. Passwords are PBKDF2-hashed (never kept as plaintext at rest).
  */
 import { SEED_ACCOUNTS } from '@/seed/accounts';
+import type { PersonaId } from '@/lib/rbac';
 
 export interface DemoAccount {
   id: string;
-  organizationName: string;
+  organizationName: string; // school name
   username: string;
   passwordHash: string;
   createdAt: string;
   expiresAt: string | null;
   status: 'ACTIVE' | 'DISABLED';
   admin: boolean;
+  /** Assigned persona for prospect accounts; admins have none (free switching). */
+  role: PersonaId | null;
+}
+
+/** Configurable default expiry (days) for newly provisioned demo accounts. */
+export function defaultExpiryDays(): number {
+  const v = Number(process.env.DEMO_DEFAULT_EXPIRY_DAYS);
+  return Number.isFinite(v) && v > 0 ? v : 14;
 }
 
 export interface LoginEvent {
@@ -107,6 +116,7 @@ async function ensureSeeded(): Promise<void> {
               : new Date(now + seed.expiresInDays * 86_400_000).toISOString(),
           status: seed.status,
           admin: Boolean(seed.admin),
+          role: seed.role ?? null,
         });
       }
       s.seq = i;
@@ -140,6 +150,7 @@ export async function createAccount(input: {
   username: string;
   password: string;
   expiresInDays: number | null;
+  role: PersonaId | null;
 }): Promise<DemoAccount> {
   await ensureSeeded();
   const s = store();
@@ -160,6 +171,7 @@ export async function createAccount(input: {
         : new Date(Date.now() + input.expiresInDays * 86_400_000).toISOString(),
     status: 'ACTIVE',
     admin: false,
+    role: input.role,
   };
   s.accounts.set(id, acct);
   return acct;

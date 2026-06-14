@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { PERSONAS, type PersonaId } from '@/lib/rbac';
+import { PERSONAS, PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
 import { Logo } from '@/components/logo';
 import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
@@ -11,7 +12,7 @@ const PERSONA_KEY = 'munaxa.demo.persona';
 export default function LoginPage() {
   const router = useRouter();
   const [step, setStep] = useState<'auth' | 'persona'>('auth');
-  const [username, setUsername] = useState('demo');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [org, setOrg] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -32,9 +33,18 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
       });
-      const body = (await res.json()) as { error?: string; organizationName?: string };
+      const body = (await res.json()) as {
+        error?: string;
+        organizationName?: string;
+        role?: PersonaId | null;
+      };
       if (!res.ok) throw new Error(body.error ?? 'Login failed');
       setOrg(body.organizationName ?? 'Munaxa Academy');
+      // Role-locked prospect accounts go straight in; admins choose a persona.
+      if (body.role && PERSONA_BY_ID[body.role]) {
+        choosePersona(body.role);
+        return;
+      }
       setStep('persona');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -98,8 +108,10 @@ export default function LoginPage() {
           </Card>
 
           <p className="text-center text-xs text-muted-foreground">
-            Try <span className="font-mono text-foreground">demo</span> /{' '}
-            <span className="font-mono text-foreground">MunaxaDemo#2026</span>
+            Don’t have access yet?{' '}
+            <Link href={'/request-demo' as never} className="font-medium text-primary hover:underline">
+              Book a demo
+            </Link>
           </p>
         </div>
       ) : (

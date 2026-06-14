@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getServerSession } from '@/lib/auth/session';
 import { createAccount, listAccounts, loginHistory } from '@/lib/auth/accounts';
+import { updateRequest } from '@/lib/requests';
+import { PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +31,14 @@ export async function POST(req: NextRequest) {
   if (!(await requireAdmin())) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-  let body: { organizationName?: string; username?: string; password?: string; expiresInDays?: number | null };
+  let body: {
+    organizationName?: string;
+    username?: string;
+    password?: string;
+    expiresInDays?: number | null;
+    role?: string | null;
+    requestId?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -42,9 +51,11 @@ export async function POST(req: NextRequest) {
     body.expiresInDays === null || body.expiresInDays === undefined
       ? null
       : Number(body.expiresInDays);
+  const role =
+    body.role && PERSONA_BY_ID[body.role as PersonaId] ? (body.role as PersonaId) : null;
 
   if (!organizationName || !username || !password) {
-    return NextResponse.json({ error: 'Organization, username and password are required' }, { status: 400 });
+    return NextResponse.json({ error: 'School name, username and password are required' }, { status: 400 });
   }
   if (username.length < 3 || password.length < 6) {
     return NextResponse.json(
@@ -53,7 +64,9 @@ export async function POST(req: NextRequest) {
     );
   }
   try {
-    const acct = await createAccount({ organizationName, username, password, expiresInDays });
+    const acct = await createAccount({ organizationName, username, password, expiresInDays, role });
+    // If provisioned from an approved request, mark it converted and link the account.
+    if (body.requestId) updateRequest(body.requestId, { status: 'CONVERTED', accountId: acct.id });
     return NextResponse.json({ account: publicAccount(acct) }, { status: 201 });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed' }, { status: 409 });

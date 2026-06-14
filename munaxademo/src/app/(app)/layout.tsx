@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getServerSession } from '@/lib/auth/session';
 import { AppProviders } from '@/components/app-providers';
+import { PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
 
 /**
  * Server guard for every authenticated page. The middleware already blocks unsigned
@@ -10,8 +11,10 @@ import { AppProviders } from '@/components/app-providers';
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession();
   if (!session) redirect('/login');
+  const assignedRole =
+    session.role && PERSONA_BY_ID[session.role as PersonaId] ? (session.role as PersonaId) : null;
   return (
-    <AppProviders org={session.org} isAdmin={session.admin}>
+    <AppProviders org={session.org} isAdmin={session.admin} assignedRole={assignedRole}>
       {children}
     </AppProviders>
   );
