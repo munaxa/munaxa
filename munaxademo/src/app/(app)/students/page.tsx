@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useDemo } from '@/lib/demo-store/context';
 import { studentName } from '@/lib/demo-store/selectors';
 import { fmtDate } from '@/lib/format';
@@ -140,7 +141,12 @@ function Students() {
                 <TR key={s.id}>
                   <TD className="font-mono text-xs">{s.studentNo}</TD>
                   <TD>
-                    {studentName(s)}
+                    <Link
+                      href={`/students/${s.id}` as never}
+                      className="font-medium text-foreground hover:text-primary hover:underline"
+                    >
+                      {studentName(s)}
+                    </Link>
                     <span className="block text-xs text-muted-foreground" dir="rtl">
                       {s.firstNameAr} {s.familyAr}
                     </span>
