@@ -15,8 +15,9 @@ async function requireAdmin() {
 
 function publicAccount(a: Awaited<ReturnType<typeof listAccounts>>[number]) {
   // Never expose password hashes.
-  const { passwordHash: _hash, ...rest } = a;
+  const { passwordHash: _hash, seedPassword: _seed, ...rest } = a;
   void _hash;
+  void _seed;
   return rest;
 }
 

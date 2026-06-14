@@ -24,6 +24,12 @@ export interface DemoAccount {
   admin: boolean;
   /** Assigned persona for prospect accounts; admins have none (free switching). */
   role: PersonaId | null;
+  /**
+   * Built-in (seed) accounts keep their password in memory and are compared without
+   * PBKDF2. This keeps every request to ≤ 1 hash, so cold-start seeding never exceeds
+   * Cloudflare's Free-plan CPU limit. Never persisted (stripped before writing to KV).
+   */
+  seedPassword?: string;
 }
 
 /** Configurable default expiry (days) for newly provisioned demo accounts. */
@@ -96,6 +102,19 @@ export async function verifyPassword(password: string, stored: string): Promise<
   let diff = a.length ^ b.length;
   for (let i = 0; i < a.length; i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
   return diff === 0;
+}
+
+/** Verify a login. Built-in seed accounts compare in-memory (no PBKDF2); admin-created
+ *  accounts verify against their PBKDF2 hash — so any request does ≤ 1 hash. */
+export async function checkPassword(account: DemoAccount, password: string): Promise<boolean> {
+  if (account.seedPassword !== undefined) {
+    const a = enc.encode(account.seedPassword);
+    const b = enc.encode(password);
+    let diff = a.length ^ b.length;
+    for (let i = 0; i < a.length; i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
+    return diff === 0;
+  }
+  return verifyPassword(password, account.passwordHash);
 }
 
 /* ── Module-level singletons (survive across requests, reset on server restart). ── */
@@ -172,10 +191,17 @@ async function readBlob(): Promise<string | null> {
   }
 }
 
-/** Persist the current accounts (best-effort) to KV or the JSON file. */
+/** Persist only admin-created accounts (best-effort). Built-in seed accounts always
+ *  come from code and are never written out. */
 async function persist(): Promise<void> {
   const s = store();
-  await writeBlob(JSON.stringify({ seq: s.seq, accounts: [...s.accounts.values()] }, null, 2));
+  const created = [...s.accounts.values()]
+    .filter((a) => a.seedPassword === undefined)
+    .map(({ seedPassword: _omit, ...rest }) => {
+      void _omit;
+      return rest;
+    });
+  await writeBlob(JSON.stringify({ seq: s.seq, accounts: created }, null, 2));
 }
 
 async function loadFromDisk(): Promise<{ seq: number; accounts: DemoAccount[] } | null> {
@@ -192,16 +218,15 @@ async function loadFromDisk(): Promise<{ seq: number; accounts: DemoAccount[] } 
   return null;
 }
 
-async function buildSeedAccount(
-  seed: (typeof SEED_ACCOUNTS)[number],
-  id: string,
-): Promise<DemoAccount> {
+/** Build a seed account WITHOUT hashing (compared in-memory; never persisted). */
+function buildSeedAccount(seed: (typeof SEED_ACCOUNTS)[number], id: string): DemoAccount {
   const now = Date.now();
   return {
     id,
     organizationName: seed.organizationName,
     username: seed.username.toLowerCase(),
-    passwordHash: await hashPassword(seed.password),
+    passwordHash: '',
+    seedPassword: seed.password,
     createdAt: new Date(now).toISOString(),
     expiresAt:
       seed.expiresInDays === null
@@ -217,32 +242,28 @@ async function ensureSeeded(): Promise<void> {
   if (!g.__munaxaDemoInit) {
     g.__munaxaDemoInit = (async () => {
       const s = store();
-      const loaded = await loadFromDisk();
-      if (loaded && loaded.accounts.length) {
-        for (const a of loaded.accounts) s.accounts.set(a.id, a);
-        s.seq = Math.max(loaded.seq, s.accounts.size);
-        // Guarantee the built-in seed accounts (esp. the admin) always exist even if
-        // an older persisted file predates them.
-        let changed = false;
-        for (const seed of SEED_ACCOUNTS) {
-          const u = seed.username.toLowerCase();
-          if (![...s.accounts.values()].some((a) => a.username === u)) {
-            const acct = await buildSeedAccount(seed, `acct-${++s.seq}`);
-            s.accounts.set(acct.id, acct);
-            changed = true;
-          }
-        }
-        if (changed) await persist();
-        return;
-      }
-      // First boot: seed from file-less defaults, then write the file.
+      const seedUsernames = new Set(SEED_ACCOUNTS.map((x) => x.username.toLowerCase()));
+
+      // Built-in accounts always come from code (so the admin always exists and seed
+      // password changes propagate). No hashing → zero PBKDF2 on cold start.
       let i = 0;
       for (const seed of SEED_ACCOUNTS) {
-        const acct = await buildSeedAccount(seed, `acct-${++i}`);
+        const acct = buildSeedAccount(seed, `acct-${++i}`);
         s.accounts.set(acct.id, acct);
       }
-      s.seq = i;
-      await persist();
+
+      // Admin-created accounts come from KV / the JSON file (already hashed). Skip any
+      // that collide with a built-in username.
+      const loaded = await loadFromDisk();
+      if (loaded) {
+        for (const a of loaded.accounts) {
+          if (seedUsernames.has(a.username.toLowerCase())) continue;
+          s.accounts.set(a.id, a);
+        }
+        s.seq = Math.max(loaded.seq, i);
+      } else {
+        s.seq = i;
+      }
     })();
   }
   return g.__munaxaDemoInit;
