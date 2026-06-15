@@ -153,3 +153,38 @@ export const financeApi = {
       body: JSON.stringify({ channels }),
     }).then((r) => json<{ recipients: number; smsSent: number }>(r)),
 };
+
+// --------------------------------------------------------------------------- Fee plans
+
+export type FeeRecurrence = 'ONE_TIME' | 'MONTHLY' | 'TERM' | 'ANNUAL';
+
+export const FEE_RECURRENCES: FeeRecurrence[] = ['ONE_TIME', 'MONTHLY', 'TERM', 'ANNUAL'];
+
+export interface FeePlan {
+  id: string;
+  name: string;
+  description?: string | null;
+  amount: string;
+  recurrence: FeeRecurrence;
+  isActive: boolean;
+}
+
+export interface CreateFeePlanInput {
+  name: string;
+  description?: string;
+  amount: number;
+  recurrence?: FeeRecurrence;
+  isActive?: boolean;
+}
+
+export const feePlansApi = {
+  list: () => authFetch('/finance/fee-plans').then((r) => json<FeePlan[]>(r)),
+  create: (data: CreateFeePlanInput) =>
+    authFetch('/finance/fee-plans', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<FeePlan>(r),
+    ),
+  update: (id: string, data: Partial<CreateFeePlanInput>) =>
+    authFetch(`/finance/fee-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(
+      (r) => json<FeePlan>(r),
+    ),
+};
