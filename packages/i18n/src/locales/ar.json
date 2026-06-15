@@ -29,6 +29,7 @@
   "nav": {
     "dashboard": "الرئيسية",
     "structure": "هيكل المدرسة",
+    "academicStructure": "الهيكل الأكاديمي",
     "people": "الأشخاص",
     "teachers": "المعلمون",
     "parents": "أولياء الأمور",

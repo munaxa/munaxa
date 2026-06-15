@@ -29,6 +29,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "structure": "School structure",
+    "academicStructure": "Academic structure",
     "people": "People",
     "teachers": "Teachers",
     "parents": "Parents",
