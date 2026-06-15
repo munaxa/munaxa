@@ -31,6 +31,7 @@ const NAV: NavItem[] = [
   { href: '/presence', labelKey: 'nav.presence', perm: 'presence:read' },
   { href: '/academics', labelKey: 'nav.academics', perm: 'grade:read' },
   { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
+  { href: '/finance/fee-plans', labelKey: 'nav.feePlans', perm: 'finance:read' },
   { href: '/communication', labelKey: 'nav.communication', perm: 'announcement:manage' },
   { href: '/fleet', labelKey: 'nav.fleet', perm: 'bus:read' },
   { href: '/library', labelKey: 'nav.library', perm: 'library:read' },
