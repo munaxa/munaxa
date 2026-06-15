@@ -1,7 +1,8 @@
 import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { HeroIllustration } from '@/components/icons/hero-illustration';
+import { AppFrame } from '@/components/product/app-frame';
+import { DashboardPreview } from '@/components/product/dashboard-preview';
 import { DEMO_URL } from '@/lib/constants';
 import type { Dictionary } from '@/lib/i18n/types';
 
@@ -54,10 +55,13 @@ export function Hero({ dict }: { dict: Dictionary }) {
             className="absolute -inset-6 -z-10 rounded-3xl bg-grad-primary opacity-20 blur-3xl"
             aria-hidden
           />
-          <HeroIllustration
-            className="w-full drop-shadow-card"
+          <AppFrame
+            label="app.munaxa.com/dashboard"
             ariaLabel={dict.hero.illustrationAlt}
-          />
+            className="w-full"
+          >
+            <DashboardPreview />
+          </AppFrame>
         </div>
       </div>
     </section>
