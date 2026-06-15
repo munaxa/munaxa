@@ -1,5 +1,6 @@
 import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
+import containerQueries from '@tailwindcss/container-queries';
 
 /**
  * Munaxa design-system v3 tokens (inlined so this app is fully standalone). Palette: violet
@@ -85,7 +86,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [animate],
+  plugins: [animate, containerQueries],
 };
 
 export default config;
