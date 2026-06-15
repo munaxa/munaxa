@@ -53,44 +53,44 @@ export default async function TermsPage() {
 
   return (
     <>
-    <LegalShell locale={locale} theme={theme} dict={dict} title={t.title}>
-      <p>{t.intro}</p>
+      <LegalShell locale={locale} theme={theme} dict={dict} title={t.title}>
+        <p>{t.intro}</p>
 
-      <h2>{t.use.heading}</h2>
-      <p>{t.use.body}</p>
+        <h2>{t.use.heading}</h2>
+        <p>{t.use.body}</p>
 
-      <h2>{t.content.heading}</h2>
-      <p>
-        {t.content.before} {SITE_NAME} {t.content.after}
-      </p>
+        <h2>{t.content.heading}</h2>
+        <p>
+          {t.content.before} {SITE_NAME} {t.content.after}
+        </p>
 
-      <h2>{t.inquiries.heading}</h2>
-      <p>
-        {t.inquiries.before} {SITE_NAME} {t.inquiries.after}
-      </p>
+        <h2>{t.inquiries.heading}</h2>
+        <p>
+          {t.inquiries.before} {SITE_NAME} {t.inquiries.after}
+        </p>
 
-      <h2>{t.noWarranty.heading}</h2>
-      <p>{t.noWarranty.body}</p>
+        <h2>{t.noWarranty.heading}</h2>
+        <p>{t.noWarranty.body}</p>
 
-      <h2>{t.liability.heading}</h2>
-      <p>
-        {t.liability.before} {SITE_NAME} {t.liability.after}
-      </p>
+        <h2>{t.liability.heading}</h2>
+        <p>
+          {t.liability.before} {SITE_NAME} {t.liability.after}
+        </p>
 
-      <h2>{t.changes.heading}</h2>
-      <p>{t.changes.body}</p>
+        <h2>{t.changes.heading}</h2>
+        <p>{t.changes.body}</p>
 
-      <h2>{t.contact.heading}</h2>
-      <p>
-        {t.contact.before} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-        {t.contact.after}
-      </p>
-    </LegalShell>
-    <script
-      type="application/ld+json"
-      nonce={nonce}
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-    />
+        <h2>{t.contact.heading}</h2>
+        <p>
+          {t.contact.before} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          {t.contact.after}
+        </p>
+      </LegalShell>
+      <script
+        type="application/ld+json"
+        nonce={nonce}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
     </>
   );
 }

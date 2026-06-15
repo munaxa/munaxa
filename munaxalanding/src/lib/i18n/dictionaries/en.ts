@@ -419,7 +419,8 @@ export const en: Dictionary = {
       },
       content: {
         heading: 'Content',
-        before: 'All content on this Site, including text, graphics, logos, and design, is the property of',
+        before:
+          'All content on this Site, including text, graphics, logos, and design, is the property of',
         after:
           'or its licensors and is protected by applicable intellectual property laws. You may ' +
           'not reproduce or distribute this content without prior written consent.',

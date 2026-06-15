@@ -53,50 +53,50 @@ export default async function PrivacyPage() {
 
   return (
     <>
-    <LegalShell locale={locale} theme={theme} dict={dict} title={t.title}>
-      <p>{t.intro}</p>
+      <LegalShell locale={locale} theme={theme} dict={dict} title={t.title}>
+        <p>{t.intro}</p>
 
-      <h2>{t.infoCollect.heading}</h2>
-      <p>{t.infoCollect.intro}</p>
-      <ul>
-        {t.infoCollect.items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
+        <h2>{t.infoCollect.heading}</h2>
+        <p>{t.infoCollect.intro}</p>
+        <ul>
+          {t.infoCollect.items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
 
-      <h2>{t.infoUse.heading}</h2>
-      <ul>
-        {t.infoUse.items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
+        <h2>{t.infoUse.heading}</h2>
+        <ul>
+          {t.infoUse.items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
 
-      <h2>{t.retention.heading}</h2>
-      <p>{t.retention.body}</p>
+        <h2>{t.retention.heading}</h2>
+        <p>{t.retention.body}</p>
 
-      <h2>{t.sharing.heading}</h2>
-      <p>{t.sharing.body}</p>
+        <h2>{t.sharing.heading}</h2>
+        <p>{t.sharing.body}</p>
 
-      <h2>{t.rights.heading}</h2>
-      <p>
-        {t.rights.before} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-        {t.rights.after}
-      </p>
+        <h2>{t.rights.heading}</h2>
+        <p>
+          {t.rights.before} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          {t.rights.after}
+        </p>
 
-      <h2>{t.security.heading}</h2>
-      <p>{t.security.body}</p>
+        <h2>{t.security.heading}</h2>
+        <p>{t.security.body}</p>
 
-      <h2>{t.contact.heading}</h2>
-      <p>
-        {t.contact.before} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
-        {t.contact.after}
-      </p>
-    </LegalShell>
-    <script
-      type="application/ld+json"
-      nonce={nonce}
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-    />
+        <h2>{t.contact.heading}</h2>
+        <p>
+          {t.contact.before} <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+          {t.contact.after}
+        </p>
+      </LegalShell>
+      <script
+        type="application/ld+json"
+        nonce={nonce}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
     </>
   );
 }
