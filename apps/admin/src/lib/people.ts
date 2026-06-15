@@ -76,3 +76,114 @@ export const studentsApi = {
       json<ImportResult>(r),
     ),
 };
+
+// ---------------------------------------------------------------------------
+// Staff & guardians (teachers / parents / employees)
+// ---------------------------------------------------------------------------
+
+export type EmploymentStatus = 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED';
+
+export const EMPLOYMENT_STATUSES: EmploymentStatus[] = ['ACTIVE', 'ON_LEAVE', 'TERMINATED'];
+
+/** DELETE helper — endpoints reply 204 No Content, so there is no body to parse. */
+async function del(path: string): Promise<void> {
+  const res = await authFetch(path, { method: 'DELETE' });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
+    const message = Array.isArray(body.message) ? body.message.join(', ') : body.message;
+    throw new Error(message ?? `Request failed (${res.status})`);
+  }
+}
+
+export interface Teacher {
+  id: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  employeeNumber?: string | null;
+  specialization?: string | null;
+  status: EmploymentStatus;
+}
+
+export interface CreateTeacherInput {
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  employeeNumber?: string;
+  specialization?: string;
+  status?: EmploymentStatus;
+}
+
+export const teachersApi = {
+  list: () => authFetch('/teachers').then((r) => json<Teacher[]>(r)),
+  create: (data: CreateTeacherInput) =>
+    authFetch('/teachers', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Teacher>(r),
+    ),
+  remove: (id: string) => del(`/teachers/${id}`),
+};
+
+export interface Parent {
+  id: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  phone?: string | null;
+  nationalId?: string | null;
+  occupation?: string | null;
+}
+
+export interface CreateParentInput {
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  phone?: string;
+  nationalId?: string;
+  occupation?: string;
+}
+
+export const parentsApi = {
+  list: (studentId?: string) =>
+    authFetch(`/parents${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`).then(
+      (r) => json<Parent[]>(r),
+    ),
+  create: (data: CreateParentInput) =>
+    authFetch('/parents', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Parent>(r),
+    ),
+  remove: (id: string) => del(`/parents/${id}`),
+};
+
+export interface Employee {
+  id: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  jobTitle: string;
+  department?: string | null;
+  status: EmploymentStatus;
+}
+
+export interface CreateEmployeeInput {
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  jobTitle: string;
+  department?: string;
+  status?: EmploymentStatus;
+}
+
+export const employeesApi = {
+  list: () => authFetch('/employees').then((r) => json<Employee[]>(r)),
+  create: (data: CreateEmployeeInput) =>
+    authFetch('/employees', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Employee>(r),
+    ),
+  remove: (id: string) => del(`/employees/${id}`),
+};
