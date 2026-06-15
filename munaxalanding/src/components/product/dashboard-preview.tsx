@@ -70,9 +70,9 @@ function toneText(tone?: 'aqua' | 'coral') {
 
 export function DashboardPreview() {
   return (
-    <div className="flex min-h-[360px] bg-background text-foreground">
-      {/* Sidebar */}
-      <aside className="hidden w-44 shrink-0 flex-col border-e border-border bg-card/60 p-3 sm:flex lg:w-52">
+    <div className="@container flex min-h-[340px] bg-background text-foreground">
+      {/* Sidebar — only when the frame itself is wide enough (container query, not viewport) */}
+      <aside className="hidden w-48 shrink-0 flex-col border-e border-border bg-card/60 p-3 @2xl:flex @5xl:w-52">
         <div className="flex items-center gap-2 px-2 py-2">
           <span className="grid h-7 w-7 place-items-center rounded-lg bg-grad-primary text-[11px] font-bold text-white">
             M
@@ -105,14 +105,14 @@ export function DashboardPreview() {
               Owner · Munaxa Academy · 2025–2026 · Term 1
             </p>
           </div>
-          <span className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground sm:flex">
+          <span className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground @lg:flex">
             Viewing as <span className="font-medium text-foreground">Owner</span>
           </span>
         </div>
 
         <div className="space-y-3 p-4">
           {/* KPIs */}
-          <div className="grid grid-cols-3 gap-2 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-2 @md:grid-cols-3 @4xl:grid-cols-6">
             {KPIS.map((kpi) => (
               <div key={kpi.label} className="rounded-lg border border-border bg-card px-2.5 py-2">
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -125,7 +125,7 @@ export function DashboardPreview() {
             ))}
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-3">
+          <div className="grid gap-3 @3xl:grid-cols-3">
             {/* Attendance today */}
             <div className="rounded-xl border border-border bg-card p-3">
               <p className="mb-2 text-xs font-semibold">Attendance today</p>
@@ -148,7 +148,7 @@ export function DashboardPreview() {
             </div>
 
             {/* Notifications */}
-            <div className="rounded-xl border border-border bg-card p-3 lg:col-span-2">
+            <div className="rounded-xl border border-border bg-card p-3 @3xl:col-span-2">
               <p className="mb-2 text-xs font-semibold">Notifications</p>
               <div className="space-y-1.5">
                 {NOTIFICATIONS.map((n) => (
@@ -179,7 +179,7 @@ export function DashboardPreview() {
           {/* Top outstanding balances */}
           <div className="rounded-xl border border-border bg-card p-3">
             <p className="mb-2 text-xs font-semibold">Top outstanding balances</p>
-            <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+            <div className="grid gap-x-6 gap-y-1.5 @2xl:grid-cols-2">
               {OUTSTANDING.map((row) => (
                 <div
                   key={row.name}

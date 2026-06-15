@@ -40,7 +40,7 @@ jobs:
       - name: Build & deploy
         run: pnpm run deploy
 
-      - name: Sync Resend secrets
-        run: |
-          echo "${{ secrets.RESEND_API_KEY }}" | npx wrangler secret put RESEND_API_KEY
-          echo "${{ secrets.EMAIL_FROM }}" | npx wrangler secret put EMAIL_FROM
+      # EMAIL_FROM / EMAIL_CONTACT_FROM are non-secret vars in wrangler.jsonc; only the
+      # Resend API key is a secret.
+      - name: Sync Resend secret
+        run: echo "${{ secrets.RESEND_API_KEY }}" | npx wrangler secret put RESEND_API_KEY
