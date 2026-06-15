@@ -40,9 +40,6 @@ jobs:
       - name: Build & deploy
         run: pnpm run deploy
 
-      - name: Sync Supabase service role key
-        run: echo "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-
       - name: Sync Resend secrets
         run: |
           echo "${{ secrets.RESEND_API_KEY }}" | npx wrangler secret put RESEND_API_KEY

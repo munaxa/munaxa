@@ -7,3 +7,9 @@ export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.munaxa
 );
 
 export const CONTACT_EMAIL = 'info@munaxa.com';
+
+/**
+ * URL of the standalone Munaxa demo app's public "Request a Demo" form (deployed separately —
+ * see the `munaxademo` app, hosted at demo.munaxa.com). Override with NEXT_PUBLIC_DEMO_URL.
+ */
+export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL ?? 'https://demo.munaxa.com/request-demo';

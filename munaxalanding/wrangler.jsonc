@@ -12,10 +12,11 @@
   "observability": {
     "enabled": true,
   },
-  // Non-secret runtime config. SUPABASE_SERVICE_ROLE_KEY (and any future secrets like
-  // RESEND_API_KEY) must be set via `wrangler secret put` — never add secrets here.
+  // Non-secret runtime config. Secrets (e.g. RESEND_API_KEY, TURNSTILE_SECRET_KEY) must be
+  // set via `wrangler secret put` — never add secrets here.
   "vars": {
-    "SUPABASE_URL": "https://fngkpuyvzqemkqnenryq.supabase.co",
+    // Public URL of the standalone Munaxa demo app's "Request a Demo" form.
+    "NEXT_PUBLIC_DEMO_URL": "https://demo.munaxa.com/request-demo",
   },
   // Used by lib/rate-limit.ts for the contact form's per-IP sliding window.
   // Falls back to an in-memory limiter automatically when this binding is absent

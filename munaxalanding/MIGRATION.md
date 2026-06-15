@@ -124,8 +124,8 @@ cd <new-repo> && pnpm install && pnpm build
 1. Copy `.github/workflows/deploy-landing.yml` from the monorepo into the new repo's
    `.github/workflows/`, remove the `working-directory`/`cache-dependency-path` lines, and
    set the `paths` filter to the repo root (or drop it).
-2. Add the five Actions secrets to the new repo: `CLOUDFLARE_API_TOKEN`,
-   `CLOUDFLARE_ACCOUNT_ID`, `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`.
+2. Add the Actions secrets to the new repo: `CLOUDFLARE_API_TOKEN`,
+   `CLOUDFLARE_ACCOUNT_ID`, `RESEND_API_KEY`, `EMAIL_FROM`.
 3. Delete the `munaxalanding/` directory (and the deploy workflow) from the monorepo once the
    new repo is live.
 

@@ -7,7 +7,7 @@ import { Menu, X } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { SITE_NAME } from '@/lib/constants';
+import { SITE_NAME, DEMO_URL } from '@/lib/constants';
 import type { Locale } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/types';
 import type { Theme } from '@/lib/theme/config';
@@ -64,7 +64,7 @@ export function Header({
             darkLabel={dict.themeSwitcher.dark}
           />
           <LanguageSwitcher locale={locale} label={dict.languageSwitcher.label} />
-          <a href={sectionHref('#contact')} className={buttonVariants('default', 'sm')}>
+          <a href={DEMO_URL} className={buttonVariants('default', 'sm')}>
             {dict.nav.requestDemo}
           </a>
         </div>
@@ -102,7 +102,7 @@ export function Header({
               </a>
             ))}
             <a
-              href={sectionHref('#contact')}
+              href={DEMO_URL}
               className={buttonVariants('default', 'md', 'mt-2 w-full')}
               onClick={() => setOpen(false)}
             >

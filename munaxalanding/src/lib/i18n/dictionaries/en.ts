@@ -310,8 +310,8 @@ export const en: Dictionary = {
   contact: {
     heading: "Let's talk about your school",
     description:
-      'Tell us about your school and our team will get back to you to schedule a demo and ' +
-      'answer any questions.',
+      'Have a question or want to learn more? Tell us about your school and our team will get ' +
+      'back to you. Ready to see Munaxa in action? Request a demo instead.',
     responseTime: 'Our team typically responds within one business day.',
     servingArea: 'Serving schools and education groups across Jordan and the wider region.',
     form: {
