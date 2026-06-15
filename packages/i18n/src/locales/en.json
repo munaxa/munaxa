@@ -45,6 +45,9 @@
     "attendanceSettings": "Attendance settings",
     "cards": "Student cards",
     "fleet": "Fleet & transport",
+    "library": "Library",
+    "inventory": "Inventory",
+    "clinic": "School clinic",
     "roles": "Roles & permissions",
     "users": "Users & staff"
   },
