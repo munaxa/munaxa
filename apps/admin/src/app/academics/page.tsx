@@ -3,7 +3,15 @@
 import { useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
-import { academicsApi, type GradeReport, type Homework } from '@/lib/academics';
+import {
+  academicsApi,
+  BEHAVIOR_TYPES,
+  type BehaviorLog,
+  type BehaviorType,
+  type CreateBehaviorInput,
+  type GradeReport,
+  type Homework,
+} from '@/lib/academics';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
@@ -17,6 +25,7 @@ import {
   CardTitle,
   Field,
   Input,
+  Select,
   Table,
   TBody,
   TD,
@@ -33,6 +42,7 @@ export default function AcademicsPage() {
         <h1 className="font-display text-2xl font-semibold">{t('nav.academics')}</h1>
         <HomeworkSection />
         <GradesSection />
+        <BehaviorSection />
       </div>
     </Shell>
   );
@@ -209,6 +219,190 @@ function GradesSection() {
               ))}
             </div>
           </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+const BEHAVIOR_TONE: Record<BehaviorType, 'success' | 'danger' | 'muted'> = {
+  POSITIVE: 'success',
+  NEGATIVE: 'danger',
+  NEUTRAL: 'muted',
+};
+
+const EMPTY_BEHAVIOR = {
+  type: 'POSITIVE' as BehaviorType,
+  category: '',
+  title: '',
+  description: '',
+  points: '0',
+  date: '',
+};
+
+function BehaviorSection() {
+  const toast = useToast();
+  const [studentId, setStudentId] = useState('');
+  const [list, setList] = useState<BehaviorLog[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [form, setForm] = useState(EMPTY_BEHAVIOR);
+
+  async function load(id = studentId) {
+    if (!id) return;
+    try {
+      setList(await academicsApi.behaviorByStudent(id));
+      setLoaded(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load behavior');
+    }
+  }
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!studentId) {
+      toast.error('Select a student first');
+      return;
+    }
+    try {
+      const payload: CreateBehaviorInput = {
+        studentId,
+        type: form.type,
+        title: form.title,
+        points: Number(form.points) || 0,
+        date: form.date,
+      };
+      if (form.category) payload.category = form.category;
+      if (form.description) payload.description = form.description;
+      await academicsApi.createBehavior(payload);
+      setForm(EMPTY_BEHAVIOR);
+      toast.success('Behavior logged');
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to log behavior');
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await academicsApi.removeBehavior(id);
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Behavior</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex items-end gap-2">
+          <Field label="Student" className="flex-1">
+            <EntityPicker
+              value={studentId}
+              onChange={(id) => {
+                setStudentId(id);
+                void load(id);
+              }}
+              load={loadStudentOptions}
+              placeholder="Search students…"
+            />
+          </Field>
+          <Button variant="secondary" onClick={() => void load()} disabled={!studentId}>
+            Load
+          </Button>
+        </div>
+
+        <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
+          <Field label="Type">
+            <Select
+              value={form.type}
+              onChange={(e) => setForm({ ...form, type: e.target.value as BehaviorType })}
+            >
+              {BEHAVIOR_TYPES.map((bt) => (
+                <option key={bt} value={bt}>
+                  {bt}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Title" className="flex-1">
+            <Input
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="Category">
+            <Input
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+            />
+          </Field>
+          <Field label="Points">
+            <Input
+              type="number"
+              min={-100}
+              max={100}
+              value={form.points}
+              onChange={(e) => setForm({ ...form, points: e.target.value })}
+            />
+          </Field>
+          <Field label="Date">
+            <Input
+              type="date"
+              value={form.date}
+              onChange={(e) => setForm({ ...form, date: e.target.value })}
+              required
+            />
+          </Field>
+          <Button type="submit" disabled={!studentId}>
+            Add
+          </Button>
+        </form>
+
+        {loaded ? (
+          <Table>
+            <THead>
+              <TR>
+                <TH>Date</TH>
+                <TH>Type</TH>
+                <TH>Title</TH>
+                <TH className="text-end">Points</TH>
+                <TH className="text-end">Actions</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {list.map((b) => (
+                <TR key={b.id}>
+                  <TD className="font-mono text-xs">{b.date.slice(0, 10)}</TD>
+                  <TD>
+                    <Badge tone={BEHAVIOR_TONE[b.type]}>{b.type}</Badge>
+                  </TD>
+                  <TD>
+                    {b.title}
+                    {b.category ? (
+                      <span className="text-muted-foreground"> · {b.category}</span>
+                    ) : null}
+                  </TD>
+                  <TD className="text-end font-mono text-xs">{b.points}</TD>
+                  <TD className="text-end">
+                    <Button variant="ghost" size="sm" onClick={() => void remove(b.id)}>
+                      Delete
+                    </Button>
+                  </TD>
+                </TR>
+              ))}
+              {list.length === 0 ? (
+                <TR>
+                  <TD colSpan={5} className="text-muted-foreground">
+                    No behavior records for this student.
+                  </TD>
+                </TR>
+              ) : null}
+            </TBody>
+          </Table>
         ) : null}
       </CardContent>
     </Card>
