@@ -24,6 +24,7 @@ export const en: Dictionary = {
       { href: '#benefits', label: 'Benefits' },
       { href: '#why-munaxa', label: 'Why Munaxa' },
       { href: '#modules', label: 'Modules' },
+      { href: '#product', label: 'Product' },
       { href: '#testimonials', label: 'Testimonials' },
       { href: '#faq', label: 'FAQ' },
       { href: '#contact', label: 'Contact' },
@@ -216,6 +217,21 @@ export const en: Dictionary = {
           'Turn school data into clear, actionable reports for leadership, owners, and boards.',
       },
     ],
+  },
+  showcase: {
+    eyebrow: 'See it in action',
+    heading: 'A real-time command center for your whole school',
+    description:
+      'Every module feeds one clean, role-aware workspace. Leaders see live attendance, ' +
+      'finance, and academic performance at a glance — the same screens your team uses every day.',
+    bullets: [
+      'Live KPIs across students, attendance, and finance — updated in real time',
+      'Role-based dashboards for owners, principals, teachers, and parents',
+      'Bilingual Arabic & English with native right-to-left layouts',
+    ],
+    frameLabel: 'app.munaxa.com/dashboard',
+    altText: 'Preview of the Munaxa dashboard showing attendance, finance, and academic insights',
+    cta: 'Request a Demo',
   },
   testimonials: {
     heading: 'Trusted by schools and education groups',

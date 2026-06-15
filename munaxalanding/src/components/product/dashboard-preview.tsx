@@ -1,0 +1,198 @@
+import {
+  LayoutDashboard,
+  UserPlus,
+  Users,
+  CalendarCheck,
+  GraduationCap,
+  Wallet,
+  Briefcase,
+  Bus,
+  MessageSquare,
+  BarChart3,
+} from 'lucide-react';
+import { cn } from '@/lib/cn';
+
+/**
+ * A faithful, static recreation of the Munaxa demo (`munaxademo`) owner dashboard — same
+ * layout, navigation, KPIs and widgets the product ships with, populated with the demo's
+ * fictional "Munaxa Academy" data. Rendered with design-system tokens so it adapts to the
+ * site's light/dark theme. Purely presentational; no data fetching.
+ */
+
+const NAV = [
+  { label: 'Dashboard', icon: LayoutDashboard, active: true },
+  { label: 'Admissions', icon: UserPlus },
+  { label: 'Students', icon: Users },
+  { label: 'Attendance', icon: CalendarCheck },
+  { label: 'Academics', icon: GraduationCap },
+  { label: 'Finance', icon: Wallet },
+  { label: 'HR', icon: Briefcase },
+  { label: 'Transport', icon: Bus },
+  { label: 'Communication', icon: MessageSquare },
+  { label: 'Reports', icon: BarChart3 },
+];
+
+const KPIS: { label: string; value: string; tone?: 'aqua' | 'coral' }[] = [
+  { label: 'Students', value: '500' },
+  { label: 'Parents', value: '700' },
+  { label: 'Teachers', value: '50' },
+  { label: 'Attendance', value: '96.4%', tone: 'aqua' },
+  { label: 'Outstanding', value: 'JOD 38,400', tone: 'coral' },
+  { label: 'Collected', value: 'JOD 412,750', tone: 'aqua' },
+];
+
+const ATTENDANCE = [
+  { label: 'Present', value: 463, pct: 92.6, bar: 'bg-aqua' },
+  { label: 'Late', value: 18, pct: 3.6, bar: 'bg-coral' },
+  { label: 'Absent', value: 12, pct: 2.4, bar: 'bg-destructive' },
+  { label: 'Excused', value: 7, pct: 1.4, bar: 'bg-primary' },
+];
+
+const NOTIFICATIONS: { title: string; body: string; tone: 'aqua' | 'coral' | 'muted' }[] = [
+  { title: 'Fee reminders sent', body: '214 families notified', tone: 'aqua' },
+  { title: 'New admission application', body: 'Yousef Haddad · Grade 6', tone: 'coral' },
+  { title: 'Term 1 report cards published', body: 'Grades 7–9', tone: 'muted' },
+  { title: 'Bus route 4 delayed', body: '~10 min · 28 students', tone: 'coral' },
+];
+
+const OUTSTANDING = [
+  { name: 'Lina Al-Masri', value: 'JOD 1,850' },
+  { name: 'Omar Haddad', value: 'JOD 1,420' },
+  { name: 'Salma Khalil', value: 'JOD 1,180' },
+  { name: 'Karim Nasser', value: 'JOD 960' },
+];
+
+function toneText(tone?: 'aqua' | 'coral') {
+  if (tone === 'aqua') return 'text-aqua';
+  if (tone === 'coral') return 'text-coral';
+  return 'text-foreground';
+}
+
+export function DashboardPreview() {
+  return (
+    <div className="flex min-h-[360px] bg-background text-foreground">
+      {/* Sidebar */}
+      <aside className="hidden w-44 shrink-0 flex-col border-e border-border bg-card/60 p-3 sm:flex lg:w-52">
+        <div className="flex items-center gap-2 px-2 py-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-grad-primary text-[11px] font-bold text-white">
+            M
+          </span>
+          <span className="font-display text-sm font-semibold">Munaxa Academy</span>
+        </div>
+        <nav className="mt-3 flex flex-col gap-0.5">
+          {NAV.map(({ label, icon: Icon, active }) => (
+            <span
+              key={label}
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] transition',
+                active ? 'bg-secondary/80 font-medium text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden />
+              {label}
+            </span>
+          ))}
+        </nav>
+      </aside>
+
+      {/* Main */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Top bar */}
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div className="min-w-0">
+            <p className="truncate font-display text-sm font-semibold">Welcome, Sara Mansour</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              Owner · Munaxa Academy · 2025–2026 · Term 1
+            </p>
+          </div>
+          <span className="hidden shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground sm:flex">
+            Viewing as <span className="font-medium text-foreground">Owner</span>
+          </span>
+        </div>
+
+        <div className="space-y-3 p-4">
+          {/* KPIs */}
+          <div className="grid grid-cols-3 gap-2 lg:grid-cols-6">
+            {KPIS.map((kpi) => (
+              <div key={kpi.label} className="rounded-lg border border-border bg-card px-2.5 py-2">
+                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {kpi.label}
+                </p>
+                <p className={cn('mt-0.5 font-display text-sm font-bold', toneText(kpi.tone))}>
+                  {kpi.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            {/* Attendance today */}
+            <div className="rounded-xl border border-border bg-card p-3">
+              <p className="mb-2 text-xs font-semibold">Attendance today</p>
+              <div className="space-y-2">
+                {ATTENDANCE.map((row) => (
+                  <div key={row.label}>
+                    <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                      <span>{row.label}</span>
+                      <span className="font-mono">{row.value}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                      <div
+                        className={cn('h-full rounded-full', row.bar)}
+                        style={{ width: `${row.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Notifications */}
+            <div className="rounded-xl border border-border bg-card p-3 lg:col-span-2">
+              <p className="mb-2 text-xs font-semibold">Notifications</p>
+              <div className="space-y-1.5">
+                {NOTIFICATIONS.map((n) => (
+                  <div
+                    key={n.title}
+                    className="flex items-center justify-between gap-3 border-b border-border pb-1.5 text-[11px] last:border-0 last:pb-0"
+                  >
+                    <span className="min-w-0 truncate">
+                      <span className="font-medium text-foreground">{n.title}</span>{' '}
+                      <span className="text-muted-foreground">· {n.body}</span>
+                    </span>
+                    <span
+                      className={cn(
+                        'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium',
+                        n.tone === 'aqua' && 'bg-aqua/15 text-aqua',
+                        n.tone === 'coral' && 'bg-coral/15 text-coral',
+                        n.tone === 'muted' && 'bg-secondary text-muted-foreground',
+                      )}
+                    >
+                      {n.tone === 'muted' ? 'read' : 'new'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Top outstanding balances */}
+          <div className="rounded-xl border border-border bg-card p-3">
+            <p className="mb-2 text-xs font-semibold">Top outstanding balances</p>
+            <div className="grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
+              {OUTSTANDING.map((row) => (
+                <div
+                  key={row.name}
+                  className="flex items-center justify-between gap-3 border-b border-border pb-1.5 text-[11px] last:border-0"
+                >
+                  <span className="truncate">{row.name}</span>
+                  <span className="font-mono text-coral">{row.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

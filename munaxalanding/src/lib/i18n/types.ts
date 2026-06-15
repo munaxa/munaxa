@@ -74,6 +74,15 @@ export interface Dictionary {
     description: string;
     items: IconItem[];
   };
+  showcase: {
+    eyebrow: string;
+    heading: string;
+    description: string;
+    bullets: [string, string, string];
+    frameLabel: string;
+    altText: string;
+    cta: string;
+  };
   testimonials: {
     heading: string;
     description: string;

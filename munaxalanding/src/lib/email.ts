@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { CONTACT_EMAIL, SITE_NAME, SITE_URL } from './constants';
+import { CONTACT_EMAIL, CONTACT_FROM_EMAIL, SITE_NAME, SITE_URL } from './constants';
 import { escapeHtml } from './validation';
 import { logger } from './logger';
 
@@ -174,7 +174,7 @@ export async function sendInternalNotification(data: InquiryEmailData): Promise<
 
   try {
     await resend.emails.send({
-      from: FROM_ADDRESS,
+      from: CONTACT_FROM_EMAIL,
       to: CONTACT_EMAIL,
       replyTo: data.email,
       subject: `New inquiry from ${data.schoolName}`,

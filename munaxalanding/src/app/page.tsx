@@ -4,6 +4,7 @@ import { Hero } from '@/components/sections/hero';
 import { Benefits } from '@/components/sections/benefits';
 import { WhyMunaxa } from '@/components/sections/why-munaxa';
 import { Modules } from '@/components/sections/modules';
+import { ProductShowcase } from '@/components/sections/product-showcase';
 import { Testimonials } from '@/components/sections/testimonials';
 import { Faq } from '@/components/sections/faq';
 import { Contact } from '@/components/sections/contact';
@@ -50,6 +51,7 @@ export default async function HomePage() {
         <Benefits dict={dict} />
         <WhyMunaxa dict={dict} />
         <Modules dict={dict} />
+        <ProductShowcase dict={dict} />
         <Testimonials dict={dict} />
         <Faq dict={dict} />
         <Contact dict={dict} nonce={nonce} />
