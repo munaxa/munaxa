@@ -310,8 +310,8 @@ export const en: Dictionary = {
   contact: {
     heading: "Let's talk about your school",
     description:
-      'Tell us about your school and our team will get back to you to schedule a demo and ' +
-      'answer any questions.',
+      'Have a question or want to learn more? Tell us about your school and our team will get ' +
+      'back to you. Ready to see Munaxa in action? Request a demo instead.',
     responseTime: 'Our team typically responds within one business day.',
     servingArea: 'Serving schools and education groups across Jordan and the wider region.',
     form: {
@@ -419,7 +419,8 @@ export const en: Dictionary = {
       },
       content: {
         heading: 'Content',
-        before: 'All content on this Site, including text, graphics, logos, and design, is the property of',
+        before:
+          'All content on this Site, including text, graphics, logos, and design, is the property of',
         after:
           'or its licensors and is protected by applicable intellectual property laws. You may ' +
           'not reproduce or distribute this content without prior written consent.',

@@ -33,9 +33,8 @@ to this marketing site only.
 - User-supplied values are HTML-escaped (`escapeHtml`) before being interpolated into the
   internal notification email's HTML body, preventing HTML/script injection in the staff
   inbox.
-- The database layer (`src/lib/db.ts`) uses the Supabase client's query builder
-  exclusively — no string concatenation of user input into SQL (prevents SQL injection,
-  OWASP A03).
+- The landing page has **no database**: contact submissions are delivered by email only and
+  never persisted, so there is no SQL/datastore injection surface.
 
 ## Rate limiting & anti-spam
 
@@ -53,30 +52,23 @@ to this marketing site only.
 
 ## Secrets handling
 
-- All secrets (Resend API key, Supabase service role key, Turnstile secret, Sentry DSN) are
-  read from environment variables only — none are hardcoded. `.env.example` documents every
-  variable with placeholder values; real `.env*` files are git-ignored (see `.gitignore`).
-- **`SUPABASE_SERVICE_ROLE_KEY` is a highly privileged, server-only secret** — it bypasses
-  Row Level Security on the Supabase project. It must never be exposed to the client, logged,
-  or committed. On Cloudflare Workers it is configured as an encrypted secret via
-  `wrangler secret put SUPABASE_SERVICE_ROLE_KEY` (or the dashboard), never in
-  `wrangler.jsonc`.
+- All secrets (Resend API key, Turnstile secret, Sentry DSN) are read from environment
+  variables only — none are hardcoded. `.env.example` documents every variable with
+  placeholder values; real `.env*` files are git-ignored (see `.gitignore`).
+- On Cloudflare Workers, secrets are configured as encrypted secrets via
+  `wrangler secret put <NAME>` (or the dashboard), never in `wrangler.jsonc`.
 
 ## Logging & monitoring
 
 - `src/lib/logger.ts` emits structured JSON logs for: rate-limit hits, CSRF failures,
-  honeypot triggers, CAPTCHA failures, DB errors, email send failures, and successful
-  submissions.
+  honeypot triggers, CAPTCHA failures, email send failures, and successful submissions.
 - IP addresses are masked (`maskIp`) before being logged for abuse triage, while the full
-  IP is stored in `early_access_requests` and included in the internal notification email (as
-  required for spam/abuse follow-up) — operators should define a retention/anonymization
-  policy for this table.
+  IP is included in the internal notification email (as required for spam/abuse follow-up).
 - `SENTRY_DSN` can be configured for error monitoring (optional).
 
 ## Dependency surface
 
-- Runtime dependencies: `@supabase/supabase-js` (HTTP-based Postgres client,
-  edge-compatible), `resend` (transactional email), `lucide-react` (icons), `clsx` +
+- Runtime dependencies: `resend` (transactional email), `lucide-react` (icons), `clsx` +
   `tailwind-merge` (className utilities), `zod` (validation). All are widely used, actively
   maintained packages.
 - `@opennextjs/cloudflare` and `wrangler` (devDependencies) adapt the Next.js build for
@@ -97,7 +89,3 @@ to this marketing site only.
 
 - Configure a Web Application Firewall (e.g., Cloudflare WAF) in front of the deployment for
   an additional layer of bot/DDoS mitigation.
-- Periodically purge or anonymize old rows in `early_access_requests` per your data retention
-  policy.
-- Consider adding a Supabase RLS policy + scoped key if any client-side reads/writes to this
-  table are introduced in the future; currently access is service-role-only (server-side).

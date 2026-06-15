@@ -13,9 +13,7 @@ school owners, principals, directors, and educational groups.
 - **Tailwind CSS** with the Munaxa design-system tokens (brand colors, fonts, shadows) defined
   locally in `tailwind.config.ts` + `src/app/globals.css`
 - **Resend** for transactional email (acknowledgment + internal notification)
-- **Supabase (Postgres)** via `@supabase/supabase-js` (service role, server-only) for storing
-  contact inquiries
-- **Cloudflare Workers** (via `@opennextjs/cloudflare`) as the primary hosting target, with
+- **Cloudflare Workers** (via `@opennextjs/cloudflare`) as the sole hosting target, with
   Cloudflare KV for distributed rate limiting
 - Optional **Cloudflare Turnstile** for CAPTCHA / bot protection
 
@@ -29,24 +27,18 @@ pnpm dev
 
 The site runs at http://localhost:3100.
 
-### Database (Supabase)
+### Demo requests
 
-Contact form submissions are upserted (keyed on email) into the Munaxa Supabase project's
-`early_access_requests` table. The schema change is in
-[`db/migrations/002_add_contact_fields_to_early_access_requests.sql`](./db/migrations/002_add_contact_fields_to_early_access_requests.sql)
-(already applied to the live project).
-
-Set in `.env.local` / your hosting platform's secrets:
+The landing page does **not** handle demo requests itself. The "Request a Demo" / "Book a Demo"
+buttons link to the standalone **munaxademo** app's public `/request-demo` form (deployed
+separately on Cloudflare, e.g. `demo.munaxa.com`). Point the buttons at the right URL with:
 
 ```bash
-SUPABASE_URL=https://fngkpuyvzqemkqnenryq.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=<service role secret — from Supabase dashboard > Project Settings > API>
+NEXT_PUBLIC_DEMO_URL=https://demo.munaxa.com/request-demo
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` is a secret with full database access (it bypasses Row Level
-Security). Keep it server-side only — never prefix it with `NEXT_PUBLIC_` and never commit a
-real value. If either var is unset, the app still works — submissions are emailed but not
-persisted (a warning is logged).
+The contact form (the `#contact` section) is for general inquiries only — submissions are
+emailed (see below); nothing is stored in a database.
 
 ### Email (Resend)
 
@@ -96,14 +88,13 @@ munaxalanding/
 │   │   ├── robots.ts           # /robots.txt
 │   │   ├── opengraph-image.tsx # Generated OG image
 │   │   └── api/
-│   │       ├── contact/route.ts # Contact form API (validation, rate limiting, email, storage)
+│   │       ├── contact/route.ts # Contact form API (validation, rate limiting, email)
 │   │       └── health/route.ts  # Health check
 │   ├── components/
 │   │   ├── sections/           # Hero, Benefits, Why Munaxa, Modules, Testimonials, FAQ, Contact, Footer
 │   │   ├── ui/                  # Local primitives (Button, Card, Input, etc.)
 │   │   └── icons/                # Inline illustrations
-│   └── lib/                     # cn, validation, csrf, rate-limit, db, email, turnstile, logger
-├── db/migrations/                # SQL migrations for early_access_requests (Supabase)
+│   └── lib/                     # cn, validation, csrf, rate-limit, email, turnstile, logger
 ├── src/middleware.ts              # CSP nonce + CSRF cookie
 ├── wrangler.jsonc                 # Cloudflare Workers config (KV binding, assets)
 ├── open-next.config.ts            # OpenNext Cloudflare adapter config
@@ -128,9 +119,8 @@ using Workers Assets for static files and a KV namespace (`RATE_LIMIT_KV`, bound
    # then update the "id" in wrangler.jsonc
    ```
 2. **Configure secrets** (per environment) via `wrangler secret put <NAME>` or the Cloudflare
-   dashboard → Workers → Settings → Variables. `SUPABASE_URL` is already set as a non-secret
-   `vars` entry in `wrangler.jsonc`; the rest must be set as encrypted secrets:
-   - `SUPABASE_SERVICE_ROLE_KEY`
+   dashboard → Workers → Settings → Variables. `NEXT_PUBLIC_DEMO_URL` is already set as a
+   non-secret `vars` entry in `wrangler.jsonc`; the rest must be set as encrypted secrets:
    - `RESEND_API_KEY`, `EMAIL_FROM`
    - `TURNSTILE_SECRET_KEY` (and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` as a build-time var, if used)
    - `NEXT_PUBLIC_SITE_URL`, `SENTRY_DSN` (optional)
@@ -157,7 +147,6 @@ following **repository secrets** (Settings → Secrets and variables → Actions
 
 - `CLOUDFLARE_API_TOKEN` — Workers Scripts: Edit permission
 - `CLOUDFLARE_ACCOUNT_ID`
-- `SUPABASE_SERVICE_ROLE_KEY`
 - `RESEND_API_KEY`
 - `EMAIL_FROM`
 

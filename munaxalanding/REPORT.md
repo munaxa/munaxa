@@ -136,25 +136,20 @@ All of the above is also documented in [`SECURITY.md`](./SECURITY.md).
   simple server-side verification) but can be swapped for another provider by replacing
   `src/lib/turnstile.ts` and the corresponding script tag in `contact.tsx`.
 
-## Addendum — Cloudflare Workers hosting, Supabase DB, notifications
+## Addendum — Cloudflare Workers hosting, notifications
 
 This addendum covers a follow-up pass that wires the landing page up to live infrastructure:
-Cloudflare Workers hosting, the Supabase Postgres database, and email notifications.
+Cloudflare Workers hosting and email notifications.
 
-### Database (Supabase)
+### Database — removed (Cloudflare-only)
 
-- Reused the existing Supabase project "Munaxa" (ref `fngkpuyvzqemkqnenryq`) and its
-  `early_access_requests` table instead of creating a new database/table, avoiding a second
-  Postgres instance for this single-purpose form.
-- Applied migration `db/migrations/002_add_contact_fields_to_early_access_requests.sql`,
-  adding `message`, `ip_address`, `user_agent`, and `updated_at` columns to
-  `early_access_requests`.
-- Rewrote `src/lib/db.ts` to use `@supabase/supabase-js` (HTTP-based, edge-compatible) with
-  the service role key instead of `pg` (raw TCP, incompatible with the Workers runtime).
-  Submissions are `upsert`'d on the `email` unique constraint — repeat inquiries from the
-  same address update the existing row rather than erroring.
-- Removed the now-obsolete `db/migrations/001_create_contact_inquiries.sql` and the `pg` /
-  `@types/pg` dependencies.
+- The landing page no longer connects to any database. The earlier Supabase integration
+  (`src/lib/db.ts`, the `@supabase/supabase-js` dependency, the
+  `early_access_requests` migration, and the `SUPABASE_*` env vars/secrets) has been removed
+  so the site can be hosted on Cloudflare alone, fully isolated from the main Munaxa stack.
+- Contact-form submissions are now delivered by email only (Resend) and are not persisted.
+- Demo requests are handled by the separate **munaxademo** app: the "Request a Demo" /
+  "Book a Demo" buttons link to its public `/request-demo` form (`NEXT_PUBLIC_DEMO_URL`).
 
 ### Cloudflare Workers hosting
 
@@ -194,7 +189,5 @@ Cloudflare Workers hosting, the Supabase Postgres database, and email notificati
 These are not set in this environment and must be configured by the project owner:
 
 - `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` — for `pnpm deploy` / CI deploys.
-- `SUPABASE_SERVICE_ROLE_KEY` — from the Supabase dashboard (Project Settings → API),
-  configured as a Worker secret via `wrangler secret put SUPABASE_SERVICE_ROLE_KEY`.
 - `RESEND_API_KEY`, `EMAIL_FROM` — to enable transactional email notifications.
 - (Optional) `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` for CAPTCHA.

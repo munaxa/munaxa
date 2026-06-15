@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { contactFormSchema } from '@/lib/validation';
 import { isValidCsrfToken } from '@/lib/csrf';
 import { checkRateLimit } from '@/lib/rate-limit';
-import { insertContactInquiry } from '@/lib/db';
 import { sendAcknowledgmentEmail, sendInternalNotification } from '@/lib/email';
 import { verifyTurnstile } from '@/lib/turnstile';
 import { logger, maskIp } from '@/lib/logger';
@@ -91,24 +90,7 @@ export async function POST(request: NextRequest) {
     submittedAt,
   };
 
-  // 6. Persist (best-effort — a DB outage should not block the inquiry from reaching staff).
-  try {
-    await insertContactInquiry({
-      name: data.name,
-      schoolName: data.schoolName,
-      email: data.email,
-      phone: data.phone,
-      message: data.message,
-      ipAddress: ip,
-      userAgent,
-    });
-  } catch (error) {
-    logger.error('contact.db_insert_failed', {
-      message: error instanceof Error ? error.message : 'unknown error',
-    });
-  }
-
-  // 7. Notify (acknowledgment to visitor + internal notification to the sales inbox).
+  // 6. Notify (acknowledgment to visitor + internal notification to the sales inbox).
   await Promise.all([sendAcknowledgmentEmail(emailData), sendInternalNotification(emailData)]);
 
   logger.info('contact.submitted', { ip: maskIp(ip), school: data.schoolName });

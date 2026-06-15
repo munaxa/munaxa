@@ -2,6 +2,7 @@ import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HeroIllustration } from '@/components/icons/hero-illustration';
+import { DEMO_URL } from '@/lib/constants';
 import type { Dictionary } from '@/lib/i18n/types';
 
 export function Hero({ dict }: { dict: Dictionary }) {
@@ -26,7 +27,7 @@ export function Hero({ dict }: { dict: Dictionary }) {
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a href="#contact" className={buttonVariants('default', 'lg', 'group')}>
+            <a href={DEMO_URL} className={buttonVariants('default', 'lg', 'group')}>
               {dict.hero.ctaPrimary}
               <ArrowRight
                 className="h-4 w-4 transition group-hover:translate-x-0.5 rtl:rotate-180"
