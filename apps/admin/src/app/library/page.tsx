@@ -1,0 +1,320 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Shell } from '@/components/shell';
+import { useI18n } from '@/components/i18n-provider';
+import {
+  libraryApi,
+  type Book,
+  type BookLoan,
+  type CheckoutInput,
+  type CreateBookInput,
+} from '@/lib/advanced';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '@/components/ui';
+
+export default function LibraryPage() {
+  const { t } = useI18n();
+  const [books, setBooks] = useState<Book[]>([]);
+  const [loans, setLoans] = useState<BookLoan[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const [b, l] = await Promise.all([libraryApi.books(), libraryApi.loans()]);
+      setBooks(b);
+      setLoans(l);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load library');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const titleById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const b of books) map.set(b.id, b.title);
+    return map;
+  }, [books]);
+
+  async function returnLoan(id: string) {
+    try {
+      await libraryApi.returnLoan(id);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Return failed');
+    }
+  }
+
+  if (loading) {
+    return (
+      <Shell>
+        <p className="text-muted-foreground">Loading…</p>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell>
+      <div className="mx-auto max-w-5xl space-y-6">
+        <h1 className="font-display text-2xl font-semibold">{t('nav.library')}</h1>
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Catalogue a book</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CreateBook onDone={load} onError={setError} />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Check out a book</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Checkout books={books} onDone={load} onError={setError} />
+            </CardContent>
+          </Card>
+        </div>
+
+        <section className="space-y-2">
+          <h2 className="font-display text-lg font-medium">Catalogue</h2>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Title</TH>
+                <TH>Author</TH>
+                <TH>Category</TH>
+                <TH className="text-end">Available</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {books.map((b) => (
+                <TR key={b.id}>
+                  <TD>{b.title}</TD>
+                  <TD>{b.author || '—'}</TD>
+                  <TD>{b.category || '—'}</TD>
+                  <TD className="text-end font-mono text-xs">
+                    {b.copiesAvailable}/{b.copiesTotal}
+                  </TD>
+                </TR>
+              ))}
+              {books.length === 0 ? (
+                <TR>
+                  <TD colSpan={4} className="text-muted-foreground">
+                    No books catalogued yet.
+                  </TD>
+                </TR>
+              ) : null}
+            </TBody>
+          </Table>
+        </section>
+
+        <section className="space-y-2">
+          <h2 className="font-display text-lg font-medium">Loans</h2>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Book</TH>
+                <TH>Borrower</TH>
+                <TH>Due</TH>
+                <TH>Status</TH>
+                <TH className="text-end">Actions</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {loans.map((l) => (
+                <TR key={l.id}>
+                  <TD>{titleById.get(l.bookId) ?? '—'}</TD>
+                  <TD>{l.borrowerName || l.studentId || '—'}</TD>
+                  <TD className="font-mono text-xs">{l.dueDate.slice(0, 10)}</TD>
+                  <TD>
+                    <Badge
+                      tone={
+                        l.status === 'ACTIVE'
+                          ? 'default'
+                          : l.status === 'OVERDUE'
+                            ? 'danger'
+                            : 'muted'
+                      }
+                    >
+                      {l.status}
+                    </Badge>
+                  </TD>
+                  <TD className="text-end">
+                    {l.status !== 'RETURNED' ? (
+                      <Button variant="ghost" size="sm" onClick={() => void returnLoan(l.id)}>
+                        Return
+                      </Button>
+                    ) : null}
+                  </TD>
+                </TR>
+              ))}
+              {loans.length === 0 ? (
+                <TR>
+                  <TD colSpan={5} className="text-muted-foreground">
+                    No loans yet.
+                  </TD>
+                </TR>
+              ) : null}
+            </TBody>
+          </Table>
+        </section>
+      </div>
+    </Shell>
+  );
+}
+
+function CreateBook({
+  onDone,
+  onError,
+}: {
+  onDone: () => Promise<void>;
+  onError: (m: string) => void;
+}) {
+  const [form, setForm] = useState({ title: '', author: '', category: '', copiesTotal: '1' });
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const payload: CreateBookInput = {
+        title: form.title,
+        copiesTotal: Number(form.copiesTotal) || 1,
+      };
+      if (form.author) payload.author = form.author;
+      if (form.category) payload.category = form.category;
+      await libraryApi.createBook(payload);
+      setForm({ title: '', author: '', category: '', copiesTotal: '1' });
+      await onDone();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Create failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
+      <Input
+        className="sm:col-span-2"
+        placeholder="Title"
+        value={form.title}
+        onChange={(e) => setForm({ ...form, title: e.target.value })}
+        required
+      />
+      <Input
+        placeholder="Author"
+        value={form.author}
+        onChange={(e) => setForm({ ...form, author: e.target.value })}
+      />
+      <Input
+        placeholder="Category"
+        value={form.category}
+        onChange={(e) => setForm({ ...form, category: e.target.value })}
+      />
+      <Input
+        type="number"
+        min={1}
+        placeholder="Copies"
+        value={form.copiesTotal}
+        onChange={(e) => setForm({ ...form, copiesTotal: e.target.value })}
+      />
+      <Button type="submit" className="sm:col-span-2" disabled={busy}>
+        {busy ? 'Saving…' : 'Add book'}
+      </Button>
+    </form>
+  );
+}
+
+function Checkout({
+  books,
+  onDone,
+  onError,
+}: {
+  books: Book[];
+  onDone: () => Promise<void>;
+  onError: (m: string) => void;
+}) {
+  const [bookId, setBookId] = useState('');
+  const [borrowerName, setBorrowerName] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const payload: CheckoutInput = { bookId, dueDate };
+      if (borrowerName) payload.borrowerName = borrowerName;
+      await libraryApi.checkout(payload);
+      setBookId('');
+      setBorrowerName('');
+      setDueDate('');
+      await onDone();
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Checkout failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={(e) => void submit(e)} className="grid gap-2">
+      <Select value={bookId} onChange={(e) => setBookId(e.target.value)} required>
+        <option value="" disabled>
+          Select a book…
+        </option>
+        {books
+          .filter((b) => b.copiesAvailable > 0)
+          .map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.title} ({b.copiesAvailable} available)
+            </option>
+          ))}
+      </Select>
+      <Input
+        placeholder="Borrower name"
+        value={borrowerName}
+        onChange={(e) => setBorrowerName(e.target.value)}
+        required
+      />
+      <Input
+        type="date"
+        value={dueDate}
+        onChange={(e) => setDueDate(e.target.value)}
+        required
+        dir="ltr"
+      />
+      <Button type="submit" disabled={busy}>
+        {busy ? 'Checking out…' : 'Check out'}
+      </Button>
+    </form>
+  );
+}
