@@ -49,6 +49,7 @@
     "library": "Library",
     "inventory": "Inventory",
     "clinic": "School clinic",
+    "presence": "Presence & gate",
     "roles": "Roles & permissions",
     "users": "Users & staff"
   },
