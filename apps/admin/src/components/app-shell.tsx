@@ -28,6 +28,7 @@ const NAV: NavItem[] = [
   { href: '/people/cards', labelKey: 'nav.cards', perm: 'card:read' },
   { href: '/timetable', labelKey: 'nav.timetable', perm: 'timetable:read' },
   { href: '/attendance', labelKey: 'nav.attendance', perm: 'attendance:read' },
+  { href: '/presence', labelKey: 'nav.presence', perm: 'presence:read' },
   { href: '/academics', labelKey: 'nav.academics', perm: 'grade:read' },
   { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
   { href: '/communication', labelKey: 'nav.communication', perm: 'announcement:manage' },
