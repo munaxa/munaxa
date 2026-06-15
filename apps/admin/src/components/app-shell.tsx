@@ -20,6 +20,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/', labelKey: 'nav.dashboard' },
   { href: '/structure/schools', labelKey: 'nav.structure', perm: 'school:manage' },
+  { href: '/structure/academic', labelKey: 'nav.academicStructure', perm: 'school:manage' },
   { href: '/people/students', labelKey: 'nav.people', perm: 'student:manage' },
   { href: '/people/teachers', labelKey: 'nav.teachers', perm: 'teacher:manage' },
   { href: '/people/parents', labelKey: 'nav.parents', perm: 'parent:manage' },
