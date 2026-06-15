@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "munaxalanding",
+  "main": ".open-next/worker.js",
+  // Keep in sync with the date this config was last reviewed.
+  "compatibility_date": "2026-06-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  // Non-secret runtime config. SUPABASE_SERVICE_ROLE_KEY (and any future secrets like
+  // RESEND_API_KEY) must be set via `wrangler secret put` — never add secrets here.
+  "vars": {
+    "SUPABASE_URL": "https://fngkpuyvzqemkqnenryq.supabase.co",
+  },
+  // Used by lib/rate-limit.ts for the contact form's per-IP sliding window.
+  // Falls back to an in-memory limiter automatically when this binding is absent
+  // (e.g. local `next dev`).
+  "kv_namespaces": [
+    {
+      "binding": "RATE_LIMIT_KV",
+      "id": "907601a57357499f83f2b7db83339834",
+    },
+  ],
+}

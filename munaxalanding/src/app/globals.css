@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Munaxa design tokens — aligned with the Munaxa Design System v3 (see
+ * munaxa-design-system-v3) so the marketing site shares the same brand palette
+ * (deep violet/ink surfaces, violet primary, theme-aware coral/aqua accents).
+ * The landing page defaults to the light theme (more conventional for marketing sites);
+ * the dark theme tokens are kept for parity and used by the hero gradient backdrop.
+ */
+@layer base {
+  :root {
+    --radius: 0.875rem; /* 14px — design-system v3 --radius */
+    --radius-sm: 0.5rem; /* 8px — v3 --radius-sm */
+    --radius-lg: 1.375rem; /* 22px — v3 --radius-lg */
+    --radius-xl: 2rem; /* 32px — v3 --radius-xl */
+
+    /* Light theme (default) */
+    --background: 252 100% 98%; /* #F7F5FF */
+    --foreground: 257 75% 17%; /* #1E0B4D */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 257 75% 17%;
+    --primary: 260 75% 48%; /* #5B1FD6 */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 257 58% 95%; /* #F0ECFA */
+    --secondary-foreground: 257 75% 17%;
+    --muted: 257 58% 95%; /* #F0ECFA */
+    --muted-foreground: 257 23% 39%; /* #5A4D7A */
+    --accent: 2 64% 58%; /* coral #D9534F */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 2 64% 58%; /* #D9534F */
+    --destructive-foreground: 0 0% 100%;
+    --coral: 2 64% 58%; /* #D9534F */
+    --aqua: 175 84% 32%; /* #0D9488 */
+    --border: 255 33% 91%; /* #E3DFEF */
+    --input: 257 29% 81%; /* #C8C0DC */
+    --ring: 260 75% 48%;
+
+    /* v3 --hero, light theme */
+    --grad-hero: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(122, 63, 255, 0.08), transparent 60%);
+  }
+
+  .dark {
+    --background: 263 56% 6%; /* #0B0518 */
+    --foreground: 256 100% 97%; /* #F4F0FF */
+    --card: 256 58% 14%; /* #1A0F38 */
+    --card-foreground: 256 100% 97%;
+    --primary: 268 100% 74%; /* #B97BFF */
+    --primary-foreground: 263 56% 6%;
+    --secondary: 256 54% 18%; /* #221547 */
+    --secondary-foreground: 256 100% 97%;
+    --muted: 256 54% 18%; /* #221547 */
+    --muted-foreground: 252 20% 72%;
+    --accent: 13 100% 72%; /* coral #FF8E6E */
+    --accent-foreground: 263 56% 6%;
+    --destructive: 349 100% 68%; /* #FF5C7A */
+    --destructive-foreground: 0 0% 100%;
+    --coral: 13 100% 72%; /* #FF8E6E */
+    --aqua: 173 88% 63%; /* #4DF4E1 */
+    --border: 258 40% 22%;
+    --input: 258 40% 22%;
+    --ring: 268 100% 74%;
+
+    /* v3 --hero, dark theme */
+    --grad-hero: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(122, 63, 255, 0.18), transparent 60%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  /* Design-system v3: in RTL/Arabic, display + body type resolve to Cairo (Sora/Inter
+     lack Arabic glyphs). Numbers/IDs should stay LTR via the .mono utility below. */
+  html[dir='rtl'] {
+    --font-display: var(--font-arabic);
+    --font-body: var(--font-arabic);
+  }
+}
+
+@layer utilities {
+  .section-shell {
+    @apply mx-auto w-full max-w-6xl px-6 lg:px-8;
+  }
+  /* Design-system v3: numbers, IDs, and dates stay LTR even inside RTL text. */
+  .mono {
+    direction: ltr;
+    unicode-bidi: embed;
+  }
+}
