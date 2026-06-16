@@ -61,7 +61,7 @@ export default function FeePlansPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -73,7 +73,7 @@ export default function FeePlansPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Create a fee plan</CardTitle>
+            <CardTitle>{t('feePlans.create')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CreateFeePlan onDone={load} onError={(m) => toast.error(m)} />
@@ -83,11 +83,11 @@ export default function FeePlansPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Name</TH>
-              <TH>Recurrence</TH>
-              <TH className="text-end">Amount (JOD)</TH>
-              <TH>Status</TH>
-              <TH className="text-end">Actions</TH>
+              <TH>{t('feePlans.name')}</TH>
+              <TH>{t('feePlans.recurrence')}</TH>
+              <TH className="text-end">{t('feePlans.amountJod')}</TH>
+              <TH>{t('common.status')}</TH>
+              <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -103,12 +103,12 @@ export default function FeePlansPage() {
                 <TD className="text-end font-mono text-xs">{p.amount}</TD>
                 <TD>
                   <Badge tone={p.isActive ? 'success' : 'muted'}>
-                    {p.isActive ? 'Active' : 'Inactive'}
+                    {p.isActive ? t('common.active') : t('common.inactive')}
                   </Badge>
                 </TD>
                 <TD className="text-end">
                   <Button variant="ghost" size="sm" onClick={() => void toggleActive(p)}>
-                    {p.isActive ? 'Deactivate' : 'Activate'}
+                    {p.isActive ? t('common.deactivate') : t('common.activate')}
                   </Button>
                 </TD>
               </TR>
@@ -116,7 +116,7 @@ export default function FeePlansPage() {
             {plans.length === 0 ? (
               <TR>
                 <TD colSpan={5} className="text-muted-foreground">
-                  No fee plans yet.
+                  {t('feePlans.noPlans')}
                 </TD>
               </TR>
             ) : null}
@@ -134,6 +134,7 @@ function CreateFeePlan({
   onDone: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -164,20 +165,20 @@ function CreateFeePlan({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
-      <Field label="Name" className="sm:col-span-2">
+      <Field label={t('feePlans.name')} className="sm:col-span-2">
         <Input
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           required
         />
       </Field>
-      <Field label="Description" className="sm:col-span-2">
+      <Field label={t('feePlans.description')} className="sm:col-span-2">
         <Input
           value={form.description}
           onChange={(e) => setForm({ ...form, description: e.target.value })}
         />
       </Field>
-      <Field label="Amount (JOD)">
+      <Field label={t('feePlans.amountJod')}>
         <Input
           type="number"
           step="0.001"
@@ -188,7 +189,7 @@ function CreateFeePlan({
           dir="ltr"
         />
       </Field>
-      <Field label="Recurrence">
+      <Field label={t('feePlans.recurrence')}>
         <Select
           value={form.recurrence}
           onChange={(e) => setForm({ ...form, recurrence: e.target.value as FeeRecurrence })}
@@ -201,7 +202,7 @@ function CreateFeePlan({
         </Select>
       </Field>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? 'Creating…' : 'Create fee plan'}
+        {busy ? t('common.creating') : t('feePlans.createButton')}
       </Button>
     </form>
   );

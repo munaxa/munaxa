@@ -103,18 +103,18 @@ export default function AttendancePage() {
         <h1 className="font-display text-2xl font-semibold">{t('nav.attendance')}</h1>
 
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Section" className="flex-1">
+          <Field label={t('attendance.section')} className="flex-1">
             <EntityPicker
               value={sectionId}
               onChange={setSectionId}
               load={loadSectionOptions}
-              placeholder="Search sections…"
+              placeholder={t('attendance.searchSections')}
             />
           </Field>
-          <Field label="Date">
+          <Field label={t('attendance.date')}>
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
-          <Field label="Period">
+          <Field label={t('attendance.period')}>
             <Select
               value={String(periodIndex)}
               onChange={(e) => setPeriodIndex(Number(e.target.value))}
@@ -127,7 +127,7 @@ export default function AttendancePage() {
             </Select>
           </Field>
           <Button onClick={() => void load()} disabled={!sectionId || loading}>
-            {loading ? 'Loading…' : 'Load roster'}
+            {loading ? t('common.loading') : t('attendance.loadRoster')}
           </Button>
         </div>
 
@@ -136,20 +136,28 @@ export default function AttendancePage() {
             <CardContent className="space-y-4 pt-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <Badge tone="success">Present {counts.PRESENT}</Badge>
-                  <Badge tone="warning">Late {counts.LATE}</Badge>
-                  <Badge tone="danger">Absent {counts.ABSENT}</Badge>
-                  <Badge tone="default">Excused {counts.EXCUSED}</Badge>
+                  <Badge tone="success">
+                    {t('attendance.present')} {counts.PRESENT}
+                  </Badge>
+                  <Badge tone="warning">
+                    {t('attendance.late')} {counts.LATE}
+                  </Badge>
+                  <Badge tone="danger">
+                    {t('attendance.absent')} {counts.ABSENT}
+                  </Badge>
+                  <Badge tone="default">
+                    {t('attendance.excused')} {counts.EXCUSED}
+                  </Badge>
                   <span className="text-muted-foreground">
-                    {marked}/{roster.length} marked
+                    {marked}/{roster.length} {t('attendance.markedSuffix')}
                   </span>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => setAll('PRESENT')}>
-                    Mark all present
+                    {t('attendance.markAllPresent')}
                   </Button>
                   <Button size="sm" onClick={() => void save()} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save attendance'}
+                    {saving ? t('common.saving') : t('attendance.saveAttendance')}
                   </Button>
                 </div>
               </div>
@@ -157,8 +165,8 @@ export default function AttendancePage() {
               <Table>
                 <THead>
                   <TR>
-                    <TH>Student</TH>
-                    <TH className="text-end">Status</TH>
+                    <TH>{t('attendance.student')}</TH>
+                    <TH className="text-end">{t('common.status')}</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -197,9 +205,7 @@ export default function AttendancePage() {
             </CardContent>
           </Card>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Pick a section and load its roster to mark attendance.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('attendance.emptyHint')}</p>
         )}
       </div>
     </Shell>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@munaxa/ui';
@@ -48,7 +49,8 @@ const NAV: NavItem[] = [
 
 /**
  * Authenticated application shell: a brand sidebar with permission-filtered navigation and a
- * top bar. RTL-safe (logical properties). Pages render inside `children`.
+ * top bar. On small screens the sidebar collapses behind a hamburger toggle that opens the same
+ * navigation as a slide-in drawer. RTL-safe (logical properties). Pages render inside `children`.
  */
 export function AppShell({
   principal,
@@ -60,10 +62,16 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
+  const [menuOpen, setMenuOpen] = useState(false);
   const held = new Set(principal.permissions);
   const items = NAV.filter(
     (i) => !i.perm || held.has(i.perm) || principal.permissions.length === 0,
   );
+
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   async function onLogout() {
     await logout();
@@ -73,44 +81,88 @@ export function AppShell({
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
+  const navLinks = (
+    <nav className="flex flex-1 flex-col gap-1">
+      {items.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href as never}
+          className={cn(
+            'rounded-lg px-3 py-2 text-sm transition',
+            isActive(item.href)
+              ? 'bg-secondary/80 font-medium text-foreground'
+              : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
+          )}
+        >
+          {t(item.labelKey)}
+        </Link>
+      ))}
+    </nav>
+  );
+
+  const sessionFooter = (
+    <div className="mt-4 rounded-lg border border-border bg-background/40 p-3 text-xs">
+      <p className="truncate text-muted-foreground">{principal.roles.join(', ') || '—'}</p>
+      <p className="truncate font-mono text-[10px] text-muted-foreground/70">
+        {principal.tenantId}
+      </p>
+    </div>
+  );
+
   return (
     <div className="flex min-h-screen">
+      {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-card/40 p-4 md:flex">
         <div className="flex items-center gap-2 px-2 py-3">
           <Logo size={32} priority />
           <span className="font-display text-lg font-semibold">Munaxa</span>
         </div>
-
-        <nav className="mt-4 flex flex-1 flex-col gap-1">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href as never}
-              className={cn(
-                'rounded-lg px-3 py-2 text-sm transition',
-                isActive(item.href)
-                  ? 'bg-secondary/80 font-medium text-foreground'
-                  : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
-              )}
-            >
-              {t(item.labelKey)}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="mt-4 rounded-lg border border-border bg-background/40 p-3 text-xs">
-          <p className="truncate text-muted-foreground">{principal.roles.join(', ') || '—'}</p>
-          <p className="truncate font-mono text-[10px] text-muted-foreground/70">
-            {principal.tenantId}
-          </p>
-        </div>
+        <div className="mt-4 flex flex-1 flex-col">{navLinks}</div>
+        {sessionFooter}
       </aside>
+
+      {/* Mobile drawer */}
+      {menuOpen ? (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <aside className="absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col overflow-y-auto border-e border-border bg-card p-4 shadow-xl">
+            <div className="flex items-center justify-between px-2 py-3">
+              <div className="flex items-center gap-2">
+                <Logo size={32} priority />
+                <span className="font-display text-lg font-semibold">Munaxa</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMenuOpen(false)}
+                aria-label={t('shell.closeMenu')}
+              >
+                ✕
+              </Button>
+            </div>
+            <div className="mt-4 flex flex-1 flex-col">{navLinks}</div>
+            {sessionFooter}
+          </aside>
+        </div>
+      ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-border px-6 py-3">
-          <span className="font-display text-sm font-medium text-muted-foreground md:hidden">
-            Munaxa
-          </span>
+          <div className="flex items-center gap-2 md:hidden">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMenuOpen(true)}
+              aria-label={t('shell.openMenu')}
+            >
+              ☰
+            </Button>
+            <span className="font-display text-sm font-medium text-muted-foreground">Munaxa</span>
+          </div>
           <div className="ms-auto flex items-center gap-3">
             <span className="hidden text-xs text-muted-foreground sm:inline">
               {principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}

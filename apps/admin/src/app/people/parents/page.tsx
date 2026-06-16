@@ -61,7 +61,7 @@ export default function ParentsPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -78,7 +78,7 @@ export default function ParentsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Add a parent / guardian</CardTitle>
+            <CardTitle>{t('people.addParent')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CreateParent onCreated={load} onError={setError} />
@@ -88,12 +88,12 @@ export default function ParentsPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Name</TH>
-              <TH>Arabic name</TH>
-              <TH>Phone</TH>
-              <TH>National ID</TH>
-              <TH>Occupation</TH>
-              <TH className="text-end">Actions</TH>
+              <TH>{t('common.name')}</TH>
+              <TH>{t('common.arabicName')}</TH>
+              <TH>{t('common.phone')}</TH>
+              <TH>{t('people.nationalId')}</TH>
+              <TH>{t('people.occupation')}</TH>
+              <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -112,7 +112,7 @@ export default function ParentsPage() {
                 <TD>{p.occupation || '—'}</TD>
                 <TD className="text-end">
                   <Button variant="ghost" size="sm" onClick={() => void remove(p.id)}>
-                    Delete
+                    {t('common.delete')}
                   </Button>
                 </TD>
               </TR>
@@ -120,7 +120,7 @@ export default function ParentsPage() {
             {parents.length === 0 ? (
               <TR>
                 <TD colSpan={6} className="text-muted-foreground">
-                  No parents yet.
+                  {t('people.noParents')}
                 </TD>
               </TR>
             ) : null}
@@ -138,6 +138,7 @@ function CreateParent({
   onCreated: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState<CreateParentInput>(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -171,13 +172,13 @@ function CreateParent({
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
       <Input
-        placeholder="First name (EN)"
+        placeholder={t('common.firstNameEn')}
         value={form.firstNameEn}
         onChange={(e) => set('firstNameEn', e.target.value)}
         required
       />
       <Input
-        placeholder="Last name (EN)"
+        placeholder={t('common.lastNameEn')}
         value={form.lastNameEn}
         onChange={(e) => set('lastNameEn', e.target.value)}
         required
@@ -197,24 +198,24 @@ function CreateParent({
         dir="rtl"
       />
       <Input
-        placeholder="Phone"
+        placeholder={t('common.phone')}
         value={form.phone ?? ''}
         onChange={(e) => set('phone', e.target.value)}
         dir="ltr"
       />
       <Input
-        placeholder="National ID"
+        placeholder={t('people.nationalId')}
         value={form.nationalId ?? ''}
         onChange={(e) => set('nationalId', e.target.value)}
       />
       <Input
-        placeholder="Occupation"
+        placeholder={t('people.occupation')}
         className="sm:col-span-2"
         value={form.occupation ?? ''}
         onChange={(e) => set('occupation', e.target.value)}
       />
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? 'Adding…' : 'Add parent'}
+        {busy ? t('common.adding') : t('people.addParentButton')}
       </Button>
     </form>
   );

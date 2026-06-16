@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
+import { useI18n } from '@/components/i18n-provider';
 import { loadStudentOptions } from '@/lib/pickers';
 import { cardsApi, type CardStatus, type CardType, type StudentCard } from '@/lib/cards';
 import {
@@ -35,6 +36,7 @@ const STATUSES: CardStatus[] = ['ACTIVE', 'SUSPENDED', 'STOLEN', 'LOST', 'REVOKE
 
 export default function StudentCardsPage() {
   const toast = useToast();
+  const { t } = useI18n();
   const [studentId, setStudentId] = useState('');
   const [cards, setCards] = useState<StudentCard[]>([]);
   const [form, setForm] = useState<{ cardUid: string; type: CardType; label: string }>({
@@ -69,15 +71,12 @@ export default function StudentCardsPage() {
     <Shell>
       <div className="mx-auto max-w-4xl space-y-6">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Student cards</h1>
-          <p className="text-sm text-muted-foreground">
-            NFC / RFID cards used for gate, reception and bus identification. Suspended, stolen,
-            lost or revoked cards stop working immediately.
-          </p>
+          <h1 className="font-display text-2xl font-semibold">{t('cards.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('cards.subtitle')}</p>
         </div>
 
         <div className="flex items-end gap-2">
-          <Field label="Student" className="flex-1">
+          <Field label={t('finance.student')} className="flex-1">
             <EntityPicker
               value={studentId}
               onChange={(v) => {
@@ -85,7 +84,7 @@ export default function StudentCardsPage() {
                 void load(v);
               }}
               load={loadStudentOptions}
-              placeholder="Search by student / father / family name…"
+              placeholder={t('finance.searchStudent')}
             />
           </Field>
         </div>
@@ -93,17 +92,17 @@ export default function StudentCardsPage() {
         {studentId ? (
           <Card>
             <CardHeader>
-              <CardTitle>Cards</CardTitle>
+              <CardTitle>{t('nav.cards')}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <Table>
                 <THead>
                   <TR>
-                    <TH>Card UID</TH>
-                    <TH>Type</TH>
-                    <TH>Label</TH>
-                    <TH>Status</TH>
-                    <TH className="text-end">Actions</TH>
+                    <TH>{t('cards.cardUid')}</TH>
+                    <TH>{t('common.type')}</TH>
+                    <TH>{t('common.label')}</TH>
+                    <TH>{t('common.status')}</TH>
+                    <TH className="text-end">{t('common.actions')}</TH>
                   </TR>
                 </THead>
                 <TBody>
@@ -139,7 +138,7 @@ export default function StudentCardsPage() {
                             className="text-destructive"
                             onClick={() => void run(() => cardsApi.remove(c.id), 'Card deleted')}
                           >
-                            Delete
+                            {t('common.delete')}
                           </Button>
                         </span>
                       </TD>
@@ -148,7 +147,7 @@ export default function StudentCardsPage() {
                   {cards.length === 0 ? (
                     <TR>
                       <TD colSpan={5} className="text-muted-foreground">
-                        No cards issued.
+                        {t('cards.noCards')}
                       </TD>
                     </TR>
                   ) : null}
@@ -171,7 +170,7 @@ export default function StudentCardsPage() {
                 }}
                 className="flex flex-wrap items-end gap-2"
               >
-                <Field label="Card UID" className="flex-1">
+                <Field label={t('cards.cardUid')} className="flex-1">
                   <Input
                     placeholder="04:A2:39:B1:5C:80"
                     value={form.cardUid}
@@ -179,7 +178,7 @@ export default function StudentCardsPage() {
                     required
                   />
                 </Field>
-                <Field label="Type">
+                <Field label={t('common.type')}>
                   <Select
                     value={form.type}
                     onChange={(e) => setForm({ ...form, type: e.target.value as CardType })}
@@ -188,14 +187,14 @@ export default function StudentCardsPage() {
                     <option value="RFID">RFID</option>
                   </Select>
                 </Field>
-                <Field label="Label">
+                <Field label={t('common.label')}>
                   <Input
-                    placeholder="Blue lanyard"
+                    placeholder={t('cards.labelPlaceholder')}
                     value={form.label}
                     onChange={(e) => setForm({ ...form, label: e.target.value })}
                   />
                 </Field>
-                <Button type="submit">Issue card</Button>
+                <Button type="submit">{t('cards.issueCard')}</Button>
               </form>
             </CardContent>
           </Card>

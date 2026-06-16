@@ -68,7 +68,7 @@ export default function TeachersPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -85,7 +85,7 @@ export default function TeachersPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Add a teacher</CardTitle>
+            <CardTitle>{t('people.addTeacher')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CreateTeacher onCreated={load} onError={setError} />
@@ -95,12 +95,12 @@ export default function TeachersPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Name</TH>
-              <TH>Arabic name</TH>
-              <TH>Employee #</TH>
-              <TH>Specialization</TH>
-              <TH>Status</TH>
-              <TH className="text-end">Actions</TH>
+              <TH>{t('common.name')}</TH>
+              <TH>{t('common.arabicName')}</TH>
+              <TH>{t('people.employeeNumber')}</TH>
+              <TH>{t('people.specialization')}</TH>
+              <TH>{t('common.status')}</TH>
+              <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -121,7 +121,7 @@ export default function TeachersPage() {
                 </TD>
                 <TD className="text-end">
                   <Button variant="ghost" size="sm" onClick={() => void remove(tch.id)}>
-                    Delete
+                    {t('common.delete')}
                   </Button>
                 </TD>
               </TR>
@@ -129,7 +129,7 @@ export default function TeachersPage() {
             {teachers.length === 0 ? (
               <TR>
                 <TD colSpan={6} className="text-muted-foreground">
-                  No teachers yet.
+                  {t('people.noTeachers')}
                 </TD>
               </TR>
             ) : null}
@@ -147,6 +147,7 @@ function CreateTeacher({
   onCreated: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState<CreateTeacherInput>(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -180,13 +181,13 @@ function CreateTeacher({
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
       <Input
-        placeholder="First name (EN)"
+        placeholder={t('common.firstNameEn')}
         value={form.firstNameEn}
         onChange={(e) => set('firstNameEn', e.target.value)}
         required
       />
       <Input
-        placeholder="Last name (EN)"
+        placeholder={t('common.lastNameEn')}
         value={form.lastNameEn}
         onChange={(e) => set('lastNameEn', e.target.value)}
         required
@@ -206,12 +207,12 @@ function CreateTeacher({
         dir="rtl"
       />
       <Input
-        placeholder="Employee number"
+        placeholder={t('people.employeeNumberPlaceholder')}
         value={form.employeeNumber ?? ''}
         onChange={(e) => set('employeeNumber', e.target.value)}
       />
       <Input
-        placeholder="Specialization (e.g. Mathematics)"
+        placeholder={t('people.specializationPlaceholder')}
         value={form.specialization ?? ''}
         onChange={(e) => set('specialization', e.target.value)}
       />
@@ -226,7 +227,7 @@ function CreateTeacher({
         ))}
       </Select>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? 'Adding…' : 'Add teacher'}
+        {busy ? t('common.adding') : t('people.addTeacherButton')}
       </Button>
     </form>
   );

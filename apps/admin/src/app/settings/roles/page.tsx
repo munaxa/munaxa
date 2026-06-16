@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
+import { useI18n } from '@/components/i18n-provider';
 import { rolesApi, type PermissionCatalogEntry, type RoleSummary } from '@/lib/roles';
 import {
   Badge,
@@ -27,6 +28,7 @@ export default function RolesPage() {
 
 function RolesAdmin() {
   const toast = useToast();
+  const { t } = useI18n();
   const [roles, setRoles] = useState<RoleSummary[]>([]);
   const [catalog, setCatalog] = useState<PermissionCatalogEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -73,19 +75,17 @@ function RolesAdmin() {
   }
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading roles…</p>;
+    return <p className="text-sm text-muted-foreground">{t('roles.loadingRoles')}</p>;
   }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Roles &amp; permissions</h1>
-          <p className="text-sm text-muted-foreground">
-            Customize what each role can do, or create roles tailored to your school.
-          </p>
+          <h1 className="font-display text-2xl font-semibold">{t('roles.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('roles.subtitle')}</p>
         </div>
-        <Button onClick={() => void createRole()}>New role</Button>
+        <Button onClick={() => void createRole()}>{t('roles.newRole')}</Button>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
@@ -107,9 +107,9 @@ function RolesAdmin() {
                     <span className="truncate">{r.nameEn || r.key}</span>
                     <span className="flex shrink-0 items-center gap-1">
                       {r.isSystem ? (
-                        <Badge tone="muted">system</Badge>
+                        <Badge tone="muted">{t('common.system')}</Badge>
                       ) : (
-                        <Badge tone="default">custom</Badge>
+                        <Badge tone="default">{t('common.custom')}</Badge>
                       )}
                     </span>
                   </button>
@@ -133,7 +133,7 @@ function RolesAdmin() {
         ) : (
           <Card>
             <CardContent className="pt-6 text-sm text-muted-foreground">
-              Select a role to edit.
+              {t('roles.selectToEdit')}
             </CardContent>
           </Card>
         )}
@@ -158,6 +158,7 @@ function RoleEditor({
   onDeleted: (id: string) => void;
 }) {
   const toast = useToast();
+  const { t } = useI18n();
   const [nameEn, setNameEn] = useState(role.nameEn ?? role.key);
   const [nameAr, setNameAr] = useState(role.nameAr ?? '');
   const [selected, setSelected] = useState<Set<string>>(new Set(role.permissions));
@@ -239,42 +240,43 @@ function RoleEditor({
             <CardTitle className="flex items-center gap-2">
               {role.nameEn || role.key}
               {role.isSystem ? (
-                <Badge tone="muted">system</Badge>
+                <Badge tone="muted">{t('common.system')}</Badge>
               ) : (
-                <Badge tone="default">custom</Badge>
+                <Badge tone="default">{t('common.custom')}</Badge>
               )}
             </CardTitle>
             <CardDescription>
-              <span className="font-mono text-xs">{role.key}</span> · {role.userCount} user
-              {role.userCount === 1 ? '' : 's'} · {selected.size} permission
-              {selected.size === 1 ? '' : 's'}
+              <span className="font-mono text-xs">{role.key}</span> · {role.userCount}{' '}
+              {role.userCount === 1 ? t('roles.userSuffix') : t('roles.usersSuffix')} ·{' '}
+              {selected.size}{' '}
+              {selected.size === 1 ? t('roles.permissionSuffix') : t('roles.permissionsSuffix')}
             </CardDescription>
           </div>
           <div className="flex gap-2">
             {!role.isSystem ? (
               <Button variant="outline" size="sm" onClick={() => void remove()} disabled={deleting}>
-                Delete
+                {t('common.delete')}
               </Button>
             ) : null}
             <Button size="sm" onClick={() => void save()} disabled={!dirty || saving}>
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving ? t('common.saving') : t('common.saveChanges')}
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Name (English)">
+          <Field label={t('roles.nameEn')}>
             <Input value={nameEn} onChange={(e) => setNameEn(e.target.value)} />
           </Field>
-          <Field label="Name (Arabic)">
+          <Field label={t('roles.nameAr')}>
             <Input value={nameAr} onChange={(e) => setNameAr(e.target.value)} dir="rtl" />
           </Field>
         </div>
 
         {role.isSystem ? (
           <p className="rounded-lg border border-border bg-secondary/30 p-2 text-xs text-muted-foreground">
-            This is a built-in role. Editing its permissions customizes it for your school only.
+            {t('roles.builtInNote')}
           </p>
         ) : null}
 
@@ -290,7 +292,7 @@ function RoleEditor({
                     className="text-xs text-primary hover:underline"
                     onClick={() => toggleGroup(entries, !allOn)}
                   >
-                    {allOn ? 'Clear' : 'Select all'}
+                    {allOn ? t('roles.clear') : t('roles.selectAll')}
                   </button>
                 </div>
                 <div className="grid gap-1.5 sm:grid-cols-2">
