@@ -67,11 +67,14 @@ async function main(): Promise<void> {
         where: { key: { in: permissionKeys } },
         select: { id: true },
       });
-      for (const permission of permissions) {
-        await tx.rolePermission.upsert({
-          where: { roleId_permissionId: { roleId: role.id, permissionId: permission.id } },
-          update: {},
-          create: { roleId: role.id, permissionId: permission.id },
+      // Bulk insert (idempotent via skipDuplicates) instead of a per-permission
+      // upsert loop: one query per role rather than hundreds of sequential
+      // round-trips, so the transaction stays well within a pooled connection's
+      // tolerance when seeding a remote/managed database.
+      if (permissions.length > 0) {
+        await tx.rolePermission.createMany({
+          data: permissions.map((permission) => ({ roleId: role.id, permissionId: permission.id })),
+          skipDuplicates: true,
         });
       }
     }
