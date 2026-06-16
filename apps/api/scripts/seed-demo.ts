@@ -23,10 +23,15 @@ const prisma = new PrismaClient();
 
 /** Run fn with the platform RLS context set, so cross-tenant writes pass row-level security. */
 function platform<T>(fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.is_platform', 'on', true)`;
-    return fn(tx as unknown as PrismaClient);
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.is_platform', 'on', true)`;
+      return fn(tx as unknown as PrismaClient);
+    },
+    // Generous timeouts so the seed survives higher round-trip latency against a
+    // remote/pooled database (e.g. a managed Postgres in another region).
+    { maxWait: 60_000, timeout: 60_000 },
+  );
 }
 
 async function main(): Promise<void> {
