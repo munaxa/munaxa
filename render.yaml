@@ -1,0 +1,61 @@
+# Render Blueprint for Munaxa staging (API + Admin).
+# Database is a managed Supabase Postgres (provisioned separately) — not defined here.
+#
+# Deploy: Render Dashboard → New → Blueprint → pick this repo. Then set the
+# `sync: false` secrets (DATABASE_URL, CORS_ORIGINS, NEXT_PUBLIC_API_URL) in the UI.
+#
+# Two ordering gotchas (each URL depends on the other):
+#   1. NEXT_PUBLIC_API_URL is compiled into the admin at BUILD time — it must be set
+#      before the admin image builds, and changing it later requires a redeploy.
+#   2. The API's CORS_ORIGINS must equal the admin's exact public origin.
+# So: deploy the API first, copy its URL into the admin's NEXT_PUBLIC_API_URL, then
+# put the admin's URL into the API's CORS_ORIGINS and redeploy the API.
+
+services:
+  - type: web
+    name: munaxa-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    region: frankfurt
+    plan: free
+    healthCheckPath: /api/v1/health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      - key: API_GLOBAL_PREFIX
+        value: api
+      - key: API_VERSION
+        value: v1
+      # Runtime connection = restricted munaxa_app role (RLS enforced).
+      # postgresql://munaxa_app.<ref>:<APP_PW>@<pooler-host>:5432/postgres?schema=public
+      - key: DATABASE_URL
+        sync: false
+      # Must list the admin service's exact public origin (set after admin deploys).
+      - key: CORS_ORIGINS
+        sync: false
+      # Generated per-service and guaranteed distinct (prod requires they differ).
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: "900"
+      - key: JWT_REFRESH_TTL
+        value: "2592000"
+
+  - type: web
+    name: munaxa-admin
+    runtime: docker
+    dockerfilePath: ./apps/admin/Dockerfile
+    dockerContext: .
+    region: frankfurt
+    plan: free
+    envVars:
+      # Baked into the client bundle at BUILD time → https://<api-service>.onrender.com/api/v1
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_ENV
+        value: staging
