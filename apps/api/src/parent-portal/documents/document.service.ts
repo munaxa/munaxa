@@ -32,6 +32,8 @@ export class DocumentService {
   /** Step 2: persist the vault entry after the client finishes uploading. */
   async confirm(dto: ConfirmDocumentDto): Promise<Document> {
     await this.scope.assertManageAccess(dto.studentId);
+    this.storage.assertKeyInTenant(dto.fileKey);
+    this.storage.assertUploadAllowed(dto.contentType, dto.size);
     return this.repo.create({
       studentId: dto.studentId,
       title: dto.title,

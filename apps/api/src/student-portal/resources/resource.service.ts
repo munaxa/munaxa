@@ -28,6 +28,11 @@ export class ResourceService {
     if ((dto.type === 'FILE' || dto.type === 'DOCUMENT') && !dto.fileKey) {
       throw new BadRequestException('fileKey is required for FILE/DOCUMENT resources');
     }
+    if (dto.fileKey) {
+      // Reject a fileKey pointing at another tenant's object (cross-tenant download via presign).
+      this.storage.assertKeyInTenant(dto.fileKey);
+      if (dto.contentType) this.storage.assertUploadAllowed(dto.contentType, dto.size);
+    }
     if (dto.sectionId && !(await this.repo.sectionExists(dto.sectionId))) {
       throw new BadRequestException('Section not found in this tenant');
     }

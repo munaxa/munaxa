@@ -26,6 +26,11 @@ export class GradeService {
 
   async update(id: string, dto: UpdateGradeDto): Promise<Grade> {
     await this.get(id);
+    // A reassigned campusId must be re-validated, exactly as on create — otherwise a PATCH can
+    // orphan the grade against a non-existent campus (create validates; update previously did not).
+    if (dto.campusId && !(await this.repo.campusExists(dto.campusId))) {
+      throw new BadRequestException('Campus not found in this tenant');
+    }
     return this.repo.update(id, dto);
   }
 
