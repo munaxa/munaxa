@@ -48,12 +48,12 @@ const TXN_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = {
 };
 const COLLECTIONS: {
   value: CollectionsStatus;
-  label: string;
+  labelKey: string;
   tone: 'muted' | 'warning' | 'danger';
 }[] = [
-  { value: 'NONE', label: 'No flag', tone: 'muted' },
-  { value: 'FINANCIAL_ISSUE', label: 'Financial issue', tone: 'warning' },
-  { value: 'LEGAL', label: 'Contact lawyer (legal)', tone: 'danger' },
+  { value: 'NONE', labelKey: 'finance.noFlag', tone: 'muted' },
+  { value: 'FINANCIAL_ISSUE', labelKey: 'finance.financialIssue', tone: 'warning' },
+  { value: 'LEGAL', labelKey: 'finance.legal', tone: 'danger' },
 ];
 
 export default function FinancePage() {
@@ -138,7 +138,7 @@ export default function FinancePage() {
         <h1 className="font-display text-2xl font-semibold">{t('nav.finance')}</h1>
 
         <div className="flex items-end gap-2">
-          <Field label="Student" className="flex-1">
+          <Field label={t('finance.student')} className="flex-1">
             <EntityPicker
               value={studentId}
               onChange={(v) => {
@@ -146,10 +146,10 @@ export default function FinancePage() {
                 void load(v);
               }}
               load={loadStudentOptions}
-              placeholder="Search by student / father / family name…"
+              placeholder={t('finance.searchStudent')}
             />
           </Field>
-          <Button onClick={() => void load()}>Load</Button>
+          <Button onClick={() => void load()}>{t('common.load')}</Button>
         </div>
 
         {loading ? <Spinner /> : null}
@@ -161,13 +161,14 @@ export default function FinancePage() {
               <CardContent className="space-y-3 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <Badge tone={tag.tone}>{tag.label}</Badge>
+                    <Badge tone={tag.tone}>{t(tag.labelKey)}</Badge>
                     <span className="text-sm text-muted-foreground">
-                      Outstanding{' '}
+                      {t('finance.outstanding')}{' '}
                       <strong className="font-mono">{jod(collections.snapshot.outstanding)}</strong>
                       {Number(collections.snapshot.overdue) > 0 ? (
                         <>
-                          {' · '}overdue{' '}
+                          {' · '}
+                          {t('finance.overdue')}{' '}
                           <strong className="font-mono text-destructive">
                             {jod(collections.snapshot.overdue)}
                           </strong>
@@ -175,7 +176,8 @@ export default function FinancePage() {
                       ) : null}
                       {Number(collections.snapshot.dueThisMonth) > 0 ? (
                         <>
-                          {' · '}this month{' '}
+                          {' · '}
+                          {t('finance.thisMonth')}{' '}
                           <strong className="font-mono text-coral">
                             {jod(collections.snapshot.dueThisMonth)}
                           </strong>
@@ -195,7 +197,7 @@ export default function FinancePage() {
                         )
                       }
                     >
-                      Remind (app)
+                      {t('finance.remindApp')}
                     </Button>
                     <Button
                       size="sm"
@@ -208,12 +210,12 @@ export default function FinancePage() {
                         )
                       }
                     >
-                      Remind (app + SMS)
+                      {t('finance.remindAppSms')}
                     </Button>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-end gap-2">
-                  <Field label="Collections flag">
+                  <Field label={t('finance.collectionsFlag')}>
                     <Select
                       value={collections.collectionsStatus}
                       onChange={(e) =>
@@ -229,15 +231,15 @@ export default function FinancePage() {
                     >
                       {COLLECTIONS.map((c) => (
                         <option key={c.value} value={c.value}>
-                          {c.label}
+                          {t(c.labelKey)}
                         </option>
                       ))}
                     </Select>
                   </Field>
-                  <Field label="Legal / collections note" className="flex-1">
+                  <Field label={t('finance.legalNote')} className="flex-1">
                     <Input
                       value={legalNote}
-                      placeholder="Lawyer contact, case reference…"
+                      placeholder={t('finance.legalNotePlaceholder')}
                       onChange={(e) => setLegalNote(e.target.value)}
                     />
                   </Field>
@@ -255,13 +257,14 @@ export default function FinancePage() {
                       )
                     }
                   >
-                    Save note
+                    {t('finance.saveNote')}
                   </Button>
                 </div>
                 {collections.lastReminderAt ? (
                   <p className="text-xs text-muted-foreground">
-                    Last reminder: {new Date(collections.lastReminderAt).toLocaleString()} ·{' '}
-                    {collections.reminders.length} sent
+                    {t('finance.lastReminder')}:{' '}
+                    {new Date(collections.lastReminderAt).toLocaleString()} ·{' '}
+                    {collections.reminders.length} {t('finance.sentSuffix')}
                   </p>
                 ) : null}
               </CardContent>
@@ -271,18 +274,18 @@ export default function FinancePage() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {(
                 [
-                  ['Charged', statement.totals.charged, ''],
-                  ['Paid', statement.totals.paid, 'text-aqua'],
-                  ['Discounts', statement.totals.discounts, ''],
-                  ['Outstanding', statement.totals.outstanding, 'text-coral'],
-                  ['Credit', statement.totals.creditBalance, 'text-aqua'],
-                  ['Refunded', statement.totals.refunded, ''],
+                  ['finance.charged', statement.totals.charged, ''],
+                  ['finance.paid', statement.totals.paid, 'text-aqua'],
+                  ['finance.discounts', statement.totals.discounts, ''],
+                  ['finance.outstanding', statement.totals.outstanding, 'text-coral'],
+                  ['finance.credit', statement.totals.creditBalance, 'text-aqua'],
+                  ['finance.refunded', statement.totals.refunded, ''],
                 ] as const
-              ).map(([label, value, cls]) => (
-                <Card key={label}>
+              ).map(([labelKey, value, cls]) => (
+                <Card key={labelKey}>
                   <CardContent className="p-4">
                     <div className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-                      {label}
+                      {t(labelKey)}
                     </div>
                     <div className={`font-display text-xl font-semibold ${cls}`}>
                       {Number(value).toFixed(3)}
@@ -295,19 +298,19 @@ export default function FinancePage() {
             {/* Charges with per-charge balances + actions */}
             <Card>
               <CardHeader>
-                <CardTitle>Charges</CardTitle>
+                <CardTitle>{t('finance.charges')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <Table>
                   <THead>
                     <TR>
-                      <TH>Description</TH>
-                      <TH className="text-end">Gross</TH>
-                      <TH className="text-end">Discount</TH>
-                      <TH className="text-end">Net</TH>
-                      <TH className="text-end">Balance</TH>
-                      <TH>Status</TH>
-                      <TH className="text-end">Actions</TH>
+                      <TH>{t('common.description')}</TH>
+                      <TH className="text-end">{t('finance.gross')}</TH>
+                      <TH className="text-end">{t('finance.discount')}</TH>
+                      <TH className="text-end">{t('finance.net')}</TH>
+                      <TH className="text-end">{t('finance.balance')}</TH>
+                      <TH>{t('common.status')}</TH>
+                      <TH className="text-end">{t('common.actions')}</TH>
                     </TR>
                   </THead>
                   <TBody>
@@ -317,7 +320,8 @@ export default function FinancePage() {
                           {b.charge.description}
                           {b.charge.dueDate ? (
                             <span className="block font-mono text-[11px] text-muted-foreground">
-                              due {new Date(b.charge.dueDate).toLocaleDateString()}
+                              {t('finance.dueSuffix')}{' '}
+                              {new Date(b.charge.dueDate).toLocaleDateString()}
                             </span>
                           ) : null}
                         </TD>
@@ -340,7 +344,7 @@ export default function FinancePage() {
                                 setRowForm({ amount: '', percent: '', reason: '' });
                               }}
                             >
-                              Discount
+                              {t('finance.discount')}
                             </Button>
                             <Button
                               size="sm"
@@ -352,7 +356,7 @@ export default function FinancePage() {
                                 )
                               }
                             >
-                              e-Invoice
+                              {t('finance.eInvoice')}
                             </Button>
                             <Button
                               size="sm"
@@ -362,7 +366,7 @@ export default function FinancePage() {
                                 setRowForm({ amount: '', percent: '', reason: '' });
                               }}
                             >
-                              Credit
+                              {t('finance.credit')}
                             </Button>
                           </span>
                         </TD>
@@ -371,7 +375,7 @@ export default function FinancePage() {
                     {statement.chargeBalances.length === 0 ? (
                       <TR>
                         <TD colSpan={7} className="text-muted-foreground">
-                          No charges.
+                          {t('finance.noCharges')}
                         </TD>
                       </TR>
                     ) : null}
@@ -381,9 +385,11 @@ export default function FinancePage() {
                 {rowAction ? (
                   <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-secondary/40 p-3">
                     <span className="font-mono text-xs uppercase text-muted-foreground">
-                      {rowAction.kind === 'discount' ? 'Apply discount' : 'Credit note'}
+                      {rowAction.kind === 'discount'
+                        ? t('finance.applyDiscount')
+                        : t('finance.creditNote')}
                     </span>
-                    <Field label="Amount (JOD)">
+                    <Field label={t('finance.amountJod')}>
                       <Input
                         type="number"
                         step="0.001"
@@ -394,7 +400,7 @@ export default function FinancePage() {
                       />
                     </Field>
                     {rowAction.kind === 'discount' ? (
-                      <Field label="or Percent">
+                      <Field label={t('finance.orPercent')}>
                         <Input
                           type="number"
                           step="0.01"
@@ -405,17 +411,17 @@ export default function FinancePage() {
                         />
                       </Field>
                     ) : null}
-                    <Field label="Reason" className="flex-1">
+                    <Field label={t('common.reason')} className="flex-1">
                       <Input
                         value={rowForm.reason}
                         onChange={(e) => setRowForm({ ...rowForm, reason: e.target.value })}
                       />
                     </Field>
                     <Button size="sm" onClick={() => void submitRowAction()}>
-                      Apply
+                      {t('finance.apply')}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setRowAction(null)}>
-                      Cancel
+                      {t('common.cancel')}
                     </Button>
                   </div>
                 ) : null}
@@ -436,15 +442,15 @@ export default function FinancePage() {
                   }}
                   className="flex flex-wrap items-end gap-2"
                 >
-                  <Field label="New charge" className="flex-1">
+                  <Field label={t('finance.newCharge')} className="flex-1">
                     <Input
-                      placeholder="Tuition — Term 1"
+                      placeholder={t('finance.tuitionPlaceholder')}
                       value={charge.description}
                       onChange={(e) => setCharge({ ...charge, description: e.target.value })}
                       required
                     />
                   </Field>
-                  <Field label="Amount (JOD)">
+                  <Field label={t('finance.amountJod')}>
                     <Input
                       type="number"
                       step="0.001"
@@ -453,14 +459,14 @@ export default function FinancePage() {
                       required
                     />
                   </Field>
-                  <Field label="Due date">
+                  <Field label={t('finance.dueDate')}>
                     <Input
                       type="date"
                       value={charge.dueDate}
                       onChange={(e) => setCharge({ ...charge, dueDate: e.target.value })}
                     />
                   </Field>
-                  <Button type="submit">Add charge</Button>
+                  <Button type="submit">{t('finance.addCharge')}</Button>
                 </form>
               </CardContent>
             </Card>
@@ -469,16 +475,16 @@ export default function FinancePage() {
             {statement.adjustments.length > 0 ? (
               <Card>
                 <CardHeader>
-                  <CardTitle>Deductions</CardTitle>
+                  <CardTitle>{t('finance.deductions')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <THead>
                       <TR>
-                        <TH>Type</TH>
-                        <TH>Reason</TH>
-                        <TH className="text-end">Amount</TH>
-                        <TH>Status</TH>
+                        <TH>{t('common.type')}</TH>
+                        <TH>{t('common.reason')}</TH>
+                        <TH className="text-end">{t('common.amount')}</TH>
+                        <TH>{t('common.status')}</TH>
                         <TH className="text-end" />
                       </TR>
                     </THead>
@@ -502,7 +508,7 @@ export default function FinancePage() {
                                   void run(() => financeApi.reverseAdjustment(a.id), 'Reversed')
                                 }
                               >
-                                Reverse
+                                {t('finance.reverse')}
                               </Button>
                             ) : null}
                           </TD>
@@ -517,16 +523,16 @@ export default function FinancePage() {
             {/* Payments */}
             <Card>
               <CardHeader>
-                <CardTitle>Payments</CardTitle>
+                <CardTitle>{t('finance.payments')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <THead>
                     <TR>
-                      <TH className="text-end">Amount</TH>
-                      <TH>Method</TH>
-                      <TH>Status</TH>
-                      <TH className="text-end">Actions</TH>
+                      <TH className="text-end">{t('common.amount')}</TH>
+                      <TH>{t('finance.method')}</TH>
+                      <TH>{t('common.status')}</TH>
+                      <TH className="text-end">{t('common.actions')}</TH>
                     </TR>
                   </THead>
                   <TBody>
@@ -545,7 +551,7 @@ export default function FinancePage() {
                                 variant="ghost"
                                 onClick={() => void run(() => financeApi.verify(tx.id), 'Verified')}
                               >
-                                Verify
+                                {t('finance.verify')}
                               </Button>
                               <Button
                                 size="sm"
@@ -553,7 +559,7 @@ export default function FinancePage() {
                                 className="text-destructive"
                                 onClick={() => void run(() => financeApi.reject(tx.id), 'Rejected')}
                               >
-                                Reject
+                                {t('finance.reject')}
                               </Button>
                             </span>
                           ) : null}
@@ -563,7 +569,7 @@ export default function FinancePage() {
                     {statement.transactions.length === 0 ? (
                       <TR>
                         <TD colSpan={4} className="text-muted-foreground">
-                          No payments.
+                          {t('finance.noPayments')}
                         </TD>
                       </TR>
                     ) : null}
@@ -576,9 +582,9 @@ export default function FinancePage() {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  Refunds{' '}
+                  {t('finance.refunds')}{' '}
                   <span className="text-sm text-muted-foreground">
-                    · credit {jod(statement.totals.creditBalance)}
+                    · {t('finance.creditLabel')} {jod(statement.totals.creditBalance)}
                   </span>
                 </CardTitle>
               </CardHeader>
@@ -599,7 +605,7 @@ export default function FinancePage() {
                   }}
                   className="flex flex-wrap items-end gap-2"
                 >
-                  <Field label="Refund amount (JOD)">
+                  <Field label={t('finance.refundAmountJod')}>
                     <Input
                       type="number"
                       step="0.001"
@@ -608,23 +614,23 @@ export default function FinancePage() {
                       required
                     />
                   </Field>
-                  <Field label="Reason" className="flex-1">
+                  <Field label={t('common.reason')} className="flex-1">
                     <Input
                       value={refund.reason}
                       onChange={(e) => setRefund({ ...refund, reason: e.target.value })}
                     />
                   </Field>
                   <Button type="submit" disabled={Number(statement.totals.creditBalance) <= 0}>
-                    Request refund
+                    {t('finance.requestRefund')}
                   </Button>
                 </form>
                 {statement.refunds.length > 0 ? (
                   <Table>
                     <THead>
                       <TR>
-                        <TH className="text-end">Amount</TH>
-                        <TH>Reason</TH>
-                        <TH>Status</TH>
+                        <TH className="text-end">{t('common.amount')}</TH>
+                        <TH>{t('common.reason')}</TH>
+                        <TH>{t('common.status')}</TH>
                         <TH className="text-end" />
                       </TR>
                     </THead>
@@ -645,7 +651,7 @@ export default function FinancePage() {
                                   void run(() => financeApi.verifyRefund(r.id), 'Refund verified')
                                 }
                               >
-                                Verify
+                                {t('finance.verify')}
                               </Button>
                             ) : null}
                           </TD>

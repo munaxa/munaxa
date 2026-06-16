@@ -68,7 +68,7 @@ export default function EmployeesPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -85,7 +85,7 @@ export default function EmployeesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Add an employee</CardTitle>
+            <CardTitle>{t('people.addEmployee')}</CardTitle>
           </CardHeader>
           <CardContent>
             <CreateEmployee onCreated={load} onError={setError} />
@@ -95,12 +95,12 @@ export default function EmployeesPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Name</TH>
-              <TH>Arabic name</TH>
-              <TH>Job title</TH>
-              <TH>Department</TH>
-              <TH>Status</TH>
-              <TH className="text-end">Actions</TH>
+              <TH>{t('common.name')}</TH>
+              <TH>{t('common.arabicName')}</TH>
+              <TH>{t('people.jobTitle')}</TH>
+              <TH>{t('people.department')}</TH>
+              <TH>{t('common.status')}</TH>
+              <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -119,7 +119,7 @@ export default function EmployeesPage() {
                 </TD>
                 <TD className="text-end">
                   <Button variant="ghost" size="sm" onClick={() => void remove(emp.id)}>
-                    Delete
+                    {t('common.delete')}
                   </Button>
                 </TD>
               </TR>
@@ -127,7 +127,7 @@ export default function EmployeesPage() {
             {employees.length === 0 ? (
               <TR>
                 <TD colSpan={6} className="text-muted-foreground">
-                  No employees yet.
+                  {t('people.noEmployees')}
                 </TD>
               </TR>
             ) : null}
@@ -145,6 +145,7 @@ function CreateEmployee({
   onCreated: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState<CreateEmployeeInput>(EMPTY);
   const [busy, setBusy] = useState(false);
 
@@ -178,13 +179,13 @@ function CreateEmployee({
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
       <Input
-        placeholder="First name (EN)"
+        placeholder={t('common.firstNameEn')}
         value={form.firstNameEn}
         onChange={(e) => set('firstNameEn', e.target.value)}
         required
       />
       <Input
-        placeholder="Last name (EN)"
+        placeholder={t('common.lastNameEn')}
         value={form.lastNameEn}
         onChange={(e) => set('lastNameEn', e.target.value)}
         required
@@ -204,13 +205,13 @@ function CreateEmployee({
         dir="rtl"
       />
       <Input
-        placeholder="Job title (e.g. Secretary)"
+        placeholder={t('people.jobTitlePlaceholder')}
         value={form.jobTitle}
         onChange={(e) => set('jobTitle', e.target.value)}
         required
       />
       <Input
-        placeholder="Department"
+        placeholder={t('people.department')}
         value={form.department ?? ''}
         onChange={(e) => set('department', e.target.value)}
       />
@@ -225,7 +226,7 @@ function CreateEmployee({
         ))}
       </Select>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? 'Adding…' : 'Add employee'}
+        {busy ? t('common.adding') : t('people.addEmployeeButton')}
       </Button>
     </form>
   );

@@ -7,36 +7,41 @@ import { useI18n } from '@/components/i18n-provider';
 import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
 
-const QUICK_LINKS: Array<{ href: string; labelKey: string; desc: string; perm?: string }> = [
+const QUICK_LINKS: Array<{ href: string; labelKey: string; descKey: string; perm?: string }> = [
   {
     href: '/people/students',
     labelKey: 'nav.people',
-    desc: 'Students, parents, staff',
+    descKey: 'dashboard.peopleDesc',
     perm: 'student:manage',
   },
   {
     href: '/attendance',
     labelKey: 'nav.attendance',
-    desc: 'Daily marking & history',
+    descKey: 'dashboard.attendanceDesc',
     perm: 'attendance:read',
   },
   {
     href: '/finance',
     labelKey: 'nav.finance',
-    desc: 'Charges, receipts, balances',
+    descKey: 'dashboard.financeDesc',
     perm: 'finance:read',
   },
-  { href: '/people/cards', labelKey: 'nav.cards', desc: 'NFC / RFID cards', perm: 'card:read' },
+  {
+    href: '/people/cards',
+    labelKey: 'nav.cards',
+    descKey: 'dashboard.cardsDesc',
+    perm: 'card:read',
+  },
   {
     href: '/reports',
     labelKey: 'nav.reports',
-    desc: 'Attendance, academic, financial',
+    descKey: 'dashboard.reportsDesc',
     perm: 'report:read',
   },
   {
     href: '/modules',
     labelKey: 'nav.modules',
-    desc: 'Enable optional features',
+    descKey: 'dashboard.modulesDesc',
     perm: 'featureflag:manage',
   },
 ];
@@ -85,40 +90,61 @@ function Dashboard() {
       {canSeeKpis && data ? (
         <>
           <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Kpi label="Students" value={String(data.students)} />
-            <Kpi label="Staff" value={String(data.staff)} />
-            <Kpi label="Attendance today" value={rate !== null ? `${rate}%` : '—'} tone="aqua" />
+            <Kpi label={t('dashboard.students')} value={String(data.students)} />
+            <Kpi label={t('dashboard.staff')} value={String(data.staff)} />
             <Kpi
-              label="Outstanding"
+              label={t('dashboard.attendanceToday')}
+              value={rate !== null ? `${rate}%` : '—'}
+              tone="aqua"
+            />
+            <Kpi
+              label={t('dashboard.outstanding')}
               value={Number(data.finance.outstanding).toFixed(3)}
               tone="coral"
             />
             <Kpi
-              label="Collected (mo)"
+              label={t('dashboard.collectedMonth')}
               value={Number(data.finance.collectedThisMonth).toFixed(3)}
               tone="aqua"
             />
-            <Kpi label="e-Invoice pending" value={String(data.einvoice.pending)} />
+            <Kpi label={t('dashboard.einvoicePending')} value={String(data.einvoice.pending)} />
           </section>
 
           <section className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-1">
               <CardHeader>
-                <CardTitle>Attendance today</CardTitle>
-                <CardDescription>{att?.total ?? 0} marked</CardDescription>
+                <CardTitle>{t('dashboard.attendanceToday')}</CardTitle>
+                <CardDescription>
+                  {att?.total ?? 0} {t('dashboard.markedSuffix')}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
                 {att ? (
                   <>
-                    <Bar label="Present" n={att.present} total={att.total} className="bg-aqua" />
-                    <Bar label="Late" n={att.late} total={att.total} className="bg-coral" />
                     <Bar
-                      label="Absent"
+                      label={t('dashboard.present')}
+                      n={att.present}
+                      total={att.total}
+                      className="bg-aqua"
+                    />
+                    <Bar
+                      label={t('dashboard.late')}
+                      n={att.late}
+                      total={att.total}
+                      className="bg-coral"
+                    />
+                    <Bar
+                      label={t('dashboard.absent')}
                       n={att.absent}
                       total={att.total}
                       className="bg-destructive"
                     />
-                    <Bar label="Excused" n={att.excused} total={att.total} className="bg-primary" />
+                    <Bar
+                      label={t('dashboard.excused')}
+                      n={att.excused}
+                      total={att.total}
+                      className="bg-primary"
+                    />
                   </>
                 ) : null}
               </CardContent>
@@ -126,11 +152,11 @@ function Dashboard() {
 
             <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Recent activity</CardTitle>
+                <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-1.5 text-sm">
                 {data.recentActivity.length === 0 ? (
-                  <p className="text-muted-foreground">No recent activity.</p>
+                  <p className="text-muted-foreground">{t('dashboard.noRecentActivity')}</p>
                 ) : (
                   data.recentActivity.map((a, i) => (
                     <div
@@ -153,7 +179,7 @@ function Dashboard() {
         </>
       ) : null}
       {canSeeKpis && error && !data ? (
-        <p className="text-sm text-muted-foreground">Overview is unavailable right now.</p>
+        <p className="text-sm text-muted-foreground">{t('dashboard.overviewUnavailable')}</p>
       ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -162,7 +188,7 @@ function Dashboard() {
             <Card className="h-full transition group-hover:border-primary/40 group-hover:shadow-glow">
               <CardHeader>
                 <CardTitle>{t(l.labelKey)}</CardTitle>
-                <CardDescription>{l.desc}</CardDescription>
+                <CardDescription>{t(l.descKey)}</CardDescription>
               </CardHeader>
             </Card>
           </Link>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
+import { useI18n } from '@/components/i18n-provider';
 import { usersApi, type UserStatus, type UserSummary } from '@/lib/users';
 import { rolesApi, type RoleSummary } from '@/lib/roles';
 import {
@@ -40,6 +41,7 @@ export default function UsersPage() {
 
 function UsersAdmin() {
   const toast = useToast();
+  const { t } = useI18n();
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [roles, setRoles] = useState<RoleSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -79,16 +81,14 @@ function UsersAdmin() {
     });
   }
 
-  if (loading) return <p className="text-sm text-muted-foreground">Loading users…</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">{t('users.loadingUsers')}</p>;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Users &amp; staff</h1>
-          <p className="text-sm text-muted-foreground">
-            Create accounts, assign roles, and manage access for your school.
-          </p>
+          <h1 className="font-display text-2xl font-semibold">{t('users.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('users.subtitle')}</p>
         </div>
         <Button
           onClick={() => {
@@ -96,7 +96,7 @@ function UsersAdmin() {
             setSelectedId(null);
           }}
         >
-          New user
+          {t('users.newUser')}
         </Button>
       </header>
 
@@ -104,11 +104,13 @@ function UsersAdmin() {
         <Card className="border-primary/40">
           <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-6">
             <div className="text-sm">
-              <p className="font-medium">Temporary password for {tempPassword.email}</p>
+              <p className="font-medium">
+                {t('users.tempPasswordFor')} {tempPassword.email}
+              </p>
               <p className="text-muted-foreground">
                 {tempPassword.emailed
-                  ? 'It was also emailed to the user. Shown once; must be changed at first login.'
-                  : 'Share it securely — it’s shown once and must be changed at first login.'}
+                  ? t('users.tempPasswordEmailed')
+                  : t('users.tempPasswordShare')}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -116,7 +118,7 @@ function UsersAdmin() {
                 {tempPassword.password}
               </code>
               <Button variant="outline" size="sm" onClick={() => setTempPassword(null)}>
-                Dismiss
+                {t('common.dismiss')}
               </Button>
             </div>
           </CardContent>
@@ -127,7 +129,7 @@ function UsersAdmin() {
         <Card className="h-fit">
           <CardContent className="p-2">
             {users.length === 0 ? (
-              <p className="p-3 text-sm text-muted-foreground">No users yet.</p>
+              <p className="p-3 text-sm text-muted-foreground">{t('users.noUsers')}</p>
             ) : (
               <ul className="space-y-0.5">
                 {users.map((u) => (
@@ -184,7 +186,7 @@ function UsersAdmin() {
         ) : (
           <Card>
             <CardContent className="pt-6 text-sm text-muted-foreground">
-              Select a user, or create a new one.
+              {t('users.selectOrCreate')}
             </CardContent>
           </Card>
         )}
@@ -202,6 +204,7 @@ function RoleCheckboxes({
   selected: Set<string>;
   onToggle: (id: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="grid gap-1.5 sm:grid-cols-2">
       {roles.map((r) => (
@@ -216,7 +219,11 @@ function RoleCheckboxes({
             onChange={() => onToggle(r.id)}
           />
           <span className="flex-1">{r.nameEn || r.key}</span>
-          {r.isSystem ? <Badge tone="muted">system</Badge> : <Badge tone="default">custom</Badge>}
+          {r.isSystem ? (
+            <Badge tone="muted">{t('common.system')}</Badge>
+          ) : (
+            <Badge tone="default">{t('common.custom')}</Badge>
+          )}
         </label>
       ))}
     </div>
@@ -233,6 +240,7 @@ function CreateUser({
   onCreated: (user: UserSummary, temporaryPassword: string, emailed: boolean) => void;
 }) {
   const toast = useToast();
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [firstNameEn, setFirstNameEn] = useState('');
@@ -274,47 +282,47 @@ function CreateUser({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>New user</CardTitle>
-        <CardDescription>A one-time temporary password is generated on creation.</CardDescription>
+        <CardTitle>{t('users.newUser')}</CardTitle>
+        <CardDescription>{t('users.newUserDesc')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Email">
+          <Field label={t('common.email')}>
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@school.edu.jo"
+              placeholder={t('users.emailPlaceholder')}
             />
           </Field>
-          <Field label="Username (optional)">
+          <Field label={t('users.usernameOptional')}>
             <Input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="for students without email"
+              placeholder={t('users.usernamePlaceholder')}
               autoComplete="off"
             />
           </Field>
-          <Field label="First name">
+          <Field label={t('users.firstName')}>
             <Input value={firstNameEn} onChange={(e) => setFirstNameEn(e.target.value)} />
           </Field>
-          <Field label="Last name">
+          <Field label={t('users.lastName')}>
             <Input value={lastNameEn} onChange={(e) => setLastNameEn(e.target.value)} />
           </Field>
-          <Field label="Phone">
+          <Field label={t('common.phone')}>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
         </div>
         <div className="space-y-2">
-          <h3 className="font-display text-sm font-semibold">Roles</h3>
+          <h3 className="font-display text-sm font-semibold">{t('users.rolesHeading')}</h3>
           <RoleCheckboxes roles={roles} selected={selected} onToggle={toggle} />
         </div>
         <div className="flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onCancel}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button size="sm" onClick={() => void submit()} disabled={busy || !email.trim()}>
-            {busy ? 'Creating…' : 'Create user'}
+            {busy ? t('common.creating') : t('users.createUser')}
           </Button>
         </div>
       </CardContent>
@@ -334,6 +342,7 @@ function UserEditor({
   onTempPassword: (password: string, emailed: boolean) => void;
 }) {
   const toast = useToast();
+  const { t } = useI18n();
   const [status, setStatus] = useState<UserStatus>(user.status);
   const [firstNameEn, setFirstNameEn] = useState(user.firstNameEn ?? '');
   const [lastNameEn, setLastNameEn] = useState(user.lastNameEn ?? '');
@@ -421,55 +430,57 @@ function UserEditor({
               ) : null}
               {' · '}
               {user.lastLoginAt
-                ? `last login ${new Date(user.lastLoginAt).toLocaleDateString()}`
-                : 'never logged in'}
+                ? `${t('users.lastLogin')} ${new Date(user.lastLoginAt).toLocaleDateString()}`
+                : t('users.neverLoggedIn')}
             </CardDescription>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => void reset()} disabled={resetting}>
-              Reset password
+              {t('users.resetPassword')}
             </Button>
             <Button size="sm" onClick={() => void save()} disabled={!dirty || saving}>
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving ? t('common.saving') : t('common.saveChanges')}
             </Button>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="First name">
+          <Field label={t('users.firstName')}>
             <Input value={firstNameEn} onChange={(e) => setFirstNameEn(e.target.value)} />
           </Field>
-          <Field label="Last name">
+          <Field label={t('users.lastName')}>
             <Input value={lastNameEn} onChange={(e) => setLastNameEn(e.target.value)} />
           </Field>
-          <Field label="First name (Arabic)">
+          <Field label={t('users.firstNameAr')}>
             <Input value={firstNameAr} onChange={(e) => setFirstNameAr(e.target.value)} dir="rtl" />
           </Field>
-          <Field label="Last name (Arabic)">
+          <Field label={t('users.lastNameAr')}>
             <Input value={lastNameAr} onChange={(e) => setLastNameAr(e.target.value)} dir="rtl" />
           </Field>
-          <Field label="Username">
+          <Field label={t('users.username')}>
             <Input
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="off"
             />
           </Field>
-          <Field label="Phone">
+          <Field label={t('common.phone')}>
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
         </div>
-        <Field label="Status">
+        <Field label={t('common.status')}>
           <Select value={status} onChange={(e) => setStatus(e.target.value as UserStatus)}>
-            <option value="ACTIVE">Active</option>
-            <option value="SUSPENDED">Suspended</option>
-            <option value="DISABLED">Disabled</option>
-            {user.status === 'INVITED' ? <option value="INVITED">Invited</option> : null}
+            <option value="ACTIVE">{t('common.active')}</option>
+            <option value="SUSPENDED">{t('common.suspended')}</option>
+            <option value="DISABLED">{t('common.disabled')}</option>
+            {user.status === 'INVITED' ? (
+              <option value="INVITED">{t('common.invited')}</option>
+            ) : null}
           </Select>
         </Field>
         <div className="space-y-2">
-          <h3 className="font-display text-sm font-semibold">Roles</h3>
+          <h3 className="font-display text-sm font-semibold">{t('users.rolesHeading')}</h3>
           <RoleCheckboxes roles={roles} selected={selected} onToggle={toggle} />
         </div>
       </CardContent>

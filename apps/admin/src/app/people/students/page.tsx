@@ -45,7 +45,7 @@ export default function StudentsPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -63,7 +63,7 @@ export default function StudentsPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Add a student</CardTitle>
+              <CardTitle>{t('people.addStudent')}</CardTitle>
             </CardHeader>
             <CardContent>
               <CreateStudent onCreated={load} onError={setError} />
@@ -71,13 +71,15 @@ export default function StudentsPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Bulk import</CardTitle>
+              <CardTitle>{t('people.bulkImport')}</CardTitle>
             </CardHeader>
             <CardContent>
               <ImportStudents onImported={load} onResult={setImportResult} onError={setError} />
               {importResult ? (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Imported {importResult.created}; {importResult.failed.length} row(s) failed.
+                  {t('people.importedSummary')
+                    .replace('{created}', String(importResult.created))
+                    .replace('{failed}', String(importResult.failed.length))}
                 </p>
               ) : null}
             </CardContent>
@@ -87,9 +89,9 @@ export default function StudentsPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Name</TH>
-              <TH>Arabic name</TH>
-              <TH className="text-end">QR</TH>
+              <TH>{t('common.name')}</TH>
+              <TH>{t('common.arabicName')}</TH>
+              <TH className="text-end">{t('people.qr')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -107,7 +109,7 @@ export default function StudentsPage() {
             {students.length === 0 ? (
               <TR>
                 <TD colSpan={3} className="text-muted-foreground">
-                  No students yet.
+                  {t('people.noStudents')}
                 </TD>
               </TR>
             ) : null}
@@ -125,6 +127,7 @@ function CreateStudent({
   onCreated: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({
     firstNameEn: '',
     lastNameEn: '',
@@ -146,13 +149,13 @@ function CreateStudent({
   return (
     <form onSubmit={(e) => void submit(e)} className="grid grid-cols-2 gap-2">
       <Input
-        placeholder="First (EN)"
+        placeholder={t('common.firstNameEn')}
         value={form.firstNameEn}
         onChange={(e) => setForm({ ...form, firstNameEn: e.target.value })}
         required
       />
       <Input
-        placeholder="Last (EN)"
+        placeholder={t('common.lastNameEn')}
         value={form.lastNameEn}
         onChange={(e) => setForm({ ...form, lastNameEn: e.target.value })}
         required
@@ -172,7 +175,7 @@ function CreateStudent({
         dir="rtl"
       />
       <Button type="submit" className="col-span-2">
-        Add student
+        {t('people.addStudentButton')}
       </Button>
     </form>
   );
@@ -187,6 +190,7 @@ function ImportStudents({
   onResult: (r: ImportResult) => void;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [csv, setCsv] = useState(
     'firstNameEn,lastNameEn,firstNameAr,lastNameAr,moeStudentNumber\n',
   );
@@ -214,7 +218,7 @@ function ImportStudents({
         />
       </Field>
       <Button type="submit" variant="secondary">
-        Import CSV
+        {t('people.importCsv')}
       </Button>
     </form>
   );
