@@ -61,7 +61,7 @@ export class HomeworkService {
   async presignAttachment(homeworkId: string, dto: PresignAttachmentDto): Promise<PresignedUpload> {
     await this.get(homeworkId);
     const key = this.storage.buildKey(requireTenantId(), `homework/${homeworkId}`, dto.fileName);
-    return this.storage.presignUpload(key, dto.contentType);
+    return this.storage.presignUpload(key, dto.contentType, dto.size);
   }
 
   async confirmAttachment(
@@ -69,6 +69,10 @@ export class HomeworkService {
     dto: ConfirmAttachmentDto,
   ): Promise<HomeworkAttachment> {
     await this.get(homeworkId);
+    // The client echoes back a fileKey from the presign step — verify it is the tenant's own key
+    // and re-validate the declared type/size (the presign URL could be skipped entirely).
+    this.storage.assertKeyInTenant(dto.fileKey);
+    this.storage.assertUploadAllowed(dto.contentType, dto.size);
     return this.repo.addAttachment({
       homeworkId,
       fileName: dto.fileName,

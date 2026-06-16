@@ -63,4 +63,38 @@ describe('Tenant isolation (RLS) e2e', () => {
     expect(tenantIds.has(TENANT_A)).toBe(true);
     expect(tenantIds.has(TENANT_B)).toBe(true);
   });
+
+  // Regression guard for the finance/presence RLS gap closed in 20260616120000_finance_presence_rls.
+  // Every tenant-scoped table MUST have RLS both ENABLED and FORCED (forced applies it to the
+  // table owner too), otherwise a missing app-layer filter silently leaks across schools.
+  it('enforces RLS on finance/e-invoicing + presence tables', async () => {
+    const tables = [
+      'EInvoiceSettings',
+      'EInvoiceCredential',
+      'EInvoiceCounter',
+      'EInvoiceDocument',
+      'EInvoiceLog',
+      'FeeAdjustment',
+      'PaymentAllocation',
+      'PaymentReminder',
+      'Refund',
+      'StudentBillingProfile',
+      'AttendanceSourceConfig',
+      'StudentPresenceEvent',
+      'BusAttendanceEvent',
+    ];
+    const rows = await withPlatform(prisma, (tx) =>
+      tx.$queryRaw<Array<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>>`
+        SELECT relname, relrowsecurity, relforcerowsecurity
+        FROM pg_class
+        WHERE relname = ANY(${tables})
+      `,
+    );
+    expect(rows.length).toBe(tables.length);
+    for (const r of rows) {
+      expect({ table: r.relname, enabled: r.relrowsecurity, forced: r.relforcerowsecurity }).toEqual(
+        { table: r.relname, enabled: true, forced: true },
+      );
+    }
+  });
 });

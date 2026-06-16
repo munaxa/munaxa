@@ -25,7 +25,7 @@ export class TransactionService {
 
   presignReceipt(dto: PresignReceiptDto): Promise<PresignedUpload> {
     const key = this.storage.buildKey(requireTenantId(), 'receipts', dto.fileName);
-    return this.storage.presignUpload(key, dto.contentType);
+    return this.storage.presignUpload(key, dto.contentType, dto.size);
   }
 
   async create(dto: CreateTransactionDto): Promise<Transaction> {
@@ -36,6 +36,8 @@ export class TransactionService {
     if ((dto.method === 'CLIQ' || dto.method === 'EWALLET') && !dto.receiptKey && !dto.reference) {
       throw new BadRequestException('CliQ/e-wallet payments require a receipt or a reference');
     }
+    // Reject a receiptKey pointing at another tenant's S3 object.
+    if (dto.receiptKey) this.storage.assertKeyInTenant(dto.receiptKey);
     return this.repo.create({
       studentId: dto.studentId,
       chargeId: dto.chargeId ?? null,
