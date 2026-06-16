@@ -23,6 +23,19 @@ FROM deps AS build
 COPY . .
 RUN pnpm --filter @munaxa/api prisma:generate \
     && pnpm --filter @munaxa/api... build
+# Assemble a self-contained production bundle. In a pnpm workspace each package's
+# dependencies live under apps/api/node_modules (symlinked into node_modules/.pnpm),
+# NOT in the root node_modules — so copying /repo/node_modules alone leaves the API's
+# own deps (@nestjs/*, @sentry/nestjs, the @munaxa/* workspace packages) missing at
+# runtime. `pnpm deploy` collects exactly the production dependency closure (workspace
+# packages injected as real files) into one node_modules. `--legacy` is required since
+# pnpm 10 for workspaces that don't set inject-workspace-packages=true.
+#
+# `pnpm deploy` does NOT carry over the `prisma generate` output (the generated client
+# under node_modules/.prisma), so regenerate it INTO the bundle afterwards.
+RUN pnpm --filter @munaxa/api --prod --legacy deploy /prod/api \
+    && cp -r prisma /prod/api/prisma \
+    && (cd /prod/api && /repo/node_modules/.bin/prisma generate --schema=/prod/api/prisma/schema.prisma)
 
 # ---------- Runtime ----------
 FROM node:${NODE_VERSION} AS runtime
@@ -31,7 +44,8 @@ WORKDIR /app
 # Non-root user (security hardening)
 RUN addgroup -S nodejs && adduser -S nestjs -G nodejs
 
-COPY --from=build /repo/node_modules ./node_modules
+# Complete prod node_modules from the deploy bundle; dist from the build output.
+COPY --from=build /prod/api/node_modules ./node_modules
 COPY --from=build /repo/apps/api/dist ./dist
 COPY --from=build /repo/apps/api/package.json ./package.json
 COPY --from=build /repo/prisma ./prisma
