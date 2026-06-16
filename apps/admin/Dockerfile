@@ -18,6 +18,15 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 FROM deps AS build
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* values are inlined into the client bundle at BUILD time. Declare them as
+# build args (Render passes matching service env vars into the Docker build only when an
+# ARG of the same name exists) and promote to ENV so `next build` picks them up. Without
+# this the admin falls back to http://localhost:4000/api/v1 and the browser can't reach
+# the API.
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_ENV
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_ENV=$NEXT_PUBLIC_ENV
 RUN pnpm --filter @munaxa/admin... build
 
 FROM node:${NODE_VERSION} AS runtime
