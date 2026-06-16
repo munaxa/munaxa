@@ -6,7 +6,7 @@
  * Requires DATABASE_URL pointing at a migrated database. Run via `pnpm test:e2e`
  * (CI applies migrations first). Connect with a NON-superuser role for RLS to apply.
  */
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { withTenant, withPlatform } from '../src/prisma/tenant.helpers';
 
 const prisma = new PrismaClient();
@@ -83,18 +83,24 @@ describe('Tenant isolation (RLS) e2e', () => {
       'StudentPresenceEvent',
       'BusAttendanceEvent',
     ];
-    const rows = await withPlatform(prisma, (tx) =>
-      tx.$queryRaw<Array<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>>`
+    const rows = await withPlatform(
+      prisma,
+      (tx) =>
+        tx.$queryRaw<
+          Array<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>
+        >`
         SELECT relname, relrowsecurity, relforcerowsecurity
         FROM pg_class
-        WHERE relname = ANY(${tables})
+        WHERE relname IN (${Prisma.join(tables)})
       `,
     );
     expect(rows.length).toBe(tables.length);
     for (const r of rows) {
-      expect({ table: r.relname, enabled: r.relrowsecurity, forced: r.relforcerowsecurity }).toEqual(
-        { table: r.relname, enabled: true, forced: true },
-      );
+      expect({
+        table: r.relname,
+        enabled: r.relrowsecurity,
+        forced: r.relforcerowsecurity,
+      }).toEqual({ table: r.relname, enabled: true, forced: true });
     }
   });
 });

@@ -26,6 +26,10 @@ export class ClassroomService {
 
   async update(id: string, dto: UpdateClassroomDto): Promise<Classroom> {
     await this.get(id);
+    // Re-validate a reassigned campusId so a PATCH cannot orphan the classroom (parity with create).
+    if (dto.campusId && !(await this.repo.campusExists(dto.campusId))) {
+      throw new BadRequestException('Campus not found in this tenant');
+    }
     return this.repo.update(id, dto);
   }
 

@@ -58,7 +58,12 @@ export class StorageService {
   }
 
   buildKey(tenantId: string, prefix: string, fileName: string): string {
-    const safe = fileName.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 120);
+    const safe = fileName
+      .replace(/[^A-Za-z0-9._-]/g, '_')
+      // Collapse any run of dots so a crafted name (e.g. "../../x") can never embed ".." in the
+      // key — keeps the key flat and consistent with assertKeyInTenant's traversal guard.
+      .replace(/\.{2,}/g, '_')
+      .slice(0, 120);
     return `tenants/${tenantId}/${prefix}/${randomUUID()}-${safe}`;
   }
 

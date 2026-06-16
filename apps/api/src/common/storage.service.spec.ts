@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import type { ConfigService } from '@nestjs/config';
 import { StorageService, ALLOWED_UPLOAD_MIME } from './storage.service';
 import { TenantContextStore } from '../prisma/tenant-context';
 
@@ -44,9 +44,9 @@ describe('StorageService — upload validation (file security)', () => {
 
   it('rejects oversized uploads at presign time', async () => {
     const key = service.buildKey('tenant-1', 'receipts', 'big.pdf');
-    await expect(
-      service.presignUpload(key, 'application/pdf', 51 * 1024 * 1024),
-    ).rejects.toThrow(BadRequestException);
+    await expect(service.presignUpload(key, 'application/pdf', 51 * 1024 * 1024)).rejects.toThrow(
+      BadRequestException,
+    );
     expect(() => service.assertUploadAllowed('application/pdf', -1)).toThrow(BadRequestException);
   });
 
@@ -58,8 +58,7 @@ describe('StorageService — upload validation (file security)', () => {
   });
 
   describe('assertKeyInTenant — cross-tenant object reference (BOLA)', () => {
-    const run = <T>(tenantId: string, fn: () => T) =>
-      TenantContextStore.run({ tenantId }, fn);
+    const run = <T>(tenantId: string, fn: () => T) => TenantContextStore.run({ tenantId }, fn);
 
     it('accepts a key inside the active tenant namespace', () => {
       const key = service.buildKey('tenant-1', 'receipts', 'r.pdf');
