@@ -14,6 +14,8 @@ import {
   type UpdateStudentInput,
   type UpsertVaccineInput,
 } from '@/lib/people';
+import { sectionsApi, type Section } from '@/lib/structure';
+import { StudentProfileDialog } from './student-profile-dialog';
 import {
   Badge,
   Button,
@@ -43,10 +45,13 @@ export default function StudentsPage() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Student | null>(null);
+  const [viewing, setViewing] = useState<Student | null>(null);
+  const [search, setSearch] = useState('');
+  const [sections, setSections] = useState<Section[]>([]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (query?: string) => {
     try {
-      setStudents(await studentsApi.list());
+      setStudents(await studentsApi.list(query));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load students');
     } finally {
@@ -55,8 +60,28 @@ export default function StudentsPage() {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    // Sections (with their grade) let us label a student's class in the profile dialog.
+    sectionsApi
+      .list()
+      .then(setSections)
+      .catch(() => undefined);
+  }, []);
+
+  // Load students on mount and whenever the search term changes (debounced server-side search).
+  useEffect(() => {
+    const id = setTimeout(() => void load(search.trim() || undefined), 300);
+    return () => clearTimeout(id);
+  }, [search, load]);
+
+  const sectionLabel = useCallback(
+    (sectionId?: string | null): string | undefined => {
+      if (!sectionId) return undefined;
+      const sec = sections.find((s) => s.id === sectionId);
+      if (!sec) return undefined;
+      return sec.grade ? `${sec.grade.nameEn} · ${sec.name}` : sec.name;
+    },
+    [sections],
+  );
 
   async function remove(student: Student) {
     if (!(await confirm())) return;
@@ -113,6 +138,14 @@ export default function StudentsPage() {
           </Card>
         </div>
 
+        <Field label={t('common.search')}>
+          <Input
+            value={search}
+            placeholder={t('people.searchPlaceholder')}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </Field>
+
         <Table>
           <THead>
             <TR>
@@ -126,7 +159,13 @@ export default function StudentsPage() {
             {students.map((s) => (
               <TR key={s.id}>
                 <TD>
-                  {s.firstNameEn} {s.lastNameEn}
+                  <button
+                    type="button"
+                    className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                    onClick={() => setViewing(s)}
+                  >
+                    {s.firstNameEn} {s.lastNameEn}
+                  </button>
                 </TD>
                 <TD dir="rtl">
                   {s.firstNameAr} {s.lastNameAr}
@@ -158,13 +197,25 @@ export default function StudentsPage() {
         </Table>
       </div>
 
+      {viewing ? (
+        <StudentProfileDialog
+          student={viewing}
+          sectionLabel={sectionLabel(viewing.sectionId)}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setEditing(viewing);
+            setViewing(null);
+          }}
+        />
+      ) : null}
+
       {editing ? (
         <StudentEditor
           student={editing}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             setEditing(null);
-            await load();
+            await load(search.trim() || undefined);
           }}
         />
       ) : null}

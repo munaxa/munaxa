@@ -1,0 +1,303 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useI18n } from '@/components/i18n-provider';
+import {
+  fullNameAr,
+  fullNameEn,
+  studentsApi,
+  type Student,
+  type StudentVaccine,
+} from '@/lib/people';
+import { financeApi, type Statement } from '@/lib/finance';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from '@/components/ui';
+
+const money = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
+
+const CHARGE_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = {
+  PAID: 'success',
+  PARTIAL: 'warning',
+  OVERDUE: 'danger',
+  PENDING: 'muted',
+};
+
+/**
+ * Read-only student profile shown in a modal when a student name is clicked on the Students list.
+ * Surfaces identity details, government vaccines, and the full financial statement for the student.
+ */
+export function StudentProfileDialog({
+  student,
+  sectionLabel,
+  onClose,
+  onEdit,
+}: {
+  student: Student;
+  sectionLabel?: string | undefined;
+  onClose: () => void;
+  onEdit: () => void;
+}) {
+  const { t } = useI18n();
+  const [statement, setStatement] = useState<Statement | null>(null);
+  const [vaccines, setVaccines] = useState<StudentVaccine[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    Promise.all([
+      financeApi.statement(student.id).catch(() => null),
+      studentsApi.vaccines(student.id).catch(() => [] as StudentVaccine[]),
+    ])
+      .then(([s, v]) => {
+        if (!active) return;
+        setStatement(s);
+        setVaccines(v);
+      })
+      .catch((e) => active && setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [student.id]);
+
+  const initials = `${student.firstNameEn[0] ?? ''}${student.lastNameEn[0] ?? ''}`.toUpperCase();
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div
+        className="relative my-8 w-full max-w-3xl space-y-4 rounded-xl border border-border bg-card p-5 shadow-card"
+        role="dialog"
+        aria-modal="true"
+      >
+        {/* Identity header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-secondary font-display text-xl font-semibold">
+              {initials}
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-x-3">
+                <h2 className="font-display text-xl font-semibold">{fullNameEn(student)}</h2>
+                <span className="text-muted-foreground" dir="rtl">
+                  {fullNameAr(student)}
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <Badge tone={student.status === 'ACTIVE' ? 'success' : 'muted'}>
+                  {student.status}
+                </Badge>
+                {sectionLabel ? <Badge tone="muted">{sectionLabel}</Badge> : null}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              {t('people.edit')}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.cancel')}>
+              ✕
+            </Button>
+          </div>
+        </div>
+
+        {error ? (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {/* Identity details */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('people.details')}</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+            <Detail label={t('people.nationalId')} value={student.nationalId} mono />
+            <Detail label={t('people.moeNumber')} value={student.moeStudentNumber} mono />
+            <Detail label={t('people.qr')} value={student.qrCode} mono />
+            <Detail label={t('common.status')} value={student.status} />
+            <Detail label="Section" value={sectionLabel ?? null} />
+            <Detail
+              label="Enrolled"
+              value={student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : null}
+              mono
+            />
+          </CardContent>
+        </Card>
+
+        {/* Vaccines */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('people.vaccines')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {vaccines.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('people.noVaccines')}</p>
+            ) : (
+              <ul className="flex flex-wrap gap-1.5">
+                {vaccines.map((v) => (
+                  <li key={v.id}>
+                    <Badge tone={v.received ? 'success' : 'muted'}>
+                      {v.name}
+                      {v.grade ? ` · ${v.grade}` : ''}
+                      {v.received ? '' : ` · ${t('people.notReceived')}`}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Finance */}
+        <Card
+          className={statement && Number(statement.totals.outstanding) > 0 ? 'border-coral/40' : ''}
+        >
+          <CardHeader>
+            <CardTitle>{t('nav.finance')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading ? (
+              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+            ) : !statement ? (
+              <p className="text-sm text-muted-foreground">—</p>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                  {(
+                    [
+                      [t('finance.charged'), statement.totals.charged, ''],
+                      [t('finance.paid'), statement.totals.paid, 'text-aqua'],
+                      [t('finance.discounts'), statement.totals.discounts, ''],
+                      [t('finance.outstanding'), statement.totals.outstanding, 'text-coral'],
+                      [t('finance.credit'), statement.totals.creditBalance, 'text-aqua'],
+                      [t('finance.refunded'), statement.totals.refunded, ''],
+                    ] as const
+                  ).map(([label, value, tone]) => (
+                    <div
+                      key={label}
+                      className="rounded-lg border border-border bg-background/40 p-3"
+                    >
+                      <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {label}
+                      </div>
+                      <div className={`font-display text-lg font-semibold ${tone}`}>
+                        {Number(value).toFixed(3)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>{t('finance.description')}</TH>
+                      <TH className="text-end">{t('finance.net')}</TH>
+                      <TH className="text-end">{t('finance.balance')}</TH>
+                      <TH>{t('common.status')}</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {statement.chargeBalances.map((b) => (
+                      <TR key={b.charge.id}>
+                        <TD>
+                          {b.charge.description}
+                          {b.charge.dueDate ? (
+                            <span className="block font-mono text-[11px] text-muted-foreground">
+                              {b.charge.dueDate.slice(0, 10)}
+                            </span>
+                          ) : null}
+                        </TD>
+                        <TD className="text-end font-mono">{Number(b.net).toFixed(3)}</TD>
+                        <TD className="text-end font-mono">{Number(b.balance).toFixed(3)}</TD>
+                        <TD>
+                          <Badge tone={CHARGE_TONE[b.charge.status] ?? 'muted'}>
+                            {b.charge.status}
+                          </Badge>
+                        </TD>
+                      </TR>
+                    ))}
+                    {statement.chargeBalances.length === 0 ? (
+                      <TR>
+                        <TD colSpan={4} className="text-muted-foreground">
+                          {t('finance.noCharges')}
+                        </TD>
+                      </TR>
+                    ) : null}
+                  </TBody>
+                </Table>
+
+                {statement.transactions.length > 0 ? (
+                  <Table>
+                    <THead>
+                      <TR>
+                        <TH className="text-end">{t('finance.amount')}</TH>
+                        <TH>{t('finance.method')}</TH>
+                        <TH>{t('finance.reference')}</TH>
+                        <TH>{t('common.status')}</TH>
+                      </TR>
+                    </THead>
+                    <TBody>
+                      {statement.transactions.map((tx) => (
+                        <TR key={tx.id}>
+                          <TD className="text-end font-mono">{Number(tx.amount).toFixed(3)}</TD>
+                          <TD>{tx.method}</TD>
+                          <TD className="font-mono text-xs text-muted-foreground">
+                            {tx.reference ?? '—'}
+                          </TD>
+                          <TD>
+                            <Badge tone={tx.status === 'VERIFIED' ? 'success' : 'muted'}>
+                              {tx.status}
+                            </Badge>
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </Table>
+                ) : null}
+
+                <p className="text-end font-mono text-xs text-muted-foreground">
+                  {t('finance.outstanding')}: {money(statement.totals.outstanding)}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function Detail({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value?: string | null | undefined;
+  mono?: boolean | undefined;
+}) {
+  return (
+    <div>
+      <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className={`text-sm ${mono ? 'font-mono' : ''}`}>{value || '—'}</div>
+    </div>
+  );
+}
