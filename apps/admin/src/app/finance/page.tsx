@@ -10,6 +10,7 @@ import {
   financeApi,
   type CollectionsProfile,
   type CollectionsStatus,
+  type HouseholdMember,
   type Statement,
 } from '@/lib/finance';
 import { einvoicingApi } from '@/lib/einvoicing';
@@ -80,6 +81,13 @@ export default function FinancePage() {
   });
   const [refund, setRefund] = useState({ amount: '', reason: '' });
   const [legalNote, setLegalNote] = useState('');
+  const [household, setHousehold] = useState<HouseholdMember[]>([]);
+  const [plan, setPlan] = useState({
+    description: '',
+    totalAmount: '',
+    months: '10',
+    firstDueDate: '',
+  });
   const [rowAction, setRowAction] = useState<{ id: string; kind: 'discount' | 'credit' } | null>(
     null,
   );
@@ -90,10 +98,15 @@ export default function FinancePage() {
       if (!id) return;
       setLoading(true);
       try {
-        const [s, c] = await Promise.all([financeApi.statement(id), financeApi.collections(id)]);
+        const [s, c, h] = await Promise.all([
+          financeApi.statement(id),
+          financeApi.collections(id),
+          financeApi.household(id).catch(() => [] as HouseholdMember[]),
+        ]);
         setStatement(s);
         setCollections(c);
         setLegalNote(c.legalNote ?? '');
+        setHousehold(h);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to load');
       } finally {
@@ -519,8 +532,130 @@ export default function FinancePage() {
                   </Field>
                   <Button type="submit">{t('finance.addCharge')}</Button>
                 </form>
+
+                {/* Installment plan — split an amount across monthly payments */}
+                <div className="mt-4 border-t border-border pt-4">
+                  <p className="mb-2 text-sm font-medium">{t('finance.installmentPlan')}</p>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void run(
+                        () =>
+                          financeApi.createInstallments({
+                            studentId,
+                            description: plan.description || t('finance.installmentDefault'),
+                            totalAmount: Number(plan.totalAmount),
+                            months: Number(plan.months),
+                            firstDueDate: plan.firstDueDate,
+                          }),
+                        t('finance.installmentsCreated'),
+                      ).then(() =>
+                        setPlan({
+                          description: '',
+                          totalAmount: '',
+                          months: '10',
+                          firstDueDate: '',
+                        }),
+                      );
+                    }}
+                    className="flex flex-wrap items-end gap-2"
+                  >
+                    <Field label={t('finance.newCharge')} className="flex-1">
+                      <Input
+                        placeholder={t('finance.installmentDefault')}
+                        value={plan.description}
+                        onChange={(e) => setPlan({ ...plan, description: e.target.value })}
+                      />
+                    </Field>
+                    <Field label={t('finance.totalAmountJod')}>
+                      <Input
+                        type="number"
+                        step="0.001"
+                        className="w-28"
+                        value={plan.totalAmount}
+                        onChange={(e) => setPlan({ ...plan, totalAmount: e.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field label={t('finance.months')}>
+                      <Input
+                        type="number"
+                        min="2"
+                        max="60"
+                        className="w-20"
+                        value={plan.months}
+                        onChange={(e) => setPlan({ ...plan, months: e.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Field label={t('finance.firstDueDate')}>
+                      <Input
+                        type="date"
+                        value={plan.firstDueDate}
+                        onChange={(e) => setPlan({ ...plan, firstDueDate: e.target.value })}
+                        required
+                      />
+                    </Field>
+                    <Button type="submit" variant="secondary">
+                      {t('finance.createPlan')}
+                    </Button>
+                  </form>
+                  {plan.totalAmount && Number(plan.months) > 0 ? (
+                    <p className="mt-2 font-mono text-xs text-muted-foreground">
+                      {Number(plan.months)} ×{' '}
+                      {(Number(plan.totalAmount) / Number(plan.months)).toFixed(3)} JOD
+                    </p>
+                  ) : null}
+                </div>
               </CardContent>
             </Card>
+
+            {/* Family — siblings & their balances */}
+            {household.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>{t('finance.family')}</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <THead>
+                      <TR>
+                        <TH>{t('common.name')}</TH>
+                        <TH className="text-end">{t('finance.outstanding')}</TH>
+                      </TR>
+                    </THead>
+                    <TBody>
+                      {household.map((m) => (
+                        <TR key={m.studentId}>
+                          <TD>
+                            <button
+                              type="button"
+                              className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                              onClick={() => {
+                                setStudentId(m.studentId);
+                                void load(m.studentId);
+                              }}
+                            >
+                              {m.firstNameEn} {m.lastNameEn}
+                            </button>
+                            <span className="block text-xs text-muted-foreground" dir="rtl">
+                              {m.firstNameAr} {m.lastNameAr}
+                            </span>
+                          </TD>
+                          <TD
+                            className={`text-end font-mono ${
+                              Number(m.outstanding) > 0 ? 'text-coral' : 'text-muted-foreground'
+                            }`}
+                          >
+                            {jod(m.outstanding)}
+                          </TD>
+                        </TR>
+                      ))}
+                    </TBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            ) : null}
 
             {/* Deductions */}
             {statement.adjustments.length > 0 ? (
