@@ -5,6 +5,7 @@ import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
+import { useConfirm } from '@/components/confirm';
 import { rolesApi, type PermissionCatalogEntry, type RoleSummary } from '@/lib/roles';
 import {
   Badge,
@@ -159,6 +160,7 @@ function RoleEditor({
 }) {
   const toast = useToast();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [nameEn, setNameEn] = useState(role.nameEn ?? role.key);
   const [nameAr, setNameAr] = useState(role.nameAr ?? '');
   const [selected, setSelected] = useState<Set<string>>(new Set(role.permissions));
@@ -219,7 +221,8 @@ function RoleEditor({
   }
 
   async function remove() {
-    if (!confirm(`Delete the “${nameEn}” role? This cannot be undone.`)) return;
+    if (!(await confirm({ description: `Delete the “${nameEn}” role? This cannot be undone.` })))
+      return;
     setDeleting(true);
     try {
       await rolesApi.remove(role.id);

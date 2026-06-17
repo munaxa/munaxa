@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@munaxa/ui';
 import { logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache } from '@/lib/session';
+import { advancedApi } from '@/lib/advanced';
 import { Button } from './ui/button';
 import { Logo } from './logo';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
@@ -16,6 +17,8 @@ interface NavItem {
   labelKey: string;
   /** Permission required to see this item; omitted = always visible. */
   perm?: string;
+  /** Feature flag gating this item; when set, the item is hidden unless the flag is enabled. */
+  flag?: string;
 }
 
 const NAV: NavItem[] = [
@@ -34,10 +37,15 @@ const NAV: NavItem[] = [
   { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
   { href: '/finance/fee-plans', labelKey: 'nav.feePlans', perm: 'finance:read' },
   { href: '/communication', labelKey: 'nav.communication', perm: 'announcement:manage' },
-  { href: '/fleet', labelKey: 'nav.fleet', perm: 'bus:read' },
-  { href: '/library', labelKey: 'nav.library', perm: 'library:read' },
-  { href: '/inventory', labelKey: 'nav.inventory', perm: 'inventory:read' },
-  { href: '/clinic', labelKey: 'nav.clinic', perm: 'clinic:read' },
+  { href: '/fleet', labelKey: 'nav.fleet', perm: 'bus:read', flag: 'bus_tracking' },
+  { href: '/library', labelKey: 'nav.library', perm: 'library:read', flag: 'library_management' },
+  {
+    href: '/inventory',
+    labelKey: 'nav.inventory',
+    perm: 'inventory:read',
+    flag: 'inventory_management',
+  },
+  { href: '/clinic', labelKey: 'nav.clinic', perm: 'clinic:read', flag: 'school_clinic' },
   { href: '/reports', labelKey: 'nav.reports', perm: 'report:read' },
   { href: '/modules', labelKey: 'nav.modules', perm: 'featureflag:manage' },
   { href: '/settings/integrations/jofotara', labelKey: 'nav.integrations', perm: 'finance:manage' },
@@ -63,10 +71,22 @@ export function AppShell({
   const router = useRouter();
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Enabled feature flags; `null` while loading so flagged items stay hidden until known.
+  const [flags, setFlags] = useState<Record<string, boolean> | null>(null);
   const held = new Set(principal.permissions);
   const items = NAV.filter(
-    (i) => !i.perm || held.has(i.perm) || principal.permissions.length === 0,
+    (i) =>
+      (!i.perm || held.has(i.perm) || principal.permissions.length === 0) &&
+      (!i.flag || flags?.[i.flag] === true),
   );
+
+  // Load feature flags so disabled modules drop out of the navigation entirely.
+  useEffect(() => {
+    advancedApi
+      .flags()
+      .then((list) => setFlags(Object.fromEntries(list.map((f) => [f.key, f.enabled]))))
+      .catch(() => setFlags({}));
+  }, []);
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {

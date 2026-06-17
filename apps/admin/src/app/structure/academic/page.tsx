@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
+import { useConfirm } from '@/components/confirm';
 import { useToast } from '@/components/toast';
 import {
   academicYearsApi,
@@ -122,6 +123,7 @@ function Grades({ campusId }: { campusId: string }) {
   const onErr = useError();
   const toast = useToast();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [grades, setGrades] = useState<Grade[]>([]);
   const [form, setForm] = useState({ nameEn: '', nameAr: '', level: '' });
   const [openGrade, setOpenGrade] = useState<string | null>(null);
@@ -154,6 +156,7 @@ function Grades({ campusId }: { campusId: string }) {
   }
 
   async function remove(id: string) {
+    if (!(await confirm())) return;
     try {
       await gradesApi.remove(id);
       load();
@@ -246,6 +249,7 @@ function Grades({ campusId }: { campusId: string }) {
 function Sections({ gradeId }: { gradeId: string }) {
   const onErr = useError();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [sections, setSections] = useState<Section[]>([]);
   const [name, setName] = useState('');
   const [capacity, setCapacity] = useState('');
@@ -285,10 +289,13 @@ function Sections({ gradeId }: { gradeId: string }) {
               type="button"
               className="ms-1 text-muted-foreground hover:text-destructive"
               onClick={() =>
-                void sectionsApi
-                  .remove(s.id)
-                  .then(load)
-                  .catch((e) => onErr(e, 'Delete failed'))
+                void confirm().then((ok) => {
+                  if (ok)
+                    void sectionsApi
+                      .remove(s.id)
+                      .then(load)
+                      .catch((e) => onErr(e, 'Delete failed'));
+                })
               }
               aria-label={`Delete section ${s.name}`}
             >
@@ -329,6 +336,7 @@ function Classrooms({ campusId }: { campusId: string }) {
   const onErr = useError();
   const toast = useToast();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [rooms, setRooms] = useState<Classroom[]>([]);
   const [form, setForm] = useState({ name: '', capacity: '', building: '', floor: '' });
 
@@ -428,10 +436,13 @@ function Classrooms({ campusId }: { campusId: string }) {
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      void classroomsApi
-                        .remove(r.id)
-                        .then(load)
-                        .catch((e) => onErr(e, 'Delete failed'))
+                      void confirm().then((ok) => {
+                        if (ok)
+                          void classroomsApi
+                            .remove(r.id)
+                            .then(load)
+                            .catch((e) => onErr(e, 'Delete failed'));
+                      })
                     }
                   >
                     {t('common.delete')}
@@ -459,6 +470,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
   const onErr = useError();
   const toast = useToast();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [form, setForm] = useState({ name: '', startDate: '', endDate: '', isCurrent: false });
   const [openYear, setOpenYear] = useState<string | null>(null);
@@ -564,10 +576,13 @@ function AcademicYears({ campusId }: { campusId: string }) {
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      void academicYearsApi
-                        .remove(y.id)
-                        .then(load)
-                        .catch((e) => onErr(e, 'Delete failed'))
+                      void confirm().then((ok) => {
+                        if (ok)
+                          void academicYearsApi
+                            .remove(y.id)
+                            .then(load)
+                            .catch((e) => onErr(e, 'Delete failed'));
+                      })
                     }
                   >
                     {t('common.delete')}
@@ -592,6 +607,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
 function Semesters({ academicYearId }: { academicYearId: string }) {
   const onErr = useError();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [terms, setTerms] = useState<Semester[]>([]);
   const [form, setForm] = useState({ name: '', sequence: '', startDate: '', endDate: '' });
 
@@ -632,10 +648,13 @@ function Semesters({ academicYearId }: { academicYearId: string }) {
               type="button"
               className="ms-1 text-muted-foreground hover:text-destructive"
               onClick={() =>
-                void semestersApi
-                  .remove(s.id)
-                  .then(load)
-                  .catch((e) => onErr(e, 'Delete failed'))
+                void confirm().then((ok) => {
+                  if (ok)
+                    void semestersApi
+                      .remove(s.id)
+                      .then(load)
+                      .catch((e) => onErr(e, 'Delete failed'));
+                })
               }
               aria-label={`Delete term ${s.name}`}
             >

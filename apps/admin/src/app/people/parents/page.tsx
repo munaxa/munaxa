@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
+import { useConfirm } from '@/components/confirm';
 import { parentsApi, type CreateParentInput, type Parent } from '@/lib/people';
 import {
   Button,
@@ -31,6 +32,7 @@ const EMPTY: CreateParentInput = {
 
 export default function ParentsPage() {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [parents, setParents] = useState<Parent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,7 @@ export default function ParentsPage() {
   }, [load]);
 
   async function remove(id: string) {
+    if (!(await confirm())) return;
     try {
       await parentsApi.remove(id);
       await load();

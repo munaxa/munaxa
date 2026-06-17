@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
+import { useConfirm } from '@/components/confirm';
 import { StatusBadge } from '@/components/status-badge';
 import {
   EMPLOYMENT_STATUSES,
@@ -38,6 +39,7 @@ const EMPTY: CreateEmployeeInput = {
 
 export default function EmployeesPage() {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,6 +59,7 @@ export default function EmployeesPage() {
   }, [load]);
 
   async function remove(id: string) {
+    if (!(await confirm())) return;
     try {
       await employeesApi.remove(id);
       await load();
