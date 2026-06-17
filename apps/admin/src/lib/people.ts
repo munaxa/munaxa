@@ -15,6 +15,10 @@ export interface Student {
   thirdNameAr?: string | null;
   nationalId?: string | null;
   moeStudentNumber?: string | null;
+  sectionId?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  enrollmentDate?: string | null;
   qrCode: string;
   status: string;
 }
