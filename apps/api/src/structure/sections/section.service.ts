@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Section } from '@prisma/client';
-import { SectionRepository } from './section.repository';
+import { SectionRepository, type SectionWithGrade } from './section.repository';
 import type { CreateSectionDto, UpdateSectionDto } from './section.dto';
 
 @Injectable()
@@ -17,7 +17,7 @@ export class SectionService {
     return this.repo.create(dto);
   }
 
-  list(gradeId?: string): Promise<Section[]> {
+  list(gradeId?: string): Promise<SectionWithGrade[]> {
     return this.repo.findMany(gradeId);
   }
 
