@@ -25,6 +25,15 @@ export interface StudentStatement {
   };
 }
 
+export interface HouseholdMember {
+  studentId: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  outstanding: string;
+}
+
 /**
  * Student financial statement. The headline numbers stay sum-based for back-compat —
  *   outstanding = (Σ charges − Σ charge-discounts − Σ account-credits) − Σ verified payments
@@ -38,6 +47,21 @@ export class StatementService {
     private readonly transactions: TransactionRepository,
     private readonly billing: BillingRepository,
   ) {}
+
+  /** Siblings (students sharing a guardian) with each one's outstanding balance. */
+  async household(studentId: string): Promise<HouseholdMember[]> {
+    const siblings = await this.billing.siblingsOf(studentId);
+    return Promise.all(
+      siblings.map(async (s) => ({
+        studentId: s.id,
+        firstNameEn: s.firstNameEn,
+        lastNameEn: s.lastNameEn,
+        firstNameAr: s.firstNameAr,
+        lastNameAr: s.lastNameAr,
+        outstanding: (await this.billing.accountSummary(s.id)).outstanding,
+      })),
+    );
+  }
 
   async forStudent(studentId: string): Promise<StudentStatement> {
     const [chargeList, txList, adjustments, refunds, chargeBalances, summary] = await Promise.all([

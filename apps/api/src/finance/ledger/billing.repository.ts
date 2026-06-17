@@ -315,6 +315,43 @@ export class BillingRepository extends TenantRepository {
     return new Prisma.Decimal((await this.accountSummary(studentId)).creditBalance);
   }
 
+  /** Siblings of a student = other students who share at least one parent/guardian. */
+  siblingsOf(studentId: string): Promise<
+    Array<{
+      id: string;
+      firstNameEn: string;
+      lastNameEn: string;
+      firstNameAr: string;
+      lastNameAr: string;
+    }>
+  > {
+    return this.run(async (tx) => {
+      const links = await tx.parentStudent.findMany({
+        where: { studentId },
+        select: { parentId: true },
+      });
+      const parentIds = links.map((l) => l.parentId);
+      if (parentIds.length === 0) return [];
+      const sibLinks = await tx.parentStudent.findMany({
+        where: { parentId: { in: parentIds }, studentId: { not: studentId } },
+        select: { studentId: true },
+      });
+      const ids = [...new Set(sibLinks.map((s) => s.studentId))];
+      if (ids.length === 0) return [];
+      return tx.student.findMany({
+        where: { id: { in: ids }, deletedAt: null },
+        select: {
+          id: true,
+          firstNameEn: true,
+          lastNameEn: true,
+          firstNameAr: true,
+          lastNameAr: true,
+        },
+        orderBy: { firstNameEn: 'asc' },
+      });
+    });
+  }
+
   listAdjustments(studentId: string): Promise<FeeAdjustment[]> {
     return this.run((tx) =>
       tx.feeAdjustment.findMany({ where: { studentId }, orderBy: { createdAt: 'desc' } }),

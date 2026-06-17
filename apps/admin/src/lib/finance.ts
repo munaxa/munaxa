@@ -66,6 +66,15 @@ export interface Statement {
   chargeBalances: ChargeBalance[];
 }
 
+export interface HouseholdMember {
+  studentId: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  outstanding: string;
+}
+
 export type CollectionsStatus = 'NONE' | 'FINANCIAL_ISSUE' | 'LEGAL';
 
 export interface CollectionsProfile {
@@ -109,6 +118,19 @@ export const financeApi = {
     ),
   statement: (studentId: string) =>
     authFetch(`/finance/students/${studentId}/statement`).then((r) => json<Statement>(r)),
+  household: (studentId: string) =>
+    authFetch(`/finance/students/${studentId}/household`).then((r) => json<HouseholdMember[]>(r)),
+  createInstallments: (data: {
+    studentId: string;
+    description: string;
+    totalAmount: number;
+    months: number;
+    firstDueDate: string;
+  }) =>
+    authFetch('/finance/charges/installments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json(r)),
   verify: (id: string) =>
     authFetch(`/finance/transactions/${id}/verify`, { method: 'POST' }).then((r) => json(r)),
   reject: (id: string) =>

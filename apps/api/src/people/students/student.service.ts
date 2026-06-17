@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
 import type { ParentStudent, Prisma, Student, StudentVaccine } from '@prisma/client';
-import { StudentRepository } from './student.repository';
+import { StudentRepository, type ParentLink } from './student.repository';
 import { generateStudentQrCode } from '../people.util';
 import type {
   CreateStudentDto,
@@ -87,7 +87,7 @@ export class StudentService {
     await this.repo.unlinkParent(studentId, parentId);
   }
 
-  async listParents(studentId: string): Promise<ParentStudent[]> {
+  async listParents(studentId: string): Promise<ParentLink[]> {
     await this.get(studentId);
     return this.repo.listParents(studentId);
   }

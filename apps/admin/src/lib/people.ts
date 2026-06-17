@@ -117,6 +117,10 @@ export const studentsApi = {
     ),
   remove: (id: string) => del(`/students/${id}`),
 
+  // ----- Parents -----------------------------------------------------------
+  parents: (studentId: string) =>
+    authFetch(`/students/${studentId}/parents`).then((r) => json<StudentParentLink[]>(r)),
+
   // ----- Vaccines ----------------------------------------------------------
   vaccines: (studentId: string) =>
     authFetch(`/students/${studentId}/vaccines`).then((r) => json<StudentVaccine[]>(r)),
@@ -203,6 +207,24 @@ export interface CreateParentInput {
   occupation?: string;
 }
 
+export interface UpdateParentInput {
+  firstNameEn?: string;
+  lastNameEn?: string;
+  firstNameAr?: string;
+  lastNameAr?: string;
+  phone?: string;
+  nationalId?: string;
+  occupation?: string;
+}
+
+/** A parent linked to a student, with the relation/primary flag from the join. */
+export interface StudentParentLink {
+  id: string;
+  relation: string;
+  isPrimary: boolean;
+  parent: Parent;
+}
+
 export const parentsApi = {
   list: (studentId?: string) =>
     authFetch(`/parents${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`).then(
@@ -210,6 +232,10 @@ export const parentsApi = {
     ),
   create: (data: CreateParentInput) =>
     authFetch('/parents', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Parent>(r),
+    ),
+  update: (id: string, data: UpdateParentInput) =>
+    authFetch(`/parents/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
       json<Parent>(r),
     ),
   remove: (id: string) => del(`/parents/${id}`),

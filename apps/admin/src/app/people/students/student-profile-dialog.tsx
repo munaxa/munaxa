@@ -6,10 +6,13 @@ import {
   fullNameAr,
   fullNameEn,
   studentsApi,
+  type Parent,
   type Student,
+  type StudentParentLink,
   type StudentVaccine,
 } from '@/lib/people';
 import { financeApi, type Statement } from '@/lib/finance';
+import { ParentEditDialog } from './parent-edit-dialog';
 import {
   Badge,
   Button,
@@ -52,8 +55,17 @@ export function StudentProfileDialog({
   const { t } = useI18n();
   const [statement, setStatement] = useState<Statement | null>(null);
   const [vaccines, setVaccines] = useState<StudentVaccine[]>([]);
+  const [parents, setParents] = useState<StudentParentLink[]>([]);
+  const [editingParent, setEditingParent] = useState<Parent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  function loadParents() {
+    studentsApi
+      .parents(student.id)
+      .then(setParents)
+      .catch(() => undefined);
+  }
 
   useEffect(() => {
     let active = true;
@@ -61,11 +73,13 @@ export function StudentProfileDialog({
     Promise.all([
       financeApi.statement(student.id).catch(() => null),
       studentsApi.vaccines(student.id).catch(() => [] as StudentVaccine[]),
+      studentsApi.parents(student.id).catch(() => [] as StudentParentLink[]),
     ])
-      .then(([s, v]) => {
+      .then(([s, v, p]) => {
         if (!active) return;
         setStatement(s);
         setVaccines(v);
+        setParents(p);
       })
       .catch((e) => active && setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => active && setLoading(false));
@@ -137,6 +151,46 @@ export function StudentProfileDialog({
               value={student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : null}
               mono
             />
+          </CardContent>
+        </Card>
+
+        {/* Parents / guardians */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('people.parents')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {parents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('people.noParents')}</p>
+            ) : (
+              <ul className="divide-y divide-border text-sm">
+                {parents.map((link) => (
+                  <li key={link.id} className="flex items-center justify-between gap-2 py-2">
+                    <div className="min-w-0">
+                      <button
+                        type="button"
+                        className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                        onClick={() => setEditingParent(link.parent)}
+                      >
+                        {link.parent.firstNameEn} {link.parent.lastNameEn}
+                      </button>
+                      <span className="text-muted-foreground"> · {link.relation}</span>
+                      {link.isPrimary ? (
+                        <Badge tone="success" className="ms-2">
+                          {t('people.primary')}
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <a
+                      href={link.parent.phone ? `tel:${link.parent.phone}` : undefined}
+                      className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {link.parent.phone || '—'}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 
@@ -279,6 +333,17 @@ export function StudentProfileDialog({
           </CardContent>
         </Card>
       </div>
+
+      {editingParent ? (
+        <ParentEditDialog
+          parent={editingParent}
+          onClose={() => setEditingParent(null)}
+          onSaved={() => {
+            setEditingParent(null);
+            loadParents();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

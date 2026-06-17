@@ -8,6 +8,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import type { Application } from 'express';
 import { AppModule } from './app.module';
+import { PrismaExceptionFilter } from './common/prisma-exception.filter';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
@@ -49,6 +50,9 @@ async function bootstrap(): Promise<void> {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+
+  // Map known Prisma errors (e.g. duplicate national ID) to clean 4xx responses.
+  app.useGlobalFilters(new PrismaExceptionFilter());
 
   app.enableShutdownHooks();
 

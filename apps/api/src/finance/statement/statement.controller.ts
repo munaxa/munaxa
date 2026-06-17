@@ -16,4 +16,11 @@ export class StatementController {
   statement(@Param('studentId') studentId: string) {
     return this.service.forStudent(studentId);
   }
+
+  @Get(':studentId/household')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({ summary: 'Siblings (shared-guardian students) with their outstanding balances' })
+  household(@Param('studentId') studentId: string) {
+    return this.service.household(studentId);
+  }
 }

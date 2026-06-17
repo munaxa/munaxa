@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { ChargeService } from './charge.service';
-import { CreateChargeDto } from './charge.dto';
+import { CreateChargeDto, CreateInstallmentsDto } from './charge.dto';
 
 @ApiTags('finance')
 @ApiBearerAuth()
@@ -15,6 +15,12 @@ export class ChargeController {
   @RequirePermissions(Permission.FINANCE_MANAGE)
   create(@Body() dto: CreateChargeDto) {
     return this.service.create(dto);
+  }
+
+  @Post('installments')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  createInstallments(@Body() dto: CreateInstallmentsDto) {
+    return this.service.createInstallments(dto);
   }
 
   @Get()
