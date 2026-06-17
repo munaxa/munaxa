@@ -4,8 +4,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
-import { studentsApi, type ImportResult, type Student } from '@/lib/people';
+import { useToast } from '@/components/toast';
+import { useConfirm } from '@/components/confirm';
 import {
+  studentsApi,
+  type ImportResult,
+  type Student,
+  type StudentVaccine,
+  type UpdateStudentInput,
+  type UpsertVaccineInput,
+} from '@/lib/people';
+import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -13,6 +23,7 @@ import {
   CardTitle,
   Field,
   Input,
+  Select,
   Table,
   TBody,
   TD,
@@ -21,12 +32,17 @@ import {
   TR,
 } from '@/components/ui';
 
+const STUDENT_STATUSES = ['ACTIVE', 'INACTIVE', 'GRADUATED', 'WITHDRAWN'];
+
 export default function StudentsPage() {
   const { t } = useI18n();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [students, setStudents] = useState<Student[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Student | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -41,6 +57,17 @@ export default function StudentsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function remove(student: Student) {
+    if (!(await confirm())) return;
+    try {
+      await studentsApi.remove(student.id);
+      toast.success(t('people.studentDeleted'));
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed');
+    }
+  }
 
   if (loading) {
     return (
@@ -92,6 +119,7 @@ export default function StudentsPage() {
               <TH>{t('common.name')}</TH>
               <TH>{t('common.arabicName')}</TH>
               <TH className="text-end">{t('people.qr')}</TH>
+              <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -104,11 +132,24 @@ export default function StudentsPage() {
                   {s.firstNameAr} {s.lastNameAr}
                 </TD>
                 <TD className="text-end font-mono text-xs text-muted-foreground">{s.qrCode}</TD>
+                <TD className="text-end">
+                  <Button variant="ghost" size="sm" onClick={() => setEditing(s)}>
+                    {t('people.edit')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => void remove(s)}
+                  >
+                    {t('common.delete')}
+                  </Button>
+                </TD>
               </TR>
             ))}
             {students.length === 0 ? (
               <TR>
-                <TD colSpan={3} className="text-muted-foreground">
+                <TD colSpan={4} className="text-muted-foreground">
                   {t('people.noStudents')}
                 </TD>
               </TR>
@@ -116,6 +157,17 @@ export default function StudentsPage() {
           </TBody>
         </Table>
       </div>
+
+      {editing ? (
+        <StudentEditor
+          student={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
+            await load();
+          }}
+        />
+      ) : null}
     </Shell>
   );
 }
@@ -221,5 +273,256 @@ function ImportStudents({
         {t('people.importCsv')}
       </Button>
     </form>
+  );
+}
+
+// --------------------------------------------------------------------------- Student editor (modal)
+
+function StudentEditor({
+  student,
+  onClose,
+  onSaved,
+}: {
+  student: Student;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const [form, setForm] = useState<UpdateStudentInput>({
+    firstNameEn: student.firstNameEn,
+    lastNameEn: student.lastNameEn,
+    firstNameAr: student.firstNameAr,
+    lastNameAr: student.lastNameAr,
+    fatherNameEn: student.fatherNameEn ?? '',
+    fatherNameAr: student.fatherNameAr ?? '',
+    thirdNameEn: student.thirdNameEn ?? '',
+    thirdNameAr: student.thirdNameAr ?? '',
+    nationalId: student.nationalId ?? '',
+    moeStudentNumber: student.moeStudentNumber ?? '',
+    status: student.status,
+  });
+  const [saving, setSaving] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await studentsApi.update(student.id, form);
+      toast.success(t('people.studentUpdated'));
+      await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const set = (patch: Partial<UpdateStudentInput>) => setForm((f) => ({ ...f, ...patch }));
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div
+        className="relative my-8 w-full max-w-2xl rounded-xl border border-border bg-card p-5 shadow-card"
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-lg font-semibold">{t('people.editStudent')}</h2>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.cancel')}>
+            ✕
+          </Button>
+        </div>
+
+        <form onSubmit={(e) => void save(e)} className="grid gap-3 sm:grid-cols-2">
+          <Field label={t('common.firstNameEn')}>
+            <Input
+              value={form.firstNameEn ?? ''}
+              onChange={(e) => set({ firstNameEn: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label={t('common.lastNameEn')}>
+            <Input
+              value={form.lastNameEn ?? ''}
+              onChange={(e) => set({ lastNameEn: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="الاسم (AR)">
+            <Input
+              dir="rtl"
+              value={form.firstNameAr ?? ''}
+              onChange={(e) => set({ firstNameAr: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="العائلة (AR)">
+            <Input
+              dir="rtl"
+              value={form.lastNameAr ?? ''}
+              onChange={(e) => set({ lastNameAr: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label={t('people.nationalId')}>
+            <Input
+              value={form.nationalId ?? ''}
+              onChange={(e) => set({ nationalId: e.target.value })}
+            />
+          </Field>
+          <Field label={t('people.moeNumber')}>
+            <Input
+              value={form.moeStudentNumber ?? ''}
+              onChange={(e) => set({ moeStudentNumber: e.target.value })}
+            />
+          </Field>
+          <Field label={t('common.status')}>
+            <Select
+              value={form.status ?? 'ACTIVE'}
+              onChange={(e) => set({ status: e.target.value })}
+            >
+              {STUDENT_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <div className="col-span-full flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              {t('common.cancel')}
+            </Button>
+            <Button type="submit" disabled={saving}>
+              {saving ? t('common.saving') : t('common.saveChanges')}
+            </Button>
+          </div>
+        </form>
+
+        <div className="mt-6 border-t border-border pt-4">
+          <Vaccines studentId={student.id} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------- Vaccines
+
+const EMPTY_VACCINE: UpsertVaccineInput = { name: '', grade: '', received: true };
+
+function Vaccines({ studentId }: { studentId: string }) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [rows, setRows] = useState<StudentVaccine[]>([]);
+  const [form, setForm] = useState<UpsertVaccineInput>(EMPTY_VACCINE);
+
+  const load = useCallback(async () => {
+    try {
+      setRows(await studentsApi.vaccines(studentId));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load vaccines');
+    }
+  }, [studentId, toast]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    try {
+      const payload: UpsertVaccineInput = { name: form.name, received: form.received ?? true };
+      if (form.grade) payload.grade = form.grade;
+      await studentsApi.addVaccine(studentId, payload);
+      setForm(EMPTY_VACCINE);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to add vaccine');
+    }
+  }
+
+  async function toggleReceived(v: StudentVaccine) {
+    try {
+      await studentsApi.updateVaccine(studentId, v.id, { received: !v.received });
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Update failed');
+    }
+  }
+
+  async function remove(v: StudentVaccine) {
+    if (!(await confirm())) return;
+    try {
+      await studentsApi.removeVaccine(studentId, v.id);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Delete failed');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <h3 className="font-display text-sm font-semibold">{t('people.vaccines')}</h3>
+
+      <ul className="divide-y divide-border text-sm">
+        {rows.map((v) => (
+          <li key={v.id} className="flex items-center justify-between gap-2 py-1.5">
+            <div className="min-w-0">
+              <span className="font-medium">{v.name}</span>
+              {v.grade ? <span className="text-muted-foreground"> · {v.grade}</span> : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => void toggleReceived(v)}>
+                <Badge tone={v.received ? 'success' : 'muted'}>
+                  {v.received ? t('people.received') : t('people.notReceived')}
+                </Badge>
+              </button>
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => void remove(v)}
+                aria-label={`${t('common.delete')} ${v.name}`}
+              >
+                ✕
+              </button>
+            </div>
+          </li>
+        ))}
+        {rows.length === 0 ? (
+          <li className="py-1.5 text-muted-foreground">{t('people.noVaccines')}</li>
+        ) : null}
+      </ul>
+
+      <form onSubmit={(e) => void add(e)} className="flex flex-wrap items-end gap-2">
+        <Input
+          className="h-9 flex-1"
+          placeholder={t('people.vaccineName')}
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          required
+        />
+        <Input
+          className="h-9 w-32"
+          placeholder={t('people.vaccineGrade')}
+          value={form.grade ?? ''}
+          onChange={(e) => setForm({ ...form, grade: e.target.value })}
+        />
+        <label className="flex items-center gap-1.5 pb-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={form.received ?? true}
+            onChange={(e) => setForm({ ...form, received: e.target.checked })}
+          />
+          {t('people.received')}
+        </label>
+        <Button type="submit" size="sm">
+          {t('people.addVaccine')}
+        </Button>
+      </form>
+    </div>
   );
 }

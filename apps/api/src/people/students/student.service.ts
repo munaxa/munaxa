@@ -1,9 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { parse } from 'csv-parse/sync';
-import type { ParentStudent, Prisma, Student } from '@prisma/client';
+import type { ParentStudent, Prisma, Student, StudentVaccine } from '@prisma/client';
 import { StudentRepository } from './student.repository';
 import { generateStudentQrCode } from '../people.util';
-import type { CreateStudentDto, LinkParentDto, UpdateStudentDto } from './student.dto';
+import type {
+  CreateStudentDto,
+  CreateVaccineDto,
+  LinkParentDto,
+  UpdateStudentDto,
+  UpdateVaccineDto,
+} from './student.dto';
 
 export interface ImportResult {
   created: number;
@@ -84,6 +90,54 @@ export class StudentService {
   async listParents(studentId: string): Promise<ParentStudent[]> {
     await this.get(studentId);
     return this.repo.listParents(studentId);
+  }
+
+  // ----- Vaccines ----------------------------------------------------------
+  async listVaccines(studentId: string): Promise<StudentVaccine[]> {
+    await this.get(studentId);
+    return this.repo.listVaccines(studentId);
+  }
+
+  async addVaccine(studentId: string, dto: CreateVaccineDto): Promise<StudentVaccine> {
+    await this.get(studentId);
+    return this.repo.createVaccine({
+      studentId,
+      name: dto.name,
+      grade: dto.grade ?? null,
+      received: dto.received ?? true,
+      dateGiven: dto.dateGiven ? new Date(dto.dateGiven) : null,
+      notes: dto.notes ?? null,
+    });
+  }
+
+  async updateVaccine(
+    studentId: string,
+    vaccineId: string,
+    dto: UpdateVaccineDto,
+  ): Promise<StudentVaccine> {
+    await this.getVaccine(studentId, vaccineId);
+    const data: Prisma.StudentVaccineUpdateInput = {
+      ...(dto.name !== undefined ? { name: dto.name } : {}),
+      ...(dto.grade !== undefined ? { grade: dto.grade } : {}),
+      ...(dto.received !== undefined ? { received: dto.received } : {}),
+      ...(dto.dateGiven !== undefined
+        ? { dateGiven: dto.dateGiven ? new Date(dto.dateGiven) : null }
+        : {}),
+      ...(dto.notes !== undefined ? { notes: dto.notes } : {}),
+    };
+    return this.repo.updateVaccine(vaccineId, data);
+  }
+
+  async removeVaccine(studentId: string, vaccineId: string): Promise<void> {
+    await this.getVaccine(studentId, vaccineId);
+    await this.repo.deleteVaccine(vaccineId);
+  }
+
+  private async getVaccine(studentId: string, vaccineId: string): Promise<StudentVaccine> {
+    await this.get(studentId);
+    const vaccine = await this.repo.findVaccine(studentId, vaccineId);
+    if (!vaccine) throw new NotFoundException('Vaccine record not found');
+    return vaccine;
   }
 
   // ----- Bulk CSV import ---------------------------------------------------

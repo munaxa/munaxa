@@ -110,6 +110,41 @@ export class LinkParentDto {
   isPrimary?: boolean;
 }
 
+export class CreateVaccineDto {
+  @ApiProperty({ description: 'Vaccine name', example: 'MMR' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  name!: string;
+
+  @ApiPropertyOptional({ description: 'Grade at which it was administered', example: 'Grade 1' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  grade?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether the governmental vaccine was received',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  received?: boolean;
+
+  @ApiPropertyOptional({ example: '2021-09-01' })
+  @IsOptional()
+  @IsDateString()
+  dateGiven?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+}
+
+export class UpdateVaccineDto extends PartialType(CreateVaccineDto) {}
+
 export class ImportStudentsDto {
   @ApiProperty({
     description:

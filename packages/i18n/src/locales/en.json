@@ -231,7 +231,20 @@
     "jobTitle": "Job title",
     "jobTitlePlaceholder": "Job title (e.g. Secretary)",
     "department": "Department",
-    "noEmployees": "No employees yet."
+    "noEmployees": "No employees yet.",
+    "edit": "Edit",
+    "editStudent": "Edit student",
+    "studentUpdated": "Student updated",
+    "studentDeleted": "Student deleted",
+    "moeNumber": "MoE number",
+    "vaccines": "Government vaccines",
+    "vaccineName": "Vaccine name",
+    "vaccineGrade": "Grade given",
+    "vaccineDate": "Date given",
+    "received": "Received",
+    "notReceived": "Not received",
+    "addVaccine": "Add vaccine",
+    "noVaccines": "No vaccines recorded."
   },
   "cards": {
     "title": "Student cards",
