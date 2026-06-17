@@ -231,7 +231,20 @@
     "jobTitle": "المسمى الوظيفي",
     "jobTitlePlaceholder": "المسمى الوظيفي (مثل سكرتير)",
     "department": "القسم",
-    "noEmployees": "لا يوجد موظفون بعد."
+    "noEmployees": "لا يوجد موظفون بعد.",
+    "edit": "تعديل",
+    "editStudent": "تعديل بيانات الطالب",
+    "studentUpdated": "تم تحديث الطالب",
+    "studentDeleted": "تم حذف الطالب",
+    "moeNumber": "رقم وزارة التربية",
+    "vaccines": "المطاعيم الحكومية",
+    "vaccineName": "اسم المطعوم",
+    "vaccineGrade": "الصف عند التطعيم",
+    "vaccineDate": "تاريخ التطعيم",
+    "received": "تم التطعيم",
+    "notReceived": "لم يتم",
+    "addVaccine": "إضافة مطعوم",
+    "noVaccines": "لا توجد مطاعيم مسجلة."
   },
   "cards": {
     "title": "بطاقات الطلاب",

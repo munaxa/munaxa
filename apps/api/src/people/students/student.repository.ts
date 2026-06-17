@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ParentStudent, Prisma, Student, StudentStatus } from '@prisma/client';
+import type { ParentStudent, Prisma, Student, StudentStatus, StudentVaccine } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 
 @Injectable()
@@ -101,5 +101,33 @@ export class StudentRepository extends TenantRepository {
 
   listParents(studentId: string): Promise<ParentStudent[]> {
     return this.run((tx) => tx.parentStudent.findMany({ where: { studentId } }));
+  }
+
+  // ----- Vaccines ----------------------------------------------------------
+  listVaccines(studentId: string): Promise<StudentVaccine[]> {
+    return this.run((tx) =>
+      tx.studentVaccine.findMany({ where: { studentId }, orderBy: { createdAt: 'asc' } }),
+    );
+  }
+
+  createVaccine(
+    data: Omit<Prisma.StudentVaccineUncheckedCreateInput, 'tenantId'>,
+  ): Promise<StudentVaccine> {
+    return this.run((tx, tenantId) => tx.studentVaccine.create({ data: { ...data, tenantId } }));
+  }
+
+  findVaccine(studentId: string, vaccineId: string): Promise<StudentVaccine | null> {
+    return this.run((tx) => tx.studentVaccine.findFirst({ where: { id: vaccineId, studentId } }));
+  }
+
+  updateVaccine(
+    vaccineId: string,
+    data: Prisma.StudentVaccineUpdateInput,
+  ): Promise<StudentVaccine> {
+    return this.run((tx) => tx.studentVaccine.update({ where: { id: vaccineId }, data }));
+  }
+
+  deleteVaccine(vaccineId: string): Promise<unknown> {
+    return this.run((tx) => tx.studentVaccine.delete({ where: { id: vaccineId } }));
   }
 }

@@ -9,9 +9,11 @@ import {
 import { StudentService } from './student.service';
 import {
   CreateStudentDto,
+  CreateVaccineDto,
   ImportStudentsDto,
   LinkParentDto,
   UpdateStudentDto,
+  UpdateVaccineDto,
 } from './student.dto';
 
 @ApiTags('students')
@@ -98,5 +100,37 @@ export class StudentController {
   @RequirePermissions(Permission.STUDENT_MANAGE)
   unlinkParent(@Param('id') id: string, @Param('parentId') parentId: string) {
     return this.service.unlinkParent(id, parentId);
+  }
+
+  // ----- Vaccines ----------------------------------------------------------
+  @Get(':id/vaccines')
+  @RequirePermissions(Permission.STUDENT_MANAGE)
+  @ApiOperation({ summary: 'List a student vaccination records' })
+  listVaccines(@Param('id') id: string) {
+    return this.service.listVaccines(id);
+  }
+
+  @Post(':id/vaccines')
+  @RequirePermissions(Permission.STUDENT_MANAGE)
+  @ApiOperation({ summary: 'Add a vaccination record to a student' })
+  addVaccine(@Param('id') id: string, @Body() dto: CreateVaccineDto) {
+    return this.service.addVaccine(id, dto);
+  }
+
+  @Patch(':id/vaccines/:vaccineId')
+  @RequirePermissions(Permission.STUDENT_MANAGE)
+  updateVaccine(
+    @Param('id') id: string,
+    @Param('vaccineId') vaccineId: string,
+    @Body() dto: UpdateVaccineDto,
+  ) {
+    return this.service.updateVaccine(id, vaccineId, dto);
+  }
+
+  @Delete(':id/vaccines/:vaccineId')
+  @HttpCode(204)
+  @RequirePermissions(Permission.STUDENT_MANAGE)
+  removeVaccine(@Param('id') id: string, @Param('vaccineId') vaccineId: string) {
+    return this.service.removeVaccine(id, vaccineId);
   }
 }

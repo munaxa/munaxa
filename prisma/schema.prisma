@@ -366,6 +366,7 @@ model Tenant {
   busAttendanceEvents BusAttendanceEvent[]
   attendanceSourceConfig AttendanceSourceConfig?
   studentCards        StudentCard[]
+  studentVaccines     StudentVaccine[]
 
   @@index([status])
 }
@@ -578,6 +579,7 @@ model Student {
   presenceEvents StudentPresenceEvent[]
   busAttendanceEvents BusAttendanceEvent[]
   cards          StudentCard[]
+  vaccines       StudentVaccine[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -2167,4 +2169,24 @@ model StudentCard {
   @@unique([tenantId, cardUid])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
+}
+
+/// Governmental/school vaccination record for a student: which vaccine, the grade at which it
+/// was administered, and whether it was actually received.
+model StudentVaccine {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  studentId String    @db.Uuid
+  name      String // vaccine name (e.g. "MMR", "Polio")
+  grade     String? // grade at which it was given (e.g. "Grade 1", "KG")
+  received  Boolean   @default(true) // whether the governmental vaccine was received
+  dateGiven DateTime? @db.Date
+  notes     String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, studentId])
 }

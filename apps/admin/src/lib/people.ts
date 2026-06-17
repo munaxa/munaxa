@@ -40,6 +40,38 @@ export interface ImportResult {
   failed: Array<{ row: number; error: string }>;
 }
 
+export interface StudentVaccine {
+  id: string;
+  studentId: string;
+  name: string;
+  grade?: string | null;
+  received: boolean;
+  dateGiven?: string | null;
+  notes?: string | null;
+}
+
+export interface UpsertVaccineInput {
+  name: string;
+  grade?: string;
+  received?: boolean;
+  dateGiven?: string;
+  notes?: string;
+}
+
+export interface UpdateStudentInput {
+  firstNameEn?: string;
+  lastNameEn?: string;
+  firstNameAr?: string;
+  lastNameAr?: string;
+  fatherNameEn?: string;
+  fatherNameAr?: string;
+  thirdNameEn?: string;
+  thirdNameAr?: string;
+  nationalId?: string;
+  moeStudentNumber?: string;
+  status?: string;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
@@ -75,6 +107,27 @@ export const studentsApi = {
     authFetch('/students/import', { method: 'POST', body: JSON.stringify({ csv }) }).then((r) =>
       json<ImportResult>(r),
     ),
+  update: (id: string, data: UpdateStudentInput) =>
+    authFetch(`/students/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<Student>(r),
+    ),
+  remove: (id: string) => del(`/students/${id}`),
+
+  // ----- Vaccines ----------------------------------------------------------
+  vaccines: (studentId: string) =>
+    authFetch(`/students/${studentId}/vaccines`).then((r) => json<StudentVaccine[]>(r)),
+  addVaccine: (studentId: string, data: UpsertVaccineInput) =>
+    authFetch(`/students/${studentId}/vaccines`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<StudentVaccine>(r)),
+  updateVaccine: (studentId: string, vaccineId: string, data: Partial<UpsertVaccineInput>) =>
+    authFetch(`/students/${studentId}/vaccines/${vaccineId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<StudentVaccine>(r)),
+  removeVaccine: (studentId: string, vaccineId: string) =>
+    del(`/students/${studentId}/vaccines/${vaccineId}`),
 };
 
 // ---------------------------------------------------------------------------
