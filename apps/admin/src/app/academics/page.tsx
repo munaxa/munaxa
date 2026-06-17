@@ -15,6 +15,7 @@ import {
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
+import { useConfirm } from '@/components/confirm';
 import { loadSectionOptions, loadStudentOptions } from '@/lib/pickers';
 import {
   Badge,
@@ -247,6 +248,7 @@ const EMPTY_BEHAVIOR = {
 function BehaviorSection() {
   const toast = useToast();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [studentId, setStudentId] = useState('');
   const [list, setList] = useState<BehaviorLog[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -288,6 +290,7 @@ function BehaviorSection() {
   }
 
   async function remove(id: string) {
+    if (!(await confirm())) return;
     try {
       await academicsApi.removeBehavior(id);
       await load();

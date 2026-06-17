@@ -5,6 +5,7 @@ import { Shell } from '@/components/shell';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
+import { useConfirm } from '@/components/confirm';
 import { loadStudentOptions } from '@/lib/pickers';
 import { cardsApi, type CardStatus, type CardType, type StudentCard } from '@/lib/cards';
 import {
@@ -37,6 +38,7 @@ const STATUSES: CardStatus[] = ['ACTIVE', 'SUSPENDED', 'STOLEN', 'LOST', 'REVOKE
 export default function StudentCardsPage() {
   const toast = useToast();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [studentId, setStudentId] = useState('');
   const [cards, setCards] = useState<StudentCard[]>([]);
   const [form, setForm] = useState<{ cardUid: string; type: CardType; label: string }>({
@@ -136,7 +138,11 @@ export default function StudentCardsPage() {
                             size="sm"
                             variant="ghost"
                             className="text-destructive"
-                            onClick={() => void run(() => cardsApi.remove(c.id), 'Card deleted')}
+                            onClick={() =>
+                              void confirm().then((ok) => {
+                                if (ok) void run(() => cardsApi.remove(c.id), 'Card deleted');
+                              })
+                            }
                           >
                             {t('common.delete')}
                           </Button>

@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
+import { useConfirm } from '@/components/confirm';
 import { schoolsApi, campusesApi, type School, type Campus } from '@/lib/structure';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@/components/ui';
 
 export default function SchoolsPage() {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [schools, setSchools] = useState<School[]>([]);
   const [selected, setSelected] = useState<School | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +66,11 @@ export default function SchoolsPage() {
                     size="sm"
                     variant="ghost"
                     className="text-destructive"
-                    onClick={() => void schoolsApi.remove(s.id).then(load)}
+                    onClick={() =>
+                      void confirm().then((ok) => {
+                        if (ok) void schoolsApi.remove(s.id).then(load);
+                      })
+                    }
                   >
                     {t('common.delete')}
                   </Button>
@@ -130,6 +136,7 @@ function CreateSchool({
 
 function Campuses({ school, onError }: { school: School; onError: (m: string) => void }) {
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [nameEn, setNameEn] = useState('');
   const [nameAr, setNameAr] = useState('');
@@ -199,7 +206,11 @@ function Campuses({ school, onError }: { school: School; onError: (m: string) =>
                 size="sm"
                 variant="ghost"
                 className="text-destructive"
-                onClick={() => void campusesApi.remove(c.id).then(load)}
+                onClick={() =>
+                  void confirm().then((ok) => {
+                    if (ok) void campusesApi.remove(c.id).then(load);
+                  })
+                }
               >
                 {t('common.delete')}
               </Button>
