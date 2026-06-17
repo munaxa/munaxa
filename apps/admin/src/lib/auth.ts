@@ -2,13 +2,18 @@
 
 /**
  * Minimal browser auth client for the Admin Portal (Phase 3).
- * Tokens are kept in localStorage for now; production hardening (httpOnly cookies +
- * silent refresh) is scheduled for Phase 15.
+ * Tokens are kept in sessionStorage so they are cleared when the browser/tab is closed
+ * (reopening the browser therefore requires signing in again). An inactivity timeout
+ * (see {@link IDLE_TIMEOUT_MS}) signs the user out after a period of no activity.
+ * Production hardening (httpOnly cookies + silent refresh) is scheduled for Phase 15.
  */
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
 const ACCESS_KEY = 'munaxa.accessToken';
 const REFRESH_KEY = 'munaxa.refreshToken';
+
+/** Auto sign-out after this many milliseconds of user inactivity (15 minutes). */
+export const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 
 export interface TokenPair {
   accessToken: string;
@@ -27,18 +32,18 @@ export interface Principal {
 
 export const tokenStore = {
   get access(): string | null {
-    return typeof window === 'undefined' ? null : localStorage.getItem(ACCESS_KEY);
+    return typeof window === 'undefined' ? null : sessionStorage.getItem(ACCESS_KEY);
   },
   get refresh(): string | null {
-    return typeof window === 'undefined' ? null : localStorage.getItem(REFRESH_KEY);
+    return typeof window === 'undefined' ? null : sessionStorage.getItem(REFRESH_KEY);
   },
   set(pair: { accessToken: string; refreshToken: string }): void {
-    localStorage.setItem(ACCESS_KEY, pair.accessToken);
-    localStorage.setItem(REFRESH_KEY, pair.refreshToken);
+    sessionStorage.setItem(ACCESS_KEY, pair.accessToken);
+    sessionStorage.setItem(REFRESH_KEY, pair.refreshToken);
   },
   clear(): void {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
+    sessionStorage.removeItem(ACCESS_KEY);
+    sessionStorage.removeItem(REFRESH_KEY);
   },
 };
 

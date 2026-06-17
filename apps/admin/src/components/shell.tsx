@@ -1,11 +1,45 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { tokenStore, type Principal } from '@/lib/auth';
-import { loadPrincipal } from '@/lib/session';
+import { IDLE_TIMEOUT_MS, logout, tokenStore, type Principal } from '@/lib/auth';
+import { clearPrincipalCache, loadPrincipal } from '@/lib/session';
 import { AppShell } from './app-shell';
 import { Spinner } from './ui';
+
+/** User-activity events that reset the inactivity countdown. */
+const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const;
+
+/**
+ * Signs the user out after {@link IDLE_TIMEOUT_MS} of no interaction. The timer is reset
+ * on any tracked activity event; on expiry we revoke the session and redirect to /login.
+ */
+function useIdleLogout(active: boolean): void {
+  const router = useRouter();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    if (!active) return;
+
+    const signOut = () => {
+      void logout().finally(() => {
+        clearPrincipalCache();
+        router.replace('/login');
+      });
+    };
+    const reset = () => {
+      clearTimeout(timer.current);
+      timer.current = setTimeout(signOut, IDLE_TIMEOUT_MS);
+    };
+
+    reset();
+    for (const evt of ACTIVITY_EVENTS) window.addEventListener(evt, reset, { passive: true });
+    return () => {
+      clearTimeout(timer.current);
+      for (const evt of ACTIVITY_EVENTS) window.removeEventListener(evt, reset);
+    };
+  }, [active, router]);
+}
 
 const PrincipalContext = createContext<Principal | null>(null);
 
@@ -25,6 +59,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useIdleLogout(Boolean(principal));
 
   useEffect(() => {
     if (!tokenStore.access) {
