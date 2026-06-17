@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Sora, Inter, JetBrains_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
 import './globals.css';
 import { PostHogProvider } from '@/lib/posthog';
 import { ToastProvider } from '@/components/toast';
@@ -7,9 +7,25 @@ import { I18nProvider } from '@/components/i18n-provider';
 import { DEFAULT_LOCALE, directionForLocale } from '@/lib/i18n';
 
 // Munaxa Design System type pairing: Sora (display) / Inter (body) / JetBrains Mono.
-const sora = Sora({ subsets: ['latin'], variable: '--font-display', display: 'swap' });
-const inter = Inter({ subsets: ['latin'], variable: '--font-body', display: 'swap' });
-const mono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono', display: 'swap' });
+// Self-hosted (latin subset, variable) so builds don't depend on Google Fonts network access.
+const sora = localFont({
+  src: '../fonts/Sora-latin.woff2',
+  weight: '100 800',
+  variable: '--font-display',
+  display: 'swap',
+});
+const inter = localFont({
+  src: '../fonts/Inter-latin.woff2',
+  weight: '100 900',
+  variable: '--font-body',
+  display: 'swap',
+});
+const mono = localFont({
+  src: '../fonts/JetBrainsMono-latin.woff2',
+  weight: '100 800',
+  variable: '--font-mono',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Munaxa — School Operating System',
