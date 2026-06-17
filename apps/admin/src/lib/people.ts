@@ -120,6 +120,16 @@ export const studentsApi = {
   // ----- Parents -----------------------------------------------------------
   parents: (studentId: string) =>
     authFetch(`/students/${studentId}/parents`).then((r) => json<StudentParentLink[]>(r)),
+  linkParent: (
+    studentId: string,
+    data: { parentId: string; relation: string; isPrimary?: boolean },
+  ) =>
+    authFetch(`/students/${studentId}/parents`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json(r)),
+  unlinkParent: (studentId: string, parentId: string) =>
+    del(`/students/${studentId}/parents/${parentId}`),
 
   // ----- Vaccines ----------------------------------------------------------
   vaccines: (studentId: string) =>
