@@ -19,5 +19,11 @@ export async function loadStudentOptions(): Promise<PickerOption[]> {
 
 export async function loadSectionOptions(): Promise<PickerOption[]> {
   const sections = await sectionsApi.list();
-  return sections.map((s) => ({ id: s.id, label: `Section ${s.name}`, sublabel: s.id }));
+  return sections.map((s) => ({
+    id: s.id,
+    // Prefix with the grade so identically-named sections (e.g. "A") stay distinguishable.
+    label: s.grade ? `${s.grade.nameEn} · Section ${s.name}` : `Section ${s.name}`,
+    // Arabic grade name in the sublabel keeps it searchable in Arabic too.
+    sublabel: s.grade ? s.grade.nameAr : s.id,
+  }));
 }

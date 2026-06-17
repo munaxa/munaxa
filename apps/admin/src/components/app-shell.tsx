@@ -112,7 +112,7 @@ export function AppShell({
   return (
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-card/40 p-4 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col self-start overflow-y-auto border-e border-border bg-card/40 p-4 md:flex">
         <div className="flex items-center gap-2 px-2 py-3">
           <Logo size={32} priority />
           <span className="font-display text-lg font-semibold">Munaxa</span>

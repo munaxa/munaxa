@@ -24,6 +24,8 @@ export interface Section {
   name: string;
   classroomId?: string | null;
   capacity?: number | null;
+  /** Parent grade, included by the list endpoint so a section can be labelled unambiguously. */
+  grade?: { id: string; nameEn: string; nameAr: string; level: number } | null;
 }
 
 export interface Grade {

@@ -2,17 +2,24 @@ import { Injectable } from '@nestjs/common';
 import type { Prisma, Section } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 
+/** A section enriched with its parent grade, so callers can label it unambiguously. */
+export type SectionWithGrade = Prisma.SectionGetPayload<{
+  include: { grade: { select: { id: true; nameEn: true; nameAr: true; level: true } } };
+}>;
+
 @Injectable()
 export class SectionRepository extends TenantRepository {
   create(data: Omit<Prisma.SectionUncheckedCreateInput, 'tenantId'>): Promise<Section> {
     return this.run((tx, tenantId) => tx.section.create({ data: { ...data, tenantId } }));
   }
 
-  findMany(gradeId?: string): Promise<Section[]> {
+  findMany(gradeId?: string): Promise<SectionWithGrade[]> {
     return this.run((tx) =>
       tx.section.findMany({
         where: { ...(gradeId ? { gradeId } : {}) },
-        orderBy: { name: 'asc' },
+        include: { grade: { select: { id: true, nameEn: true, nameAr: true, level: true } } },
+        // Order by grade level first, then section name, so the list reads top-down by grade.
+        orderBy: [{ grade: { level: 'asc' } }, { name: 'asc' }],
       }),
     );
   }
