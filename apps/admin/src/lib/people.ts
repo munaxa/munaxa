@@ -224,6 +224,7 @@ export interface Employee {
   jobTitle: string;
   department?: string | null;
   status: EmploymentStatus;
+  createdAt?: string | null;
 }
 
 export interface CreateEmployeeInput {
@@ -236,10 +237,24 @@ export interface CreateEmployeeInput {
   status?: EmploymentStatus;
 }
 
+export interface UpdateEmployeeInput {
+  firstNameEn?: string;
+  lastNameEn?: string;
+  firstNameAr?: string;
+  lastNameAr?: string;
+  jobTitle?: string;
+  department?: string;
+  status?: EmploymentStatus;
+}
+
 export const employeesApi = {
   list: () => authFetch('/employees').then((r) => json<Employee[]>(r)),
   create: (data: CreateEmployeeInput) =>
     authFetch('/employees', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Employee>(r),
+    ),
+  update: (id: string, data: UpdateEmployeeInput) =>
+    authFetch(`/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
       json<Employee>(r),
     ),
   remove: (id: string) => del(`/employees/${id}`),
