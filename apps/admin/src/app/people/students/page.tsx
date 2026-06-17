@@ -83,6 +83,17 @@ export default function StudentsPage() {
     [sections],
   );
 
+  const gradeName = useCallback(
+    (sectionId?: string | null): string =>
+      sections.find((s) => s.id === sectionId)?.grade?.nameEn ?? '—',
+    [sections],
+  );
+
+  const sectionName = useCallback(
+    (sectionId?: string | null): string => sections.find((s) => s.id === sectionId)?.name ?? '—',
+    [sections],
+  );
+
   async function remove(student: Student) {
     if (!(await confirm())) return;
     try {
@@ -149,15 +160,21 @@ export default function StudentsPage() {
         <Table>
           <THead>
             <TR>
+              <TH>{t('people.studentNo')}</TH>
               <TH>{t('common.name')}</TH>
-              <TH>{t('common.arabicName')}</TH>
-              <TH className="text-end">{t('people.qr')}</TH>
+              <TH>{t('structure.grade')}</TH>
+              <TH>{t('structure.section')}</TH>
+              <TH>{t('people.admitted')}</TH>
+              <TH>{t('common.status')}</TH>
               <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
             {students.map((s) => (
               <TR key={s.id}>
+                <TD className="font-mono text-xs text-muted-foreground">
+                  {s.moeStudentNumber || '—'}
+                </TD>
                 <TD>
                   <button
                     type="button"
@@ -166,11 +183,18 @@ export default function StudentsPage() {
                   >
                     {s.firstNameEn} {s.lastNameEn}
                   </button>
+                  <span className="block text-xs text-muted-foreground" dir="rtl">
+                    {s.firstNameAr} {s.lastNameAr}
+                  </span>
                 </TD>
-                <TD dir="rtl">
-                  {s.firstNameAr} {s.lastNameAr}
+                <TD>{gradeName(s.sectionId)}</TD>
+                <TD>{sectionName(s.sectionId)}</TD>
+                <TD className="font-mono text-xs">
+                  {s.enrollmentDate ? s.enrollmentDate.slice(0, 10) : '—'}
                 </TD>
-                <TD className="text-end font-mono text-xs text-muted-foreground">{s.qrCode}</TD>
+                <TD>
+                  <Badge tone={s.status === 'ACTIVE' ? 'success' : 'muted'}>{s.status}</Badge>
+                </TD>
                 <TD className="text-end">
                   <Button variant="ghost" size="sm" onClick={() => setEditing(s)}>
                     {t('people.edit')}
@@ -188,7 +212,7 @@ export default function StudentsPage() {
             ))}
             {students.length === 0 ? (
               <TR>
-                <TD colSpan={4} className="text-muted-foreground">
+                <TD colSpan={7} className="text-muted-foreground">
                   {t('people.noStudents')}
                 </TD>
               </TR>
