@@ -1,10 +1,15 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # Run on PRs only. The post-merge commit on `main` is identical to the PR head
+  # that already passed these checks, so re-running on `push: main` only burns
+  # Actions minutes. Branch protection (required status checks) gates merges.
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -15,6 +20,23 @@ env:
   PNPM_VERSION: '10.33.0'
 
 jobs:
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      mobile: ${{ steps.filter.outputs.mobile }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            mobile:
+              - 'apps/mobile/**'
+
   node:
     name: Lint · Typecheck · Test · Build (JS/TS)
     runs-on: ubuntu-latest
@@ -88,6 +110,10 @@ jobs:
   flutter:
     name: Analyze · Test (Flutter)
     runs-on: ubuntu-latest
+    # The Flutter SDK download + analyze/test is the most expensive job. Only run it
+    # when mobile code actually changed.
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
     steps:
       - uses: actions/checkout@v6
       - uses: subosito/flutter-action@v2
