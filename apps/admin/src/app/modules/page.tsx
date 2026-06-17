@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { ADVANCED_MODULES, advancedApi, type FeatureFlag } from '@/lib/advanced';
-import { Button, Card, CardContent, Input } from '@/components/ui';
+import { Button, Card, CardContent } from '@/components/ui';
 
 export default function ModulesPage() {
   const { t } = useI18n();
@@ -89,100 +89,7 @@ export default function ModulesPage() {
             );
           })}
         </ul>
-
-        {flags.bus_tracking ? <ModulePanel kind="bus" /> : null}
-        {flags.library_management ? <ModulePanel kind="library" /> : null}
-        {flags.inventory_management ? <ModulePanel kind="inventory" /> : null}
-        {flags.school_clinic ? <ModulePanel kind="clinic" /> : null}
       </div>
     </Shell>
-  );
-}
-
-type Kind = 'bus' | 'library' | 'inventory' | 'clinic';
-
-function ModulePanel({ kind }: { kind: Kind }) {
-  const { t } = useI18n();
-  const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
-  const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const config: Record<Kind, { title: string; canCreate: boolean }> = {
-    bus: { title: t('modules.busRoutes'), canCreate: true },
-    library: { title: t('modules.libraryBooks'), canCreate: true },
-    inventory: { title: t('modules.inventoryItems'), canCreate: true },
-    clinic: { title: t('modules.recentClinicVisits'), canCreate: false },
-  };
-
-  async function load() {
-    setError(null);
-    try {
-      if (kind === 'bus') setRows(await advancedApi.busRoutes());
-      else if (kind === 'library') setRows(await advancedApi.books());
-      else if (kind === 'inventory') setRows(await advancedApi.inventoryItems());
-      else setRows(await advancedApi.clinicVisits());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
-    }
-  }
-
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind]);
-
-  async function create() {
-    if (!name) return;
-    try {
-      if (kind === 'bus') await advancedApi.createBusRoute(name);
-      else if (kind === 'library') await advancedApi.createBook(name, 1);
-      else if (kind === 'inventory') await advancedApi.createItem(name, 0);
-      setName('');
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create');
-    }
-  }
-
-  function label(row: Record<string, unknown>): string {
-    if (kind === 'bus') return String(row.name);
-    if (kind === 'library')
-      return `${String(row.title)} (${String(row.copiesAvailable)}/${String(row.copiesTotal)})`;
-    if (kind === 'inventory') return `${String(row.name)} — ${String(row.quantity)}`;
-    return `${String(row.reason)} · ${String(row.outcome)}`;
-  }
-
-  return (
-    <Card>
-      <CardContent className="space-y-2 pt-6">
-        <h2 className="font-display font-medium">{config[kind].title}</h2>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        {config[kind].canCreate ? (
-          <div className="flex gap-2">
-            <Input
-              className="flex-1"
-              placeholder={t('modules.newNamePlaceholder')}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-            <Button onClick={() => void create()}>{t('common.add')}</Button>
-          </div>
-        ) : null}
-        <ul className="divide-y divide-border text-sm">
-          {rows.map((row, i) => (
-            <li key={i} className="py-1.5">
-              {label(row)}
-            </li>
-          ))}
-          {rows.length === 0 ? (
-            <li className="py-1.5 text-muted-foreground">{t('modules.noneYet')}</li>
-          ) : null}
-        </ul>
-      </CardContent>
-    </Card>
   );
 }
