@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { ParentStudent, Prisma, Student, StudentStatus, StudentVaccine } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 
+/** A parent↔student link enriched with the parent's contact details. */
+export type ParentLink = Prisma.ParentStudentGetPayload<{ include: { parent: true } }>;
+
 @Injectable()
 export class StudentRepository extends TenantRepository {
   create(data: Omit<Prisma.StudentUncheckedCreateInput, 'tenantId'>): Promise<Student> {
@@ -99,8 +102,14 @@ export class StudentRepository extends TenantRepository {
     return this.run((tx) => tx.parentStudent.deleteMany({ where: { studentId, parentId } }));
   }
 
-  listParents(studentId: string): Promise<ParentStudent[]> {
-    return this.run((tx) => tx.parentStudent.findMany({ where: { studentId } }));
+  listParents(studentId: string): Promise<ParentLink[]> {
+    return this.run((tx) =>
+      tx.parentStudent.findMany({
+        where: { studentId },
+        include: { parent: true },
+        orderBy: { isPrimary: 'desc' },
+      }),
+    );
   }
 
   // ----- Vaccines ----------------------------------------------------------

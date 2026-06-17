@@ -34,6 +34,15 @@ import {
 
 const jod = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
 
+/** Preset fee categories for new charges; `OTHER` reveals a free-text description. */
+const FEE_TYPES: { value: string; labelKey: string }[] = [
+  { value: 'REGISTRATION', labelKey: 'finance.feeRegistration' },
+  { value: 'GRADE', labelKey: 'finance.feeGrade' },
+  { value: 'TRANSPORT', labelKey: 'finance.feeTransport' },
+  { value: 'INSURANCE', labelKey: 'finance.feeInsurance' },
+  { value: 'OTHER', labelKey: 'finance.feeOther' },
+];
+
 const CHARGE_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted' | 'default'> = {
   PAID: 'success',
   PARTIAL: 'warning',
@@ -63,7 +72,12 @@ export default function FinancePage() {
   const [statement, setStatement] = useState<Statement | null>(null);
   const [collections, setCollections] = useState<CollectionsProfile | null>(null);
   const [loading, setLoading] = useState(false);
-  const [charge, setCharge] = useState({ description: '', amount: '', dueDate: '' });
+  const [charge, setCharge] = useState({
+    feeType: 'REGISTRATION',
+    description: '',
+    amount: '',
+    dueDate: '',
+  });
   const [refund, setRefund] = useState({ amount: '', reason: '' });
   const [legalNote, setLegalNote] = useState('');
   const [rowAction, setRowAction] = useState<{ id: string; kind: 'discount' | 'credit' } | null>(
@@ -119,8 +133,17 @@ export default function FinancePage() {
         'Discount applied',
       );
     } else {
+      // Credit note = an account-level credit memo via the finance ledger. This is intentionally
+      // NOT the e-invoicing (JoFotara) credit document, so it works without that module enabled.
       await run(
-        () => einvoicingApi.creditFromCharge(id, amount ?? 0, rowForm.reason || 'Credit note'),
+        () =>
+          financeApi.applyAdjustment({
+            studentId,
+            chargeId: id,
+            type: 'CREDIT_MEMO',
+            amount: amount ?? 0,
+            reason: rowForm.reason || 'Credit note',
+          }),
         'Credit note issued',
       );
     }
@@ -429,27 +452,55 @@ export default function FinancePage() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
+                    const preset = FEE_TYPES.find((f) => f.value === charge.feeType);
+                    const description =
+                      charge.feeType === 'OTHER'
+                        ? charge.description
+                        : preset
+                          ? t(preset.labelKey)
+                          : charge.description;
                     void run(
                       () =>
                         financeApi.createCharge({
                           studentId,
-                          description: charge.description,
+                          description,
                           amount: Number(charge.amount),
                           ...(charge.dueDate ? { dueDate: charge.dueDate } : {}),
                         }),
                       'Charge added',
-                    ).then(() => setCharge({ description: '', amount: '', dueDate: '' }));
+                    ).then(() =>
+                      setCharge({
+                        feeType: 'REGISTRATION',
+                        description: '',
+                        amount: '',
+                        dueDate: '',
+                      }),
+                    );
                   }}
                   className="flex flex-wrap items-end gap-2"
                 >
-                  <Field label={t('finance.newCharge')} className="flex-1">
-                    <Input
-                      placeholder={t('finance.tuitionPlaceholder')}
-                      value={charge.description}
-                      onChange={(e) => setCharge({ ...charge, description: e.target.value })}
-                      required
-                    />
+                  <Field label={t('finance.feeType')}>
+                    <Select
+                      value={charge.feeType}
+                      onChange={(e) => setCharge({ ...charge, feeType: e.target.value })}
+                    >
+                      {FEE_TYPES.map((f) => (
+                        <option key={f.value} value={f.value}>
+                          {t(f.labelKey)}
+                        </option>
+                      ))}
+                    </Select>
                   </Field>
+                  {charge.feeType === 'OTHER' ? (
+                    <Field label={t('finance.newCharge')} className="flex-1">
+                      <Input
+                        placeholder={t('finance.tuitionPlaceholder')}
+                        value={charge.description}
+                        onChange={(e) => setCharge({ ...charge, description: e.target.value })}
+                        required
+                      />
+                    </Field>
+                  ) : null}
                   <Field label={t('finance.amountJod')}>
                     <Input
                       type="number"
