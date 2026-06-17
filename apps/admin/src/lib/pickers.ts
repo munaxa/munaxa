@@ -1,7 +1,7 @@
 'use client';
 
 import type { PickerOption } from '@/components/entity-picker';
-import { fullNameAr, fullNameEn, studentsApi } from './people';
+import { fullNameAr, fullNameEn, parentsApi, studentsApi } from './people';
 import { sectionsApi } from './structure';
 
 /** Module-level (stable) loaders so they can be passed straight to <EntityPicker load={…} />. */
@@ -14,6 +14,15 @@ export async function loadStudentOptions(): Promise<PickerOption[]> {
     label: fullNameEn(s) || fullNameAr(s) || s.qrCode,
     // Arabic full name in the sublabel keeps it searchable in Arabic too.
     sublabel: `${fullNameAr(s)} · ${s.nationalId ?? s.qrCode}`,
+  }));
+}
+
+export async function loadParentOptions(): Promise<PickerOption[]> {
+  const parents = await parentsApi.list();
+  return parents.map((p) => ({
+    id: p.id,
+    label: `${p.firstNameEn} ${p.lastNameEn}`,
+    sublabel: `${p.firstNameAr} ${p.lastNameAr}${p.phone ? ` · ${p.phone}` : ''}`,
   }));
 }
 

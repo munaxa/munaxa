@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
+import { useToast } from '@/components/toast';
+import { useConfirm } from '@/components/confirm';
+import { EntityPicker } from '@/components/entity-picker';
+import { loadParentOptions } from '@/lib/pickers';
 import {
   fullNameAr,
   fullNameEn,
@@ -13,6 +17,7 @@ import {
 } from '@/lib/people';
 import { financeApi, type Statement } from '@/lib/finance';
 import { ParentEditDialog } from './parent-edit-dialog';
+
 import {
   Badge,
   Button,
@@ -20,6 +25,8 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Field,
+  Select,
   Table,
   TBody,
   TD,
@@ -27,6 +34,8 @@ import {
   THead,
   TR,
 } from '@/components/ui';
+
+const PARENT_RELATIONS = ['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER'];
 
 const money = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
 
@@ -155,44 +164,12 @@ export function StudentProfileDialog({
         </Card>
 
         {/* Parents / guardians */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('people.parents')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {parents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('people.noParents')}</p>
-            ) : (
-              <ul className="divide-y divide-border text-sm">
-                {parents.map((link) => (
-                  <li key={link.id} className="flex items-center justify-between gap-2 py-2">
-                    <div className="min-w-0">
-                      <button
-                        type="button"
-                        className="text-start font-medium text-foreground hover:text-primary hover:underline"
-                        onClick={() => setEditingParent(link.parent)}
-                      >
-                        {link.parent.firstNameEn} {link.parent.lastNameEn}
-                      </button>
-                      <span className="text-muted-foreground"> · {link.relation}</span>
-                      {link.isPrimary ? (
-                        <Badge tone="success" className="ms-2">
-                          {t('people.primary')}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <a
-                      href={link.parent.phone ? `tel:${link.parent.phone}` : undefined}
-                      className="font-mono text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      {link.parent.phone || '—'}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        <ParentsSection
+          studentId={student.id}
+          parents={parents}
+          onChanged={loadParents}
+          onEditParent={setEditingParent}
+        />
 
         {/* Vaccines */}
         <Card>
@@ -345,6 +322,127 @@ export function StudentProfileDialog({
         />
       ) : null}
     </div>
+  );
+}
+
+function ParentsSection({
+  studentId,
+  parents,
+  onChanged,
+  onEditParent,
+}: {
+  studentId: string;
+  parents: StudentParentLink[];
+  onChanged: () => void;
+  onEditParent: (p: Parent) => void;
+}) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [parentId, setParentId] = useState('');
+  const [relation, setRelation] = useState('FATHER');
+  const [busy, setBusy] = useState(false);
+
+  async function assign(e: React.FormEvent) {
+    e.preventDefault();
+    if (!parentId) return;
+    setBusy(true);
+    try {
+      await studentsApi.linkParent(studentId, { parentId, relation });
+      setParentId('');
+      setRelation('FATHER');
+      toast.success(t('people.parentAssigned'));
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Assign failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unlink(pId: string) {
+    if (!(await confirm())) return;
+    try {
+      await studentsApi.unlinkParent(studentId, pId);
+      onChanged();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Remove failed');
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('people.parents')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {parents.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('people.noParents')}</p>
+        ) : (
+          <ul className="divide-y divide-border text-sm">
+            {parents.map((link) => (
+              <li key={link.id} className="flex items-center justify-between gap-2 py-2">
+                <div className="min-w-0">
+                  <button
+                    type="button"
+                    className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                    onClick={() => onEditParent(link.parent)}
+                  >
+                    {link.parent.firstNameEn} {link.parent.lastNameEn}
+                  </button>
+                  <span className="text-muted-foreground"> · {link.relation}</span>
+                  {link.isPrimary ? (
+                    <Badge tone="success" className="ms-2">
+                      {t('people.primary')}
+                    </Badge>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href={link.parent.phone ? `tel:${link.parent.phone}` : undefined}
+                    className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    {link.parent.phone || '—'}
+                  </a>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-destructive"
+                    onClick={() => void unlink(link.parent.id)}
+                    aria-label={`${t('common.delete')} ${link.parent.firstNameEn}`}
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {/* Assign an existing guardian */}
+        <form onSubmit={(e) => void assign(e)} className="flex flex-wrap items-end gap-2 pt-1">
+          <Field label={t('people.assignParent')} className="min-w-[12rem] flex-1">
+            <EntityPicker
+              value={parentId}
+              onChange={setParentId}
+              load={loadParentOptions}
+              placeholder={t('people.searchParents')}
+            />
+          </Field>
+          <Field label={t('people.relation')}>
+            <Select value={relation} onChange={(e) => setRelation(e.target.value)}>
+              {PARENT_RELATIONS.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button type="submit" size="sm" disabled={!parentId || busy}>
+            {busy ? t('common.adding') : t('people.assign')}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
