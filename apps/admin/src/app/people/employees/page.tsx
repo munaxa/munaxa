@@ -9,9 +9,11 @@ import { StatusBadge } from '@/components/status-badge';
 import {
   EMPLOYMENT_STATUSES,
   employeesApi,
+  teachersApi,
   type CreateEmployeeInput,
   type Employee,
   type EmploymentStatus,
+  type Teacher,
   type UpdateEmployeeInput,
 } from '@/lib/people';
 import {
@@ -31,6 +33,7 @@ import {
   TR,
 } from '@/components/ui';
 import { EmployeeProfileDialog } from './employee-profile-dialog';
+import { TeacherProfileDialog } from '../teachers/teacher-profile-dialog';
 
 const EMPTY: CreateEmployeeInput = {
   firstNameEn: '',
@@ -42,22 +45,35 @@ const EMPTY: CreateEmployeeInput = {
   status: 'ACTIVE',
 };
 
+type StaffRow =
+  | { kind: 'employee'; id: string; employee: Employee }
+  | { kind: 'teacher'; id: string; teacher: Teacher };
+
 export default function EmployeesPage() {
   const { t } = useI18n();
   const confirm = useConfirm();
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
-  const [dept, setDept] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'teacher' | 'employee'>('all');
   const [viewing, setViewing] = useState<Employee | null>(null);
+  const [viewingTeacher, setViewingTeacher] = useState<Teacher | null>(null);
   const [editing, setEditing] = useState<Employee | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setEmployees(await employeesApi.list());
+      // Teachers and general employees are stored separately, but staff want to see them in one
+      // directory — merge both here. Teachers stay managed (assignments) on the Teachers tab.
+      const [emps, tchs] = await Promise.all([
+        employeesApi.list(),
+        teachersApi.list().catch(() => [] as Teacher[]),
+      ]);
+      setEmployees(emps);
+      setTeachers(tchs);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load employees');
+      setError(e instanceof Error ? e.message : 'Failed to load staff');
     } finally {
       setLoading(false);
     }
@@ -77,30 +93,28 @@ export default function EmployeesPage() {
     }
   }
 
-  const departments = useMemo(
-    () =>
-      [
-        ...new Set(employees.map((e) => e.department).filter((d): d is string => Boolean(d))),
-      ].sort(),
-    [employees],
-  );
-
-  const filtered = useMemo(() => {
+  const rows = useMemo<StaffRow[]>(() => {
+    const all: StaffRow[] = [
+      ...teachers.map((teacher) => ({ kind: 'teacher' as const, id: teacher.id, teacher })),
+      ...employees.map((employee) => ({ kind: 'employee' as const, id: employee.id, employee })),
+    ];
     const q = query.trim().toLowerCase();
-    return employees.filter((e) => {
-      if (dept && e.department !== dept) return false;
+    return all.filter((r) => {
+      if (typeFilter !== 'all' && r.kind !== typeFilter) return false;
       if (!q) return true;
+      const p = r.kind === 'teacher' ? r.teacher : r.employee;
+      const role = r.kind === 'teacher' ? (r.teacher.specialization ?? '') : r.employee.jobTitle;
       return (
-        `${e.firstNameEn} ${e.lastNameEn}`.toLowerCase().includes(q) ||
-        `${e.firstNameAr} ${e.lastNameAr}`.includes(query) ||
-        e.jobTitle.toLowerCase().includes(q) ||
-        (e.department ?? '').toLowerCase().includes(q)
+        `${p.firstNameEn} ${p.lastNameEn}`.toLowerCase().includes(q) ||
+        `${p.firstNameAr} ${p.lastNameAr}`.includes(query) ||
+        role.toLowerCase().includes(q)
       );
     });
-  }, [employees, query, dept]);
+  }, [teachers, employees, query, typeFilter]);
 
-  const activeCount = employees.filter((e) => e.status === 'ACTIVE').length;
-  const onLeaveCount = employees.filter((e) => e.status === 'ON_LEAVE').length;
+  const activeCount =
+    employees.filter((e) => e.status === 'ACTIVE').length +
+    teachers.filter((tc) => tc.status === 'ACTIVE').length;
 
   if (loading) {
     return (
@@ -122,10 +136,10 @@ export default function EmployeesPage() {
 
         {/* KPIs */}
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Kpi label={t('people.kpiStaff')} value={employees.length + teachers.length} />
+          <Kpi label={t('people.kpiTeachers')} value={teachers.length} />
           <Kpi label={t('people.kpiEmployees')} value={employees.length} />
           <Kpi label={t('people.kpiActive')} value={activeCount} tone="text-aqua" />
-          <Kpi label={t('people.kpiOnLeave')} value={onLeaveCount} tone="text-coral" />
-          <Kpi label={t('people.kpiDepartments')} value={departments.length} />
         </section>
 
         <Card>
@@ -134,6 +148,7 @@ export default function EmployeesPage() {
           </CardHeader>
           <CardContent>
             <CreateEmployee onCreated={load} onError={setError} />
+            <p className="mt-2 text-xs text-muted-foreground">{t('people.addTeacherHint')}</p>
           </CardContent>
         </Card>
 
@@ -142,18 +157,18 @@ export default function EmployeesPage() {
           <Field label={t('common.search')} className="flex-1">
             <Input
               value={query}
-              placeholder={t('people.searchEmployeePlaceholder')}
+              placeholder={t('people.searchStaffPlaceholder')}
               onChange={(e) => setQuery(e.target.value)}
             />
           </Field>
-          <Field label={t('people.department')}>
-            <Select value={dept} onChange={(e) => setDept(e.target.value)}>
-              <option value="">{t('common.all')}</option>
-              {departments.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
+          <Field label={t('people.type')}>
+            <Select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+            >
+              <option value="all">{t('common.all')}</option>
+              <option value="teacher">{t('people.typeTeacher')}</option>
+              <option value="employee">{t('people.typeStaff')}</option>
             </Select>
           </Field>
         </div>
@@ -163,51 +178,81 @@ export default function EmployeesPage() {
             <TR>
               <TH>{t('common.name')}</TH>
               <TH>{t('common.arabicName')}</TH>
-              <TH>{t('people.jobTitle')}</TH>
-              <TH>{t('people.department')}</TH>
+              <TH>{t('people.type')}</TH>
+              <TH>{t('people.role')}</TH>
               <TH>{t('common.status')}</TH>
               <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
-            {filtered.map((emp) => (
-              <TR key={emp.id}>
-                <TD>
-                  <button
-                    type="button"
-                    className="text-start font-medium text-foreground hover:text-primary hover:underline"
-                    onClick={() => setViewing(emp)}
-                  >
-                    {emp.firstNameEn} {emp.lastNameEn}
-                  </button>
-                </TD>
-                <TD dir="rtl">
-                  {emp.firstNameAr} {emp.lastNameAr}
-                </TD>
-                <TD>{emp.jobTitle}</TD>
-                <TD>{emp.department || '—'}</TD>
-                <TD>
-                  <StatusBadge status={emp.status} />
-                </TD>
-                <TD className="text-end">
-                  <Button variant="ghost" size="sm" onClick={() => setEditing(emp)}>
-                    {t('people.edit')}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    onClick={() => void remove(emp.id)}
-                  >
-                    {t('common.delete')}
-                  </Button>
-                </TD>
-              </TR>
-            ))}
-            {filtered.length === 0 ? (
+            {rows.map((r) =>
+              r.kind === 'teacher' ? (
+                <TR key={`t-${r.id}`}>
+                  <TD>
+                    <button
+                      type="button"
+                      className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                      onClick={() => setViewingTeacher(r.teacher)}
+                    >
+                      {r.teacher.firstNameEn} {r.teacher.lastNameEn}
+                    </button>
+                  </TD>
+                  <TD dir="rtl">
+                    {r.teacher.firstNameAr} {r.teacher.lastNameAr}
+                  </TD>
+                  <TD>{t('people.typeTeacher')}</TD>
+                  <TD>{r.teacher.specialization || '—'}</TD>
+                  <TD>
+                    <StatusBadge status={r.teacher.status} />
+                  </TD>
+                  <TD className="text-end text-xs text-muted-foreground">
+                    {t('people.teachersTab')}
+                  </TD>
+                </TR>
+              ) : (
+                <TR key={`e-${r.id}`}>
+                  <TD>
+                    <button
+                      type="button"
+                      className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                      onClick={() => setViewing(r.employee)}
+                    >
+                      {r.employee.firstNameEn} {r.employee.lastNameEn}
+                    </button>
+                  </TD>
+                  <TD dir="rtl">
+                    {r.employee.firstNameAr} {r.employee.lastNameAr}
+                  </TD>
+                  <TD>{t('people.typeStaff')}</TD>
+                  <TD>
+                    {r.employee.jobTitle}
+                    {r.employee.department ? (
+                      <span className="text-muted-foreground"> · {r.employee.department}</span>
+                    ) : null}
+                  </TD>
+                  <TD>
+                    <StatusBadge status={r.employee.status} />
+                  </TD>
+                  <TD className="text-end">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(r.employee)}>
+                      {t('people.edit')}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => void remove(r.employee.id)}
+                    >
+                      {t('common.delete')}
+                    </Button>
+                  </TD>
+                </TR>
+              ),
+            )}
+            {rows.length === 0 ? (
               <TR>
                 <TD colSpan={6} className="text-muted-foreground">
-                  {t('people.noEmployees')}
+                  {t('people.noStaff')}
                 </TD>
               </TR>
             ) : null}
@@ -224,6 +269,10 @@ export default function EmployeesPage() {
             setViewing(null);
           }}
         />
+      ) : null}
+
+      {viewingTeacher ? (
+        <TeacherProfileDialog teacher={viewingTeacher} onClose={() => setViewingTeacher(null)} />
       ) : null}
 
       {editing ? (
