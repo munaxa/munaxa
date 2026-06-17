@@ -50,6 +50,7 @@ export default function AcademicsPage() {
 
 function HomeworkSection() {
   const toast = useToast();
+  const { t } = useI18n();
   const [sectionId, setSectionId] = useState('');
   const [list, setList] = useState<Homework[]>([]);
   const [form, setForm] = useState({ subject: '', title: '', dueDate: '' });
@@ -77,38 +78,38 @@ function HomeworkSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Homework</CardTitle>
+        <CardTitle>{t('academics.homework')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-end gap-2">
-          <Field label="Section" className="flex-1">
+          <Field label={t('academics.section')} className="flex-1">
             <EntityPicker
               value={sectionId}
               onChange={setSectionId}
               load={loadSectionOptions}
-              placeholder="Search sections…"
+              placeholder={t('academics.searchSections')}
             />
           </Field>
           <Button variant="secondary" onClick={() => void load()}>
-            Load
+            {t('common.load')}
           </Button>
         </div>
         <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
-          <Field label="Subject" className="flex-1">
+          <Field label={t('academics.subject')} className="flex-1">
             <Input
               value={form.subject}
               onChange={(e) => setForm({ ...form, subject: e.target.value })}
               required
             />
           </Field>
-          <Field label="Title" className="flex-1">
+          <Field label={t('academics.title')} className="flex-1">
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
             />
           </Field>
-          <Field label="Due">
+          <Field label={t('academics.due')}>
             <Input
               type="date"
               value={form.dueDate}
@@ -117,15 +118,15 @@ function HomeworkSection() {
             />
           </Field>
           <Button type="submit" disabled={!sectionId}>
-            Add
+            {t('common.add')}
           </Button>
         </form>
         <Table>
           <THead>
             <TR>
-              <TH>Subject</TH>
-              <TH>Title</TH>
-              <TH className="text-end">Due</TH>
+              <TH>{t('academics.subject')}</TH>
+              <TH>{t('academics.title')}</TH>
+              <TH className="text-end">{t('academics.due')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -141,7 +142,7 @@ function HomeworkSection() {
             {list.length === 0 ? (
               <TR>
                 <TD colSpan={3} className="text-muted-foreground">
-                  No homework loaded.
+                  {t('academics.noHomework')}
                 </TD>
               </TR>
             ) : null}
@@ -154,6 +155,7 @@ function HomeworkSection() {
 
 function GradesSection() {
   const toast = useToast();
+  const { t } = useI18n();
   const [csv, setCsv] = useState('studentId,subject,assessment,score,maxScore\n');
   const [studentId, setStudentId] = useState('');
   const [report, setReport] = useState<GradeReport | null>(null);
@@ -179,11 +181,11 @@ function GradesSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Grades</CardTitle>
+        <CardTitle>{t('academics.grades')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <form onSubmit={(e) => void importCsv(e)} className="space-y-2">
-          <Field label="Import (CSV)">
+          <Field label={t('academics.importCsv')}>
             <textarea
               className={cn(
                 'h-24 w-full rounded-lg border border-input bg-background/60 px-3 py-2 font-mono text-xs',
@@ -194,23 +196,25 @@ function GradesSection() {
             />
           </Field>
           <Button type="submit" variant="secondary">
-            Import grades CSV
+            {t('academics.importGradesCsv')}
           </Button>
         </form>
         <div className="flex items-end gap-2">
-          <Field label="Student" className="flex-1">
+          <Field label={t('academics.student')} className="flex-1">
             <EntityPicker
               value={studentId}
               onChange={setStudentId}
               load={loadStudentOptions}
-              placeholder="Search students…"
+              placeholder={t('academics.searchStudents')}
             />
           </Field>
-          <Button onClick={() => void loadReport()}>Report</Button>
+          <Button onClick={() => void loadReport()}>{t('academics.report')}</Button>
         </div>
         {report ? (
           <div className="space-y-2">
-            <Badge tone="default">Overall {report.overallPercent}%</Badge>
+            <Badge tone="default">
+              {t('academics.overall')} {report.overallPercent}%
+            </Badge>
             <div className="space-y-1 text-sm text-muted-foreground">
               {report.subjects.map((s) => (
                 <p key={s.subject}>
@@ -242,6 +246,7 @@ const EMPTY_BEHAVIOR = {
 
 function BehaviorSection() {
   const toast = useToast();
+  const { t } = useI18n();
   const [studentId, setStudentId] = useState('');
   const [list, setList] = useState<BehaviorLog[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -294,11 +299,11 @@ function BehaviorSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Behavior</CardTitle>
+        <CardTitle>{t('academics.behavior')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-end gap-2">
-          <Field label="Student" className="flex-1">
+          <Field label={t('academics.student')} className="flex-1">
             <EntityPicker
               value={studentId}
               onChange={(id) => {
@@ -306,16 +311,16 @@ function BehaviorSection() {
                 void load(id);
               }}
               load={loadStudentOptions}
-              placeholder="Search students…"
+              placeholder={t('academics.searchStudents')}
             />
           </Field>
           <Button variant="secondary" onClick={() => void load()} disabled={!studentId}>
-            Load
+            {t('common.load')}
           </Button>
         </div>
 
         <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
-          <Field label="Type">
+          <Field label={t('academics.type')}>
             <Select
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value as BehaviorType })}
@@ -327,20 +332,20 @@ function BehaviorSection() {
               ))}
             </Select>
           </Field>
-          <Field label="Title" className="flex-1">
+          <Field label={t('academics.title')} className="flex-1">
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
             />
           </Field>
-          <Field label="Category">
+          <Field label={t('academics.category')}>
             <Input
               value={form.category}
               onChange={(e) => setForm({ ...form, category: e.target.value })}
             />
           </Field>
-          <Field label="Points">
+          <Field label={t('academics.points')}>
             <Input
               type="number"
               min={-100}
@@ -349,7 +354,7 @@ function BehaviorSection() {
               onChange={(e) => setForm({ ...form, points: e.target.value })}
             />
           </Field>
-          <Field label="Date">
+          <Field label={t('academics.date')}>
             <Input
               type="date"
               value={form.date}
@@ -358,7 +363,7 @@ function BehaviorSection() {
             />
           </Field>
           <Button type="submit" disabled={!studentId}>
-            Add
+            {t('common.add')}
           </Button>
         </form>
 
@@ -366,11 +371,11 @@ function BehaviorSection() {
           <Table>
             <THead>
               <TR>
-                <TH>Date</TH>
-                <TH>Type</TH>
-                <TH>Title</TH>
-                <TH className="text-end">Points</TH>
-                <TH className="text-end">Actions</TH>
+                <TH>{t('academics.date')}</TH>
+                <TH>{t('academics.type')}</TH>
+                <TH>{t('academics.title')}</TH>
+                <TH className="text-end">{t('academics.points')}</TH>
+                <TH className="text-end">{t('common.actions')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -389,7 +394,7 @@ function BehaviorSection() {
                   <TD className="text-end font-mono text-xs">{b.points}</TD>
                   <TD className="text-end">
                     <Button variant="ghost" size="sm" onClick={() => void remove(b.id)}>
-                      Delete
+                      {t('common.delete')}
                     </Button>
                   </TD>
                 </TR>
@@ -397,7 +402,7 @@ function BehaviorSection() {
               {list.length === 0 ? (
                 <TR>
                   <TD colSpan={5} className="text-muted-foreground">
-                    No behavior records for this student.
+                    {t('academics.noBehavior')}
                   </TD>
                 </TR>
               ) : null}

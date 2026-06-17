@@ -72,7 +72,7 @@ export default function PresencePage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -89,7 +89,7 @@ export default function PresencePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Record a presence event</CardTitle>
+            <CardTitle>{t('presence.recordEvent')}</CardTitle>
           </CardHeader>
           <CardContent>
             <RecordEvent onDone={load} onError={setError} />
@@ -97,14 +97,14 @@ export default function PresencePage() {
         </Card>
 
         <section className="space-y-2">
-          <h2 className="font-display text-lg font-medium">Recent events</h2>
+          <h2 className="font-display text-lg font-medium">{t('presence.recentEvents')}</h2>
           <Table>
             <THead>
               <TR>
-                <TH>Student</TH>
-                <TH>Event</TH>
-                <TH>Method</TH>
-                <TH>Time</TH>
+                <TH>{t('presence.student')}</TH>
+                <TH>{t('presence.event')}</TH>
+                <TH>{t('presence.method')}</TH>
+                <TH>{t('presence.time')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -123,7 +123,7 @@ export default function PresencePage() {
               {events.length === 0 ? (
                 <TR>
                   <TD colSpan={4} className="text-muted-foreground">
-                    No presence events yet.
+                    {t('presence.noEvents')}
                   </TD>
                 </TR>
               ) : null}
@@ -142,6 +142,7 @@ function RecordEvent({
   onDone: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [studentId, setStudentId] = useState('');
   const [cardUid, setCardUid] = useState('');
   const [eventType, setEventType] = useState<PresenceEventType>('GATE_IN');
@@ -172,18 +173,18 @@ function RecordEvent({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
-      <Field label="Student" className="sm:col-span-2">
+      <Field label={t('presence.student')} className="sm:col-span-2">
         <EntityPicker value={studentId} onChange={setStudentId} load={loadStudentOptions} />
       </Field>
-      <Field label="…or card UID" className="sm:col-span-2">
+      <Field label={t('presence.orCardUid')} className="sm:col-span-2">
         <Input
-          placeholder="Physical card UID"
+          placeholder={t('presence.physicalCardUid')}
           value={cardUid}
           onChange={(e) => setCardUid(e.target.value)}
           dir="ltr"
         />
       </Field>
-      <Field label="Event">
+      <Field label={t('presence.event')}>
         <Select
           value={eventType}
           onChange={(e) => setEventType(e.target.value as PresenceEventType)}
@@ -195,7 +196,7 @@ function RecordEvent({
           ))}
         </Select>
       </Field>
-      <Field label="Method">
+      <Field label={t('presence.method')}>
         <Select value={method} onChange={(e) => setMethod(e.target.value as PresenceMethod)}>
           {PRESENCE_METHODS.map((m) => (
             <option key={m} value={m}>
@@ -205,7 +206,7 @@ function RecordEvent({
         </Select>
       </Field>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? 'Recording…' : 'Record event'}
+        {busy ? t('common.recording') : t('presence.recordEventBtn')}
       </Button>
     </form>
   );

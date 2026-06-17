@@ -68,7 +68,7 @@ export default function LibraryPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -86,7 +86,7 @@ export default function LibraryPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Catalogue a book</CardTitle>
+              <CardTitle>{t('library.catalogueBook')}</CardTitle>
             </CardHeader>
             <CardContent>
               <CreateBook onDone={load} onError={setError} />
@@ -94,7 +94,7 @@ export default function LibraryPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Check out a book</CardTitle>
+              <CardTitle>{t('library.checkoutBook')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Checkout books={books} onDone={load} onError={setError} />
@@ -103,14 +103,14 @@ export default function LibraryPage() {
         </div>
 
         <section className="space-y-2">
-          <h2 className="font-display text-lg font-medium">Catalogue</h2>
+          <h2 className="font-display text-lg font-medium">{t('library.catalogue')}</h2>
           <Table>
             <THead>
               <TR>
-                <TH>Title</TH>
-                <TH>Author</TH>
-                <TH>Category</TH>
-                <TH className="text-end">Available</TH>
+                <TH>{t('library.title')}</TH>
+                <TH>{t('library.author')}</TH>
+                <TH>{t('library.category')}</TH>
+                <TH className="text-end">{t('library.available')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -127,7 +127,7 @@ export default function LibraryPage() {
               {books.length === 0 ? (
                 <TR>
                   <TD colSpan={4} className="text-muted-foreground">
-                    No books catalogued yet.
+                    {t('library.noBooks')}
                   </TD>
                 </TR>
               ) : null}
@@ -136,15 +136,15 @@ export default function LibraryPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-display text-lg font-medium">Loans</h2>
+          <h2 className="font-display text-lg font-medium">{t('library.loans')}</h2>
           <Table>
             <THead>
               <TR>
-                <TH>Book</TH>
-                <TH>Borrower</TH>
-                <TH>Due</TH>
-                <TH>Status</TH>
-                <TH className="text-end">Actions</TH>
+                <TH>{t('library.book')}</TH>
+                <TH>{t('library.borrower')}</TH>
+                <TH>{t('library.due')}</TH>
+                <TH>{t('common.status')}</TH>
+                <TH className="text-end">{t('common.actions')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -169,7 +169,7 @@ export default function LibraryPage() {
                   <TD className="text-end">
                     {l.status !== 'RETURNED' ? (
                       <Button variant="ghost" size="sm" onClick={() => void returnLoan(l.id)}>
-                        Return
+                        {t('library.return')}
                       </Button>
                     ) : null}
                   </TD>
@@ -178,7 +178,7 @@ export default function LibraryPage() {
               {loans.length === 0 ? (
                 <TR>
                   <TD colSpan={5} className="text-muted-foreground">
-                    No loans yet.
+                    {t('library.noLoans')}
                   </TD>
                 </TR>
               ) : null}
@@ -197,6 +197,7 @@ function CreateBook({
   onDone: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({ title: '', author: '', category: '', copiesTotal: '1' });
   const [busy, setBusy] = useState(false);
 
@@ -224,30 +225,30 @@ function CreateBook({
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
       <Input
         className="sm:col-span-2"
-        placeholder="Title"
+        placeholder={t('library.title')}
         value={form.title}
         onChange={(e) => setForm({ ...form, title: e.target.value })}
         required
       />
       <Input
-        placeholder="Author"
+        placeholder={t('library.author')}
         value={form.author}
         onChange={(e) => setForm({ ...form, author: e.target.value })}
       />
       <Input
-        placeholder="Category"
+        placeholder={t('library.category')}
         value={form.category}
         onChange={(e) => setForm({ ...form, category: e.target.value })}
       />
       <Input
         type="number"
         min={1}
-        placeholder="Copies"
+        placeholder={t('library.copies')}
         value={form.copiesTotal}
         onChange={(e) => setForm({ ...form, copiesTotal: e.target.value })}
       />
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? 'Saving…' : 'Add book'}
+        {busy ? t('common.saving') : t('library.addBook')}
       </Button>
     </form>
   );
@@ -262,6 +263,7 @@ function Checkout({
   onDone: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [bookId, setBookId] = useState('');
   const [borrowerName, setBorrowerName] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -289,18 +291,18 @@ function Checkout({
     <form onSubmit={(e) => void submit(e)} className="grid gap-2">
       <Select value={bookId} onChange={(e) => setBookId(e.target.value)} required>
         <option value="" disabled>
-          Select a book…
+          {t('library.selectBook')}
         </option>
         {books
           .filter((b) => b.copiesAvailable > 0)
           .map((b) => (
             <option key={b.id} value={b.id}>
-              {b.title} ({b.copiesAvailable} available)
+              {b.title} ({b.copiesAvailable} {t('library.availableSuffix')})
             </option>
           ))}
       </Select>
       <Input
-        placeholder="Borrower name"
+        placeholder={t('library.borrowerName')}
         value={borrowerName}
         onChange={(e) => setBorrowerName(e.target.value)}
         required
@@ -313,7 +315,7 @@ function Checkout({
         dir="ltr"
       />
       <Button type="submit" disabled={busy}>
-        {busy ? 'Checking out…' : 'Check out'}
+        {busy ? t('library.checkingOut') : t('library.checkout')}
       </Button>
     </form>
   );

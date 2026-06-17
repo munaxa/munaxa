@@ -70,25 +70,33 @@ export default function TimetablePage() {
       .map(([periodIndex, times]) => ({ periodIndex, ...times }));
   })();
 
+  const dayNames = [
+    t('timetable.sun'),
+    t('timetable.mon'),
+    t('timetable.tue'),
+    t('timetable.wed'),
+    t('timetable.thu'),
+  ];
+
   return (
     <Shell>
       <div className="mx-auto max-w-5xl space-y-6">
         <h1 className="font-display text-2xl font-semibold">{t('nav.timetable')}</h1>
 
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Section" className="flex-1">
+          <Field label={t('timetable.section')} className="flex-1">
             <EntityPicker
               value={sectionId}
               onChange={setSectionId}
               load={loadSectionOptions}
-              placeholder="Search sections…"
+              placeholder={t('timetable.searchSections')}
             />
           </Field>
-          <Field label="Week of">
+          <Field label={t('timetable.weekOf')}>
             <Input type="date" value={anchor} onChange={(e) => setAnchor(e.target.value)} />
           </Field>
           <Button onClick={() => void load()} disabled={!sectionId || loading}>
-            {loading ? 'Loading…' : 'Load week'}
+            {loading ? t('common.loading') : t('timetable.loadWeek')}
           </Button>
         </div>
 
@@ -99,17 +107,17 @@ export default function TimetablePage() {
                 <thead>
                   <tr>
                     <th className="border-b border-border p-2 text-start font-mono text-[10px] uppercase text-muted-foreground">
-                      Period
+                      {t('timetable.period')}
                     </th>
                     {days.map(({ date, day }, i) => (
                       <th
                         key={date}
                         className="border-b border-border p-2 text-start font-display text-xs font-semibold"
                       >
-                        {WEEKDAYS[i]}
+                        {dayNames[i]}
                         <span className="block font-mono text-[10px] font-normal text-muted-foreground">
                           {date.slice(5)}
-                          {day.isHoliday ? ' · holiday' : ''}
+                          {day.isHoliday ? ` · ${t('timetable.holidaySuffix')}` : ''}
                         </span>
                       </th>
                     ))}
@@ -153,7 +161,7 @@ export default function TimetablePage() {
                         colSpan={WEEKDAYS.length + 1}
                         className="p-3 text-sm text-muted-foreground"
                       >
-                        No classes scheduled this week.
+                        {t('timetable.noClasses')}
                       </td>
                     </tr>
                   ) : null}
@@ -162,17 +170,13 @@ export default function TimetablePage() {
             </CardContent>
           </Card>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Pick a section and load its weekly schedule (Sun–Thu).
-          </p>
+          <p className="text-sm text-muted-foreground">{t('timetable.emptyHint')}</p>
         )}
 
         {days ? (
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <Badge tone="muted">{days[0]?.day.scheduleType}</Badge>
-            <span className="text-muted-foreground">
-              Substituted = aqua · Replaced = coral · Cancelled = struck through
-            </span>
+            <span className="text-muted-foreground">{t('timetable.legend')}</span>
           </div>
         ) : null}
       </div>

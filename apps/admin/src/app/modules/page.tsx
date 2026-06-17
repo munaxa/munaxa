@@ -45,7 +45,7 @@ export default function ModulesPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -55,10 +55,7 @@ export default function ModulesPage() {
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
           <h1 className="font-display text-2xl font-semibold">{t('nav.modules')}</h1>
-          <p className="text-sm text-muted-foreground">
-            Optional modules are <strong>disabled by default</strong>. Enable one to expose its API
-            and screens for this school.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('modules.subtitle')}</p>
         </div>
 
         {error ? (
@@ -84,7 +81,7 @@ export default function ModulesPage() {
                       onClick={() => void toggle(m.key)}
                       aria-pressed={on}
                     >
-                      {on ? 'Enabled' : 'Disabled'}
+                      {on ? t('modules.enabled') : t('modules.disabled')}
                     </Button>
                   </CardContent>
                 </Card>
@@ -105,15 +102,16 @@ export default function ModulesPage() {
 type Kind = 'bus' | 'library' | 'inventory' | 'clinic';
 
 function ModulePanel({ kind }: { kind: Kind }) {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const config: Record<Kind, { title: string; canCreate: boolean }> = {
-    bus: { title: 'Bus routes', canCreate: true },
-    library: { title: 'Library books', canCreate: true },
-    inventory: { title: 'Inventory items', canCreate: true },
-    clinic: { title: 'Recent clinic visits', canCreate: false },
+    bus: { title: t('modules.busRoutes'), canCreate: true },
+    library: { title: t('modules.libraryBooks'), canCreate: true },
+    inventory: { title: t('modules.inventoryItems'), canCreate: true },
+    clinic: { title: t('modules.recentClinicVisits'), canCreate: false },
   };
 
   async function load() {
@@ -167,11 +165,11 @@ function ModulePanel({ kind }: { kind: Kind }) {
           <div className="flex gap-2">
             <Input
               className="flex-1"
-              placeholder="New name…"
+              placeholder={t('modules.newNamePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <Button onClick={() => void create()}>Add</Button>
+            <Button onClick={() => void create()}>{t('common.add')}</Button>
           </div>
         ) : null}
         <ul className="divide-y divide-border text-sm">
@@ -180,7 +178,9 @@ function ModulePanel({ kind }: { kind: Kind }) {
               {label(row)}
             </li>
           ))}
-          {rows.length === 0 ? <li className="py-1.5 text-muted-foreground">None yet.</li> : null}
+          {rows.length === 0 ? (
+            <li className="py-1.5 text-muted-foreground">{t('modules.noneYet')}</li>
+          ) : null}
         </ul>
       </CardContent>
     </Card>

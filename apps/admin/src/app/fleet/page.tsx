@@ -118,8 +118,7 @@ function Fleet() {
         <h1 className="font-display text-2xl font-semibold">{t('nav.fleet')}</h1>
         <Card>
           <CardContent className="pt-6 text-sm text-muted-foreground">
-            Transport is not enabled for this school. Ask an administrator to turn on the
-            <span className="font-medium"> Bus tracking </span> module under Modules.
+            {t('fleet.unavailable')}
           </CardContent>
         </Card>
       </div>
@@ -131,8 +130,12 @@ function Fleet() {
       <header className="flex items-center justify-between gap-3">
         <h1 className="font-display text-2xl font-semibold">{t('nav.fleet')}</h1>
         <div className="flex gap-2 text-xs">
-          <Badge tone="muted">{routes.length} routes</Badge>
-          <Badge tone="muted">{buses.length} buses</Badge>
+          <Badge tone="muted">
+            {routes.length} {t('fleet.routesSuffix')}
+          </Badge>
+          <Badge tone="muted">
+            {buses.length} {t('fleet.busesSuffix')}
+          </Badge>
         </div>
       </header>
 
@@ -156,15 +159,13 @@ function Fleet() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Route detail & student assignments</CardTitle>
-          <CardDescription>
-            Pick a route to manage its stops and assign students to it.
-          </CardDescription>
+          <CardTitle>{t('fleet.routeDetail')}</CardTitle>
+          <CardDescription>{t('fleet.routeDetailDesc')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
-          <Field label="Route">
+          <Field label={t('fleet.route')}>
             <Select value={selectedRoute} onChange={(e) => setSelectedRoute(e.target.value)}>
-              <option value="">Select a route…</option>
+              <option value="">{t('fleet.selectRoute')}</option>
               {routes.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name}
@@ -207,6 +208,7 @@ function RoutesCard({
   onCreated: (r: BusRoute) => void;
 }) {
   const toast = useToast();
+  const { t } = useI18n();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
@@ -233,28 +235,28 @@ function RoutesCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Routes</CardTitle>
+        <CardTitle>{t('fleet.routes')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {canManage ? (
           <div className="flex flex-wrap items-end gap-2">
-            <Field label="Name" className="flex-1">
+            <Field label={t('fleet.name')} className="flex-1">
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="North Amman"
               />
             </Field>
-            <Field label="Description" className="flex-1">
+            <Field label={t('fleet.description')} className="flex-1">
               <Input value={description} onChange={(e) => setDescription(e.target.value)} />
             </Field>
             <Button size="sm" onClick={() => void create()} disabled={busy || !name.trim()}>
-              Add
+              {t('common.add')}
             </Button>
           </div>
         ) : null}
         {routes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No routes yet.</p>
+          <p className="text-sm text-muted-foreground">{t('fleet.noRoutes')}</p>
         ) : (
           <ul className="space-y-1 text-sm">
             {routes.map((r) => (
@@ -289,6 +291,7 @@ function BusesCard({
   onCreated: (b: Bus) => void;
 }) {
   const toast = useToast();
+  const { t } = useI18n();
   const [plateNumber, setPlateNumber] = useState('');
   const [routeId, setRouteId] = useState('');
   const [capacity, setCapacity] = useState('');
@@ -320,21 +323,21 @@ function BusesCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Buses</CardTitle>
+        <CardTitle>{t('fleet.buses')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {canManage ? (
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Plate number">
+            <Field label={t('fleet.plateNumber')}>
               <Input
                 value={plateNumber}
                 onChange={(e) => setPlateNumber(e.target.value)}
                 placeholder="21-12345"
               />
             </Field>
-            <Field label="Route">
+            <Field label={t('fleet.route')}>
               <Select value={routeId} onChange={(e) => setRouteId(e.target.value)}>
-                <option value="">Unassigned</option>
+                <option value="">{t('fleet.unassigned')}</option>
                 {routes.map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.name}
@@ -342,10 +345,10 @@ function BusesCard({
                 ))}
               </Select>
             </Field>
-            <Field label="Capacity">
+            <Field label={t('fleet.capacity')}>
               <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
             </Field>
-            <Field label="Driver">
+            <Field label={t('fleet.driver')}>
               <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} />
             </Field>
             <div className="col-span-2 flex justify-end">
@@ -354,20 +357,20 @@ function BusesCard({
                 onClick={() => void create()}
                 disabled={busy || !plateNumber.trim()}
               >
-                Register bus
+                {t('fleet.registerBus')}
               </Button>
             </div>
           </div>
         ) : null}
         {buses.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No buses yet.</p>
+          <p className="text-sm text-muted-foreground">{t('fleet.noBuses')}</p>
         ) : (
           <Table>
             <THead>
               <TR>
-                <TH>Plate</TH>
-                <TH>Route</TH>
-                <TH className="text-end">Capacity</TH>
+                <TH>{t('fleet.plate')}</TH>
+                <TH>{t('fleet.route')}</TH>
+                <TH className="text-end">{t('fleet.capacity')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -405,6 +408,7 @@ function StopsSection({
   onCreated: (s: BusStop) => void;
 }) {
   const toast = useToast();
+  const { t } = useI18n();
   const [name, setName] = useState('');
   const [pickupTime, setPickupTime] = useState('');
   const [busy, setBusy] = useState(false);
@@ -439,17 +443,17 @@ function StopsSection({
 
   return (
     <div className="space-y-3">
-      <h3 className="font-display text-sm font-semibold">Stops</h3>
+      <h3 className="font-display text-sm font-semibold">{t('fleet.stops')}</h3>
       {canManage ? (
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Stop name" className="flex-1">
+          <Field label={t('fleet.stopName')} className="flex-1">
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Sweifieh Square"
             />
           </Field>
-          <Field label="Pickup time">
+          <Field label={t('fleet.pickupTime')}>
             <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} />
           </Field>
           <Button
@@ -458,12 +462,12 @@ function StopsSection({
             onClick={() => void create()}
             disabled={busy || !name.trim()}
           >
-            Add stop
+            {t('fleet.addStop')}
           </Button>
         </div>
       ) : null}
       {ordered.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No stops on this route.</p>
+        <p className="text-sm text-muted-foreground">{t('fleet.noStops')}</p>
       ) : (
         <ol className="space-y-1 text-sm">
           {ordered.map((s) => (
@@ -502,6 +506,7 @@ function AssignSection({
   onAssigned: (a: StudentBusAssignment) => void;
 }) {
   const toast = useToast();
+  const { t } = useI18n();
   const [studentId, setStudentId] = useState('');
   const [stopId, setStopId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -529,20 +534,20 @@ function AssignSection({
 
   return (
     <div className="space-y-3">
-      <h3 className="font-display text-sm font-semibold">Student assignments</h3>
+      <h3 className="font-display text-sm font-semibold">{t('fleet.studentAssignments')}</h3>
       {canManage ? (
         <div className="flex flex-wrap items-end gap-2">
-          <Field label="Student" className="flex-1">
+          <Field label={t('fleet.student')} className="flex-1">
             <EntityPicker
               value={studentId}
               onChange={setStudentId}
               load={loadStudentOptions}
-              placeholder="Search students…"
+              placeholder={t('fleet.searchStudents')}
             />
           </Field>
-          <Field label="Stop">
+          <Field label={t('fleet.stop')}>
             <Select value={stopId} onChange={(e) => setStopId(e.target.value)}>
-              <option value="">No specific stop</option>
+              <option value="">{t('fleet.noSpecificStop')}</option>
               {stops.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -551,18 +556,18 @@ function AssignSection({
             </Select>
           </Field>
           <Button size="sm" onClick={() => void assign()} disabled={busy || !studentId}>
-            Assign
+            {t('fleet.assign')}
           </Button>
         </div>
       ) : null}
       {assignments.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No students assigned to this route.</p>
+        <p className="text-sm text-muted-foreground">{t('fleet.noAssignments')}</p>
       ) : (
         <Table>
           <THead>
             <TR>
-              <TH>Student</TH>
-              <TH>Stop</TH>
+              <TH>{t('fleet.student')}</TH>
+              <TH>{t('fleet.stop')}</TH>
             </TR>
           </THead>
           <TBody>

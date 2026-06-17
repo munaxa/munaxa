@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { changePassword } from '@/lib/auth';
+import { useI18n } from '@/components/i18n-provider';
 import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [currentPassword, setCurrent] = useState('');
   const [newPassword, setNew] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -30,16 +32,14 @@ export default function ChangePasswordPage() {
     <main className="flex min-h-screen items-center justify-center p-6">
       <div className="w-full max-w-sm space-y-6">
         <div className="space-y-1 text-center">
-          <h1 className="font-display text-2xl font-semibold">Set a new password</h1>
-          <p className="text-sm text-muted-foreground">
-            At least 10 characters, including upper, lower and a digit.
-          </p>
+          <h1 className="font-display text-2xl font-semibold">{t('changePassword.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('changePassword.subtitle')}</p>
         </div>
 
         <Card>
           <CardContent className="pt-6">
             <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
-              <Field label="Current password" htmlFor="current">
+              <Field label={t('changePassword.currentPassword')} htmlFor="current">
                 <Input
                   id="current"
                   type="password"
@@ -49,7 +49,7 @@ export default function ChangePasswordPage() {
                   autoComplete="current-password"
                 />
               </Field>
-              <Field label="New password" htmlFor="new">
+              <Field label={t('changePassword.newPassword')} htmlFor="new">
                 <Input
                   id="new"
                   type="password"
@@ -65,7 +65,7 @@ export default function ChangePasswordPage() {
                 </p>
               ) : null}
               <Button type="submit" disabled={loading} className="w-full">
-                {loading ? 'Saving…' : 'Update password'}
+                {loading ? t('common.saving') : t('changePassword.updatePassword')}
               </Button>
             </form>
           </CardContent>

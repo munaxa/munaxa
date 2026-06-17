@@ -73,18 +73,18 @@ export default function CommunicationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>New announcement</CardTitle>
+            <CardTitle>{t('communication.newAnnouncement')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={(e) => void publish(e)} className="space-y-3">
-              <Field label="Title">
+              <Field label={t('communication.title')}>
                 <Input
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
                   required
                 />
               </Field>
-              <Field label="Body">
+              <Field label={t('communication.body')}>
                 <textarea
                   className={cn(
                     'h-24 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-sm',
@@ -96,7 +96,7 @@ export default function CommunicationPage() {
                 />
               </Field>
               <div className="flex items-end gap-2">
-                <Field label="Audience" className="flex-1">
+                <Field label={t('communication.audience')} className="flex-1">
                   <Select
                     value={form.audience}
                     onChange={(e) => setForm({ ...form, audience: e.target.value })}
@@ -108,7 +108,7 @@ export default function CommunicationPage() {
                     ))}
                   </Select>
                 </Field>
-                <Button type="submit">Publish</Button>
+                <Button type="submit">{t('communication.publish')}</Button>
               </div>
             </form>
           </CardContent>
@@ -116,12 +116,12 @@ export default function CommunicationPage() {
 
         <Card>
           <CardContent className="flex flex-wrap items-center gap-3 pt-6">
-            <span className="font-medium">WhatsApp bridge</span>
+            <span className="font-medium">{t('communication.whatsappBridge')}</span>
             <Button size="sm" onClick={() => void toggleWhatsApp(true)}>
-              Enable
+              {t('communication.enable')}
             </Button>
             <Button size="sm" variant="outline" onClick={() => void toggleWhatsApp(false)}>
-              Disable
+              {t('communication.disable')}
             </Button>
           </CardContent>
         </Card>
@@ -136,8 +136,8 @@ export default function CommunicationPage() {
         <Table>
           <THead>
             <TR>
-              <TH>Announcement</TH>
-              <TH className="text-end">Audience</TH>
+              <TH>{t('communication.announcement')}</TH>
+              <TH className="text-end">{t('communication.audience')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -152,7 +152,7 @@ export default function CommunicationPage() {
             {list.length === 0 ? (
               <TR>
                 <TD colSpan={2} className="text-muted-foreground">
-                  No announcements yet.
+                  {t('communication.noAnnouncements')}
                 </TD>
               </TR>
             ) : null}

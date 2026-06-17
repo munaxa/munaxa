@@ -72,7 +72,7 @@ export default function ClinicPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -90,7 +90,7 @@ export default function ClinicPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Record a visit</CardTitle>
+              <CardTitle>{t('clinic.recordVisit')}</CardTitle>
             </CardHeader>
             <CardContent>
               <CreateVisit onDone={load} onError={setError} />
@@ -98,7 +98,7 @@ export default function ClinicPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Medical record</CardTitle>
+              <CardTitle>{t('clinic.medicalRecord')}</CardTitle>
             </CardHeader>
             <CardContent>
               <RecordEditor onError={setError} />
@@ -107,15 +107,15 @@ export default function ClinicPage() {
         </div>
 
         <section className="space-y-2">
-          <h2 className="font-display text-lg font-medium">Recent visits</h2>
+          <h2 className="font-display text-lg font-medium">{t('clinic.recentVisits')}</h2>
           <Table>
             <THead>
               <TR>
-                <TH>Student</TH>
-                <TH>Reason</TH>
-                <TH>Temp</TH>
-                <TH>Outcome</TH>
-                <TH>Date</TH>
+                <TH>{t('clinic.student')}</TH>
+                <TH>{t('clinic.reason')}</TH>
+                <TH>{t('clinic.temp')}</TH>
+                <TH>{t('clinic.outcome')}</TH>
+                <TH>{t('clinic.date')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -135,7 +135,7 @@ export default function ClinicPage() {
               {visits.length === 0 ? (
                 <TR>
                   <TD colSpan={5} className="text-muted-foreground">
-                    No visits recorded yet.
+                    {t('clinic.noVisits')}
                   </TD>
                 </TR>
               ) : null}
@@ -154,6 +154,7 @@ function CreateVisit({
   onDone: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [studentId, setStudentId] = useState('');
   const [reason, setReason] = useState('');
   const [symptoms, setSymptoms] = useState('');
@@ -191,22 +192,22 @@ function CreateVisit({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2">
-      <Field label="Student">
+      <Field label={t('clinic.student')}>
         <EntityPicker value={studentId} onChange={setStudentId} load={loadStudentOptions} />
       </Field>
       <Input
-        placeholder="Reason"
+        placeholder={t('clinic.reason')}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         required
       />
       <Input
-        placeholder="Symptoms (optional)"
+        placeholder={t('clinic.symptoms')}
         value={symptoms}
         onChange={(e) => setSymptoms(e.target.value)}
       />
       <Input
-        placeholder="Treatment (optional)"
+        placeholder={t('clinic.treatment')}
         value={treatment}
         onChange={(e) => setTreatment(e.target.value)}
       />
@@ -216,7 +217,7 @@ function CreateVisit({
           step="0.1"
           min={30}
           max={45}
-          placeholder="Temp °C"
+          placeholder={t('clinic.tempC')}
           value={temperature}
           onChange={(e) => setTemperature(e.target.value)}
           dir="ltr"
@@ -230,7 +231,7 @@ function CreateVisit({
         </Select>
       </div>
       <Button type="submit" disabled={busy}>
-        {busy ? 'Recording…' : 'Record visit'}
+        {busy ? t('clinic.recording') : t('clinic.recordVisitBtn')}
       </Button>
     </form>
   );
@@ -246,6 +247,7 @@ const EMPTY_RECORD: MedicalRecord = {
 };
 
 function RecordEditor({ onError }: { onError: (m: string) => void }) {
+  const { t } = useI18n();
   const [studentId, setStudentId] = useState('');
   const [record, setRecord] = useState<MedicalRecord>(EMPTY_RECORD);
   const [loaded, setLoaded] = useState(false);
@@ -286,7 +288,7 @@ function RecordEditor({ onError }: { onError: (m: string) => void }) {
 
   return (
     <form onSubmit={(e) => void save(e)} className="grid gap-2">
-      <Field label="Student">
+      <Field label={t('clinic.student')}>
         <EntityPicker
           value={studentId}
           onChange={(id) => void loadRecord(id)}
@@ -297,44 +299,42 @@ function RecordEditor({ onError }: { onError: (m: string) => void }) {
         <>
           <div className="grid grid-cols-2 gap-2">
             <Input
-              placeholder="Blood type"
+              placeholder={t('clinic.bloodType')}
               value={record.bloodType ?? ''}
               onChange={(e) => set('bloodType', e.target.value)}
             />
             <Input
-              placeholder="Emergency contact"
+              placeholder={t('clinic.emergencyContact')}
               value={record.emergencyContact ?? ''}
               onChange={(e) => set('emergencyContact', e.target.value)}
             />
           </div>
           <Input
-            placeholder="Allergies"
+            placeholder={t('clinic.allergies')}
             value={record.allergies ?? ''}
             onChange={(e) => set('allergies', e.target.value)}
           />
           <Input
-            placeholder="Chronic conditions"
+            placeholder={t('clinic.chronicConditions')}
             value={record.chronicConditions ?? ''}
             onChange={(e) => set('chronicConditions', e.target.value)}
           />
           <Input
-            placeholder="Medications"
+            placeholder={t('clinic.medications')}
             value={record.medications ?? ''}
             onChange={(e) => set('medications', e.target.value)}
           />
           <Input
-            placeholder="Notes"
+            placeholder={t('clinic.notes')}
             value={record.notes ?? ''}
             onChange={(e) => set('notes', e.target.value)}
           />
           <Button type="submit" disabled={busy}>
-            {busy ? 'Saving…' : 'Save record'}
+            {busy ? t('common.saving') : t('clinic.saveRecord')}
           </Button>
         </>
       ) : (
-        <p className="text-sm text-muted-foreground">
-          Select a student to view or edit their record.
-        </p>
+        <p className="text-sm text-muted-foreground">{t('clinic.selectStudentRecord')}</p>
       )}
     </form>
   );
