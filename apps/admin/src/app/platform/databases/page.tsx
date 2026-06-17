@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
+import { useI18n } from '@/components/i18n-provider';
 import { platformApi, type Promotion, type TenantDbStatus } from '@/lib/platform';
 import {
   Badge,
@@ -28,6 +29,7 @@ const STATUS_TONE: Record<string, 'default' | 'success' | 'warning' | 'danger' |
 
 export default function TenantDatabasesPage() {
   const toast = useToast();
+  const { t } = useI18n();
   const [rows, setRows] = useState<Promotion[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [form, setForm] = useState({ tenantId: '', hostLabel: '', connectionRef: '' });
@@ -77,20 +79,17 @@ export default function TenantDatabasesPage() {
     <Shell>
       <div className="mx-auto max-w-4xl space-y-6">
         <header className="space-y-1">
-          <h1 className="font-display text-2xl font-semibold">Tenant databases</h1>
-          <p className="text-sm text-muted-foreground">
-            Promote a school to its own database (dedicated / on-prem). A guided, tracked process —
-            the destructive infrastructure steps are confirmed by you.
-          </p>
+          <h1 className="font-display text-2xl font-semibold">{t('platformDb.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('platformDb.subtitle')}</p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Start a promotion</CardTitle>
+            <CardTitle>{t('platformDb.startPromotion')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={(e) => void start(e)} className="flex flex-wrap items-end gap-2">
-              <Field label="Tenant ID" className="flex-1">
+              <Field label={t('platformDb.tenantId')} className="flex-1">
                 <Input
                   value={form.tenantId}
                   onChange={(e) => setForm({ ...form, tenantId: e.target.value })}
@@ -98,27 +97,27 @@ export default function TenantDatabasesPage() {
                   required
                 />
               </Field>
-              <Field label="Host label" className="flex-1">
+              <Field label={t('platformDb.hostLabel')} className="flex-1">
                 <Input
                   value={form.hostLabel}
                   onChange={(e) => setForm({ ...form, hostLabel: e.target.value })}
                   placeholder="school-a / on-prem Amman"
                 />
               </Field>
-              <Field label="Secret ref">
+              <Field label={t('platformDb.secretRef')}>
                 <Input
                   value={form.connectionRef}
                   onChange={(e) => setForm({ ...form, connectionRef: e.target.value })}
                   placeholder="school_a"
                 />
               </Field>
-              <Button type="submit">Start</Button>
+              <Button type="submit">{t('platformDb.start')}</Button>
             </form>
           </CardContent>
         </Card>
 
         <section className="space-y-2">
-          <h2 className="font-display font-medium">Promotions</h2>
+          <h2 className="font-display font-medium">{t('platformDb.promotions')}</h2>
           <ul className="divide-y divide-border rounded-xl border border-border">
             {rows.map((r) => (
               <li key={r.tenantId}>
@@ -137,7 +136,7 @@ export default function TenantDatabasesPage() {
               </li>
             ))}
             {rows.length === 0 ? (
-              <li className="p-3 text-sm text-muted-foreground">No promotions yet.</li>
+              <li className="p-3 text-sm text-muted-foreground">{t('platformDb.noPromotions')}</li>
             ) : null}
           </ul>
         </section>
@@ -155,11 +154,15 @@ function Wizard({
   promotion: Promotion;
   onAdvance: (tenantId: string, to: TenantDbStatus) => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const terminal = promotion.status === 'ACTIVE' || promotion.status === 'ABORTED';
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{promotion.hostLabel ?? 'Promotion'} — checklist</CardTitle>
+        <CardTitle>
+          {promotion.hostLabel ?? t('platformDb.promotionFallback')} —{' '}
+          {t('platformDb.checklistSuffix')}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <ol className="space-y-2">
@@ -193,25 +196,28 @@ function Wizard({
         </ol>
 
         {promotion.lastError ? (
-          <p className="text-sm text-destructive">Last error: {promotion.lastError}</p>
+          <p className="text-sm text-destructive">
+            {t('platformDb.lastError')}: {promotion.lastError}
+          </p>
         ) : null}
 
         {!terminal ? (
           <div className="flex flex-wrap gap-2">
             {promotion.nextStep ? (
               <Button onClick={() => void onAdvance(promotion.tenantId, promotion.nextStep!)}>
-                Mark {promotion.nextStep.replace('_', ' ').toLowerCase()} done
+                {t('platformDb.markPrefix')} {promotion.nextStep.replace('_', ' ').toLowerCase()}{' '}
+                {t('platformDb.markSuffix')}
               </Button>
             ) : null}
             <Button variant="outline" onClick={() => void onAdvance(promotion.tenantId, 'ABORTED')}>
-              Abort
+              {t('platformDb.abort')}
             </Button>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
             {promotion.status === 'ACTIVE'
-              ? 'Active — add the connection URL to the secrets manager and redeploy to route traffic.'
-              : 'Aborted.'}
+              ? t('platformDb.activeNote')
+              : t('platformDb.abortedNote')}
           </p>
         )}
       </CardContent>

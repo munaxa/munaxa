@@ -30,7 +30,7 @@ export default function SchoolsPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -47,7 +47,7 @@ export default function SchoolsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Schools</CardTitle>
+            <CardTitle>{t('structure.schools')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <CreateSchool onCreated={load} onError={setError} />
@@ -66,12 +66,12 @@ export default function SchoolsPage() {
                     className="text-destructive"
                     onClick={() => void schoolsApi.remove(s.id).then(load)}
                   >
-                    Delete
+                    {t('common.delete')}
                   </Button>
                 </li>
               ))}
               {schools.length === 0 ? (
-                <li className="p-3 text-sm text-muted-foreground">No schools yet.</li>
+                <li className="p-3 text-sm text-muted-foreground">{t('structure.noSchools')}</li>
               ) : null}
             </ul>
           </CardContent>
@@ -90,6 +90,7 @@ function CreateSchool({
   onCreated: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [nameEn, setNameEn] = useState('');
   const [nameAr, setNameAr] = useState('');
 
@@ -109,7 +110,7 @@ function CreateSchool({
     <form onSubmit={(e) => void submit(e)} className="flex flex-wrap gap-2">
       <Input
         className="flex-1"
-        placeholder="Name (EN)"
+        placeholder={t('structure.nameEnPlaceholder')}
         value={nameEn}
         onChange={(e) => setNameEn(e.target.value)}
         required
@@ -122,12 +123,13 @@ function CreateSchool({
         required
         dir="rtl"
       />
-      <Button type="submit">Add school</Button>
+      <Button type="submit">{t('structure.addSchool')}</Button>
     </form>
   );
 }
 
 function Campuses({ school, onError }: { school: School; onError: (m: string) => void }) {
+  const { t } = useI18n();
   const [campuses, setCampuses] = useState<Campus[]>([]);
   const [nameEn, setNameEn] = useState('');
   const [nameAr, setNameAr] = useState('');
@@ -159,13 +161,15 @@ function Campuses({ school, onError }: { school: School; onError: (m: string) =>
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Campuses · {school.nameEn}</CardTitle>
+        <CardTitle>
+          {t('structure.campuses')} · {school.nameEn}
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <form onSubmit={(e) => void submit(e)} className="flex flex-wrap gap-2">
           <Input
             className="flex-1"
-            placeholder="Campus (EN)"
+            placeholder={t('structure.campusEnPlaceholder')}
             value={nameEn}
             onChange={(e) => setNameEn(e.target.value)}
             required
@@ -178,7 +182,7 @@ function Campuses({ school, onError }: { school: School; onError: (m: string) =>
             required
             dir="rtl"
           />
-          <Button type="submit">Add campus</Button>
+          <Button type="submit">{t('structure.addCampus')}</Button>
         </form>
         <ul className="divide-y divide-border rounded-lg border border-border">
           {campuses.map((c) => (
@@ -187,7 +191,7 @@ function Campuses({ school, onError }: { school: School; onError: (m: string) =>
                 {c.nameEn} <span dir="rtl">· {c.nameAr}</span>
                 {c.isMain ? (
                   <Badge tone="success" className="ms-2">
-                    main
+                    {t('structure.main')}
                   </Badge>
                 ) : null}
               </span>
@@ -197,12 +201,12 @@ function Campuses({ school, onError }: { school: School; onError: (m: string) =>
                 className="text-destructive"
                 onClick={() => void campusesApi.remove(c.id).then(load)}
               >
-                Delete
+                {t('common.delete')}
               </Button>
             </li>
           ))}
           {campuses.length === 0 ? (
-            <li className="p-3 text-sm text-muted-foreground">No campuses yet.</li>
+            <li className="p-3 text-sm text-muted-foreground">{t('structure.noCampuses')}</li>
           ) : null}
         </ul>
       </CardContent>

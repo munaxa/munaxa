@@ -61,7 +61,7 @@ export default function InventoryPage() {
   if (loading) {
     return (
       <Shell>
-        <p className="text-muted-foreground">Loading…</p>
+        <p className="text-muted-foreground">{t('common.loading')}</p>
       </Shell>
     );
   }
@@ -79,7 +79,7 @@ export default function InventoryPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Add an item</CardTitle>
+              <CardTitle>{t('inventory.addItem')}</CardTitle>
             </CardHeader>
             <CardContent>
               <CreateItem onDone={load} onError={setError} />
@@ -87,7 +87,7 @@ export default function InventoryPage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Record a stock movement</CardTitle>
+              <CardTitle>{t('inventory.recordMovement')}</CardTitle>
             </CardHeader>
             <CardContent>
               <RecordTxn items={items} onDone={load} onError={setError} />
@@ -96,15 +96,15 @@ export default function InventoryPage() {
         </div>
 
         <section className="space-y-2">
-          <h2 className="font-display text-lg font-medium">Items</h2>
+          <h2 className="font-display text-lg font-medium">{t('inventory.items')}</h2>
           <Table>
             <THead>
               <TR>
-                <TH>Name</TH>
-                <TH>SKU</TH>
-                <TH>Category</TH>
-                <TH>Location</TH>
-                <TH className="text-end">On hand</TH>
+                <TH>{t('inventory.name')}</TH>
+                <TH>{t('inventory.sku')}</TH>
+                <TH>{t('inventory.category')}</TH>
+                <TH>{t('inventory.location')}</TH>
+                <TH className="text-end">{t('inventory.onHand')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -121,7 +121,7 @@ export default function InventoryPage() {
                         {i.quantity}
                         {i.unit ? ` ${i.unit}` : ''}
                       </span>{' '}
-                      {low ? <Badge tone="warning">Low</Badge> : null}
+                      {low ? <Badge tone="warning">{t('inventory.low')}</Badge> : null}
                     </TD>
                   </TR>
                 );
@@ -129,7 +129,7 @@ export default function InventoryPage() {
               {items.length === 0 ? (
                 <TR>
                   <TD colSpan={5} className="text-muted-foreground">
-                    No items yet.
+                    {t('inventory.noItems')}
                   </TD>
                 </TR>
               ) : null}
@@ -138,15 +138,15 @@ export default function InventoryPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="font-display text-lg font-medium">Recent movements</h2>
+          <h2 className="font-display text-lg font-medium">{t('inventory.recentMovements')}</h2>
           <Table>
             <THead>
               <TR>
-                <TH>Item</TH>
-                <TH>Type</TH>
-                <TH>Reason</TH>
-                <TH>Date</TH>
-                <TH className="text-end">Qty</TH>
+                <TH>{t('inventory.item')}</TH>
+                <TH>{t('inventory.type')}</TH>
+                <TH>{t('inventory.reason')}</TH>
+                <TH>{t('inventory.date')}</TH>
+                <TH className="text-end">{t('inventory.qty')}</TH>
               </TR>
             </THead>
             <TBody>
@@ -168,7 +168,7 @@ export default function InventoryPage() {
               {txns.length === 0 ? (
                 <TR>
                   <TD colSpan={5} className="text-muted-foreground">
-                    No movements yet.
+                    {t('inventory.noMovements')}
                   </TD>
                 </TR>
               ) : null}
@@ -187,6 +187,7 @@ function CreateItem({
   onDone: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [form, setForm] = useState({
     name: '',
     sku: '',
@@ -230,47 +231,47 @@ function CreateItem({
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
       <Input
         className="sm:col-span-2"
-        placeholder="Item name"
+        placeholder={t('inventory.itemName')}
         value={form.name}
         onChange={(e) => setForm({ ...form, name: e.target.value })}
         required
       />
       <Input
-        placeholder="SKU"
+        placeholder={t('inventory.sku')}
         value={form.sku}
         onChange={(e) => setForm({ ...form, sku: e.target.value })}
       />
       <Input
-        placeholder="Category"
+        placeholder={t('inventory.category')}
         value={form.category}
         onChange={(e) => setForm({ ...form, category: e.target.value })}
       />
       <Input
-        placeholder="Unit (e.g. ream)"
+        placeholder={t('inventory.unitPlaceholder')}
         value={form.unit}
         onChange={(e) => setForm({ ...form, unit: e.target.value })}
       />
       <Input
-        placeholder="Location"
+        placeholder={t('inventory.location')}
         value={form.location}
         onChange={(e) => setForm({ ...form, location: e.target.value })}
       />
       <Input
         type="number"
         min={0}
-        placeholder="Starting quantity"
+        placeholder={t('inventory.startingQuantity')}
         value={form.quantity}
         onChange={(e) => setForm({ ...form, quantity: e.target.value })}
       />
       <Input
         type="number"
         min={0}
-        placeholder="Reorder level"
+        placeholder={t('inventory.reorderLevel')}
         value={form.reorderLevel}
         onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })}
       />
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? 'Saving…' : 'Add item'}
+        {busy ? t('common.saving') : t('inventory.addItemBtn')}
       </Button>
     </form>
   );
@@ -285,6 +286,7 @@ function RecordTxn({
   onDone: () => Promise<void>;
   onError: (m: string) => void;
 }) {
+  const { t } = useI18n();
   const [itemId, setItemId] = useState('');
   const [type, setType] = useState<InventoryTxnType>('IN');
   const [quantity, setQuantity] = useState('1');
@@ -318,7 +320,7 @@ function RecordTxn({
         required
       >
         <option value="" disabled>
-          Select an item…
+          {t('inventory.selectItem')}
         </option>
         {items.map((i) => (
           <option key={i.id} value={i.id}>
@@ -337,19 +339,19 @@ function RecordTxn({
       <Input
         type="number"
         min={0}
-        placeholder="Quantity"
+        placeholder={t('inventory.quantity')}
         value={quantity}
         onChange={(e) => setQuantity(e.target.value)}
         required
       />
       <Input
         className="sm:col-span-2"
-        placeholder="Reason (optional)"
+        placeholder={t('inventory.reason')}
         value={reason}
         onChange={(e) => setReason(e.target.value)}
       />
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? 'Recording…' : 'Record movement'}
+        {busy ? t('common.recording') : t('inventory.recordMovementBtn')}
       </Button>
     </form>
   );

@@ -70,9 +70,9 @@ export default function AcademicStructurePage() {
 
         <Card>
           <CardContent className="grid gap-3 pt-6 sm:grid-cols-2">
-            <Field label="School">
+            <Field label={t('structure.school')}>
               <Select value={schoolId} onChange={(e) => setSchoolId(e.target.value)}>
-                <option value="">Select a school…</option>
+                <option value="">{t('structure.selectSchool')}</option>
                 {schools.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nameEn}
@@ -80,13 +80,13 @@ export default function AcademicStructurePage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Campus">
+            <Field label={t('structure.campus')}>
               <Select
                 value={campusId}
                 onChange={(e) => setCampusId(e.target.value)}
                 disabled={!schoolId}
               >
-                <option value="">Select a campus…</option>
+                <option value="">{t('structure.selectCampus')}</option>
                 {campuses.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nameEn}
@@ -104,9 +104,7 @@ export default function AcademicStructurePage() {
             <AcademicYears campusId={campusId} />
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Select a school and campus to manage its grades, classrooms, and academic years.
-          </p>
+          <p className="text-sm text-muted-foreground">{t('structure.emptyHint')}</p>
         )}
       </div>
     </Shell>
@@ -123,6 +121,7 @@ function useError() {
 function Grades({ campusId }: { campusId: string }) {
   const onErr = useError();
   const toast = useToast();
+  const { t } = useI18n();
   const [grades, setGrades] = useState<Grade[]>([]);
   const [form, setForm] = useState({ nameEn: '', nameAr: '', level: '' });
   const [openGrade, setOpenGrade] = useState<string | null>(null);
@@ -166,18 +165,18 @@ function Grades({ campusId }: { campusId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Grades</CardTitle>
+        <CardTitle>{t('structure.grades')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
-          <Field label="Name (EN)" className="flex-1">
+          <Field label={t('structure.nameEn')} className="flex-1">
             <Input
               value={form.nameEn}
               onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
               required
             />
           </Field>
-          <Field label="Name (AR)" className="flex-1">
+          <Field label={t('structure.nameAr')} className="flex-1">
             <Input
               value={form.nameAr}
               onChange={(e) => setForm({ ...form, nameAr: e.target.value })}
@@ -185,7 +184,7 @@ function Grades({ campusId }: { campusId: string }) {
               dir="rtl"
             />
           </Field>
-          <Field label="Level">
+          <Field label={t('structure.level')}>
             <Input
               type="number"
               className="w-20"
@@ -194,15 +193,15 @@ function Grades({ campusId }: { campusId: string }) {
               required
             />
           </Field>
-          <Button type="submit">Add</Button>
+          <Button type="submit">{t('common.add')}</Button>
         </form>
 
         <Table>
           <THead>
             <TR>
-              <TH className="w-16">Level</TH>
-              <TH>Name</TH>
-              <TH className="text-end">Actions</TH>
+              <TH className="w-16">{t('structure.level')}</TH>
+              <TH>{t('structure.name')}</TH>
+              <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -222,10 +221,10 @@ function Grades({ campusId }: { campusId: string }) {
                     size="sm"
                     onClick={() => setOpenGrade(openGrade === g.id ? null : g.id)}
                   >
-                    {openGrade === g.id ? 'Hide sections' : 'Sections'}
+                    {openGrade === g.id ? t('structure.hideSections') : t('structure.sections')}
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => void remove(g.id)}>
-                    Delete
+                    {t('common.delete')}
                   </Button>
                 </TD>
               </TR>
@@ -233,7 +232,7 @@ function Grades({ campusId }: { campusId: string }) {
             {grades.length === 0 ? (
               <TR>
                 <TD colSpan={3} className="text-muted-foreground">
-                  No grades yet.
+                  {t('structure.noGrades')}
                 </TD>
               </TR>
             ) : null}
@@ -246,6 +245,7 @@ function Grades({ campusId }: { campusId: string }) {
 
 function Sections({ gradeId }: { gradeId: string }) {
   const onErr = useError();
+  const { t } = useI18n();
   const [sections, setSections] = useState<Section[]>([]);
   const [name, setName] = useState('');
   const [capacity, setCapacity] = useState('');
@@ -297,13 +297,13 @@ function Sections({ gradeId }: { gradeId: string }) {
           </Badge>
         ))}
         {sections.length === 0 ? (
-          <span className="text-xs text-muted-foreground">No sections.</span>
+          <span className="text-xs text-muted-foreground">{t('structure.noSections')}</span>
         ) : null}
       </div>
       <form onSubmit={(e) => void create(e)} className="flex items-end gap-2">
         <Input
           className="h-8 w-28"
-          placeholder="Section (e.g. A)"
+          placeholder={t('structure.sectionPlaceholder')}
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -311,12 +311,12 @@ function Sections({ gradeId }: { gradeId: string }) {
         <Input
           className="h-8 w-24"
           type="number"
-          placeholder="Capacity"
+          placeholder={t('structure.capacity')}
           value={capacity}
           onChange={(e) => setCapacity(e.target.value)}
         />
         <Button type="submit" size="sm">
-          Add section
+          {t('structure.addSection')}
         </Button>
       </form>
     </div>
@@ -328,6 +328,7 @@ function Sections({ gradeId }: { gradeId: string }) {
 function Classrooms({ campusId }: { campusId: string }) {
   const onErr = useError();
   const toast = useToast();
+  const { t } = useI18n();
   const [rooms, setRooms] = useState<Classroom[]>([]);
   const [form, setForm] = useState({ name: '', capacity: '', building: '', floor: '' });
 
@@ -369,18 +370,18 @@ function Classrooms({ campusId }: { campusId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Classrooms</CardTitle>
+        <CardTitle>{t('structure.classrooms')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
-          <Field label="Name" className="flex-1">
+          <Field label={t('structure.name')} className="flex-1">
             <Input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
             />
           </Field>
-          <Field label="Capacity">
+          <Field label={t('structure.capacity')}>
             <Input
               type="number"
               className="w-24"
@@ -388,31 +389,31 @@ function Classrooms({ campusId }: { campusId: string }) {
               onChange={(e) => setForm({ ...form, capacity: e.target.value })}
             />
           </Field>
-          <Field label="Building">
+          <Field label={t('structure.building')}>
             <Input
               className="w-28"
               value={form.building}
               onChange={(e) => setForm({ ...form, building: e.target.value })}
             />
           </Field>
-          <Field label="Floor">
+          <Field label={t('structure.floor')}>
             <Input
               className="w-20"
               value={form.floor}
               onChange={(e) => setForm({ ...form, floor: e.target.value })}
             />
           </Field>
-          <Button type="submit">Add</Button>
+          <Button type="submit">{t('common.add')}</Button>
         </form>
 
         <Table>
           <THead>
             <TR>
-              <TH>Name</TH>
-              <TH>Building</TH>
-              <TH>Floor</TH>
-              <TH className="text-end">Capacity</TH>
-              <TH className="text-end">Actions</TH>
+              <TH>{t('structure.name')}</TH>
+              <TH>{t('structure.building')}</TH>
+              <TH>{t('structure.floor')}</TH>
+              <TH className="text-end">{t('structure.capacity')}</TH>
+              <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
@@ -433,7 +434,7 @@ function Classrooms({ campusId }: { campusId: string }) {
                         .catch((e) => onErr(e, 'Delete failed'))
                     }
                   >
-                    Delete
+                    {t('common.delete')}
                   </Button>
                 </TD>
               </TR>
@@ -441,7 +442,7 @@ function Classrooms({ campusId }: { campusId: string }) {
             {rooms.length === 0 ? (
               <TR>
                 <TD colSpan={5} className="text-muted-foreground">
-                  No classrooms yet.
+                  {t('structure.noClassrooms')}
                 </TD>
               </TR>
             ) : null}
@@ -457,6 +458,7 @@ function Classrooms({ campusId }: { campusId: string }) {
 function AcademicYears({ campusId }: { campusId: string }) {
   const onErr = useError();
   const toast = useToast();
+  const { t } = useI18n();
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [form, setForm] = useState({ name: '', startDate: '', endDate: '', isCurrent: false });
   const [openYear, setOpenYear] = useState<string | null>(null);
@@ -492,19 +494,19 @@ function AcademicYears({ campusId }: { campusId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Academic years</CardTitle>
+        <CardTitle>{t('structure.academicYears')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
-          <Field label="Name" className="flex-1">
+          <Field label={t('structure.name')} className="flex-1">
             <Input
-              placeholder="2025–2026"
+              placeholder={t('structure.yearNamePlaceholder')}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
             />
           </Field>
-          <Field label="Start">
+          <Field label={t('structure.start')}>
             <Input
               type="date"
               value={form.startDate}
@@ -512,7 +514,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
               required
             />
           </Field>
-          <Field label="End">
+          <Field label={t('structure.end')}>
             <Input
               type="date"
               value={form.endDate}
@@ -526,25 +528,26 @@ function AcademicYears({ campusId }: { campusId: string }) {
               checked={form.isCurrent}
               onChange={(e) => setForm({ ...form, isCurrent: e.target.checked })}
             />
-            Current
+            {t('structure.current')}
           </label>
-          <Button type="submit">Add</Button>
+          <Button type="submit">{t('common.add')}</Button>
         </form>
 
         <Table>
           <THead>
             <TR>
-              <TH>Name</TH>
-              <TH>Start</TH>
-              <TH>End</TH>
-              <TH className="text-end">Actions</TH>
+              <TH>{t('structure.name')}</TH>
+              <TH>{t('structure.start')}</TH>
+              <TH>{t('structure.end')}</TH>
+              <TH className="text-end">{t('common.actions')}</TH>
             </TR>
           </THead>
           <TBody>
             {years.map((y) => (
               <TR key={y.id}>
                 <TD>
-                  {y.name} {y.isCurrent ? <Badge tone="success">Current</Badge> : null}
+                  {y.name}{' '}
+                  {y.isCurrent ? <Badge tone="success">{t('structure.current')}</Badge> : null}
                   {openYear === y.id ? <Semesters academicYearId={y.id} /> : null}
                 </TD>
                 <TD className="font-mono text-xs">{y.startDate.slice(0, 10)}</TD>
@@ -555,7 +558,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
                     size="sm"
                     onClick={() => setOpenYear(openYear === y.id ? null : y.id)}
                   >
-                    {openYear === y.id ? 'Hide terms' : 'Terms'}
+                    {openYear === y.id ? t('structure.hideTerms') : t('structure.terms')}
                   </Button>
                   <Button
                     variant="ghost"
@@ -567,7 +570,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
                         .catch((e) => onErr(e, 'Delete failed'))
                     }
                   >
-                    Delete
+                    {t('common.delete')}
                   </Button>
                 </TD>
               </TR>
@@ -575,7 +578,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
             {years.length === 0 ? (
               <TR>
                 <TD colSpan={4} className="text-muted-foreground">
-                  No academic years yet.
+                  {t('structure.noYears')}
                 </TD>
               </TR>
             ) : null}
@@ -588,6 +591,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
 
 function Semesters({ academicYearId }: { academicYearId: string }) {
   const onErr = useError();
+  const { t } = useI18n();
   const [terms, setTerms] = useState<Semester[]>([]);
   const [form, setForm] = useState({ name: '', sequence: '', startDate: '', endDate: '' });
 
@@ -640,7 +644,7 @@ function Semesters({ academicYearId }: { academicYearId: string }) {
           </Badge>
         ))}
         {terms.length === 0 ? (
-          <span className="text-xs text-muted-foreground">No terms.</span>
+          <span className="text-xs text-muted-foreground">{t('structure.noTerms')}</span>
         ) : null}
       </div>
       <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
@@ -654,7 +658,7 @@ function Semesters({ academicYearId }: { academicYearId: string }) {
         />
         <Input
           className="h-8 w-32"
-          placeholder="Term name"
+          placeholder={t('structure.termName')}
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           required
@@ -674,7 +678,7 @@ function Semesters({ academicYearId }: { academicYearId: string }) {
           required
         />
         <Button type="submit" size="sm">
-          Add term
+          {t('structure.addTerm')}
         </Button>
       </form>
     </div>
