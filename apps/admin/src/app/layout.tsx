@@ -57,6 +57,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background bg-grad-hero font-body text-foreground antialiased">
+        {/* Apply the saved theme before paint (light-first default) so it's reliable on every
+            page and free of flash. The toggle keeps it in sync thereafter. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{if(localStorage.getItem('munaxa.theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`,
+          }}
+        />
         <PostHogProvider>
           <I18nProvider>
             <ToastProvider>
