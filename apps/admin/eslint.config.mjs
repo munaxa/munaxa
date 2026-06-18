@@ -29,9 +29,10 @@ export default [
     },
   },
   {
-    // Design-system guardrail: no hardcoded hex colors in app source — use the token classes
-    // (text-coral, bg-card, border-border, …). Tokens live in packages/config-tailwind/preset.ts
-    // + apps/admin/src/app/globals.css. See docs/design-system/README.md.
+    // Munaxa Design System governance guardrails (mechanical enforcement of GOVERNANCE.md):
+    // app source must use design-system token classes — never hardcoded hex colors nor raw
+    // Tailwind palette colors. Tokens: packages/config-tailwind/preset.ts + globals.css,
+    // sourced from munaxadesignsystem/. See /GOVERNANCE.md.
     files: ['src/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
@@ -47,6 +48,18 @@ export default [
             'TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-fA-F])/]',
           message:
             'No hardcoded hex colors — use design-system token classes (e.g. text-coral, bg-card, border-border). Tokens: packages/config-tailwind/preset.ts + globals.css.',
+        },
+        {
+          selector:
+            'Literal[value=/\\b(?:bg|text|border|ring|divide|from|via|to|fill|stroke|outline|accent|caret|decoration)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|purple|fuchsia|pink|rose)-(?:50|100|200|300|400|500|600|700|800|900|950)\\b/]',
+          message:
+            'No raw Tailwind palette colors — use design-system token/semantic classes (bg-primary, text-muted-foreground, bg-success, text-warning, …). Tokens: packages/config-tailwind/preset.ts + globals.css.',
+        },
+        {
+          selector:
+            'TemplateElement[value.raw=/\\b(?:bg|text|border|ring|divide|from|via|to|fill|stroke|outline|accent|caret|decoration)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|purple|fuchsia|pink|rose)-(?:50|100|200|300|400|500|600|700|800|900|950)\\b/]',
+          message:
+            'No raw Tailwind palette colors — use design-system token/semantic classes (bg-primary, text-muted-foreground, bg-success, text-warning, …). Tokens: packages/config-tailwind/preset.ts + globals.css.',
         },
       ],
     },
