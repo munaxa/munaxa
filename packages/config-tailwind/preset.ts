@@ -57,11 +57,41 @@ const preset: Omit<Config, 'content'> = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Semantic status colors — ported verbatim from the Munaxa Design System
+        // tokens (design-system/tokens/colors.ts). Flat values: the reference
+        // palette defines a single value per semantic color (no dark variant),
+        // so we do not invent theme-aware variants. `danger` is intentionally
+        // omitted — it is already covered by `destructive`. Alpha modifiers
+        // (e.g. bg-success/10) are supported by Tailwind for hex colors.
+        success: '#10B981',
+        warning: '#F59E0B',
+        info: '#3B82F6',
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+      },
+      // Named layering scale — ported from design-system/tokens/zIndex.ts.
+      // Additive (Tailwind's numeric z-* utilities remain available).
+      zIndex: {
+        base: '0',
+        sticky: '10',
+        dropdown: '20',
+        overlay: '30',
+        modal: '40',
+        toast: '50',
+      },
+      // Motion tokens — ported from design-system/tokens/motion.ts.
+      transitionDuration: {
+        fast: '120ms',
+        normal: '200ms',
+        slow: '300ms',
+      },
+      transitionTimingFunction: {
+        standard: 'cubic-bezier(0.2, 0, 0, 1)',
+        enter: 'cubic-bezier(0, 0, 0, 1)',
+        exit: 'cubic-bezier(0.3, 0, 1, 1)',
       },
       fontFamily: {
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
@@ -72,6 +102,8 @@ const preset: Omit<Config, 'content'> = {
         // From the Munaxa Design System — soft elevation + a violet "glow" for primaries.
         card: '0 24px 50px -28px rgba(11,5,24,0.55), 0 0 0 1px hsl(var(--border)) inset',
         glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
+        // Focus ring — ported from design-system/tokens/shadows.ts (brand @ 28%).
+        focus: '0 0 0 3px rgb(122 63 255 / 0.28)',
       },
       backgroundImage: {
         'grad-primary': 'linear-gradient(135deg, #7A3FFF 0%, #B97BFF 60%, #FF8E6E 120%)',

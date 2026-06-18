@@ -29,8 +29,8 @@ const STATUSES: Status[] = ['PRESENT', 'LATE', 'ABSENT', 'EXCUSED'];
 const TONE: Record<Status, string> = {
   PRESENT: 'bg-aqua text-ink-900',
   LATE: 'bg-coral text-ink-900',
-  ABSENT: 'bg-destructive text-white',
-  EXCUSED: 'bg-primary text-white',
+  ABSENT: 'bg-destructive text-destructive-foreground',
+  EXCUSED: 'bg-primary text-primary-foreground',
 };
 const PERIODS = [1, 2, 3, 4, 5, 6, 7, 8];
 
