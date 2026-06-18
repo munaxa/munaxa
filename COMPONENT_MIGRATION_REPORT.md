@@ -4,7 +4,7 @@
 **Phase:** 3 — Core Component Migration
 **Date:** 2026-06-18
 **Branch:** `claude/affectionate-shannon-fbfeaf`
-**Status:** 🟡 Core complete & build-verified — a remaining mechanical sweep is itemized in §6. Awaiting approval before Phase 4.
+**Status:** ✅ Complete (core + carry-over sweep §6) & build-verified. Awaiting approval before Phase 4.
 
 > Governance decisions honored (Phase 0/2b): components **ported into `@munaxa/ui`**; **light-first** default; no business logic, APIs, schemas, or routes changed.
 
@@ -87,19 +87,19 @@ All swept pages: **logic, state, handlers, API calls, validation, and routes unc
 
 ---
 
-## 6. Remaining Mechanical Sweep (carry-over)
+## 6. Carry-over Sweep — ✅ COMPLETED (Phase 3b)
 
-A batch of **lower-risk, mechanical** replacements was not completed this phase (the parallel sweep agents hit a session limit mid-run). None affect build health; they are polish/consistency items. Proposed as a **Phase 3 continuation** before or alongside Phase 4:
+The mechanical sweep that the interrupted agents left was finished in a follow-up pass (build-verified):
 
-| Item | Pages | Type |
+| Item | Pages | Status |
 |---|---|---|
-| Raw `<input type=checkbox>` → `Checkbox` | settings/users, settings/roles, people/employees, structure/academic, people/students (vaccine) | Component |
-| Bare form inputs → `Field` wrapping | clinic (medical-record form), library (create/checkout forms) | A11y |
-| Raw `<button>`: add `type`/`aria-label`; `aria-current="step"` on stepper; `aria-expanded` on toggles | settings/integrations/jofotara (wizard), fleet, platform/databases, people/employees (name cells), structure/academic (delete) | A11y |
-| Convert genuinely button-styled raw `<button>` → `Button` | finance (1), structure/schools (1), settings/roles (select-all) | Component |
-| Surface caught-but-hidden errors | teachers, parents, structure/schools | (overlaps Phase 4 state work) |
+| Raw `<input type=checkbox>` → `Checkbox` | settings/users, settings/roles, structure/academic, people/students (vaccine) | ✅ done (rich label wrappers preserved) |
+| Bare form inputs → `Field` wrapping | clinic (visit + medical-record forms), library (create + checkout forms) | ✅ done (id/htmlFor wired, i18n keys verified) |
+| `aria-current="step"` on stepper; `aria-expanded` on toggle; missing `type="button"` | jofotara wizard, platform/databases toggle, structure/schools name | ✅ done |
+| Audit-flagged raw `<button>`s reviewed | settings/roles (select-all + row), people/employees (name cells), structure/academic (delete), finance (household) | ✅ verified already accessible (visible text label + `type`/`aria-label`) — **intentionally left as native buttons**, not restyled into `Button`, to avoid UX regressions |
+| Surface caught-but-hidden errors | teachers, parents, structure/schools | ↪ deferred to **Phase 4** (state/error-handling work) |
 
-> These were deliberately scoped to be conservative: clickable text/name cells and custom controls (attendance status pills, jofotara stepper) will **not** be restyled into `Button` — they only get accessible names — to avoid UX regressions.
+> people/employees had no remaining raw checkbox. Custom controls (attendance status pills, jofotara stepper, expandable-row toggles) were given accessible names/state but **not** restyled into `Button` by design.
 
 ---
 

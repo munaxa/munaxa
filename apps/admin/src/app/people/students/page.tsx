@@ -19,6 +19,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   CardContent,
   CardHeader,
   CardTitle,
@@ -709,8 +710,7 @@ function Vaccines({ studentId }: { studentId: string }) {
           onChange={(e) => setForm({ ...form, grade: e.target.value })}
         />
         <label className="flex items-center gap-1.5 pb-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={form.received ?? true}
             onChange={(e) => setForm({ ...form, received: e.target.checked })}
           />

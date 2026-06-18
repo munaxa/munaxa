@@ -25,6 +25,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   CardContent,
   CardHeader,
   CardTitle,
@@ -535,8 +536,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
             />
           </Field>
           <label className="flex items-center gap-1.5 pb-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={form.isCurrent}
               onChange={(e) => setForm({ ...form, isCurrent: e.target.checked })}
             />

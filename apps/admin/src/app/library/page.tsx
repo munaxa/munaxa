@@ -17,6 +17,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Field,
   Input,
   Select,
   Table,
@@ -223,30 +224,41 @@ function CreateBook({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
-      <Input
-        className="sm:col-span-2"
-        placeholder={t('library.title')}
-        value={form.title}
-        onChange={(e) => setForm({ ...form, title: e.target.value })}
-        required
-      />
-      <Input
-        placeholder={t('library.author')}
-        value={form.author}
-        onChange={(e) => setForm({ ...form, author: e.target.value })}
-      />
-      <Input
-        placeholder={t('library.category')}
-        value={form.category}
-        onChange={(e) => setForm({ ...form, category: e.target.value })}
-      />
-      <Input
-        type="number"
-        min={1}
-        placeholder={t('library.copies')}
-        value={form.copiesTotal}
-        onChange={(e) => setForm({ ...form, copiesTotal: e.target.value })}
-      />
+      <Field className="sm:col-span-2" label={t('library.title')} htmlFor="book-title">
+        <Input
+          id="book-title"
+          placeholder={t('library.title')}
+          value={form.title}
+          onChange={(e) => setForm({ ...form, title: e.target.value })}
+          required
+        />
+      </Field>
+      <Field label={t('library.author')} htmlFor="book-author">
+        <Input
+          id="book-author"
+          placeholder={t('library.author')}
+          value={form.author}
+          onChange={(e) => setForm({ ...form, author: e.target.value })}
+        />
+      </Field>
+      <Field label={t('library.category')} htmlFor="book-category">
+        <Input
+          id="book-category"
+          placeholder={t('library.category')}
+          value={form.category}
+          onChange={(e) => setForm({ ...form, category: e.target.value })}
+        />
+      </Field>
+      <Field label={t('library.copies')} htmlFor="book-copies">
+        <Input
+          id="book-copies"
+          type="number"
+          min={1}
+          placeholder={t('library.copies')}
+          value={form.copiesTotal}
+          onChange={(e) => setForm({ ...form, copiesTotal: e.target.value })}
+        />
+      </Field>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
         {busy ? t('common.saving') : t('library.addBook')}
       </Button>
@@ -289,31 +301,44 @@ function Checkout({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2">
-      <Select value={bookId} onChange={(e) => setBookId(e.target.value)} required>
-        <option value="" disabled>
-          {t('library.selectBook')}
-        </option>
-        {books
-          .filter((b) => b.copiesAvailable > 0)
-          .map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.title} ({b.copiesAvailable} {t('library.availableSuffix')})
-            </option>
-          ))}
-      </Select>
-      <Input
-        placeholder={t('library.borrowerName')}
-        value={borrowerName}
-        onChange={(e) => setBorrowerName(e.target.value)}
-        required
-      />
-      <Input
-        type="date"
-        value={dueDate}
-        onChange={(e) => setDueDate(e.target.value)}
-        required
-        dir="ltr"
-      />
+      <Field label={t('library.book')} htmlFor="checkout-book">
+        <Select
+          id="checkout-book"
+          value={bookId}
+          onChange={(e) => setBookId(e.target.value)}
+          required
+        >
+          <option value="" disabled>
+            {t('library.selectBook')}
+          </option>
+          {books
+            .filter((b) => b.copiesAvailable > 0)
+            .map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.title} ({b.copiesAvailable} {t('library.availableSuffix')})
+              </option>
+            ))}
+        </Select>
+      </Field>
+      <Field label={t('library.borrowerName')} htmlFor="checkout-borrower">
+        <Input
+          id="checkout-borrower"
+          placeholder={t('library.borrowerName')}
+          value={borrowerName}
+          onChange={(e) => setBorrowerName(e.target.value)}
+          required
+        />
+      </Field>
+      <Field label={t('library.due')} htmlFor="checkout-due">
+        <Input
+          id="checkout-due"
+          type="date"
+          value={dueDate}
+          onChange={(e) => setDueDate(e.target.value)}
+          required
+          dir="ltr"
+        />
+      </Field>
       <Button type="submit" disabled={busy}>
         {busy ? t('library.checkingOut') : t('library.checkout')}
       </Button>

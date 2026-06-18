@@ -122,6 +122,8 @@ export default function TenantDatabasesPage() {
             {rows.map((r) => (
               <li key={r.tenantId}>
                 <button
+                  type="button"
+                  aria-expanded={r.tenantId === selected}
                   className="flex w-full items-center justify-between gap-3 p-3 text-start"
                   onClick={() => setSelected(r.tenantId === selected ? null : r.tenantId)}
                 >

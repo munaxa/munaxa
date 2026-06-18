@@ -56,7 +56,7 @@ export default function SchoolsPage() {
             <ul className="divide-y divide-border rounded-lg border border-border">
               {schools.map((s) => (
                 <li key={s.id} className="flex items-center justify-between p-3">
-                  <button className="text-start" onClick={() => setSelected(s)}>
+                  <button type="button" className="text-start" onClick={() => setSelected(s)}>
                     <span className="font-medium">{s.nameEn}</span>{' '}
                     <span className="text-muted-foreground" dir="rtl">
                       · {s.nameAr}

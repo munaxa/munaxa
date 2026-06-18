@@ -195,40 +195,58 @@ function CreateVisit({
       <Field label={t('clinic.student')}>
         <EntityPicker value={studentId} onChange={setStudentId} load={loadStudentOptions} />
       </Field>
-      <Input
-        placeholder={t('clinic.reason')}
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        required
-      />
-      <Input
-        placeholder={t('clinic.symptoms')}
-        value={symptoms}
-        onChange={(e) => setSymptoms(e.target.value)}
-      />
-      <Input
-        placeholder={t('clinic.treatment')}
-        value={treatment}
-        onChange={(e) => setTreatment(e.target.value)}
-      />
-      <div className="grid grid-cols-2 gap-2">
+      <Field label={t('clinic.reason')} htmlFor="visit-reason">
         <Input
-          type="number"
-          step="0.1"
-          min={30}
-          max={45}
-          placeholder={t('clinic.tempC')}
-          value={temperature}
-          onChange={(e) => setTemperature(e.target.value)}
-          dir="ltr"
+          id="visit-reason"
+          placeholder={t('clinic.reason')}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          required
         />
-        <Select value={outcome} onChange={(e) => setOutcome(e.target.value as ClinicOutcome)}>
-          {CLINIC_OUTCOMES.map((o) => (
-            <option key={o} value={o}>
-              {o.replace('_', ' ')}
-            </option>
-          ))}
-        </Select>
+      </Field>
+      <Field label={t('clinic.symptoms')} htmlFor="visit-symptoms">
+        <Input
+          id="visit-symptoms"
+          placeholder={t('clinic.symptoms')}
+          value={symptoms}
+          onChange={(e) => setSymptoms(e.target.value)}
+        />
+      </Field>
+      <Field label={t('clinic.treatment')} htmlFor="visit-treatment">
+        <Input
+          id="visit-treatment"
+          placeholder={t('clinic.treatment')}
+          value={treatment}
+          onChange={(e) => setTreatment(e.target.value)}
+        />
+      </Field>
+      <div className="grid grid-cols-2 gap-2">
+        <Field label={t('clinic.tempC')} htmlFor="visit-temp">
+          <Input
+            id="visit-temp"
+            type="number"
+            step="0.1"
+            min={30}
+            max={45}
+            placeholder={t('clinic.tempC')}
+            value={temperature}
+            onChange={(e) => setTemperature(e.target.value)}
+            dir="ltr"
+          />
+        </Field>
+        <Field label={t('clinic.outcome')} htmlFor="visit-outcome">
+          <Select
+            id="visit-outcome"
+            value={outcome}
+            onChange={(e) => setOutcome(e.target.value as ClinicOutcome)}
+          >
+            {CLINIC_OUTCOMES.map((o) => (
+              <option key={o} value={o}>
+                {o.replace('_', ' ')}
+              </option>
+            ))}
+          </Select>
+        </Field>
       </div>
       <Button type="submit" disabled={busy}>
         {busy ? t('clinic.recording') : t('clinic.recordVisitBtn')}
@@ -298,37 +316,55 @@ function RecordEditor({ onError }: { onError: (m: string) => void }) {
       {loaded ? (
         <>
           <div className="grid grid-cols-2 gap-2">
-            <Input
-              placeholder={t('clinic.bloodType')}
-              value={record.bloodType ?? ''}
-              onChange={(e) => set('bloodType', e.target.value)}
-            />
-            <Input
-              placeholder={t('clinic.emergencyContact')}
-              value={record.emergencyContact ?? ''}
-              onChange={(e) => set('emergencyContact', e.target.value)}
-            />
+            <Field label={t('clinic.bloodType')} htmlFor="rec-bloodType">
+              <Input
+                id="rec-bloodType"
+                placeholder={t('clinic.bloodType')}
+                value={record.bloodType ?? ''}
+                onChange={(e) => set('bloodType', e.target.value)}
+              />
+            </Field>
+            <Field label={t('clinic.emergencyContact')} htmlFor="rec-emergencyContact">
+              <Input
+                id="rec-emergencyContact"
+                placeholder={t('clinic.emergencyContact')}
+                value={record.emergencyContact ?? ''}
+                onChange={(e) => set('emergencyContact', e.target.value)}
+              />
+            </Field>
           </div>
-          <Input
-            placeholder={t('clinic.allergies')}
-            value={record.allergies ?? ''}
-            onChange={(e) => set('allergies', e.target.value)}
-          />
-          <Input
-            placeholder={t('clinic.chronicConditions')}
-            value={record.chronicConditions ?? ''}
-            onChange={(e) => set('chronicConditions', e.target.value)}
-          />
-          <Input
-            placeholder={t('clinic.medications')}
-            value={record.medications ?? ''}
-            onChange={(e) => set('medications', e.target.value)}
-          />
-          <Input
-            placeholder={t('clinic.notes')}
-            value={record.notes ?? ''}
-            onChange={(e) => set('notes', e.target.value)}
-          />
+          <Field label={t('clinic.allergies')} htmlFor="rec-allergies">
+            <Input
+              id="rec-allergies"
+              placeholder={t('clinic.allergies')}
+              value={record.allergies ?? ''}
+              onChange={(e) => set('allergies', e.target.value)}
+            />
+          </Field>
+          <Field label={t('clinic.chronicConditions')} htmlFor="rec-chronicConditions">
+            <Input
+              id="rec-chronicConditions"
+              placeholder={t('clinic.chronicConditions')}
+              value={record.chronicConditions ?? ''}
+              onChange={(e) => set('chronicConditions', e.target.value)}
+            />
+          </Field>
+          <Field label={t('clinic.medications')} htmlFor="rec-medications">
+            <Input
+              id="rec-medications"
+              placeholder={t('clinic.medications')}
+              value={record.medications ?? ''}
+              onChange={(e) => set('medications', e.target.value)}
+            />
+          </Field>
+          <Field label={t('clinic.notes')} htmlFor="rec-notes">
+            <Input
+              id="rec-notes"
+              placeholder={t('clinic.notes')}
+              value={record.notes ?? ''}
+              onChange={(e) => set('notes', e.target.value)}
+            />
+          </Field>
           <Button type="submit" disabled={busy}>
             {busy ? t('common.saving') : t('clinic.saveRecord')}
           </Button>
