@@ -1,9 +1,21 @@
 'use client';
 
+import { useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { EmploymentStatusBadge, RecordHeader } from '@/components/domain';
 import type { Employee } from '@/lib/people';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/components/ui';
 
 /**
  * Read-only employee profile shown in a modal when an employee name is clicked. Mirrors the
@@ -21,6 +33,7 @@ export function EmployeeProfileDialog({
 }) {
   const { t } = useI18n();
   const initials = `${employee.firstNameEn[0] ?? ''}${employee.lastNameEn[0] ?? ''}`.toUpperCase();
+  const [tab, setTab] = useState('overview');
 
   return (
     <div className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto p-4">
@@ -58,29 +71,38 @@ export function EmployeeProfileDialog({
           }
         />
 
-        {/* Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('people.employeeDetails')}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-            <Detail label={t('people.jobTitle')} value={employee.jobTitle} />
-            <Detail label={t('people.department')} value={employee.department} />
-            <Detail label={t('common.status')} value={employee.status} />
-            <Detail
-              label={t('people.joined')}
-              value={employee.createdAt ? employee.createdAt.slice(0, 10) : null}
-              mono
-            />
-          </CardContent>
-        </Card>
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">{t('people.employeeDetails')}</TabsTrigger>
+            <TabsTrigger value="hr">{t('nav.hr')}</TabsTrigger>
+          </TabsList>
 
-        {/* Forward-looking placeholder for the full HR module */}
-        <Card>
-          <CardContent className="p-4 text-sm text-muted-foreground">
-            {t('people.hrComingSoon')}
-          </CardContent>
-        </Card>
+          <TabsContent value="overview">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('people.employeeDetails')}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                <Detail label={t('people.jobTitle')} value={employee.jobTitle} />
+                <Detail label={t('people.department')} value={employee.department} />
+                <Detail label={t('common.status')} value={employee.status} />
+                <Detail
+                  label={t('people.joined')}
+                  value={employee.createdAt ? employee.createdAt.slice(0, 10) : null}
+                  mono
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="hr">
+            <Card>
+              <CardContent className="p-4 text-sm text-muted-foreground">
+                {t('people.hrComingSoon')}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

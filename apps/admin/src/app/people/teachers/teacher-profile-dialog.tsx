@@ -1,9 +1,21 @@
 'use client';
 
+import { useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { EmploymentStatusBadge, RecordHeader } from '@/components/domain';
 import type { Teacher } from '@/lib/people';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/components/ui';
 
 /**
  * Read-only teacher profile shown when a teacher name is clicked in the unified Staff directory.
@@ -18,6 +30,7 @@ export function TeacherProfileDialog({
 }) {
   const { t } = useI18n();
   const initials = `${teacher.firstNameEn[0] ?? ''}${teacher.lastNameEn[0] ?? ''}`.toUpperCase();
+  const [tab, setTab] = useState('overview');
 
   return (
     <div className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto p-4">
@@ -50,24 +63,33 @@ export function TeacherProfileDialog({
           }
         />
 
-        {/* Details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('people.teacherDetails')}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-            <Detail label={t('people.specialization')} value={teacher.specialization} />
-            <Detail label={t('people.employeeNumber')} value={teacher.employeeNumber} mono />
-            <Detail label={t('common.status')} value={teacher.status} />
-          </CardContent>
-        </Card>
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">{t('people.teacherDetails')}</TabsTrigger>
+            <TabsTrigger value="assignments">{t('people.teachersTab')}</TabsTrigger>
+          </TabsList>
 
-        {/* Forward-looking placeholder */}
-        <Card>
-          <CardContent className="p-4 text-sm text-muted-foreground">
-            {t('people.manageInTeachers')}
-          </CardContent>
-        </Card>
+          <TabsContent value="overview">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('people.teacherDetails')}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                <Detail label={t('people.specialization')} value={teacher.specialization} />
+                <Detail label={t('people.employeeNumber')} value={teacher.employeeNumber} mono />
+                <Detail label={t('common.status')} value={teacher.status} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="assignments">
+            <Card>
+              <CardContent className="p-4 text-sm text-muted-foreground">
+                {t('people.manageInTeachers')}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
