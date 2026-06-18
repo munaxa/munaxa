@@ -11,6 +11,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Field,
   Input,
   Table,
   TBody,
@@ -174,49 +175,69 @@ function CreateParent({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
-      <Input
-        placeholder={t('common.firstNameEn')}
-        value={form.firstNameEn}
-        onChange={(e) => set('firstNameEn', e.target.value)}
-        required
-      />
-      <Input
-        placeholder={t('common.lastNameEn')}
-        value={form.lastNameEn}
-        onChange={(e) => set('lastNameEn', e.target.value)}
-        required
-      />
-      <Input
-        placeholder="الاسم (AR)"
-        value={form.firstNameAr}
-        onChange={(e) => set('firstNameAr', e.target.value)}
-        required
-        dir="rtl"
-      />
-      <Input
-        placeholder="العائلة (AR)"
-        value={form.lastNameAr}
-        onChange={(e) => set('lastNameAr', e.target.value)}
-        required
-        dir="rtl"
-      />
-      <Input
-        placeholder={t('common.phone')}
-        value={form.phone ?? ''}
-        onChange={(e) => set('phone', e.target.value)}
-        dir="ltr"
-      />
-      <Input
-        placeholder={t('people.nationalId')}
-        value={form.nationalId ?? ''}
-        onChange={(e) => set('nationalId', e.target.value)}
-      />
-      <Input
-        placeholder={t('people.occupation')}
-        className="sm:col-span-2"
-        value={form.occupation ?? ''}
-        onChange={(e) => set('occupation', e.target.value)}
-      />
+      <Field label={t('common.firstNameEn')} htmlFor="parent-firstNameEn">
+        <Input
+          id="parent-firstNameEn"
+          placeholder={t('common.firstNameEn')}
+          value={form.firstNameEn}
+          onChange={(e) => set('firstNameEn', e.target.value)}
+          required
+        />
+      </Field>
+      <Field label={t('common.lastNameEn')} htmlFor="parent-lastNameEn">
+        <Input
+          id="parent-lastNameEn"
+          placeholder={t('common.lastNameEn')}
+          value={form.lastNameEn}
+          onChange={(e) => set('lastNameEn', e.target.value)}
+          required
+        />
+      </Field>
+      <Field label="الاسم (AR)" htmlFor="parent-firstNameAr">
+        <Input
+          id="parent-firstNameAr"
+          placeholder="الاسم (AR)"
+          value={form.firstNameAr}
+          onChange={(e) => set('firstNameAr', e.target.value)}
+          required
+          dir="rtl"
+        />
+      </Field>
+      <Field label="العائلة (AR)" htmlFor="parent-lastNameAr">
+        <Input
+          id="parent-lastNameAr"
+          placeholder="العائلة (AR)"
+          value={form.lastNameAr}
+          onChange={(e) => set('lastNameAr', e.target.value)}
+          required
+          dir="rtl"
+        />
+      </Field>
+      <Field label={t('common.phone')} htmlFor="parent-phone">
+        <Input
+          id="parent-phone"
+          placeholder={t('common.phone')}
+          value={form.phone ?? ''}
+          onChange={(e) => set('phone', e.target.value)}
+          dir="ltr"
+        />
+      </Field>
+      <Field label={t('people.nationalId')} htmlFor="parent-nationalId">
+        <Input
+          id="parent-nationalId"
+          placeholder={t('people.nationalId')}
+          value={form.nationalId ?? ''}
+          onChange={(e) => set('nationalId', e.target.value)}
+        />
+      </Field>
+      <Field label={t('people.occupation')} htmlFor="parent-occupation" className="sm:col-span-2">
+        <Input
+          id="parent-occupation"
+          placeholder={t('people.occupation')}
+          value={form.occupation ?? ''}
+          onChange={(e) => set('occupation', e.target.value)}
+        />
+      </Field>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
         {busy ? t('common.adding') : t('people.addParentButton')}
       </Button>

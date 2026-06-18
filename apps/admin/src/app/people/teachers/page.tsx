@@ -17,6 +17,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Field,
   Input,
   Select,
   Table,
@@ -183,52 +184,73 @@ function CreateTeacher({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
-      <Input
-        placeholder={t('common.firstNameEn')}
-        value={form.firstNameEn}
-        onChange={(e) => set('firstNameEn', e.target.value)}
-        required
-      />
-      <Input
-        placeholder={t('common.lastNameEn')}
-        value={form.lastNameEn}
-        onChange={(e) => set('lastNameEn', e.target.value)}
-        required
-      />
-      <Input
-        placeholder="الاسم (AR)"
-        value={form.firstNameAr}
-        onChange={(e) => set('firstNameAr', e.target.value)}
-        required
-        dir="rtl"
-      />
-      <Input
-        placeholder="العائلة (AR)"
-        value={form.lastNameAr}
-        onChange={(e) => set('lastNameAr', e.target.value)}
-        required
-        dir="rtl"
-      />
-      <Input
-        placeholder={t('people.employeeNumberPlaceholder')}
-        value={form.employeeNumber ?? ''}
-        onChange={(e) => set('employeeNumber', e.target.value)}
-      />
-      <Input
-        placeholder={t('people.specializationPlaceholder')}
-        value={form.specialization ?? ''}
-        onChange={(e) => set('specialization', e.target.value)}
-      />
-      <Select
-        value={form.status ?? 'ACTIVE'}
-        onChange={(e) => set('status', e.target.value as CreateTeacherInput['status'])}
-      >
-        {EMPLOYMENT_STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </Select>
+      <Field label={t('common.firstNameEn')} htmlFor="teacher-firstNameEn">
+        <Input
+          id="teacher-firstNameEn"
+          placeholder={t('common.firstNameEn')}
+          value={form.firstNameEn}
+          onChange={(e) => set('firstNameEn', e.target.value)}
+          required
+        />
+      </Field>
+      <Field label={t('common.lastNameEn')} htmlFor="teacher-lastNameEn">
+        <Input
+          id="teacher-lastNameEn"
+          placeholder={t('common.lastNameEn')}
+          value={form.lastNameEn}
+          onChange={(e) => set('lastNameEn', e.target.value)}
+          required
+        />
+      </Field>
+      <Field label="الاسم (AR)" htmlFor="teacher-firstNameAr">
+        <Input
+          id="teacher-firstNameAr"
+          placeholder="الاسم (AR)"
+          value={form.firstNameAr}
+          onChange={(e) => set('firstNameAr', e.target.value)}
+          required
+          dir="rtl"
+        />
+      </Field>
+      <Field label="العائلة (AR)" htmlFor="teacher-lastNameAr">
+        <Input
+          id="teacher-lastNameAr"
+          placeholder="العائلة (AR)"
+          value={form.lastNameAr}
+          onChange={(e) => set('lastNameAr', e.target.value)}
+          required
+          dir="rtl"
+        />
+      </Field>
+      <Field label={t('people.employeeNumberPlaceholder')} htmlFor="teacher-employeeNumber">
+        <Input
+          id="teacher-employeeNumber"
+          placeholder={t('people.employeeNumberPlaceholder')}
+          value={form.employeeNumber ?? ''}
+          onChange={(e) => set('employeeNumber', e.target.value)}
+        />
+      </Field>
+      <Field label={t('people.specializationPlaceholder')} htmlFor="teacher-specialization">
+        <Input
+          id="teacher-specialization"
+          placeholder={t('people.specializationPlaceholder')}
+          value={form.specialization ?? ''}
+          onChange={(e) => set('specialization', e.target.value)}
+        />
+      </Field>
+      <Field label={t('common.status')} htmlFor="teacher-status">
+        <Select
+          id="teacher-status"
+          value={form.status ?? 'ACTIVE'}
+          onChange={(e) => set('status', e.target.value as CreateTeacherInput['status'])}
+        >
+          {EMPLOYMENT_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </Select>
+      </Field>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
         {busy ? t('common.adding') : t('people.addTeacherButton')}
       </Button>

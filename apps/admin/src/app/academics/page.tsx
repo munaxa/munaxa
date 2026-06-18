@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import {
   academicsApi,
@@ -30,6 +29,7 @@ import {
   Table,
   TBody,
   TD,
+  Textarea,
   TH,
   THead,
   TR,
@@ -187,11 +187,8 @@ function GradesSection() {
       <CardContent className="space-y-3">
         <form onSubmit={(e) => void importCsv(e)} className="space-y-2">
           <Field label={t('academics.importCsv')}>
-            <textarea
-              className={cn(
-                'h-24 w-full rounded-lg border border-input bg-background/60 px-3 py-2 font-mono text-xs',
-                'outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
-              )}
+            <Textarea
+              className="h-24 font-mono text-xs"
               value={csv}
               onChange={(e) => setCsv(e.target.value)}
             />

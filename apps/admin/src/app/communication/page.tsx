@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { communicationApi, type Announcement } from '@/lib/communication';
@@ -18,6 +17,7 @@ import {
   Table,
   TBody,
   TD,
+  Textarea,
   TH,
   THead,
   TR,
@@ -85,11 +85,8 @@ export default function CommunicationPage() {
                 />
               </Field>
               <Field label={t('communication.body')}>
-                <textarea
-                  className={cn(
-                    'h-24 w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-sm',
-                    'outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
-                  )}
+                <Textarea
+                  className="h-24"
                   value={form.body}
                   onChange={(e) => setForm({ ...form, body: e.target.value })}
                   required

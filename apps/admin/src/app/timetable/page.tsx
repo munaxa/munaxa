@@ -106,12 +106,16 @@ export default function TimetablePage() {
               <table className="w-full border-collapse text-sm">
                 <thead>
                   <tr>
-                    <th className="border-b border-border p-2 text-start font-mono text-[10px] uppercase text-muted-foreground">
+                    <th
+                      scope="col"
+                      className="border-b border-border p-2 text-start font-mono text-[10px] uppercase text-muted-foreground"
+                    >
                       {t('timetable.period')}
                     </th>
                     {days.map(({ date, day }, i) => (
                       <th
                         key={date}
+                        scope="col"
                         className="border-b border-border p-2 text-start font-display text-xs font-semibold"
                       >
                         {dayNames[i]}
