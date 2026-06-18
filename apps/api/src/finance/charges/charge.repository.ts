@@ -26,6 +26,37 @@ export class ChargeRepository extends TenantRepository {
     );
   }
 
+  /** Active (non-cancelled) installment charges for a student, earliest due first. */
+  installmentCharges(studentId: string): Promise<Charge[]> {
+    return this.run((tx) =>
+      tx.charge.findMany({
+        where: { studentId, installmentPlanId: { not: null }, status: { not: 'CANCELLED' } },
+        orderBy: { dueDate: 'asc' },
+      }),
+    );
+  }
+
+  /** Cancel a pending installment and detach it from its plan (no payments to preserve). */
+  cancelInstallment(id: string): Promise<Charge> {
+    return this.run(async (tx, tenantId) => {
+      const charge = await tx.charge.update({
+        where: { id },
+        data: { status: 'CANCELLED', installmentPlanId: null },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.installment.cancel',
+        entityType: 'Charge',
+        entityId: id,
+      });
+      return charge;
+    });
+  }
+
+  /** Detach a paid/partly-paid installment from its plan, keeping the charge & its payments. */
+  detachInstallment(id: string): Promise<Charge> {
+    return this.run((tx) => tx.charge.update({ where: { id }, data: { installmentPlanId: null } }));
+  }
+
   sumForStudent(studentId: string): Promise<Prisma.Decimal> {
     return this.run(async (tx) => {
       const result = await tx.charge.aggregate({

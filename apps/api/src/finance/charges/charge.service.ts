@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
 import type { Charge } from '@prisma/client';
 import { ChargeRepository } from './charge.repository';
 import { FinanceBridgeService } from '../../einvoicing/finance-bridge.service';
@@ -51,6 +52,13 @@ export class ChargeService {
     if (!(await this.repo.studentExists(dto.studentId))) {
       throw new BadRequestException('Student not found in this tenant');
     }
+    // One active plan per student — the parent must delete the existing plan before a new one.
+    if ((await this.repo.installmentCharges(dto.studentId)).length > 0) {
+      throw new ConflictException(
+        'An installment plan already exists for this student. Delete it before creating a new one.',
+      );
+    }
+    const planId = randomUUID();
     const totalFils = Math.round(dto.totalAmount * 1000);
     const perFils = Math.floor(totalFils / dto.months);
     const created: Charge[] = [];
@@ -60,6 +68,7 @@ export class ChargeService {
       const charge = await this.repo.create({
         studentId: dto.studentId,
         feePlanId: null,
+        installmentPlanId: planId,
         description: `${dto.description} — ${i + 1}/${dto.months}`,
         amount: amountFils / 1000,
         dueDate: addMonths(dto.firstDueDate, i),
@@ -68,6 +77,31 @@ export class ChargeService {
       created.push(charge);
     }
     return created;
+  }
+
+  /** The student's active installment plan (grouped charges), or null when none exists. */
+  async getInstallmentPlan(
+    studentId: string,
+  ): Promise<{ planId: string; charges: Charge[] } | null> {
+    const charges = await this.repo.installmentCharges(studentId);
+    if (charges.length === 0) return null;
+    return { planId: charges[0]!.installmentPlanId!, charges };
+  }
+
+  /**
+   * Delete the student's installment plan. Unpaid installments are cancelled (removed from the
+   * balance); any installment that already received a payment is detached but kept intact so the
+   * ledger and received money are preserved.
+   */
+  async deleteInstallmentPlan(studentId: string): Promise<void> {
+    const charges = await this.repo.installmentCharges(studentId);
+    for (const charge of charges) {
+      if (charge.status === 'PENDING') {
+        await this.repo.cancelInstallment(charge.id);
+      } else {
+        await this.repo.detachInstallment(charge.id);
+      }
+    }
   }
 
   listForStudent(studentId: string): Promise<Charge[]> {

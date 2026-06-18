@@ -5,12 +5,14 @@ import { Shell } from '@/components/shell';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
+import { useConfirm } from '@/components/confirm';
 import { loadStudentOptions } from '@/lib/pickers';
 import {
   financeApi,
   type CollectionsProfile,
   type CollectionsStatus,
   type HouseholdMember,
+  type InstallmentPlan,
   type Statement,
 } from '@/lib/finance';
 import { einvoicingApi } from '@/lib/einvoicing';
@@ -69,6 +71,7 @@ const COLLECTIONS: {
 export default function FinancePage() {
   const toast = useToast();
   const { t } = useI18n();
+  const confirm = useConfirm();
   const [studentId, setStudentId] = useState('');
   const [statement, setStatement] = useState<Statement | null>(null);
   const [collections, setCollections] = useState<CollectionsProfile | null>(null);
@@ -82,31 +85,35 @@ export default function FinancePage() {
   const [refund, setRefund] = useState({ amount: '', reason: '' });
   const [legalNote, setLegalNote] = useState('');
   const [household, setHousehold] = useState<HouseholdMember[]>([]);
+  const [installPlan, setInstallPlan] = useState<InstallmentPlan | null>(null);
   const [plan, setPlan] = useState({
     description: '',
     totalAmount: '',
     months: '10',
     firstDueDate: '',
   });
-  const [rowAction, setRowAction] = useState<{ id: string; kind: 'discount' | 'credit' } | null>(
-    null,
-  );
-  const [rowForm, setRowForm] = useState({ amount: '', percent: '', reason: '' });
+  const [rowAction, setRowAction] = useState<{
+    id: string;
+    kind: 'discount' | 'credit' | 'pay';
+  } | null>(null);
+  const [rowForm, setRowForm] = useState({ amount: '', percent: '', reason: '', method: 'CASH' });
 
   const load = useCallback(
     async (id = studentId) => {
       if (!id) return;
       setLoading(true);
       try {
-        const [s, c, h] = await Promise.all([
+        const [s, c, h, p] = await Promise.all([
           financeApi.statement(id),
           financeApi.collections(id),
           financeApi.household(id).catch(() => [] as HouseholdMember[]),
+          financeApi.installmentPlan(id).catch(() => null),
         ]);
         setStatement(s);
         setCollections(c);
         setLegalNote(c.legalNote ?? '');
         setHousehold(h);
+        setInstallPlan(p);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : 'Failed to load');
       } finally {
@@ -131,7 +138,19 @@ export default function FinancePage() {
     const { id, kind } = rowAction;
     const amount = rowForm.amount ? Number(rowForm.amount) : undefined;
     const percent = rowForm.percent ? Number(rowForm.percent) : undefined;
-    if (kind === 'discount') {
+    if (kind === 'pay') {
+      // Record the payment against the charge and verify it so it allocates immediately.
+      await run(async () => {
+        const txn = await financeApi.recordPayment({
+          studentId,
+          chargeId: id,
+          amount: amount ?? 0,
+          method: rowForm.method || 'CASH',
+          ...(rowForm.reason ? { reference: rowForm.reason } : {}),
+        });
+        await financeApi.verify(txn.id);
+      }, 'Payment recorded');
+    } else if (kind === 'discount') {
       const base = {
         studentId,
         chargeId: id,
@@ -161,7 +180,7 @@ export default function FinancePage() {
       );
     }
     setRowAction(null);
-    setRowForm({ amount: '', percent: '', reason: '' });
+    setRowForm({ amount: '', percent: '', reason: '', method: 'CASH' });
   }
 
   const tag =
@@ -372,12 +391,28 @@ export default function FinancePage() {
                         </TD>
                         <TD className="text-end">
                           <span className="flex justify-end gap-1">
+                            {Number(b.balance) > 0 ? (
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setRowAction({ id: b.charge.id, kind: 'pay' });
+                                  setRowForm({
+                                    amount: Number(b.balance).toFixed(3),
+                                    percent: '',
+                                    reason: '',
+                                    method: 'CASH',
+                                  });
+                                }}
+                              >
+                                {t('finance.pay')}
+                              </Button>
+                            ) : null}
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => {
                                 setRowAction({ id: b.charge.id, kind: 'discount' });
-                                setRowForm({ amount: '', percent: '', reason: '' });
+                                setRowForm({ amount: '', percent: '', reason: '', method: 'CASH' });
                               }}
                             >
                               {t('finance.discount')}
@@ -399,7 +434,7 @@ export default function FinancePage() {
                               variant="ghost"
                               onClick={() => {
                                 setRowAction({ id: b.charge.id, kind: 'credit' });
-                                setRowForm({ amount: '', percent: '', reason: '' });
+                                setRowForm({ amount: '', percent: '', reason: '', method: 'CASH' });
                               }}
                             >
                               {t('finance.credit')}
@@ -423,7 +458,9 @@ export default function FinancePage() {
                     <span className="font-mono text-xs uppercase text-muted-foreground">
                       {rowAction.kind === 'discount'
                         ? t('finance.applyDiscount')
-                        : t('finance.creditNote')}
+                        : rowAction.kind === 'pay'
+                          ? t('finance.recordPayment')
+                          : t('finance.creditNote')}
                     </span>
                     <Field label={t('finance.amountJod')}>
                       <Input
@@ -447,14 +484,31 @@ export default function FinancePage() {
                         />
                       </Field>
                     ) : null}
-                    <Field label={t('common.reason')} className="flex-1">
+                    {rowAction.kind === 'pay' ? (
+                      <Field label={t('finance.method')}>
+                        <Select
+                          value={rowForm.method}
+                          onChange={(e) => setRowForm({ ...rowForm, method: e.target.value })}
+                        >
+                          {['CASH', 'CLIQ', 'EWALLET', 'BANK_TRANSFER'].map((m) => (
+                            <option key={m} value={m}>
+                              {m}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+                    ) : null}
+                    <Field
+                      label={rowAction.kind === 'pay' ? t('finance.reference') : t('common.reason')}
+                      className="flex-1"
+                    >
                       <Input
                         value={rowForm.reason}
                         onChange={(e) => setRowForm({ ...rowForm, reason: e.target.value })}
                       />
                     </Field>
                     <Button size="sm" onClick={() => void submitRowAction()}>
-                      {t('finance.apply')}
+                      {rowAction.kind === 'pay' ? t('finance.pay') : t('finance.apply')}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setRowAction(null)}>
                       {t('common.cancel')}
@@ -536,76 +590,119 @@ export default function FinancePage() {
                 {/* Installment plan — split an amount across monthly payments */}
                 <div className="mt-4 border-t border-border pt-4">
                   <p className="mb-2 text-sm font-medium">{t('finance.installmentPlan')}</p>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void run(
-                        () =>
-                          financeApi.createInstallments({
-                            studentId,
-                            description: plan.description || t('finance.installmentDefault'),
-                            totalAmount: Number(plan.totalAmount),
-                            months: Number(plan.months),
-                            firstDueDate: plan.firstDueDate,
-                          }),
-                        t('finance.installmentsCreated'),
-                      ).then(() =>
-                        setPlan({
-                          description: '',
-                          totalAmount: '',
-                          months: '10',
-                          firstDueDate: '',
-                        }),
-                      );
-                    }}
-                    className="flex flex-wrap items-end gap-2"
-                  >
-                    <Field label={t('finance.newCharge')} className="flex-1">
-                      <Input
-                        placeholder={t('finance.installmentDefault')}
-                        value={plan.description}
-                        onChange={(e) => setPlan({ ...plan, description: e.target.value })}
-                      />
-                    </Field>
-                    <Field label={t('finance.totalAmountJod')}>
-                      <Input
-                        type="number"
-                        step="0.001"
-                        className="w-28"
-                        value={plan.totalAmount}
-                        onChange={(e) => setPlan({ ...plan, totalAmount: e.target.value })}
-                        required
-                      />
-                    </Field>
-                    <Field label={t('finance.months')}>
-                      <Input
-                        type="number"
-                        min="2"
-                        max="60"
-                        className="w-20"
-                        value={plan.months}
-                        onChange={(e) => setPlan({ ...plan, months: e.target.value })}
-                        required
-                      />
-                    </Field>
-                    <Field label={t('finance.firstDueDate')}>
-                      <Input
-                        type="date"
-                        value={plan.firstDueDate}
-                        onChange={(e) => setPlan({ ...plan, firstDueDate: e.target.value })}
-                        required
-                      />
-                    </Field>
-                    <Button type="submit" variant="secondary">
-                      {t('finance.createPlan')}
-                    </Button>
-                  </form>
-                  {plan.totalAmount && Number(plan.months) > 0 ? (
-                    <p className="mt-2 font-mono text-xs text-muted-foreground">
-                      {Number(plan.months)} ×{' '}
-                      {(Number(plan.totalAmount) / Number(plan.months)).toFixed(3)} JOD
-                    </p>
-                  ) : null}
+                  {installPlan ? (
+                    <div className="space-y-2">
+                      <ul className="divide-y divide-border text-sm">
+                        {installPlan.charges.map((c) => (
+                          <li key={c.id} className="flex items-center justify-between gap-2 py-1.5">
+                            <span className="min-w-0">
+                              {c.description}
+                              {c.dueDate ? (
+                                <span className="ms-2 font-mono text-[11px] text-muted-foreground">
+                                  {new Date(c.dueDate).toLocaleDateString()}
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              <span className="font-mono">{Number(c.amount).toFixed(3)}</span>
+                              <Badge tone={CHARGE_TONE[c.status] ?? 'default'}>{c.status}</Badge>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() =>
+                          void confirm({ description: t('finance.deletePlanConfirm') }).then(
+                            (ok) => {
+                              if (ok)
+                                void run(
+                                  () => financeApi.deleteInstallmentPlan(studentId),
+                                  t('finance.planDeleted'),
+                                );
+                            },
+                          )
+                        }
+                      >
+                        {t('finance.deletePlan')}
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void run(
+                            () =>
+                              financeApi.createInstallments({
+                                studentId,
+                                description: plan.description || t('finance.installmentDefault'),
+                                totalAmount: Number(plan.totalAmount),
+                                months: Number(plan.months),
+                                firstDueDate: plan.firstDueDate,
+                              }),
+                            t('finance.installmentsCreated'),
+                          ).then(() =>
+                            setPlan({
+                              description: '',
+                              totalAmount: '',
+                              months: '10',
+                              firstDueDate: '',
+                            }),
+                          );
+                        }}
+                        className="flex flex-wrap items-end gap-2"
+                      >
+                        <Field label={t('finance.newCharge')} className="flex-1">
+                          <Input
+                            placeholder={t('finance.installmentDefault')}
+                            value={plan.description}
+                            onChange={(e) => setPlan({ ...plan, description: e.target.value })}
+                          />
+                        </Field>
+                        <Field label={t('finance.totalAmountJod')}>
+                          <Input
+                            type="number"
+                            step="0.001"
+                            className="w-28"
+                            value={plan.totalAmount}
+                            onChange={(e) => setPlan({ ...plan, totalAmount: e.target.value })}
+                            required
+                          />
+                        </Field>
+                        <Field label={t('finance.months')}>
+                          <Input
+                            type="number"
+                            min="2"
+                            max="60"
+                            className="w-20"
+                            value={plan.months}
+                            onChange={(e) => setPlan({ ...plan, months: e.target.value })}
+                            required
+                          />
+                        </Field>
+                        <Field label={t('finance.firstDueDate')}>
+                          <Input
+                            type="date"
+                            value={plan.firstDueDate}
+                            onChange={(e) => setPlan({ ...plan, firstDueDate: e.target.value })}
+                            required
+                          />
+                        </Field>
+                        <Button type="submit" variant="secondary">
+                          {t('finance.createPlan')}
+                        </Button>
+                      </form>
+                      {plan.totalAmount && Number(plan.months) > 0 ? (
+                        <p className="mt-2 font-mono text-xs text-muted-foreground">
+                          {Number(plan.months)} ×{' '}
+                          {(Number(plan.totalAmount) / Number(plan.months)).toFixed(3)} JOD
+                        </p>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
