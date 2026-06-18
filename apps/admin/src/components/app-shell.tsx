@@ -10,6 +10,7 @@ import { advancedApi } from '@/lib/advanced';
 import { Button } from '@munaxa/ui';
 import { Logo } from './logo';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
+import { GlobalSearch } from './global-search';
 import { useI18n } from './i18n-provider';
 
 interface NavItem {
@@ -71,8 +72,21 @@ export function AppShell({
   const router = useRouter();
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   // Enabled feature flags; `null` while loading so flagged items stay hidden until known.
   const [flags, setFlags] = useState<Record<string, boolean> | null>(null);
+
+  // Global search keyboard shortcut: ⌘K / Ctrl-K.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   const held = new Set(principal.permissions);
   const items = NAV.filter(
     (i) =>
@@ -197,6 +211,19 @@ export function AppShell({
             <span className="font-display text-sm font-medium text-muted-foreground">Munaxa</span>
           </div>
           <div className="ms-auto flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSearchOpen(true)}
+              aria-label={t('search.title')}
+              aria-keyshortcuts="Control+K Meta+K"
+            >
+              <span aria-hidden="true">⌕</span>
+              <span className="hidden sm:inline">{t('search.title')}</span>
+              <kbd className="hidden rounded border border-border px-1 font-mono text-[10px] text-muted-foreground sm:inline">
+                ⌘K
+              </kbd>
+            </Button>
             <span className="hidden text-xs text-muted-foreground sm:inline">
               {principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
             </span>
@@ -211,6 +238,8 @@ export function AppShell({
           {children}
         </main>
       </div>
+
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} principal={principal} />
     </div>
   );
 }

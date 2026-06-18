@@ -67,6 +67,17 @@
     "closeMenu": "إغلاق القائمة",
     "skipToContent": "تخطّ إلى المحتوى"
   },
+  "search": {
+    "title": "بحث",
+    "placeholder": "ابحث عن الطلاب والمعلمين والموظفين…",
+    "noResults": "لا توجد نتائج.",
+    "hint": "اكتب للبحث · ↑↓ للتنقل · Enter للفتح · Esc للإغلاق",
+    "type": {
+      "student": "طالب",
+      "teacher": "معلم",
+      "employee": "موظف"
+    }
+  },
   "nav": {
     "dashboard": "الرئيسية",
     "structure": "هيكل المدرسة",

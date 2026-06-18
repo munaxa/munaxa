@@ -67,6 +67,17 @@
     "closeMenu": "Close menu",
     "skipToContent": "Skip to content"
   },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search students, teachers, staff…",
+    "noResults": "No results.",
+    "hint": "Type to search · ↑↓ to navigate · Enter to open · Esc to close",
+    "type": {
+      "student": "Student",
+      "teacher": "Teacher",
+      "employee": "Staff"
+    }
+  },
   "nav": {
     "dashboard": "Dashboard",
     "structure": "School structure",
