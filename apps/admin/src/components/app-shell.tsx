@@ -121,9 +121,15 @@ export function AppShell({
   );
 
   const sessionFooter = (
-    <div className="mt-4 rounded-lg border border-border bg-background/40 p-3 text-xs">
+    <div
+      className="mt-4 rounded-lg border border-border bg-background/40 p-3 text-xs"
+      aria-label={`${principal.roles.join(', ') || '—'} · ${principal.tenantId}`}
+    >
       <p className="truncate text-muted-foreground">{principal.roles.join(', ') || '—'}</p>
-      <p className="truncate font-mono text-[10px] text-muted-foreground/70">
+      <p
+        className="truncate font-mono text-[10px] text-muted-foreground/70"
+        title={principal.tenantId}
+      >
         {principal.tenantId}
       </p>
     </div>
