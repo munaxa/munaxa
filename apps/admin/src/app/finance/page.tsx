@@ -6,6 +6,7 @@ import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
 import { useConfirm } from '@/components/confirm';
+import { ChargeStatusBadge, TransactionStatusBadge } from '@/components/domain';
 import { loadStudentOptions } from '@/lib/pickers';
 import {
   financeApi,
@@ -33,6 +34,7 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 const jod = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
@@ -46,18 +48,6 @@ const FEE_TYPES: { value: string; labelKey: string }[] = [
   { value: 'OTHER', labelKey: 'finance.feeOther' },
 ];
 
-const CHARGE_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted' | 'default'> = {
-  PAID: 'success',
-  PARTIAL: 'warning',
-  PENDING: 'default',
-  WAIVED: 'muted',
-  CANCELLED: 'muted',
-};
-const TXN_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = {
-  VERIFIED: 'success',
-  PENDING: 'warning',
-  REJECTED: 'danger',
-};
 const COLLECTIONS: {
   value: CollectionsStatus;
   labelKey: string;
@@ -397,9 +387,7 @@ export default function FinancePage() {
                         <TD className="text-end font-mono">{Number(b.net).toFixed(3)}</TD>
                         <TD className="text-end font-mono">{Number(b.balance).toFixed(3)}</TD>
                         <TD>
-                          <Badge tone={CHARGE_TONE[b.charge.status] ?? 'default'}>
-                            {b.charge.status}
-                          </Badge>
+                          <ChargeStatusBadge status={b.charge.status} />
                         </TD>
                         <TD className="text-end">
                           <span className="flex justify-end gap-1">
@@ -457,8 +445,8 @@ export default function FinancePage() {
                     ))}
                     {statement.chargeBalances.length === 0 ? (
                       <TR>
-                        <TD colSpan={7} className="text-muted-foreground">
-                          {t('finance.noCharges')}
+                        <TD colSpan={7}>
+                          <EmptyState title={t('finance.noCharges')} />
                         </TD>
                       </TR>
                     ) : null}
@@ -628,7 +616,7 @@ export default function FinancePage() {
                               </TD>
                               <TD className="text-end font-mono">{Number(c.balance).toFixed(3)}</TD>
                               <TD>
-                                <Badge tone={CHARGE_TONE[c.status] ?? 'default'}>{c.status}</Badge>
+                                <ChargeStatusBadge status={c.status} />
                               </TD>
                             </TR>
                           ))}
@@ -857,7 +845,7 @@ export default function FinancePage() {
                         <TD className="text-end font-mono">{Number(tx.amount).toFixed(3)}</TD>
                         <TD>{tx.method}</TD>
                         <TD>
-                          <Badge tone={TXN_TONE[tx.status] ?? 'muted'}>{tx.status}</Badge>
+                          <TransactionStatusBadge status={tx.status} />
                         </TD>
                         <TD className="text-end">
                           {tx.status === 'PENDING' ? (
@@ -884,8 +872,8 @@ export default function FinancePage() {
                     ))}
                     {statement.transactions.length === 0 ? (
                       <TR>
-                        <TD colSpan={4} className="text-muted-foreground">
-                          {t('finance.noPayments')}
+                        <TD colSpan={4}>
+                          <EmptyState title={t('finance.noPayments')} />
                         </TD>
                       </TR>
                     ) : null}
@@ -956,7 +944,7 @@ export default function FinancePage() {
                           <TD className="text-end font-mono">{Number(r.amount).toFixed(3)}</TD>
                           <TD className="text-muted-foreground">{r.reason}</TD>
                           <TD>
-                            <Badge tone={TXN_TONE[r.status] ?? 'muted'}>{r.status}</Badge>
+                            <TransactionStatusBadge status={r.status} />
                           </TD>
                           <TD className="text-end">
                             {r.status === 'PENDING' ? (

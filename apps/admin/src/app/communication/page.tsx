@@ -21,6 +21,7 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 const AUDIENCES = ['ALL', 'PARENTS', 'TEACHERS', 'STUDENTS'];
@@ -148,8 +149,8 @@ export default function CommunicationPage() {
             ))}
             {list.length === 0 ? (
               <TR>
-                <TD colSpan={2} className="text-muted-foreground">
-                  {t('communication.noAnnouncements')}
+                <TD colSpan={2}>
+                  <EmptyState title={t('communication.noAnnouncements')} />
                 </TD>
               </TR>
             ) : null}

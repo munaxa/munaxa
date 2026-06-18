@@ -27,6 +27,7 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 export default function FeePlansPage() {
@@ -115,8 +116,8 @@ export default function FeePlansPage() {
             ))}
             {plans.length === 0 ? (
               <TR>
-                <TD colSpan={5} className="text-muted-foreground">
-                  {t('feePlans.noPlans')}
+                <TD colSpan={5}>
+                  <EmptyState title={t('feePlans.noPlans')} />
                 </TD>
               </TR>
             ) : null}

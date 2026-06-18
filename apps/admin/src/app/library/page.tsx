@@ -11,7 +11,6 @@ import {
   type CreateBookInput,
 } from '@/lib/advanced';
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -26,7 +25,9 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
+import { LoanStatusBadge } from '@/components/domain';
 
 export default function LibraryPage() {
   const { t } = useI18n();
@@ -127,8 +128,8 @@ export default function LibraryPage() {
               ))}
               {books.length === 0 ? (
                 <TR>
-                  <TD colSpan={4} className="text-muted-foreground">
-                    {t('library.noBooks')}
+                  <TD colSpan={4}>
+                    <EmptyState title={t('library.noBooks')} />
                   </TD>
                 </TR>
               ) : null}
@@ -155,17 +156,7 @@ export default function LibraryPage() {
                   <TD>{l.borrowerName || l.studentId || '—'}</TD>
                   <TD className="font-mono text-xs">{l.dueDate.slice(0, 10)}</TD>
                   <TD>
-                    <Badge
-                      tone={
-                        l.status === 'ACTIVE'
-                          ? 'default'
-                          : l.status === 'OVERDUE'
-                            ? 'danger'
-                            : 'muted'
-                      }
-                    >
-                      {l.status}
-                    </Badge>
+                    <LoanStatusBadge status={l.status} />
                   </TD>
                   <TD className="text-end">
                     {l.status !== 'RETURNED' ? (
@@ -178,8 +169,8 @@ export default function LibraryPage() {
               ))}
               {loans.length === 0 ? (
                 <TR>
-                  <TD colSpan={5} className="text-muted-foreground">
-                    {t('library.noLoans')}
+                  <TD colSpan={5}>
+                    <EmptyState title={t('library.noLoans')} />
                   </TD>
                 </TR>
               ) : null}

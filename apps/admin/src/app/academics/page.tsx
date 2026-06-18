@@ -33,6 +33,7 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 export default function AcademicsPage() {
@@ -142,8 +143,8 @@ function HomeworkSection() {
             ))}
             {list.length === 0 ? (
               <TR>
-                <TD colSpan={3} className="text-muted-foreground">
-                  {t('academics.noHomework')}
+                <TD colSpan={3}>
+                  <EmptyState title={t('academics.noHomework')} />
                 </TD>
               </TR>
             ) : null}
@@ -401,8 +402,8 @@ function BehaviorSection() {
               ))}
               {list.length === 0 ? (
                 <TR>
-                  <TD colSpan={5} className="text-muted-foreground">
-                    {t('academics.noBehavior')}
+                  <TD colSpan={5}>
+                    <EmptyState title={t('academics.noBehavior')} />
                   </TD>
                 </TR>
               ) : null}

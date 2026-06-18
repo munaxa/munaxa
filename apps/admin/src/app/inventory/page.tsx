@@ -28,6 +28,7 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 export default function InventoryPage() {
@@ -129,8 +130,8 @@ export default function InventoryPage() {
               })}
               {items.length === 0 ? (
                 <TR>
-                  <TD colSpan={5} className="text-muted-foreground">
-                    {t('inventory.noItems')}
+                  <TD colSpan={5}>
+                    <EmptyState title={t('inventory.noItems')} />
                   </TD>
                 </TR>
               ) : null}
@@ -168,8 +169,8 @@ export default function InventoryPage() {
               ))}
               {txns.length === 0 ? (
                 <TR>
-                  <TD colSpan={5} className="text-muted-foreground">
-                    {t('inventory.noMovements')}
+                  <TD colSpan={5}>
+                    <EmptyState title={t('inventory.noMovements')} />
                   </TD>
                 </TR>
               ) : null}

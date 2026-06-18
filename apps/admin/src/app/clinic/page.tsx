@@ -14,7 +14,6 @@ import {
   type MedicalRecord,
 } from '@/lib/advanced';
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -29,14 +28,9 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
-
-const OUTCOME_TONE: Record<ClinicOutcome, 'success' | 'warning' | 'danger' | 'muted'> = {
-  RESOLVED: 'success',
-  SENT_HOME: 'warning',
-  REFERRED: 'warning',
-  HOSPITALIZED: 'danger',
-};
+import { ClinicOutcomeBadge } from '@/components/domain';
 
 export default function ClinicPage() {
   const { t } = useI18n();
@@ -127,15 +121,15 @@ export default function ClinicPage() {
                     {v.temperature != null ? `${String(v.temperature)}°` : '—'}
                   </TD>
                   <TD>
-                    <Badge tone={OUTCOME_TONE[v.outcome]}>{v.outcome.replace('_', ' ')}</Badge>
+                    <ClinicOutcomeBadge outcome={v.outcome} />
                   </TD>
                   <TD className="font-mono text-xs">{v.visitedAt.slice(0, 10)}</TD>
                 </TR>
               ))}
               {visits.length === 0 ? (
                 <TR>
-                  <TD colSpan={5} className="text-muted-foreground">
-                    {t('clinic.noVisits')}
+                  <TD colSpan={5}>
+                    <EmptyState title={t('clinic.noVisits')} />
                   </TD>
                 </TR>
               ) : null}
