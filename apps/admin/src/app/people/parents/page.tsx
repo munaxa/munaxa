@@ -5,6 +5,7 @@ import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { useConfirm } from '@/components/confirm';
 import { parentsApi, type CreateParentInput, type Parent } from '@/lib/people';
+import { ParentProfileDialog } from '@/components/domain';
 import {
   Button,
   Card,
@@ -38,6 +39,7 @@ export default function ParentsPage() {
   const [parents, setParents] = useState<Parent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewing, setViewing] = useState<Parent | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -105,7 +107,13 @@ export default function ParentsPage() {
             {parents.map((p) => (
               <TR key={p.id}>
                 <TD>
-                  {p.firstNameEn} {p.lastNameEn}
+                  <button
+                    type="button"
+                    className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                    onClick={() => setViewing(p)}
+                  >
+                    {p.firstNameEn} {p.lastNameEn}
+                  </button>
                 </TD>
                 <TD dir="rtl">
                   {p.firstNameAr} {p.lastNameAr}
@@ -132,6 +140,7 @@ export default function ParentsPage() {
           </TBody>
         </Table>
       </div>
+      {viewing ? <ParentProfileDialog parent={viewing} onClose={() => setViewing(null)} /> : null}
     </Shell>
   );
 }
