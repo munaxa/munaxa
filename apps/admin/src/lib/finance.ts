@@ -69,9 +69,14 @@ export interface Statement {
 export interface InstallmentCharge {
   id: string;
   description: string;
-  amount: string;
-  status: string;
   dueDate?: string | null;
+  /** Scheduled amount for this installment. */
+  amount: string;
+  /** Amount paid/allocated against it so far. */
+  paid: string;
+  /** Remaining balance. */
+  balance: string;
+  status: string;
 }
 
 export interface InstallmentPlan {
@@ -162,6 +167,17 @@ export const financeApi = {
     authFetch('/finance/transactions', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<{ id: string }>(r),
     ),
+  payInstallment: (data: {
+    studentId: string;
+    chargeId: string;
+    amount: number;
+    method: string;
+    reference?: string;
+  }) =>
+    authFetch('/finance/charges/installments/pay', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json(r)),
   verify: (id: string) =>
     authFetch(`/finance/transactions/${id}/verify`, { method: 'POST' }).then((r) => json(r)),
   reject: (id: string) =>
