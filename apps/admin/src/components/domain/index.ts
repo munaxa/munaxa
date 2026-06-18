@@ -9,3 +9,4 @@ export { TransactionStatusBadge } from './transaction-status-badge';
 export { ClinicOutcomeBadge } from './clinic-outcome-badge';
 export { LoanStatusBadge } from './loan-status-badge';
 export { StatusBadge as EmploymentStatusBadge } from '../status-badge';
+export { RecordHeader } from './record-header';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useI18n } from '@/components/i18n-provider';
-import { StatusBadge } from '@/components/status-badge';
+import { EmploymentStatusBadge, RecordHeader } from '@/components/domain';
 import type { Teacher } from '@/lib/people';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 
@@ -20,7 +20,7 @@ export function TeacherProfileDialog({
   const initials = `${teacher.firstNameEn[0] ?? ''}${teacher.lastNameEn[0] ?? ''}`.toUpperCase();
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
+    <div className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto p-4">
       <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
       <div
         className="relative my-8 w-full max-w-2xl space-y-4 rounded-xl border border-border bg-card p-5 shadow-card"
@@ -28,33 +28,27 @@ export function TeacherProfileDialog({
         aria-modal="true"
       >
         {/* Identity header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-secondary font-display text-xl font-semibold">
-              {initials}
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-x-3">
-                <h2 className="font-display text-xl font-semibold">
-                  {teacher.firstNameEn} {teacher.lastNameEn}
-                </h2>
-                <span className="text-muted-foreground" dir="rtl">
-                  {teacher.firstNameAr} {teacher.lastNameAr}
-                </span>
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <StatusBadge status={teacher.status} />
-                <Badge tone="muted">{t('people.typeTeacher')}</Badge>
-                {teacher.specialization ? (
-                  <Badge tone="muted">{teacher.specialization}</Badge>
-                ) : null}
-              </div>
-            </div>
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.cancel')}>
-            ✕
-          </Button>
-        </div>
+        <RecordHeader
+          initials={initials}
+          title={`${teacher.firstNameEn} ${teacher.lastNameEn}`}
+          subtitle={
+            <span dir="rtl" className="text-muted-foreground">
+              {teacher.firstNameAr} {teacher.lastNameAr}
+            </span>
+          }
+          badges={
+            <>
+              <EmploymentStatusBadge status={teacher.status} />
+              <Badge tone="muted">{t('people.typeTeacher')}</Badge>
+              {teacher.specialization ? <Badge tone="muted">{teacher.specialization}</Badge> : null}
+            </>
+          }
+          actions={
+            <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.cancel')}>
+              ✕
+            </Button>
+          }
+        />
 
         {/* Details */}
         <Card>

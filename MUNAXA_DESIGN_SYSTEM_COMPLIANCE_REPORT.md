@@ -122,3 +122,26 @@ Every phase followed: **assess → targeted low-risk change → build-verify →
 `DESIGN_SYSTEM_DISCOVERY` · `DESIGN_SYSTEM_AUDIT` · `TOKEN_MIGRATION_REPORT` · `TYPOGRAPHY_MIGRATION_REPORT` · `COMPONENT_MIGRATION_REPORT` · `PATTERN_COMPLIANCE_REPORT` · `DOMAIN_COMPONENT_REPORT` · `WORKSPACE_ARCHITECTURE_REPORT` · `SEARCH_ARCHITECTURE_REPORT` · `MULTI_TENANT_REPORT` · `PERMISSIONS_REPORT` · `AUDIT_COMPLIANCE_REPORT` · `ACCESSIBILITY_REPORT` · `RTL_REPORT` · `DARK_MODE_REPORT` · `PERFORMANCE_REPORT` · **`MUNAXA_DESIGN_SYSTEM_COMPLIANCE_REPORT`** (this document).
 
 **END — Program complete (Phases 0–15).**
+
+---
+
+## 10. Post-15 Addendum — Roadmap items delivered
+
+After the program gate, two roadmap items were taken on (still **no API/schema/route changes**):
+
+### A. Global search ✅ (was “needs backend”)
+Built a **permission-pre-filtered command-palette** (`global-search.tsx`) that searches **students / teachers / staff** by reusing the **existing list endpoints** (students server-side; teachers/staff client-filtered + cached) — no new API. Opens from a header button or **⌘K / Ctrl-K**; portal overlay, debounced, full keyboard nav (↑/↓/Enter/Esc) + combobox/listbox ARIA; RTL/dark via tokens; results grouped by type and navigate to the module. Only entity types the role can access are queried (DS Search UX rule). New `search.*` i18n (EN+AR).
+
+### B. Record Workspace header rollout ✅ (remaining item #2, partial)
+New **`RecordHeader`** domain component (DS workspace header) applied to **Student, Teacher, and Employee** profile dialogs — dedupes the hand-rolled headers, standardizes identity/status/actions, and tokenizes the last `z-[60]` → `z-modal`.
+
+### Updated score: **~84 / 100**
+Domain components **40 → ~50** and pattern/search compliance tick up with these additions.
+
+### Still outstanding (genuinely API/product-blocked or larger)
+- Domain **cards/tables** (StudentCard/InvoiceTable/BalanceCard/AgingCard) — buildable next as presentational components over existing data.
+- Tabbed workspace bodies for Teacher/Parent (Student is the exemplar).
+- **Audit trails / activity feed** per record — needs an audit-log API.
+- Per-action permission **hide/disable** — needs the action→permission-key map.
+- Dashboard **trend deltas** — needs trend data.
+- Global-search deep-link to a record — needs record routes (currently navigates to the module).
