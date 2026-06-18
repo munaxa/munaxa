@@ -4,7 +4,19 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
-import { ArrowRight, CheckCircle, AlertCircle, Info, AlertTriangle, Blocks, Box, ChartNoAxesCombined, PanelTop, Table2, TextCursorInput } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle,
+  AlertCircle,
+  Info,
+  AlertTriangle,
+  Blocks,
+  Box,
+  ChartNoAxesCombined,
+  PanelTop,
+  Table2,
+  TextCursorInput,
+} from "lucide-react";
 
 export default function Components() {
   return (
@@ -15,7 +27,9 @@ export default function Components() {
           <div className="max-w-6xl mx-auto">
             <h1 className="text-4xl font-bold mb-4">Components</h1>
             <p className="text-lg text-foreground/70">
-              Interactive UI components built with shadcn/ui and Radix UI. All components are accessible, responsive, and follow MUNAXA design principles.
+              Interactive UI components built with shadcn/ui and Radix UI. All
+              components are accessible, responsive, and follow MUNAXA design
+              principles.
             </p>
           </div>
         </section>
@@ -24,24 +38,31 @@ export default function Components() {
         <section className="px-6 py-12 border-b border-border">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">Buttons</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-card border border-border rounded-lg p-8">
-                <h3 className="font-semibold text-lg mb-6 text-foreground">Primary Button</h3>
+                <h3 className="font-semibold text-lg mb-6 text-foreground">
+                  Primary Button
+                </h3>
                 <div className="space-y-4">
                   <Button>Primary Button</Button>
                   <Button disabled>Disabled</Button>
                   <p className="text-sm text-foreground/60 mt-4">
-                    Background: #7A3FFF | Hover: #652ED8 | Radius: 8px
+                    Brand violet #7A3FFF (primary resolves to #5B1FD6 on light,
+                    #B97BFF on dark) | Radius: 14px
                   </p>
                 </div>
               </div>
 
               <div className="bg-card border border-border rounded-lg p-8">
-                <h3 className="font-semibold text-lg mb-6 text-foreground">Secondary Button</h3>
+                <h3 className="font-semibold text-lg mb-6 text-foreground">
+                  Secondary Button
+                </h3>
                 <div className="space-y-4">
                   <Button variant="outline">Secondary Button</Button>
-                  <Button variant="outline" disabled>Disabled</Button>
+                  <Button variant="outline" disabled>
+                    Disabled
+                  </Button>
                   <p className="text-sm text-foreground/60 mt-4">
                     Background: White | Border: Gray-200 | Radius: 8px
                   </p>
@@ -49,10 +70,14 @@ export default function Components() {
               </div>
 
               <div className="bg-card border border-border rounded-lg p-8">
-                <h3 className="font-semibold text-lg mb-6 text-foreground">Danger Button</h3>
+                <h3 className="font-semibold text-lg mb-6 text-foreground">
+                  Danger Button
+                </h3>
                 <div className="space-y-4">
                   <Button variant="destructive">Delete</Button>
-                  <Button variant="destructive" disabled>Disabled</Button>
+                  <Button variant="destructive" disabled>
+                    Disabled
+                  </Button>
                   <p className="text-sm text-foreground/60 mt-4">
                     Background: #EF4444 | Color: White
                   </p>
@@ -60,7 +85,9 @@ export default function Components() {
               </div>
 
               <div className="bg-card border border-border rounded-lg p-8">
-                <h3 className="font-semibold text-lg mb-6 text-foreground">Button Sizes</h3>
+                <h3 className="font-semibold text-lg mb-6 text-foreground">
+                  Button Sizes
+                </h3>
                 <div className="space-y-4">
                   <Button size="sm">Small</Button>
                   <Button size="default">Default</Button>
@@ -82,21 +109,26 @@ export default function Components() {
         <section className="px-6 py-12 border-b border-border">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">Inputs</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-card border border-border rounded-lg p-8">
-                <h3 className="font-semibold text-lg mb-6 text-foreground">Text Input</h3>
+                <h3 className="font-semibold text-lg mb-6 text-foreground">
+                  Text Input
+                </h3>
                 <div className="space-y-4">
                   <Input placeholder="Enter text..." />
                   <Input placeholder="Disabled" disabled />
                   <p className="text-sm text-foreground/60 mt-4">
-                    Height: 40px | Radius: 8px | Border: Gray-300 | Focus: Primary-600
+                    Height: 40px | Radius: 8px | Border: Gray-300 | Focus:
+                    Primary-600
                   </p>
                 </div>
               </div>
 
               <div className="bg-card border border-border rounded-lg p-8">
-                <h3 className="font-semibold text-lg mb-6 text-foreground">Input States</h3>
+                <h3 className="font-semibold text-lg mb-6 text-foreground">
+                  Input States
+                </h3>
                 <div className="space-y-4">
                   <Input placeholder="Default state" />
                   <Input placeholder="Focus state (click here)" />
@@ -120,12 +152,13 @@ export default function Components() {
         <section className="px-6 py-12 border-b border-border">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">Cards</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="p-6">
                 <h3 className="font-semibold text-lg mb-2">Card Title</h3>
                 <p className="text-foreground/70 mb-4">
-                  Cards are the primary container for content. Use them to organize related information.
+                  Cards are the primary container for content. Use them to
+                  organize related information.
                 </p>
                 <p className="text-xs text-foreground/50">
                   Background: White | Border: Gray-200 | Radius: 12px
@@ -165,12 +198,16 @@ export default function Components() {
         {/* Badges & Status */}
         <section className="px-6 py-12 border-b border-border">
           <div className="max-w-6xl mx-auto">
-            <h2 className="text-2xl font-bold mb-8">Badges & Status Indicators</h2>
-            
+            <h2 className="text-2xl font-bold mb-8">
+              Badges & Status Indicators
+            </h2>
+
             <div className="bg-card border border-border rounded-lg p-8">
               <div className="space-y-6">
                 <div>
-                  <p className="text-sm font-semibold text-foreground/70 mb-3">Status Badges</p>
+                  <p className="text-sm font-semibold text-foreground/70 mb-3">
+                    Status Badges
+                  </p>
                   <div className="flex flex-wrap gap-3">
                     <Badge className="bg-success text-white">Success</Badge>
                     <Badge className="bg-warning text-white">Warning</Badge>
@@ -180,7 +217,9 @@ export default function Components() {
                 </div>
 
                 <div>
-                  <p className="text-sm font-semibold text-foreground/70 mb-3">Status Icons</p>
+                  <p className="text-sm font-semibold text-foreground/70 mb-3">
+                    Status Icons
+                  </p>
                   <div className="flex flex-wrap gap-6">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-5 h-5 text-success" />
@@ -209,7 +248,7 @@ export default function Components() {
         <section className="px-6 py-12 border-b border-border">
           <div className="max-w-6xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">All Components</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
                 { name: "Buttons", href: "/buttons", icon: Blocks },
@@ -218,15 +257,17 @@ export default function Components() {
                 { name: "Tables", href: "/tables", icon: Table2 },
                 { name: "Modals", href: "/modals", icon: Box },
                 { name: "Charts", href: "/charts", icon: ChartNoAxesCombined },
-              ].map((item) => {
+              ].map(item => {
                 const Icon = item.icon;
                 return (
-                <Link key={item.href} href={item.href}>
-                  <a className="block bg-card border border-border rounded-lg p-6 hover:border-primary/50 hover:shadow-lg transition-all">
-                    <Icon className="mb-3 size-7 text-primary" aria-hidden />
-                    <h3 className="font-semibold text-foreground">{item.name}</h3>
-                  </a>
-                </Link>
+                  <Link key={item.href} href={item.href}>
+                    <a className="block bg-card border border-border rounded-lg p-6 hover:border-primary/50 hover:shadow-lg transition-all">
+                      <Icon className="mb-3 size-7 text-primary" aria-hidden />
+                      <h3 className="font-semibold text-foreground">
+                        {item.name}
+                      </h3>
+                    </a>
+                  </Link>
                 );
               })}
             </div>
@@ -236,7 +277,10 @@ export default function Components() {
         {/* Footer */}
         <section className="px-6 py-12 bg-card/50 border-t border-border">
           <div className="max-w-6xl mx-auto text-center text-foreground/60 text-sm">
-            <p>All components are built with accessibility in mind. Use keyboard navigation and screen readers.</p>
+            <p>
+              All components are built with accessibility in mind. Use keyboard
+              navigation and screen readers.
+            </p>
           </div>
         </section>
       </div>

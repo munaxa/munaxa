@@ -1,13 +1,28 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Munaxa Design System v3 type families (mirrors munaxalanding): Sora (display),
+   Inter (body), Cairo (Arabic/RTL). The font files are loaded in index.html. */
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
+  /* v3 radius scale: 8 / 12 / 14 / 22 / 32px */
+  --radius-sm: 0.5rem;
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: 1.375rem;
+  --radius-2xl: 2rem;
+  /* v3 type families */
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
+  --font-arabic: var(--font-arabic);
+  --font-mono: var(--font-mono);
+  /* v3 accents + elevation */
+  --color-coral: var(--coral);
+  --color-aqua: var(--aqua);
+  --shadow-card:
+    0 24px 50px -30px rgb(30 11 77 / 0.25), 0 0 0 1px var(--border) inset;
+  --shadow-glow: 0 14px 40px -16px rgb(122 63 255 / 0.55);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -47,98 +62,130 @@
 }
 
 :root {
-  /* MUNAXA Primary Brand Color: Deep Purple #7A3FFF */
-  --primary: #7A3FFF;
-  --primary-foreground: #FFFFFF;
-  --sidebar-primary: #7A3FFF;
-  --sidebar-primary-foreground: #FFFFFF;
-  
-  /* Chart Colors - Purple gradient */
-  --chart-1: #BE9AFF;
-  --chart-2: #A370FF;
-  --chart-3: #8A4FFF;
-  --chart-4: #7A3FFF;
-  --chart-5: #652ED8;
-  
-  /* Spacing & Radius */
-  --radius: 0.5rem;
-  
-  /* Light Mode - Neutral & Semantic */
-  --background: #FAFAFB;
-  --foreground: #111827;
-  --card: #FFFFFF;
-  --card-foreground: #111827;
-  --popover: #FFFFFF;
-  --popover-foreground: #111827;
-  --secondary: #F3F4F6;
-  --secondary-foreground: #4B5563;
-  --muted: #E5E7EB;
-  --muted-foreground: #6B7280;
-  --accent: #F5F0FF;
-  --accent-foreground: #7A3FFF;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  --border: #E5E7EB;
-  --input: #FFFFFF;
-  --ring: #7A3FFF;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #111827;
-  --sidebar-accent: #F5F0FF;
-  --sidebar-accent-foreground: #7A3FFF;
-  --sidebar-border: #E5E7EB;
-  --sidebar-ring: #7A3FFF;
-  
-  /* Semantic Colors */
-  --success: #10B981;
-  --warning: #F59E0B;
-  --error: #EF4444;
-  --info: #3B82F6;
+  /* ── Munaxa Design System v3 — Light theme (website default) ───────────────
+     Brand violet #7A3FFF (light tint #B97BFF). On light surfaces the semantic
+     primary darkens to #5B1FD6 so it stays legible; accents are coral + aqua. */
+
+  /* Type families (v3) */
+  --font-display: "Sora", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-arabic: "Cairo", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", monospace;
+
+  /* Radius — v3 14px base */
+  --radius: 0.875rem;
+
+  /* Primary / brand */
+  --primary: #5b1fd6;
+  --primary-foreground: #ffffff;
+  --sidebar-primary: #5b1fd6;
+  --sidebar-primary-foreground: #ffffff;
+
+  /* Accents (theme-aware in v3) */
+  --coral: #d9534f;
+  --aqua: #0d9488;
+
+  /* Chart palette — brand violets + v3 accents */
+  --chart-1: #7a3fff;
+  --chart-2: #b97bff;
+  --chart-3: #0d9488;
+  --chart-4: #d9534f;
+  --chart-5: #5b1fd6;
+
+  /* Surfaces & text */
+  --background: #f7f5ff;
+  --foreground: #1e0b4d;
+  --card: #ffffff;
+  --card-foreground: #1e0b4d;
+  --popover: #ffffff;
+  --popover-foreground: #1e0b4d;
+  --secondary: #f0ecfa;
+  --secondary-foreground: #1e0b4d;
+  --muted: #f0ecfa;
+  --muted-foreground: #5a4d7a;
+  --accent: #d9534f;
+  --accent-foreground: #ffffff;
+  --destructive: #d9534f;
+  --destructive-foreground: #ffffff;
+  --border: #e3dfef;
+  --input: #c8c0dc;
+  --ring: #5b1fd6;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1e0b4d;
+  --sidebar-accent: #f0ecfa;
+  --sidebar-accent-foreground: #5b1fd6;
+  --sidebar-border: #e3dfef;
+  --sidebar-ring: #5b1fd6;
+
+  /* Semantic */
+  --success: #0d9488;
+  --warning: #f59e0b;
+  --error: #d9534f;
+  --info: #3b82f6;
+
+  /* Hero gradient backdrop (v3, light) */
+  --grad-hero: radial-gradient(
+    ellipse 90% 60% at 50% -10%,
+    rgb(122 63 255 / 0.08),
+    transparent 60%
+  );
 }
 
 .dark {
-  /* Dark Mode - Deep Navy Background */
-  --primary: #8A4FFF;
-  --primary-foreground: #FFFFFF;
-  --sidebar-primary: #8A4FFF;
-  --sidebar-primary-foreground: #FFFFFF;
-  
-  /* Chart Colors */
-  --chart-1: #BE9AFF;
-  --chart-2: #A370FF;
-  --chart-3: #8A4FFF;
-  --chart-4: #7A3FFF;
-  --chart-5: #652ED8;
-  
-  /* Dark Mode Colors */
-  --background: #0B1020;
-  --foreground: #F9FAFB;
-  --card: #1A2332;
-  --card-foreground: #F9FAFB;
-  --popover: #1A2332;
-  --popover-foreground: #F9FAFB;
-  --secondary: #111827;
-  --secondary-foreground: #CBD5E1;
-  --muted: #2A3441;
-  --muted-foreground: #CBD5E1;
-  --accent: #2A3441;
-  --accent-foreground: #8A4FFF;
-  --destructive: #F87171;
-  --destructive-foreground: #FFFFFF;
-  --border: #2A3441;
-  --input: #111827;
-  --ring: #8A4FFF;
-  --sidebar: #111827;
-  --sidebar-foreground: #F9FAFB;
-  --sidebar-accent: #2A3441;
-  --sidebar-accent-foreground: #8A4FFF;
-  --sidebar-border: #2A3441;
-  --sidebar-ring: #8A4FFF;
-  
-  /* Semantic Colors - Dark Mode */
-  --success: #34D399;
-  --warning: #FBBF24;
-  --error: #F87171;
-  --info: #60A5FA;
+  /* ── Munaxa Design System v3 — Dark "ink" theme ──────────────────────────── */
+  --primary: #b97bff;
+  --primary-foreground: #0b0518;
+  --sidebar-primary: #b97bff;
+  --sidebar-primary-foreground: #0b0518;
+
+  /* Accents brighten on ink surfaces */
+  --coral: #ff8e6e;
+  --aqua: #4df4e1;
+
+  /* Chart palette */
+  --chart-1: #b97bff;
+  --chart-2: #7a3fff;
+  --chart-3: #4df4e1;
+  --chart-4: #ff8e6e;
+  --chart-5: #5b1fd6;
+
+  /* Ink surfaces & text */
+  --background: #0b0518;
+  --foreground: #f4f0ff;
+  --card: #1a0f38;
+  --card-foreground: #f4f0ff;
+  --popover: #1a0f38;
+  --popover-foreground: #f4f0ff;
+  --secondary: #221547;
+  --secondary-foreground: #f4f0ff;
+  --muted: #221547;
+  --muted-foreground: #afa9c6;
+  --accent: #ff8e6e;
+  --accent-foreground: #0b0518;
+  --destructive: #ff5c7a;
+  --destructive-foreground: #ffffff;
+  --border: #2f224f;
+  --input: #2f224f;
+  --ring: #b97bff;
+  --sidebar: #140a2e;
+  --sidebar-foreground: #f4f0ff;
+  --sidebar-accent: #221547;
+  --sidebar-accent-foreground: #b97bff;
+  --sidebar-border: #2f224f;
+  --sidebar-ring: #b97bff;
+
+  /* Semantic — dark */
+  --success: #4df4e1;
+  --warning: #fbbf24;
+  --error: #ff5c7a;
+  --info: #60a5fa;
+
+  /* Hero gradient backdrop (v3, dark) */
+  --grad-hero: radial-gradient(
+    ellipse 90% 60% at 50% -10%,
+    rgb(122 63 255 / 0.18),
+    transparent 60%
+  );
 }
 
 @layer base {
@@ -146,8 +193,23 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans;
-    font-family: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+  }
+  /* v3: display type (Sora) for headings */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+  }
+  /* v3: in RTL/Arabic, display + body resolve to Cairo (Sora/Inter lack Arabic glyphs).
+     Numbers/IDs should stay LTR via the .mono utility below. */
+  html[dir="rtl"] {
+    --font-display: "Cairo", sans-serif;
+    --font-body: "Cairo", sans-serif;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -165,7 +227,9 @@
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       scroll-behavior: auto !important;
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
@@ -199,6 +263,13 @@
   .flex {
     min-height: 0;
     min-width: 0;
+  }
+
+  /* v3: numbers, IDs, and dates stay LTR even inside RTL text. */
+  .mono {
+    direction: ltr;
+    unicode-bidi: embed;
+    font-family: var(--font-mono);
   }
 
   @media (min-width: 640px) {
