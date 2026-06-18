@@ -20,6 +20,7 @@ export { Table, THead, TBody, TR, TH, TD } from './components/table.js';
 export { Spinner } from './components/spinner.js';
 export { EmptyState } from './components/empty-state.js';
 export { ErrorState } from './components/error-state.js';
+export { Timeline, TimelineItem } from './components/timeline.js';
 export { Pagination, type PaginationProps } from './components/pagination.js';
 export { Tooltip } from './components/tooltip.js';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/tabs.js';

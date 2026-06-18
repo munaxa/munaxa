@@ -5,7 +5,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { Shell, usePrincipal } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Timeline,
+  TimelineItem,
+} from '@/components/ui';
 
 const QUICK_LINKS: Array<{ href: string; labelKey: string; descKey: string; perm?: string }> = [
   {
@@ -154,24 +162,20 @@ function Dashboard() {
               <CardHeader>
                 <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1.5 text-sm">
+              <CardContent>
                 {data.recentActivity.length === 0 ? (
-                  <p className="text-muted-foreground">{t('dashboard.noRecentActivity')}</p>
+                  <p className="text-sm text-muted-foreground">{t('dashboard.noRecentActivity')}</p>
                 ) : (
-                  data.recentActivity.map((a, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between gap-3 border-b border-border pb-1.5 last:border-0"
-                    >
-                      <span>
-                        <span className="font-medium">{a.action}</span>{' '}
-                        <span className="text-muted-foreground">· {a.entityType}</span>
-                      </span>
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        {new Date(a.at).toLocaleString()}
-                      </span>
-                    </div>
-                  ))
+                  <Timeline>
+                    {data.recentActivity.map((a, i) => (
+                      <TimelineItem
+                        key={i}
+                        title={a.action}
+                        meta={a.entityType}
+                        timestamp={new Date(a.at).toLocaleString()}
+                      />
+                    ))}
+                  </Timeline>
                 )}
               </CardContent>
             </Card>
