@@ -164,14 +164,14 @@ Dashboard `/`; People `/people/{students,teachers,parents,employees,cards}`; Str
 
 ---
 
-## 7. Open Questions Requiring a Decision Before Phase 2+
+## 7. Governance Decisions (RESOLVED 2026-06-18)
 
-These are governance-level decisions the program's "never invent tokens / always reuse components" rules depend on. I will **not** proceed past Phase 1 without direction here:
+These governance-level decisions were posed at the Phase 0 gate and **answered by the product owner**. They are now binding for Phases 2–6:
 
-1. **Component delivery strategy** — Should the reference components be **ported into `@munaxa/ui`** (Tailwind v3, Next-compatible) as the canonical consumable layer, or should the app be pointed at the reference package directly? (Recommendation: port into `@munaxa/ui` — avoids a Tailwind v3/v4 + wouter/Next clash.)
-2. **Typography** — Adopt the reference **IBM Plex Sans / IBM Plex Sans Arabic**, or keep the app's current **Sora/Inter** and update the reference? The Arabic face matters for RTL quality. (This is a "which is the source of truth" call.)
-3. **Default theme** — Confirm dark-first (app today) vs light-first (reference).
-4. **Token authority** — Confirm `@munaxa/config-tailwind` remains the single token source and that missing scales (spacing, z-index, motion, semantic colors) should be **added there** from the reference values (not invented).
+1. **Component delivery strategy → PORT INTO `@munaxa/ui`.** Reference primitives + domain components will be ported into the (currently empty) `@munaxa/ui` package, adapted to Tailwind v3 / Next 15, as the single canonical consumable layer. The app will not import `munaxadesignsystem` directly (avoids the Tailwind v4 + wouter ↔ Next clash).
+2. **Typography → ADOPT IBM Plex Sans (+ IBM Plex Sans Arabic).** The reference fonts are the source of truth. The app's current Sora/Inter/JetBrains stack will be migrated to IBM Plex Sans (Latin), IBM Plex Sans Arabic (RTL), and the reference mono. Rationale: dedicated Arabic face for RTL quality.
+3. **Default theme → LIGHT-FIRST.** The app's default will be aligned to the reference system's light-first default. (Dark mode remains fully supported.)
+4. **Token authority → `@munaxa/config-tailwind` remains canonical; EXTEND it.** Missing scales (spacing, z-index, motion, first-class semantic colors success/warning/info) will be **added from the reference token values** — never invented.
 
 ---
 
