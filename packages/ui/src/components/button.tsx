@@ -4,25 +4,27 @@ import { cn } from '../cn.js';
 type Variant = 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive';
 type Size = 'sm' | 'md' | 'lg' | 'icon';
 
+// Styling mirrors the Munaxa Design System shadcn Button: solid primary, rounded-md,
+// subtle hover, focus ring — no gradient/glow.
 const base =
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium ' +
-  'transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
-  'focus-visible:ring-offset-2 focus-visible:ring-offset-background ' +
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ' +
+  'transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ' +
   'disabled:pointer-events-none disabled:opacity-50';
 
 const variantClass: Record<Variant, string> = {
-  default: 'bg-grad-primary text-primary-foreground shadow-glow hover:opacity-95',
+  default: 'bg-primary text-primary-foreground hover:bg-primary/90',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-  outline: 'border border-border bg-transparent text-foreground hover:bg-secondary/50',
-  ghost: 'bg-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
-  destructive: 'bg-destructive text-destructive-foreground hover:opacity-95',
+  outline:
+    'border border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground',
+  ghost: 'bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground',
+  destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
 };
 
 const sizeClass: Record<Size, string> = {
-  sm: 'h-8 px-3 text-sm',
-  md: 'h-10 px-4 text-sm',
-  lg: 'h-11 px-6 text-base',
-  icon: 'h-10 w-10',
+  sm: 'h-8 px-3',
+  md: 'h-9 px-4',
+  lg: 'h-10 px-6',
+  icon: 'h-9 w-9',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

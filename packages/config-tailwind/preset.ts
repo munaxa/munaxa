@@ -102,8 +102,9 @@ const preset: Omit<Config, 'content'> = {
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       boxShadow: {
-        // From the Munaxa Design System — soft elevation + a violet "glow" for primaries.
-        card: '0 24px 50px -28px rgba(11,5,24,0.55), 0 0 0 1px hsl(var(--border)) inset',
+        // Munaxa Design System: subtle neutral elevation (shadcn shadow-sm style); the card's
+        // own `border-border` provides definition. Plus a soft violet "glow" for accents.
+        card: '0 1px 3px 0 rgb(17 24 39 / 0.08), 0 1px 2px -1px rgb(17 24 39 / 0.06)',
         glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
         // Focus ring — ported from design-system/tokens/shadows.ts (brand @ 28%).
         focus: '0 0 0 3px rgb(122 63 255 / 0.28)',
