@@ -10,3 +10,4 @@ export { ClinicOutcomeBadge } from './clinic-outcome-badge';
 export { LoanStatusBadge } from './loan-status-badge';
 export { StatusBadge as EmploymentStatusBadge } from '../status-badge';
 export { RecordHeader } from './record-header';
+export { ParentProfileDialog } from './parent-profile-dialog';

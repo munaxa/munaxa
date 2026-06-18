@@ -38,7 +38,12 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@/components/ui';
-import { ChargeStatusBadge, TransactionStatusBadge, RecordHeader } from '@/components/domain';
+import {
+  ChargeStatusBadge,
+  TransactionStatusBadge,
+  RecordHeader,
+  ParentProfileDialog,
+} from '@/components/domain';
 
 const PARENT_RELATIONS = ['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER'];
 
@@ -170,6 +175,7 @@ export function StudentProfileDialog({
           <TabsContent value="relationships">
             {/* Parents / guardians */}
             <ParentsSection
+              student={student}
               studentId={student.id}
               parents={parents}
               onChanged={loadParents}
@@ -335,11 +341,13 @@ export function StudentProfileDialog({
 }
 
 function ParentsSection({
+  student,
   studentId,
   parents,
   onChanged,
   onEditParent,
 }: {
+  student: Student;
   studentId: string;
   parents: StudentParentLink[];
   onChanged: () => void;
@@ -350,6 +358,7 @@ function ParentsSection({
   const confirm = useConfirm();
   const [parentId, setParentId] = useState('');
   const [relation, setRelation] = useState('FATHER');
+  const [viewing, setViewing] = useState<Parent | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function assign(e: React.FormEvent) {
@@ -380,78 +389,92 @@ function ParentsSection({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('people.parents')}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {parents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t('people.noParents')}</p>
-        ) : (
-          <ul className="divide-y divide-border text-sm">
-            {parents.map((link) => (
-              <li key={link.id} className="flex items-center justify-between gap-2 py-2">
-                <div className="min-w-0">
-                  <button
-                    type="button"
-                    className="text-start font-medium text-foreground hover:text-primary hover:underline"
-                    onClick={() => onEditParent(link.parent)}
-                  >
-                    {link.parent.firstNameEn} {link.parent.lastNameEn}
-                  </button>
-                  <span className="text-muted-foreground"> · {link.relation}</span>
-                  {link.isPrimary ? (
-                    <Badge tone="success" className="ms-2">
-                      {t('people.primary')}
-                    </Badge>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={link.parent.phone ? `tel:${link.parent.phone}` : undefined}
-                    className="font-mono text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    {link.parent.phone || '—'}
-                  </a>
-                  <button
-                    type="button"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => void unlink(link.parent.id)}
-                    aria-label={`${t('common.delete')} ${link.parent.firstNameEn}`}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {/* Assign an existing guardian */}
-        <form onSubmit={(e) => void assign(e)} className="flex flex-wrap items-end gap-2 pt-1">
-          <Field label={t('people.assignParent')} className="min-w-[12rem] flex-1">
-            <EntityPicker
-              value={parentId}
-              onChange={setParentId}
-              load={loadParentOptions}
-              placeholder={t('people.searchParents')}
-            />
-          </Field>
-          <Field label={t('people.relation')}>
-            <Select value={relation} onChange={(e) => setRelation(e.target.value)}>
-              {PARENT_RELATIONS.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('people.parents')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {parents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('people.noParents')}</p>
+          ) : (
+            <ul className="divide-y divide-border text-sm">
+              {parents.map((link) => (
+                <li key={link.id} className="flex items-center justify-between gap-2 py-2">
+                  <div className="min-w-0">
+                    <button
+                      type="button"
+                      className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                      onClick={() => setViewing(link.parent)}
+                    >
+                      {link.parent.firstNameEn} {link.parent.lastNameEn}
+                    </button>
+                    <span className="text-muted-foreground"> · {link.relation}</span>
+                    {link.isPrimary ? (
+                      <Badge tone="success" className="ms-2">
+                        {t('people.primary')}
+                      </Badge>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={link.parent.phone ? `tel:${link.parent.phone}` : undefined}
+                      className="font-mono text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      {link.parent.phone || '—'}
+                    </a>
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => void unlink(link.parent.id)}
+                      aria-label={`${t('common.delete')} ${link.parent.firstNameEn}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </li>
               ))}
-            </Select>
-          </Field>
-          <Button type="submit" size="sm" disabled={!parentId || busy}>
-            {busy ? t('common.adding') : t('people.assign')}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+            </ul>
+          )}
+
+          {/* Assign an existing guardian */}
+          <form onSubmit={(e) => void assign(e)} className="flex flex-wrap items-end gap-2 pt-1">
+            <Field label={t('people.assignParent')} className="min-w-[12rem] flex-1">
+              <EntityPicker
+                value={parentId}
+                onChange={setParentId}
+                load={loadParentOptions}
+                placeholder={t('people.searchParents')}
+              />
+            </Field>
+            <Field label={t('people.relation')}>
+              <Select value={relation} onChange={(e) => setRelation(e.target.value)}>
+                {PARENT_RELATIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Button type="submit" size="sm" disabled={!parentId || busy}>
+              {busy ? t('common.adding') : t('people.assign')}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+      {viewing ? (
+        <ParentProfileDialog
+          parent={viewing}
+          contextStudent={student}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            const p = viewing;
+            setViewing(null);
+            onEditParent(p);
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 

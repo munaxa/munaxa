@@ -253,6 +253,9 @@
     "description": "Description"
   },
   "people": {
+    "parentProfile": "Parent profile",
+    "children": "Children",
+    "requestedAmount": "Requested amount",
     "addStudent": "Add a student",
     "bulkImport": "Bulk import",
     "importedSummary": "Imported {created}; {failed} row(s) failed.",

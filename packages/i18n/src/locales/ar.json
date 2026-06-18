@@ -253,6 +253,9 @@
     "description": "الوصف"
   },
   "people": {
+    "parentProfile": "ملف ولي الأمر",
+    "children": "الأبناء",
+    "requestedAmount": "المبلغ المطلوب",
     "addStudent": "إضافة طالب",
     "bulkImport": "استيراد جماعي",
     "importedSummary": "تم استيراد {created}؛ فشل {failed} صف/صفوف.",
