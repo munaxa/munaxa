@@ -66,6 +66,19 @@ export interface Statement {
   chargeBalances: ChargeBalance[];
 }
 
+export interface InstallmentCharge {
+  id: string;
+  description: string;
+  amount: string;
+  status: string;
+  dueDate?: string | null;
+}
+
+export interface InstallmentPlan {
+  planId: string;
+  charges: InstallmentCharge[];
+}
+
 export interface HouseholdMember {
   studentId: string;
   firstNameEn: string;
@@ -131,6 +144,24 @@ export const financeApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json(r)),
+  installmentPlan: (studentId: string) =>
+    authFetch(`/finance/charges/installments?studentId=${encodeURIComponent(studentId)}`).then(
+      (r) => json<InstallmentPlan | null>(r),
+    ),
+  deleteInstallmentPlan: (studentId: string) =>
+    authFetch(`/finance/charges/installments?studentId=${encodeURIComponent(studentId)}`, {
+      method: 'DELETE',
+    }).then(() => undefined),
+  recordPayment: (data: {
+    studentId: string;
+    chargeId?: string;
+    amount: number;
+    method: string;
+    reference?: string;
+  }) =>
+    authFetch('/finance/transactions', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<{ id: string }>(r),
+    ),
   verify: (id: string) =>
     authFetch(`/finance/transactions/${id}/verify`, { method: 'POST' }).then((r) => json(r)),
   reject: (id: string) =>

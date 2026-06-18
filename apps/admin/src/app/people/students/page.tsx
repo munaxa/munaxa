@@ -35,6 +35,64 @@ import {
 } from '@/components/ui';
 
 const STUDENT_STATUSES = ['ACTIVE', 'INACTIVE', 'GRADUATED', 'WITHDRAWN'];
+const GENDERS = ['MALE', 'FEMALE'];
+
+/** Grade + section selectors. Grades are derived from the sections list; picking a grade filters
+ *  the sections. Emits the chosen section id (the API stores section, not grade). */
+function GradeSectionFields({
+  sections,
+  sectionId,
+  onChange,
+}: {
+  sections: Section[];
+  sectionId: string;
+  onChange: (sectionId: string) => void;
+}) {
+  const { t } = useI18n();
+  const grades = [
+    ...new Map(
+      sections
+        .filter((s) => s.grade)
+        .map((s) => [
+          s.grade!.id,
+          { id: s.grade!.id, name: s.grade!.nameEn, level: s.grade!.level },
+        ]),
+    ).values(),
+  ].sort((a, b) => a.level - b.level);
+  const [gradeId, setGradeId] = useState(sections.find((s) => s.id === sectionId)?.grade?.id ?? '');
+  const sectionsForGrade = sections.filter((s) => s.grade?.id === gradeId);
+
+  return (
+    <>
+      <Field label={t('structure.grade')}>
+        <Select
+          value={gradeId}
+          onChange={(e) => {
+            setGradeId(e.target.value);
+            onChange('');
+          }}
+        >
+          <option value="">—</option>
+          {grades.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label={t('structure.section')}>
+        <Select value={sectionId} onChange={(e) => onChange(e.target.value)} disabled={!gradeId}>
+          <option value="">—</option>
+          {sectionsForGrade.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+    </>
+  );
+}
 
 export default function StudentsPage() {
   const { t } = useI18n();
@@ -129,7 +187,7 @@ export default function StudentsPage() {
               <CardTitle>{t('people.addStudent')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <CreateStudent onCreated={load} onError={setError} />
+              <CreateStudent sections={sections} onCreated={load} onError={setError} />
             </CardContent>
           </Card>
           <Card>
@@ -236,6 +294,7 @@ export default function StudentsPage() {
       {editing ? (
         <StudentEditor
           student={editing}
+          sections={sections}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             setEditing(null);
@@ -247,26 +306,44 @@ export default function StudentsPage() {
   );
 }
 
+const EMPTY_STUDENT = {
+  firstNameEn: '',
+  fatherNameEn: '',
+  lastNameEn: '',
+  firstNameAr: '',
+  fatherNameAr: '',
+  lastNameAr: '',
+  gender: '',
+  sectionId: '',
+};
+
 function CreateStudent({
+  sections,
   onCreated,
   onError,
 }: {
+  sections: Section[];
   onCreated: () => Promise<void>;
   onError: (m: string) => void;
 }) {
   const { t } = useI18n();
-  const [form, setForm] = useState({
-    firstNameEn: '',
-    lastNameEn: '',
-    firstNameAr: '',
-    lastNameAr: '',
-  });
+  const [form, setForm] = useState(EMPTY_STUDENT);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await studentsApi.create(form);
-      setForm({ firstNameEn: '', lastNameEn: '', firstNameAr: '', lastNameAr: '' });
+      const payload: Parameters<typeof studentsApi.create>[0] = {
+        firstNameEn: form.firstNameEn,
+        lastNameEn: form.lastNameEn,
+        firstNameAr: form.firstNameAr,
+        lastNameAr: form.lastNameAr,
+      };
+      if (form.fatherNameEn) payload.fatherNameEn = form.fatherNameEn;
+      if (form.fatherNameAr) payload.fatherNameAr = form.fatherNameAr;
+      if (form.gender) payload.gender = form.gender;
+      if (form.sectionId) payload.sectionId = form.sectionId;
+      await studentsApi.create(payload);
+      setForm(EMPTY_STUDENT);
       await onCreated();
     } catch (err) {
       onError(err instanceof Error ? err.message : 'Create failed');
@@ -274,34 +351,59 @@ function CreateStudent({
   }
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="grid grid-cols-2 gap-2">
-      <Input
-        placeholder={t('common.firstNameEn')}
-        value={form.firstNameEn}
-        onChange={(e) => setForm({ ...form, firstNameEn: e.target.value })}
-        required
+    <form onSubmit={(e) => void submit(e)} className="grid gap-3 sm:grid-cols-2">
+      <Field label={t('common.firstNameEn')}>
+        <Input
+          value={form.firstNameEn}
+          onChange={(e) => setForm({ ...form, firstNameEn: e.target.value })}
+          required
+        />
+      </Field>
+      <Field label={t('people.fatherName')}>
+        <Input
+          value={form.fatherNameEn}
+          onChange={(e) => setForm({ ...form, fatherNameEn: e.target.value })}
+        />
+      </Field>
+      <Field label={t('common.lastNameEn')}>
+        <Input
+          value={form.lastNameEn}
+          onChange={(e) => setForm({ ...form, lastNameEn: e.target.value })}
+          required
+        />
+      </Field>
+      <Field label={t('people.gender')}>
+        <Select value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
+          <option value="">—</option>
+          {GENDERS.map((g) => (
+            <option key={g} value={g}>
+              {t(`people.${g.toLowerCase()}`)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="الاسم (AR)">
+        <Input
+          dir="rtl"
+          value={form.firstNameAr}
+          onChange={(e) => setForm({ ...form, firstNameAr: e.target.value })}
+          required
+        />
+      </Field>
+      <Field label="العائلة (AR)">
+        <Input
+          dir="rtl"
+          value={form.lastNameAr}
+          onChange={(e) => setForm({ ...form, lastNameAr: e.target.value })}
+          required
+        />
+      </Field>
+      <GradeSectionFields
+        sections={sections}
+        sectionId={form.sectionId}
+        onChange={(sectionId) => setForm({ ...form, sectionId })}
       />
-      <Input
-        placeholder={t('common.lastNameEn')}
-        value={form.lastNameEn}
-        onChange={(e) => setForm({ ...form, lastNameEn: e.target.value })}
-        required
-      />
-      <Input
-        placeholder="الاسم (AR)"
-        value={form.firstNameAr}
-        onChange={(e) => setForm({ ...form, firstNameAr: e.target.value })}
-        required
-        dir="rtl"
-      />
-      <Input
-        placeholder="العائلة (AR)"
-        value={form.lastNameAr}
-        onChange={(e) => setForm({ ...form, lastNameAr: e.target.value })}
-        required
-        dir="rtl"
-      />
-      <Button type="submit" className="col-span-2">
+      <Button type="submit" className="sm:col-span-2">
         {t('people.addStudentButton')}
       </Button>
     </form>
@@ -355,10 +457,12 @@ function ImportStudents({
 
 function StudentEditor({
   student,
+  sections,
   onClose,
   onSaved,
 }: {
   student: Student;
+  sections: Section[];
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -375,6 +479,8 @@ function StudentEditor({
     thirdNameAr: student.thirdNameAr ?? '',
     nationalId: student.nationalId ?? '',
     moeStudentNumber: student.moeStudentNumber ?? '',
+    gender: student.gender ?? '',
+    sectionId: student.sectionId ?? '',
     status: student.status,
   });
   const [saving, setSaving] = useState(false);
@@ -383,7 +489,11 @@ function StudentEditor({
     e.preventDefault();
     setSaving(true);
     try {
-      await studentsApi.update(student.id, form);
+      // Drop empty enum/uuid fields — the API rejects "" for gender/section.
+      const payload: UpdateStudentInput = { ...form };
+      if (!payload.gender) delete payload.gender;
+      if (!payload.sectionId) delete payload.sectionId;
+      await studentsApi.update(student.id, payload);
       toast.success(t('people.studentUpdated'));
       await onSaved();
     } catch (err) {
@@ -453,6 +563,21 @@ function StudentEditor({
               onChange={(e) => set({ moeStudentNumber: e.target.value })}
             />
           </Field>
+          <Field label={t('people.gender')}>
+            <Select value={form.gender ?? ''} onChange={(e) => set({ gender: e.target.value })}>
+              <option value="">—</option>
+              {GENDERS.map((g) => (
+                <option key={g} value={g}>
+                  {t(`people.${g.toLowerCase()}`)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <GradeSectionFields
+            sections={sections}
+            sectionId={form.sectionId ?? ''}
+            onChange={(sectionId) => set({ sectionId })}
+          />
           <Field label={t('common.status')}>
             <Select
               value={form.status ?? 'ACTIVE'}

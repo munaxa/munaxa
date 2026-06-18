@@ -73,6 +73,9 @@ export interface UpdateStudentInput {
   thirdNameAr?: string;
   nationalId?: string;
   moeStudentNumber?: string;
+  sectionId?: string;
+  gender?: string;
+  dateOfBirth?: string;
   status?: string;
 }
 
@@ -103,6 +106,9 @@ export const studentsApi = {
     thirdNameAr?: string;
     nationalId?: string;
     moeStudentNumber?: string;
+    sectionId?: string;
+    gender?: string;
+    dateOfBirth?: string;
   }) =>
     authFetch('/students', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<Student>(r),
