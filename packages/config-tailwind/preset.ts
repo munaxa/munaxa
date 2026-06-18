@@ -93,10 +93,17 @@ const preset: Omit<Config, 'content'> = {
         enter: 'cubic-bezier(0, 0, 0, 1)',
         exit: 'cubic-bezier(0.3, 0, 1, 1)',
       },
+      // Typography per design-system/tokens/typography.ts:
+      //   sans: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif
+      //   mono: ui-monospace, "SFMono-Regular", monospace
+      // --font-display / --font-body are IBM Plex Sans; --font-arabic carries Arabic glyphs
+      // (the Latin face has none, so the browser falls through to it for Arabic text).
+      // --font-mono is intentionally left first as a fallback hook for other preset consumers;
+      // the admin app no longer defines it, so it resolves to the reference system mono stack.
       fontFamily: {
-        display: ['var(--font-display)', 'system-ui', 'sans-serif'],
-        body: ['var(--font-body)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-mono)', 'monospace'],
+        display: ['var(--font-display)', 'var(--font-arabic)', 'system-ui', 'sans-serif'],
+        body: ['var(--font-body)', 'var(--font-arabic)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       boxShadow: {
         // From the Munaxa Design System — soft elevation + a violet "glow" for primaries.

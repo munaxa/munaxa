@@ -7,24 +7,31 @@ import { ConfirmProvider } from '@/components/confirm';
 import { I18nProvider } from '@/components/i18n-provider';
 import { DEFAULT_LOCALE, directionForLocale } from '@/lib/i18n';
 
-// Munaxa Design System type pairing: Sora (display) / Inter (body) / JetBrains Mono.
-// Self-hosted (latin subset, variable) so builds don't depend on Google Fonts network access.
-const sora = localFont({
-  src: '../fonts/Sora-latin.woff2',
-  weight: '100 800',
+// Munaxa Design System typography: IBM Plex Sans (Latin) + IBM Plex Sans Arabic (RTL),
+// per design-system/tokens/typography.ts. Mono falls back to the reference system stack
+// (configured in the Tailwind preset). Self-hosted (variable Latin + static Arabic weights)
+// so builds don't depend on Google Fonts / CDN network access.
+// `display` and `body` both resolve to IBM Plex Sans; Next content-hashes the file, so the two
+// instances share a single emitted asset (one download).
+const plexDisplay = localFont({
+  src: '../fonts/IBMPlexSans-latin.woff2',
+  weight: '100 700',
   variable: '--font-display',
   display: 'swap',
 });
-const inter = localFont({
-  src: '../fonts/Inter-latin.woff2',
-  weight: '100 900',
+const plexBody = localFont({
+  src: '../fonts/IBMPlexSans-latin.woff2',
+  weight: '100 700',
   variable: '--font-body',
   display: 'swap',
 });
-const mono = localFont({
-  src: '../fonts/JetBrainsMono-latin.woff2',
-  weight: '100 800',
-  variable: '--font-mono',
+const plexArabic = localFont({
+  src: [
+    { path: '../fonts/IBMPlexSansArabic-400.woff2', weight: '400', style: 'normal' },
+    { path: '../fonts/IBMPlexSansArabic-600.woff2', weight: '600', style: 'normal' },
+    { path: '../fonts/IBMPlexSansArabic-700.woff2', weight: '700', style: 'normal' },
+  ],
+  variable: '--font-arabic',
   display: 'swap',
 });
 
@@ -46,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang={locale}
       dir={dir}
-      className={`dark ${sora.variable} ${inter.variable} ${mono.variable}`}
+      className={`dark ${plexDisplay.variable} ${plexBody.variable} ${plexArabic.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background bg-grad-hero font-body text-foreground antialiased">
