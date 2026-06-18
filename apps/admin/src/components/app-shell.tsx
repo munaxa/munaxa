@@ -122,10 +122,10 @@ export function AppShell({
           key={item.href}
           href={item.href as never}
           className={cn(
-            'rounded-lg px-3 py-2 text-sm transition',
+            'rounded-md px-3 py-2 text-sm transition-colors',
             isActive(item.href)
-              ? 'bg-secondary/80 font-medium text-foreground'
-              : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
+              ? 'bg-accent font-medium text-accent-foreground'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
           )}
         >
           {t(item.labelKey)}
@@ -159,7 +159,7 @@ export function AppShell({
         {t('shell.skipToContent')}
       </a>
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col self-start overflow-y-auto border-e border-border bg-card/40 p-4 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col self-start overflow-y-auto border-e border-border bg-card p-4 md:flex">
         <div className="flex items-center gap-2 px-2 py-3">
           <Logo size={32} priority />
           <span className="font-display text-lg font-semibold">Munaxa</span>
