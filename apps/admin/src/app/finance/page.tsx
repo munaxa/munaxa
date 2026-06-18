@@ -139,16 +139,28 @@ export default function FinancePage() {
     const amount = rowForm.amount ? Number(rowForm.amount) : undefined;
     const percent = rowForm.percent ? Number(rowForm.percent) : undefined;
     if (kind === 'pay') {
-      // Record the payment against the charge and verify it so it allocates immediately.
+      const isInstallment = installPlan?.charges.some((c) => c.id === id) ?? false;
       await run(async () => {
-        const txn = await financeApi.recordPayment({
-          studentId,
-          chargeId: id,
-          amount: amount ?? 0,
-          method: rowForm.method || 'CASH',
-          ...(rowForm.reason ? { reference: rowForm.reason } : {}),
-        });
-        await financeApi.verify(txn.id);
+        if (isInstallment) {
+          // Installment payment rebalances the remaining installments to keep the plan total.
+          await financeApi.payInstallment({
+            studentId,
+            chargeId: id,
+            amount: amount ?? 0,
+            method: rowForm.method || 'CASH',
+            ...(rowForm.reason ? { reference: rowForm.reason } : {}),
+          });
+        } else {
+          // Record the payment against the charge and verify it so it allocates immediately.
+          const txn = await financeApi.recordPayment({
+            studentId,
+            chargeId: id,
+            amount: amount ?? 0,
+            method: rowForm.method || 'CASH',
+            ...(rowForm.reason ? { reference: rowForm.reason } : {}),
+          });
+          await financeApi.verify(txn.id);
+        }
       }, 'Payment recorded');
     } else if (kind === 'discount') {
       const base = {

@@ -1,9 +1,9 @@
 import { Body, Controller, Delete, Get, HttpCode, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { ChargeService } from './charge.service';
-import { CreateChargeDto, CreateInstallmentsDto } from './charge.dto';
+import { CreateChargeDto, CreateInstallmentsDto, PayInstallmentDto } from './charge.dto';
 
 @ApiTags('finance')
 @ApiBearerAuth()
@@ -36,6 +36,13 @@ export class ChargeController {
   @ApiQuery({ name: 'studentId', required: true })
   deleteInstallmentPlan(@Query('studentId') studentId: string) {
     return this.service.deleteInstallmentPlan(studentId);
+  }
+
+  @Post('installments/pay')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Pay an installment; rebalances remaining ones to keep the plan total' })
+  payInstallment(@Body() dto: PayInstallmentDto) {
+    return this.service.payInstallment(dto);
   }
 
   @Get()

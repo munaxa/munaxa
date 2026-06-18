@@ -57,6 +57,23 @@ export class ChargeRepository extends TenantRepository {
     return this.run((tx) => tx.charge.update({ where: { id }, data: { installmentPlanId: null } }));
   }
 
+  /** Resize an installment charge (used when rebalancing a plan after an over/under payment). */
+  updateAmount(id: string, amount: number): Promise<Charge> {
+    return this.run(async (tx, tenantId) => {
+      const charge = await tx.charge.update({
+        where: { id },
+        data: { amount: new Prisma.Decimal(amount.toFixed(3)) },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.installment.resize',
+        entityType: 'Charge',
+        entityId: id,
+        metadata: { amount: charge.amount.toString() },
+      });
+      return charge;
+    });
+  }
+
   sumForStudent(studentId: string): Promise<Prisma.Decimal> {
     return this.run(async (tx) => {
       const result = await tx.charge.aggregate({

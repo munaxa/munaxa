@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaymentMethod } from '@prisma/client';
 import {
   IsDateString,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -63,4 +65,30 @@ export class CreateInstallmentsDto {
   @ApiProperty({ example: '2025-10-01', description: 'Due date of the first installment' })
   @IsDateString()
   firstDueDate!: string;
+}
+
+export class PayInstallmentDto {
+  @ApiProperty({ format: 'uuid' })
+  @IsUUID()
+  studentId!: string;
+
+  @ApiProperty({ format: 'uuid', description: 'The installment charge being paid' })
+  @IsUUID()
+  chargeId!: string;
+
+  @ApiProperty({ example: 500, description: 'Amount paid in JOD (may exceed the installment)' })
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0.001)
+  @Max(100000000)
+  amount!: number;
+
+  @ApiProperty({ enum: PaymentMethod })
+  @IsEnum(PaymentMethod)
+  method!: PaymentMethod;
+
+  @ApiPropertyOptional({ description: 'CliQ reference / receipt id' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  reference?: string;
 }
