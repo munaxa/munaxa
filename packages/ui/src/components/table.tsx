@@ -11,7 +11,7 @@ export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>)
 }
 
 export function THead({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn('bg-secondary/40', className)} {...props} />;
+  return <thead className={cn('bg-muted/50', className)} {...props} />;
 }
 
 export function TBody({ className, ...props }: HTMLAttributes<HTMLTableSectionElement>) {
@@ -19,7 +19,12 @@ export function TBody({ className, ...props }: HTMLAttributes<HTMLTableSectionEl
 }
 
 export function TR({ className, ...props }: HTMLAttributes<HTMLTableRowElement>) {
-  return <tr className={cn('border-t border-border', className)} {...props} />;
+  return (
+    <tr
+      className={cn('border-t border-border transition-colors hover:bg-muted/50', className)}
+      {...props}
+    />
+  );
 }
 
 /** Column header. Defaults to `scope="col"` for screen-reader association (WCAG). */
@@ -27,7 +32,7 @@ export function TH({ scope = 'col', className, ...props }: ThHTMLAttributes<HTML
   return (
     <th
       scope={scope}
-      className={cn('px-3 py-2 text-start font-medium text-muted-foreground', className)}
+      className={cn('px-3 py-2 text-start font-medium text-foreground', className)}
       {...props}
     />
   );

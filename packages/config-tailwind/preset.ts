@@ -20,12 +20,12 @@ const preset: Omit<Config, 'content'> = {
         // accents stay legible in both themes. Alpha modifiers (e.g. text-coral/40) supported.
         coral: 'hsl(var(--coral) / <alpha-value>)',
         aqua: 'hsl(var(--aqua) / <alpha-value>)',
-        // Surfaces (dark)
+        // Dark neutral surfaces — Munaxa Design System navy scale (neutral.950 + slate steps).
         ink: {
-          900: '#0B0518',
-          800: '#140A2E',
-          700: '#1A0F38',
-          600: '#221547',
+          900: '#0B1020',
+          800: '#111827',
+          700: '#1A2332',
+          600: '#2A3441',
         },
         // shadcn token bridge (CSS variables defined in globals.css)
         border: 'hsl(var(--border))',
@@ -57,15 +57,11 @@ const preset: Omit<Config, 'content'> = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        // Semantic status colors — ported verbatim from the Munaxa Design System
-        // tokens (design-system/tokens/colors.ts). Flat values: the reference
-        // palette defines a single value per semantic color (no dark variant),
-        // so we do not invent theme-aware variants. `danger` is intentionally
-        // omitted — it is already covered by `destructive`. Alpha modifiers
-        // (e.g. bg-success/10) are supported by Tailwind for hex colors.
-        success: '#10B981',
-        warning: '#F59E0B',
-        info: '#3B82F6',
+        // Semantic status colors — theme-aware (CSS vars in globals.css; light + dark
+        // variants from the Munaxa Design System). `danger` is covered by `destructive`.
+        success: 'hsl(var(--success) / <alpha-value>)',
+        warning: 'hsl(var(--warning) / <alpha-value>)',
+        info: 'hsl(var(--info) / <alpha-value>)',
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -106,14 +102,16 @@ const preset: Omit<Config, 'content'> = {
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       boxShadow: {
-        // From the Munaxa Design System — soft elevation + a violet "glow" for primaries.
-        card: '0 24px 50px -28px rgba(11,5,24,0.55), 0 0 0 1px hsl(var(--border)) inset',
+        // Munaxa Design System: subtle neutral elevation (shadcn shadow-sm style); the card's
+        // own `border-border` provides definition. Plus a soft violet "glow" for accents.
+        card: '0 1px 3px 0 rgb(17 24 39 / 0.08), 0 1px 2px -1px rgb(17 24 39 / 0.06)',
         glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
         // Focus ring — ported from design-system/tokens/shadows.ts (brand @ 28%).
         focus: '0 0 0 3px rgb(122 63 255 / 0.28)',
       },
       backgroundImage: {
-        'grad-primary': 'linear-gradient(135deg, #7A3FFF 0%, #B97BFF 60%, #FF8E6E 120%)',
+        // Violet-only brand gradient (Munaxa Design System data palette) — no coral tint.
+        'grad-primary': 'linear-gradient(135deg, #8A4FFF 0%, #7A3FFF 55%, #652ED8 120%)',
         'grad-hero':
           'radial-gradient(ellipse 80% 60% at 50% 0%, hsl(var(--primary) / 0.16) 0%, transparent 62%)',
       },
