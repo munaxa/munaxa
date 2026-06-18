@@ -22,38 +22,86 @@ interface NavItem {
   flag?: string;
 }
 
-const NAV: NavItem[] = [
-  { href: '/', labelKey: 'nav.dashboard' },
-  { href: '/structure/schools', labelKey: 'nav.structure', perm: 'school:manage' },
-  { href: '/structure/academic', labelKey: 'nav.academicStructure', perm: 'school:manage' },
-  { href: '/people/students', labelKey: 'nav.people', perm: 'student:manage' },
-  { href: '/people/teachers', labelKey: 'nav.teachers', perm: 'teacher:manage' },
-  { href: '/people/parents', labelKey: 'nav.parents', perm: 'parent:manage' },
-  { href: '/people/employees', labelKey: 'nav.hr', perm: 'employee:manage' },
-  { href: '/people/cards', labelKey: 'nav.cards', perm: 'card:read' },
-  { href: '/timetable', labelKey: 'nav.timetable', perm: 'timetable:read' },
-  { href: '/attendance', labelKey: 'nav.attendance', perm: 'attendance:read' },
-  { href: '/presence', labelKey: 'nav.presence', perm: 'presence:read' },
-  { href: '/academics', labelKey: 'nav.academics', perm: 'grade:read' },
-  { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
-  { href: '/finance/fee-plans', labelKey: 'nav.feePlans', perm: 'finance:read' },
-  { href: '/communication', labelKey: 'nav.communication', perm: 'announcement:manage' },
-  { href: '/fleet', labelKey: 'nav.fleet', perm: 'bus:read', flag: 'bus_tracking' },
-  { href: '/library', labelKey: 'nav.library', perm: 'library:read', flag: 'library_management' },
+/** Enterprise grouped navigation (Munaxa DS ENTERPRISE_NAVIGATION): items organised by domain
+ *  under section headers. A section is hidden entirely when none of its items are permitted. */
+interface NavGroup {
+  titleKey?: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  { items: [{ href: '/', labelKey: 'nav.dashboard' }] },
   {
-    href: '/inventory',
-    labelKey: 'nav.inventory',
-    perm: 'inventory:read',
-    flag: 'inventory_management',
+    titleKey: 'nav.section.people',
+    items: [
+      { href: '/people/students', labelKey: 'nav.people', perm: 'student:manage' },
+      { href: '/people/teachers', labelKey: 'nav.teachers', perm: 'teacher:manage' },
+      { href: '/people/parents', labelKey: 'nav.parents', perm: 'parent:manage' },
+      { href: '/people/employees', labelKey: 'nav.hr', perm: 'employee:manage' },
+      { href: '/people/cards', labelKey: 'nav.cards', perm: 'card:read' },
+    ],
   },
-  { href: '/clinic', labelKey: 'nav.clinic', perm: 'clinic:read', flag: 'school_clinic' },
-  { href: '/reports', labelKey: 'nav.reports', perm: 'report:read' },
-  { href: '/modules', labelKey: 'nav.modules', perm: 'featureflag:manage' },
-  { href: '/settings/integrations/jofotara', labelKey: 'nav.integrations', perm: 'finance:manage' },
-  { href: '/settings/attendance', labelKey: 'nav.attendanceSettings', perm: 'attendance:read' },
-  { href: '/settings/users', labelKey: 'nav.users', perm: 'user:manage' },
-  { href: '/settings/roles', labelKey: 'nav.roles', perm: 'role:manage' },
-  { href: '/platform/databases', labelKey: 'nav.tenantDatabases', perm: 'platform:tenant:manage' },
+  {
+    titleKey: 'nav.section.academics',
+    items: [
+      { href: '/timetable', labelKey: 'nav.timetable', perm: 'timetable:read' },
+      { href: '/attendance', labelKey: 'nav.attendance', perm: 'attendance:read' },
+      { href: '/presence', labelKey: 'nav.presence', perm: 'presence:read' },
+      { href: '/academics', labelKey: 'nav.academics', perm: 'grade:read' },
+    ],
+  },
+  {
+    titleKey: 'nav.section.finance',
+    items: [
+      { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
+      { href: '/finance/fee-plans', labelKey: 'nav.feePlans', perm: 'finance:read' },
+    ],
+  },
+  {
+    titleKey: 'nav.section.operations',
+    items: [
+      { href: '/communication', labelKey: 'nav.communication', perm: 'announcement:manage' },
+      { href: '/fleet', labelKey: 'nav.fleet', perm: 'bus:read', flag: 'bus_tracking' },
+      {
+        href: '/library',
+        labelKey: 'nav.library',
+        perm: 'library:read',
+        flag: 'library_management',
+      },
+      {
+        href: '/inventory',
+        labelKey: 'nav.inventory',
+        perm: 'inventory:read',
+        flag: 'inventory_management',
+      },
+      { href: '/clinic', labelKey: 'nav.clinic', perm: 'clinic:read', flag: 'school_clinic' },
+    ],
+  },
+  {
+    titleKey: 'nav.section.reports',
+    items: [{ href: '/reports', labelKey: 'nav.reports', perm: 'report:read' }],
+  },
+  {
+    titleKey: 'nav.section.settings',
+    items: [
+      { href: '/structure/schools', labelKey: 'nav.structure', perm: 'school:manage' },
+      { href: '/structure/academic', labelKey: 'nav.academicStructure', perm: 'school:manage' },
+      { href: '/modules', labelKey: 'nav.modules', perm: 'featureflag:manage' },
+      {
+        href: '/settings/integrations/jofotara',
+        labelKey: 'nav.integrations',
+        perm: 'finance:manage',
+      },
+      { href: '/settings/attendance', labelKey: 'nav.attendanceSettings', perm: 'attendance:read' },
+      { href: '/settings/users', labelKey: 'nav.users', perm: 'user:manage' },
+      { href: '/settings/roles', labelKey: 'nav.roles', perm: 'role:manage' },
+      {
+        href: '/platform/databases',
+        labelKey: 'nav.tenantDatabases',
+        perm: 'platform:tenant:manage',
+      },
+    ],
+  },
 ];
 
 /**
@@ -88,11 +136,9 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const held = new Set(principal.permissions);
-  const items = NAV.filter(
-    (i) =>
-      (!i.perm || held.has(i.perm) || principal.permissions.length === 0) &&
-      (!i.flag || flags?.[i.flag] === true),
-  );
+  const canSee = (i: NavItem) =>
+    (!i.perm || held.has(i.perm) || principal.permissions.length === 0) &&
+    (!i.flag || flags?.[i.flag] === true);
 
   // Load feature flags so disabled modules drop out of the navigation entirely.
   useEffect(() => {
@@ -116,21 +162,35 @@ export function AppShell({
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   const navLinks = (
-    <nav className="flex flex-1 flex-col gap-1">
-      {items.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href as never}
-          className={cn(
-            'rounded-md px-3 py-2 text-sm transition-colors',
-            isActive(item.href)
-              ? 'bg-accent font-medium text-accent-foreground'
-              : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-          )}
-        >
-          {t(item.labelKey)}
-        </Link>
-      ))}
+    <nav className="flex flex-1 flex-col gap-5">
+      {NAV_GROUPS.map((group, gi) => {
+        const groupItems = group.items.filter(canSee);
+        if (groupItems.length === 0) return null;
+        return (
+          <div key={group.titleKey ?? gi} className="flex flex-col gap-1">
+            {group.titleKey ? (
+              <p className="px-3 pb-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground/70">
+                {t(group.titleKey)}
+              </p>
+            ) : null}
+            {groupItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href as never}
+                aria-current={isActive(item.href) ? 'page' : undefined}
+                className={cn(
+                  'rounded-md px-3 py-2 text-sm transition-colors',
+                  isActive(item.href)
+                    ? 'bg-accent font-medium text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                )}
+              >
+                {t(item.labelKey)}
+              </Link>
+            ))}
+          </div>
+        );
+      })}
     </nav>
   );
 

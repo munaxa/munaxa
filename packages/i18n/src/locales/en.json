@@ -80,6 +80,14 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "section": {
+      "people": "People",
+      "academics": "Academics",
+      "finance": "Finance",
+      "operations": "Operations",
+      "reports": "Insights",
+      "settings": "Administration"
+    },
     "structure": "School structure",
     "academicStructure": "Academic structure",
     "people": "Students",

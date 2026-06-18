@@ -80,6 +80,14 @@
   },
   "nav": {
     "dashboard": "الرئيسية",
+    "section": {
+      "people": "الأشخاص",
+      "academics": "الشؤون الأكاديمية",
+      "finance": "المالية",
+      "operations": "العمليات",
+      "reports": "التحليلات",
+      "settings": "الإدارة"
+    },
     "structure": "هيكل المدرسة",
     "academicStructure": "الهيكل الأكاديمي",
     "people": "الطلاب",
