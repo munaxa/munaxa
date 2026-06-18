@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 /*
- * Munaxa design tokens (shadcn bridge). Default theme is dark, matching the
- * Munaxa Design System (deep violet/ink surfaces, violet primary, coral accent).
+ * Munaxa design tokens (shadcn bridge). Default theme is light, matching the
+ * Munaxa Design System; dark mode (.dark) is fully supported via the toggle.
  */
 @layer base {
   :root {

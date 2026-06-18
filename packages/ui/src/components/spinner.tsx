@@ -1,4 +1,4 @@
-import { cn } from '@munaxa/ui';
+import { cn } from '../cn.js';
 
 /** A minimal accessible loading spinner. */
 export function Spinner({ className }: { className?: string }) {

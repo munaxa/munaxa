@@ -53,7 +53,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang={locale}
       dir={dir}
-      className={`dark ${plexDisplay.variable} ${plexBody.variable} ${plexArabic.variable}`}
+      className={`${plexDisplay.variable} ${plexBody.variable} ${plexArabic.variable}`}
       suppressHydrationWarning
     >
       <body className="min-h-screen bg-background bg-grad-hero font-body text-foreground antialiased">

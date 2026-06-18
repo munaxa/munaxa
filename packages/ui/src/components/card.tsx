@@ -1,5 +1,5 @@
 import type { HTMLAttributes } from 'react';
-import { cn } from '@munaxa/ui';
+import { cn } from '../cn.js';
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
