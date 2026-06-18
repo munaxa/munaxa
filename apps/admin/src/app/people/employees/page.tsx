@@ -20,6 +20,7 @@ import {
   Button,
   Card,
   CardContent,
+  EmptyState,
   CardHeader,
   CardTitle,
   Field,
@@ -251,8 +252,8 @@ export default function EmployeesPage() {
             )}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={6} className="text-muted-foreground">
-                  {t('people.noStaff')}
+                <TD colSpan={6}>
+                  <EmptyState title={t('people.noStaff')} />
                 </TD>
               </TR>
             ) : null}

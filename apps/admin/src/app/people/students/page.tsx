@@ -21,6 +21,7 @@ import {
   Card,
   Checkbox,
   CardContent,
+  EmptyState,
   CardHeader,
   CardTitle,
   Field,
@@ -271,8 +272,8 @@ export default function StudentsPage() {
             ))}
             {students.length === 0 ? (
               <TR>
-                <TD colSpan={7} className="text-muted-foreground">
-                  {t('people.noStudents')}
+                <TD colSpan={7}>
+                  <EmptyState title={t('people.noStudents')} />
                 </TD>
               </TR>
             ) : null}

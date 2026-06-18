@@ -15,6 +15,7 @@ import {
   Button,
   Card,
   CardContent,
+  EmptyState,
   CardHeader,
   CardTitle,
   Field,
@@ -132,8 +133,8 @@ export default function TeachersPage() {
             ))}
             {teachers.length === 0 ? (
               <TR>
-                <TD colSpan={6} className="text-muted-foreground">
-                  {t('people.noTeachers')}
+                <TD colSpan={6}>
+                  <EmptyState title={t('people.noTeachers')} />
                 </TD>
               </TR>
             ) : null}

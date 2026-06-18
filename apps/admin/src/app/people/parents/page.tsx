@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   CardContent,
+  EmptyState,
   CardHeader,
   CardTitle,
   Field,
@@ -123,8 +124,8 @@ export default function ParentsPage() {
             ))}
             {parents.length === 0 ? (
               <TR>
-                <TD colSpan={6} className="text-muted-foreground">
-                  {t('people.noParents')}
+                <TD colSpan={6}>
+                  <EmptyState title={t('people.noParents')} />
                 </TD>
               </TR>
             ) : null}
