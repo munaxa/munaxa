@@ -43,13 +43,17 @@ function printReport(table: ReportTable) {
 <meta charset="utf-8" />
 <title>${esc(table.title)}</title>
 <style>
-  /* Standalone print document — plain CSS colors, outside the app's token system. */
-  body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color: black; }
+  /* Standalone print document: a separate browser window that cannot consume
+     the app's CSS variables, so the Munaxa Design System token *values* are
+     inlined here as rgb() (design-system/tokens/colors.ts: neutral.900,
+     neutral.500, neutral.200 and brand.primarySoft, in source order below)
+     rather than arbitrary CSS named colors. */
+  body { font-family: Arial, Helvetica, sans-serif; margin: 24px; color: rgb(17, 24, 39); }
   h1 { font-size: 18px; margin: 0 0 2px; }
-  .meta { color: dimgray; font-size: 11px; margin-bottom: 14px; }
+  .meta { color: rgb(107, 114, 128); font-size: 11px; margin-bottom: 14px; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { border: 1px solid lightgray; padding: 5px 8px; text-align: start; }
-  th { background: rgb(243, 240, 250); }
+  th, td { border: 1px solid rgb(229, 231, 235); padding: 5px 8px; text-align: start; }
+  th { background: rgb(245, 240, 255); }
   tr { break-inside: avoid; }
   @page { margin: 14mm; }
 </style>
