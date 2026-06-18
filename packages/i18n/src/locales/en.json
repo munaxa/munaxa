@@ -64,7 +64,8 @@
     "schoolPlane": "School plane",
     "platformPlane": "Platform plane",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "skipToContent": "Skip to content"
   },
   "nav": {
     "dashboard": "Dashboard",

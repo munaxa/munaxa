@@ -137,6 +137,13 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen">
+      {/* Skip link — first focusable element; jumps keyboard/SR users past the nav. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:start-4 focus:top-4 focus:z-toast focus:rounded-lg focus:border focus:border-border focus:bg-card focus:px-4 focus:py-2 focus:text-sm focus:shadow-card"
+      >
+        {t('shell.skipToContent')}
+      </a>
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col self-start overflow-y-auto border-e border-border bg-card/40 p-4 md:flex">
         <div className="flex items-center gap-2 px-2 py-3">
@@ -200,7 +207,9 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 p-6">{children}</main>
+        <main id="main-content" className="flex-1 p-6">
+          {children}
+        </main>
       </div>
     </div>
   );
