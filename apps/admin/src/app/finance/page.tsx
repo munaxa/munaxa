@@ -604,42 +604,63 @@ export default function FinancePage() {
                   <p className="mb-2 text-sm font-medium">{t('finance.installmentPlan')}</p>
                   {installPlan ? (
                     <div className="space-y-2">
-                      <ul className="divide-y divide-border text-sm">
-                        {installPlan.charges.map((c) => (
-                          <li key={c.id} className="flex items-center justify-between gap-2 py-1.5">
-                            <span className="min-w-0">
-                              {c.description}
-                              {c.dueDate ? (
-                                <span className="ms-2 font-mono text-[11px] text-muted-foreground">
-                                  {new Date(c.dueDate).toLocaleDateString()}
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="flex items-center gap-2">
-                              <span className="font-mono">{Number(c.amount).toFixed(3)}</span>
-                              <Badge tone={CHARGE_TONE[c.status] ?? 'default'}>{c.status}</Badge>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={() =>
-                          void confirm({ description: t('finance.deletePlanConfirm') }).then(
-                            (ok) => {
-                              if (ok)
-                                void run(
-                                  () => financeApi.deleteInstallmentPlan(studentId),
-                                  t('finance.planDeleted'),
-                                );
-                            },
-                          )
-                        }
-                      >
-                        {t('finance.deletePlan')}
-                      </Button>
+                      <Table>
+                        <THead>
+                          <TR>
+                            <TH>{t('finance.dueDate')}</TH>
+                            <TH>{t('common.description')}</TH>
+                            <TH className="text-end">{t('finance.scheduled')}</TH>
+                            <TH className="text-end">{t('finance.paid')}</TH>
+                            <TH className="text-end">{t('finance.balance')}</TH>
+                            <TH>{t('common.status')}</TH>
+                          </TR>
+                        </THead>
+                        <TBody>
+                          {installPlan.charges.map((c) => (
+                            <TR key={c.id}>
+                              <TD className="whitespace-nowrap font-mono text-xs">
+                                {c.dueDate ? new Date(c.dueDate).toLocaleDateString() : '—'}
+                              </TD>
+                              <TD>{c.description}</TD>
+                              <TD className="text-end font-mono">{Number(c.amount).toFixed(3)}</TD>
+                              <TD className="text-end font-mono text-aqua">
+                                {Number(c.paid) > 0 ? Number(c.paid).toFixed(3) : '—'}
+                              </TD>
+                              <TD className="text-end font-mono">{Number(c.balance).toFixed(3)}</TD>
+                              <TD>
+                                <Badge tone={CHARGE_TONE[c.status] ?? 'default'}>{c.status}</Badge>
+                              </TD>
+                            </TR>
+                          ))}
+                        </TBody>
+                      </Table>
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {t('finance.outstanding')}:{' '}
+                          {installPlan.charges
+                            .reduce((s, c) => s + Number(c.balance), 0)
+                            .toFixed(3)}{' '}
+                          JOD
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() =>
+                            void confirm({ description: t('finance.deletePlanConfirm') }).then(
+                              (ok) => {
+                                if (ok)
+                                  void run(
+                                    () => financeApi.deleteInstallmentPlan(studentId),
+                                    t('finance.planDeleted'),
+                                  );
+                              },
+                            )
+                          }
+                        >
+                          {t('finance.deletePlan')}
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <>

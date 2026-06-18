@@ -205,6 +205,7 @@
     "deletePlanConfirm": "Delete this installment plan? Unpaid installments are removed; paid ones are kept.",
     "planDeleted": "Installment plan deleted",
     "pay": "Pay",
+    "scheduled": "Scheduled",
     "recordPayment": "Record payment",
     "family": "Family",
     "deductions": "Deductions",

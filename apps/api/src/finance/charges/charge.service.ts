@@ -3,12 +3,32 @@ import { BadRequestException, ConflictException, Injectable } from '@nestjs/comm
 import type { Charge } from '@prisma/client';
 import { ChargeRepository } from './charge.repository';
 import { BillingRepository } from '../ledger/billing.repository';
+import { LedgerService } from '../ledger/ledger.service';
 import { TransactionService } from '../transactions/transaction.service';
 import { FinanceBridgeService } from '../../einvoicing/finance-bridge.service';
 import type { CreateChargeDto, CreateInstallmentsDto, PayInstallmentDto } from './charge.dto';
 
 /** Convert a JOD amount to integer fils (1/1000 JOD) so splits never drift on rounding. */
 const toFils = (n: number): number => Math.round(n * 1000);
+
+/** One installment row, as a ledger entry: schedule + what's been paid against it. */
+export interface InstallmentRow {
+  id: string;
+  description: string;
+  dueDate: Date | null;
+  /** Scheduled amount for this installment. */
+  amount: string;
+  /** Amount paid/allocated so far. */
+  paid: string;
+  /** Remaining balance (scheduled − discounts − paid). */
+  balance: string;
+  status: string;
+}
+
+export interface InstallmentPlanView {
+  planId: string;
+  charges: InstallmentRow[];
+}
 
 /** Adds `n` calendar months to an ISO date, clamping the day to the target month's length. */
 function addMonths(iso: string, n: number): Date {
@@ -29,6 +49,7 @@ export class ChargeService {
     private readonly bridge: FinanceBridgeService,
     private readonly billing: BillingRepository,
     private readonly transactions: TransactionService,
+    private readonly ledger: LedgerService,
   ) {}
 
   async create(dto: CreateChargeDto): Promise<Charge> {
@@ -86,13 +107,39 @@ export class ChargeService {
     return created;
   }
 
-  /** The student's active installment plan (grouped charges), or null when none exists. */
-  async getInstallmentPlan(
-    studentId: string,
-  ): Promise<{ planId: string; charges: Charge[] } | null> {
+  /**
+   * The student's active installment plan as a ledger: each installment with its due date,
+   * scheduled amount, amount paid, and remaining balance. Null when there is no plan.
+   */
+  async getInstallmentPlan(studentId: string): Promise<InstallmentPlanView | null> {
     const charges = await this.repo.installmentCharges(studentId);
     if (charges.length === 0) return null;
-    return { planId: charges[0]!.installmentPlanId!, charges };
+    const [balances, transactions] = await Promise.all([
+      this.billing.chargeBalances(studentId),
+      this.transactions.listForStudent(studentId),
+    ]);
+    // "paid" = what the parent actually handed over toward this installment (its verified payments),
+    // so an over-paid month shows e.g. scheduled 377.778, paid 500. "balance" comes from the ledger
+    // (scheduled − allocated), so any surplus that prepaid a later installment is reflected there.
+    const paidByCharge = new Map<string, number>();
+    for (const tx of transactions) {
+      if (tx.status === 'VERIFIED' && tx.chargeId) {
+        paidByCharge.set(tx.chargeId, (paidByCharge.get(tx.chargeId) ?? 0) + Number(tx.amount));
+      }
+    }
+    const rows: InstallmentRow[] = charges.map((c) => {
+      const b = balances.find((x) => x.charge.id === c.id);
+      return {
+        id: c.id,
+        description: c.description,
+        dueDate: c.dueDate,
+        amount: c.amount.toFixed(3),
+        paid: (paidByCharge.get(c.id) ?? 0).toFixed(3),
+        balance: b?.balance ?? c.amount.toFixed(3),
+        status: c.status,
+      };
+    });
+    return { planId: charges[0]!.installmentPlanId!, charges: rows };
   }
 
   /**
@@ -112,40 +159,23 @@ export class ChargeService {
   }
 
   /**
-   * Pay an installment, keeping the plan total fixed. If the parent pays more than this month's
-   * installment, the surplus shrinks the remaining unpaid installments evenly so the plan still
-   * sums to the original total — e.g. 3400 / 9 = 377.778 each; paying 500 now leaves 2900 over the
-   * other 8 = 362.500 each. Underpaying just leaves a balance on this installment and changes
-   * nothing else.
+   * Pay an installment as a ledger entry. The installment's scheduled amount never changes — the
+   * payment is recorded against it (showing e.g. "scheduled 377.778, paid 500"). Any surplus beyond
+   * this installment's balance is allocated to the **latest** unpaid installment(s), so the plan
+   * total is preserved and only the last installment's remaining balance shrinks. A true surplus
+   * beyond the whole plan stays as account credit.
    */
-  async payInstallment(
-    dto: PayInstallmentDto,
-  ): Promise<{ planId: string; charges: Charge[] } | null> {
+  async payInstallment(dto: PayInstallmentDto): Promise<InstallmentPlanView | null> {
     const planCharges = await this.repo.installmentCharges(dto.studentId);
     const target = planCharges.find((c) => c.id === dto.chargeId);
     if (!target) {
       throw new BadRequestException('Charge is not part of an active installment plan');
     }
 
-    const balances = await this.billing.chargeBalances(dto.studentId);
-    const balOf = (id: string) => balances.find((b) => b.charge.id === id);
-    const targetBalFils = toFils(Number(balOf(target.id)?.balance ?? 0));
-    const paidBeforeFils = planCharges.reduce(
-      (sum, c) => sum + toFils(Number(balOf(c.id)?.allocated ?? 0)),
-      0,
-    );
-    const totalFils = planCharges.reduce((sum, c) => sum + toFils(Number(c.amount)), 0);
-    const payFils = toFils(dto.amount);
+    const before = await this.billing.chargeBalances(dto.studentId);
+    const targetBal = Number(before.find((b) => b.charge.id === target.id)?.balance ?? 0);
 
-    // Overpayment beyond this installment's balance → grow it (capped at the whole remaining plan)
-    // so the payment fully lands here, then rebalance the rest.
-    if (payFils > targetBalFils) {
-      const absorbFils = Math.min(payFils, totalFils - paidBeforeFils);
-      const targetAllocatedFils = toFils(Number(balOf(target.id)?.allocated ?? 0));
-      await this.repo.updateAmount(target.id, (targetAllocatedFils + absorbFils) / 1000);
-    }
-
-    // Record + verify the payment so it allocates to this charge immediately.
+    // Record + verify the payment; the ledger auto-allocates up to this installment's balance.
     const txn = await this.transactions.create({
       studentId: dto.studentId,
       chargeId: dto.chargeId,
@@ -155,35 +185,27 @@ export class ChargeService {
     });
     await this.transactions.verify(txn.id);
 
-    // Rebalance the remaining unpaid installments to carry exactly (total − paid).
-    if (payFils > targetBalFils) {
+    // Surplus = whatever the installment couldn't absorb. Prepay it onto the latest installments
+    // (so the last one is the one that shrinks), leaving any remainder as account credit.
+    let surplusFils = toFils(dto.amount) - toFils(Math.min(dto.amount, targetBal));
+    if (surplusFils > 0) {
       const after = await this.billing.chargeBalances(dto.studentId);
-      const balAfter = (id: string) => after.find((b) => b.charge.id === id);
-      const remaining = planCharges.filter(
-        (c) => c.id !== target.id && toFils(Number(balAfter(c.id)?.balance ?? 0)) > 0,
-      );
-      const paidAfterFils = planCharges.reduce(
-        (sum, c) => sum + toFils(Number(balAfter(c.id)?.allocated ?? 0)),
-        0,
-      );
-      let remainingDueFils = totalFils - paidAfterFils;
-      if (remainingDueFils < 0) remainingDueFils = 0;
+      const balAfter = (id: string) => Number(after.find((b) => b.charge.id === id)?.balance ?? 0);
+      const laterUnpaid = planCharges
+        .filter((c) => c.id !== target.id && toFils(balAfter(c.id)) > 0)
+        .sort((a, b) => (b.dueDate?.getTime() ?? 0) - (a.dueDate?.getTime() ?? 0)); // latest first
 
-      if (remaining.length > 0) {
-        if (remainingDueFils === 0) {
-          for (const c of remaining) await this.repo.cancelInstallment(c.id);
-        } else {
-          const perFils = Math.floor(remainingDueFils / remaining.length);
-          for (let i = 0; i < remaining.length; i += 1) {
-            const c = remaining[i]!;
-            const isLast = i === remaining.length - 1;
-            const shareFils = isLast
-              ? remainingDueFils - perFils * (remaining.length - 1)
-              : perFils;
-            const allocatedFils = toFils(Number(balAfter(c.id)?.allocated ?? 0));
-            await this.repo.updateAmount(c.id, (allocatedFils + shareFils) / 1000);
-          }
+      const allocations: Array<{ chargeId: string; amount: number }> = [];
+      for (const c of laterUnpaid) {
+        if (surplusFils <= 0) break;
+        const take = Math.min(surplusFils, toFils(balAfter(c.id)));
+        if (take > 0) {
+          allocations.push({ chargeId: c.id, amount: take / 1000 });
+          surplusFils -= take;
         }
+      }
+      if (allocations.length > 0) {
+        await this.ledger.allocate({ transactionId: txn.id, allocations });
       }
     }
 
