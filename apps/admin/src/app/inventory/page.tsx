@@ -19,6 +19,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Field,
   Input,
   Select,
   Table,
@@ -27,6 +28,7 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 export default function InventoryPage() {
@@ -128,8 +130,8 @@ export default function InventoryPage() {
               })}
               {items.length === 0 ? (
                 <TR>
-                  <TD colSpan={5} className="text-muted-foreground">
-                    {t('inventory.noItems')}
+                  <TD colSpan={5}>
+                    <EmptyState title={t('inventory.noItems')} />
                   </TD>
                 </TR>
               ) : null}
@@ -167,8 +169,8 @@ export default function InventoryPage() {
               ))}
               {txns.length === 0 ? (
                 <TR>
-                  <TD colSpan={5} className="text-muted-foreground">
-                    {t('inventory.noMovements')}
+                  <TD colSpan={5}>
+                    <EmptyState title={t('inventory.noMovements')} />
                   </TD>
                 </TR>
               ) : null}
@@ -229,47 +231,67 @@ function CreateItem({
 
   return (
     <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
-      <Input
-        className="sm:col-span-2"
-        placeholder={t('inventory.itemName')}
-        value={form.name}
-        onChange={(e) => setForm({ ...form, name: e.target.value })}
-        required
-      />
-      <Input
-        placeholder={t('inventory.sku')}
-        value={form.sku}
-        onChange={(e) => setForm({ ...form, sku: e.target.value })}
-      />
-      <Input
-        placeholder={t('inventory.category')}
-        value={form.category}
-        onChange={(e) => setForm({ ...form, category: e.target.value })}
-      />
-      <Input
-        placeholder={t('inventory.unitPlaceholder')}
-        value={form.unit}
-        onChange={(e) => setForm({ ...form, unit: e.target.value })}
-      />
-      <Input
-        placeholder={t('inventory.location')}
-        value={form.location}
-        onChange={(e) => setForm({ ...form, location: e.target.value })}
-      />
-      <Input
-        type="number"
-        min={0}
-        placeholder={t('inventory.startingQuantity')}
-        value={form.quantity}
-        onChange={(e) => setForm({ ...form, quantity: e.target.value })}
-      />
-      <Input
-        type="number"
-        min={0}
-        placeholder={t('inventory.reorderLevel')}
-        value={form.reorderLevel}
-        onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })}
-      />
+      <Field className="sm:col-span-2" label={t('inventory.itemName')} htmlFor="inv-item-name">
+        <Input
+          id="inv-item-name"
+          placeholder={t('inventory.itemName')}
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          required
+        />
+      </Field>
+      <Field label={t('inventory.sku')} htmlFor="inv-item-sku">
+        <Input
+          id="inv-item-sku"
+          placeholder={t('inventory.sku')}
+          value={form.sku}
+          onChange={(e) => setForm({ ...form, sku: e.target.value })}
+        />
+      </Field>
+      <Field label={t('inventory.category')} htmlFor="inv-item-category">
+        <Input
+          id="inv-item-category"
+          placeholder={t('inventory.category')}
+          value={form.category}
+          onChange={(e) => setForm({ ...form, category: e.target.value })}
+        />
+      </Field>
+      <Field label={t('inventory.unitPlaceholder')} htmlFor="inv-item-unit">
+        <Input
+          id="inv-item-unit"
+          placeholder={t('inventory.unitPlaceholder')}
+          value={form.unit}
+          onChange={(e) => setForm({ ...form, unit: e.target.value })}
+        />
+      </Field>
+      <Field label={t('inventory.location')} htmlFor="inv-item-location">
+        <Input
+          id="inv-item-location"
+          placeholder={t('inventory.location')}
+          value={form.location}
+          onChange={(e) => setForm({ ...form, location: e.target.value })}
+        />
+      </Field>
+      <Field label={t('inventory.startingQuantity')} htmlFor="inv-item-quantity">
+        <Input
+          id="inv-item-quantity"
+          type="number"
+          min={0}
+          placeholder={t('inventory.startingQuantity')}
+          value={form.quantity}
+          onChange={(e) => setForm({ ...form, quantity: e.target.value })}
+        />
+      </Field>
+      <Field label={t('inventory.reorderLevel')} htmlFor="inv-item-reorder">
+        <Input
+          id="inv-item-reorder"
+          type="number"
+          min={0}
+          placeholder={t('inventory.reorderLevel')}
+          value={form.reorderLevel}
+          onChange={(e) => setForm({ ...form, reorderLevel: e.target.value })}
+        />
+      </Field>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
         {busy ? t('common.saving') : t('inventory.addItemBtn')}
       </Button>

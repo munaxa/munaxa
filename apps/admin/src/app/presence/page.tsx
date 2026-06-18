@@ -30,6 +30,7 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 const TYPE_TONE: Record<PresenceEventType, 'success' | 'muted'> = {
@@ -122,8 +123,8 @@ export default function PresencePage() {
               ))}
               {events.length === 0 ? (
                 <TR>
-                  <TD colSpan={4} className="text-muted-foreground">
-                    {t('presence.noEvents')}
+                  <TD colSpan={4}>
+                    <EmptyState title={t('presence.noEvents')} />
                   </TD>
                 </TR>
               ) : null}

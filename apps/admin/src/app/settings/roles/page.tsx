@@ -11,6 +11,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   CardContent,
   CardDescription,
   CardHeader,
@@ -304,9 +305,8 @@ function RoleEditor({
                       key={p.key}
                       className="flex cursor-pointer items-start gap-2 rounded-md border border-border p-2 text-sm hover:bg-secondary/40"
                     >
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 accent-primary"
+                      <Checkbox
+                        className="mt-0.5"
                         checked={selected.has(p.key)}
                         onChange={() => toggle(p.key)}
                       />

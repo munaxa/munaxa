@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import {
   academicsApi,
@@ -30,9 +29,11 @@ import {
   Table,
   TBody,
   TD,
+  Textarea,
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 export default function AcademicsPage() {
@@ -142,8 +143,8 @@ function HomeworkSection() {
             ))}
             {list.length === 0 ? (
               <TR>
-                <TD colSpan={3} className="text-muted-foreground">
-                  {t('academics.noHomework')}
+                <TD colSpan={3}>
+                  <EmptyState title={t('academics.noHomework')} />
                 </TD>
               </TR>
             ) : null}
@@ -187,11 +188,8 @@ function GradesSection() {
       <CardContent className="space-y-3">
         <form onSubmit={(e) => void importCsv(e)} className="space-y-2">
           <Field label={t('academics.importCsv')}>
-            <textarea
-              className={cn(
-                'h-24 w-full rounded-lg border border-input bg-background/60 px-3 py-2 font-mono text-xs',
-                'outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
-              )}
+            <Textarea
+              className="h-24 font-mono text-xs"
               value={csv}
               onChange={(e) => setCsv(e.target.value)}
             />
@@ -404,8 +402,8 @@ function BehaviorSection() {
               ))}
               {list.length === 0 ? (
                 <TR>
-                  <TD colSpan={5} className="text-muted-foreground">
-                    {t('academics.noBehavior')}
+                  <TD colSpan={5}>
+                    <EmptyState title={t('academics.noBehavior')} />
                   </TD>
                 </TR>
               ) : null}

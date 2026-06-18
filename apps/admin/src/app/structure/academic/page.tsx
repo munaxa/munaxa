@@ -25,6 +25,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   CardContent,
   CardHeader,
   CardTitle,
@@ -37,6 +38,7 @@ import {
   TH,
   THead,
   TR,
+  EmptyState,
 } from '@/components/ui';
 
 export default function AcademicStructurePage() {
@@ -234,8 +236,8 @@ function Grades({ campusId }: { campusId: string }) {
             ))}
             {grades.length === 0 ? (
               <TR>
-                <TD colSpan={3} className="text-muted-foreground">
-                  {t('structure.noGrades')}
+                <TD colSpan={3}>
+                  <EmptyState title={t('structure.noGrades')} />
                 </TD>
               </TR>
             ) : null}
@@ -452,8 +454,8 @@ function Classrooms({ campusId }: { campusId: string }) {
             ))}
             {rooms.length === 0 ? (
               <TR>
-                <TD colSpan={5} className="text-muted-foreground">
-                  {t('structure.noClassrooms')}
+                <TD colSpan={5}>
+                  <EmptyState title={t('structure.noClassrooms')} />
                 </TD>
               </TR>
             ) : null}
@@ -535,8 +537,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
             />
           </Field>
           <label className="flex items-center gap-1.5 pb-2 text-sm text-muted-foreground">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={form.isCurrent}
               onChange={(e) => setForm({ ...form, isCurrent: e.target.checked })}
             />
@@ -592,8 +593,8 @@ function AcademicYears({ campusId }: { campusId: string }) {
             ))}
             {years.length === 0 ? (
               <TR>
-                <TD colSpan={4} className="text-muted-foreground">
-                  {t('structure.noYears')}
+                <TD colSpan={4}>
+                  <EmptyState title={t('structure.noYears')} />
                 </TD>
               </TR>
             ) : null}

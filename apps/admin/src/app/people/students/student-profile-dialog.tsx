@@ -33,18 +33,16 @@ import {
   TH,
   THead,
   TR,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from '@/components/ui';
+import { ChargeStatusBadge, TransactionStatusBadge } from '@/components/domain';
 
 const PARENT_RELATIONS = ['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER'];
 
 const money = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
-
-const CHARGE_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = {
-  PAID: 'success',
-  PARTIAL: 'warning',
-  OVERDUE: 'danger',
-  PENDING: 'muted',
-};
 
 /**
  * Read-only student profile shown in a modal when a student name is clicked on the Students list.
@@ -98,10 +96,11 @@ export function StudentProfileDialog({
   }, [student.id]);
 
   const initials = `${student.firstNameEn[0] ?? ''}${student.lastNameEn[0] ?? ''}`.toUpperCase();
+  const [tab, setTab] = useState('overview');
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+    <div className="fixed inset-0 z-modal flex items-start justify-center overflow-y-auto p-4">
+      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
       <div
         className="relative my-8 w-full max-w-3xl space-y-4 rounded-xl border border-border bg-card p-5 shadow-card"
         role="dialog"
@@ -144,171 +143,186 @@ export function StudentProfileDialog({
           </p>
         ) : null}
 
-        {/* Identity details */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('people.details')}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
-            <Detail label={t('people.nationalId')} value={student.nationalId} mono />
-            <Detail label={t('people.moeNumber')} value={student.moeStudentNumber} mono />
-            <Detail label={t('people.qr')} value={student.qrCode} mono />
-            <Detail label={t('common.status')} value={student.status} />
-            <Detail label="Section" value={sectionLabel ?? null} />
-            <Detail
-              label="Enrolled"
-              value={student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : null}
-              mono
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">{t('people.details')}</TabsTrigger>
+            <TabsTrigger value="relationships">{t('people.parents')}</TabsTrigger>
+            <TabsTrigger value="health">{t('people.vaccines')}</TabsTrigger>
+            <TabsTrigger value="finance">{t('nav.finance')}</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            {/* Identity details */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('people.details')}</CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+                <Detail label={t('people.nationalId')} value={student.nationalId} mono />
+                <Detail label={t('people.moeNumber')} value={student.moeStudentNumber} mono />
+                <Detail label={t('people.qr')} value={student.qrCode} mono />
+                <Detail label={t('common.status')} value={student.status} />
+                <Detail label="Section" value={sectionLabel ?? null} />
+                <Detail
+                  label="Enrolled"
+                  value={student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : null}
+                  mono
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="relationships">
+            {/* Parents / guardians */}
+            <ParentsSection
+              studentId={student.id}
+              parents={parents}
+              onChanged={loadParents}
+              onEditParent={setEditingParent}
             />
-          </CardContent>
-        </Card>
+          </TabsContent>
 
-        {/* Parents / guardians */}
-        <ParentsSection
-          studentId={student.id}
-          parents={parents}
-          onChanged={loadParents}
-          onEditParent={setEditingParent}
-        />
-
-        {/* Vaccines */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('people.vaccines')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {vaccines.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('people.noVaccines')}</p>
-            ) : (
-              <ul className="flex flex-wrap gap-1.5">
-                {vaccines.map((v) => (
-                  <li key={v.id}>
-                    <Badge tone={v.received ? 'success' : 'muted'}>
-                      {v.name}
-                      {v.grade ? ` · ${v.grade}` : ''}
-                      {v.received ? '' : ` · ${t('people.notReceived')}`}
-                    </Badge>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Finance */}
-        <Card
-          className={statement && Number(statement.totals.outstanding) > 0 ? 'border-coral/40' : ''}
-        >
-          <CardHeader>
-            <CardTitle>{t('nav.finance')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {loading ? (
-              <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
-            ) : !statement ? (
-              <p className="text-sm text-muted-foreground">—</p>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-                  {(
-                    [
-                      [t('finance.charged'), statement.totals.charged, ''],
-                      [t('finance.paid'), statement.totals.paid, 'text-aqua'],
-                      [t('finance.discounts'), statement.totals.discounts, ''],
-                      [t('finance.outstanding'), statement.totals.outstanding, 'text-coral'],
-                      [t('finance.credit'), statement.totals.creditBalance, 'text-aqua'],
-                      [t('finance.refunded'), statement.totals.refunded, ''],
-                    ] as const
-                  ).map(([label, value, tone]) => (
-                    <div
-                      key={label}
-                      className="rounded-lg border border-border bg-background/40 p-3"
-                    >
-                      <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {label}
-                      </div>
-                      <div className={`font-display text-lg font-semibold ${tone}`}>
-                        {Number(value).toFixed(3)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <Table>
-                  <THead>
-                    <TR>
-                      <TH>{t('finance.description')}</TH>
-                      <TH className="text-end">{t('finance.net')}</TH>
-                      <TH className="text-end">{t('finance.balance')}</TH>
-                      <TH>{t('common.status')}</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {statement.chargeBalances.map((b) => (
-                      <TR key={b.charge.id}>
-                        <TD>
-                          {b.charge.description}
-                          {b.charge.dueDate ? (
-                            <span className="block font-mono text-[11px] text-muted-foreground">
-                              {b.charge.dueDate.slice(0, 10)}
-                            </span>
-                          ) : null}
-                        </TD>
-                        <TD className="text-end font-mono">{Number(b.net).toFixed(3)}</TD>
-                        <TD className="text-end font-mono">{Number(b.balance).toFixed(3)}</TD>
-                        <TD>
-                          <Badge tone={CHARGE_TONE[b.charge.status] ?? 'muted'}>
-                            {b.charge.status}
-                          </Badge>
-                        </TD>
-                      </TR>
+          <TabsContent value="health">
+            {/* Vaccines */}
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('people.vaccines')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {vaccines.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('people.noVaccines')}</p>
+                ) : (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {vaccines.map((v) => (
+                      <li key={v.id}>
+                        <Badge tone={v.received ? 'success' : 'muted'}>
+                          {v.name}
+                          {v.grade ? ` · ${v.grade}` : ''}
+                          {v.received ? '' : ` · ${t('people.notReceived')}`}
+                        </Badge>
+                      </li>
                     ))}
-                    {statement.chargeBalances.length === 0 ? (
-                      <TR>
-                        <TD colSpan={4} className="text-muted-foreground">
-                          {t('finance.noCharges')}
-                        </TD>
-                      </TR>
-                    ) : null}
-                  </TBody>
-                </Table>
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-                {statement.transactions.length > 0 ? (
-                  <Table>
-                    <THead>
-                      <TR>
-                        <TH className="text-end">{t('finance.amount')}</TH>
-                        <TH>{t('finance.method')}</TH>
-                        <TH>{t('finance.reference')}</TH>
-                        <TH>{t('common.status')}</TH>
-                      </TR>
-                    </THead>
-                    <TBody>
-                      {statement.transactions.map((tx) => (
-                        <TR key={tx.id}>
-                          <TD className="text-end font-mono">{Number(tx.amount).toFixed(3)}</TD>
-                          <TD>{tx.method}</TD>
-                          <TD className="font-mono text-xs text-muted-foreground">
-                            {tx.reference ?? '—'}
-                          </TD>
-                          <TD>
-                            <Badge tone={tx.status === 'VERIFIED' ? 'success' : 'muted'}>
-                              {tx.status}
-                            </Badge>
-                          </TD>
-                        </TR>
+          <TabsContent value="finance">
+            {/* Finance */}
+            <Card
+              className={
+                statement && Number(statement.totals.outstanding) > 0 ? 'border-coral/40' : ''
+              }
+            >
+              <CardHeader>
+                <CardTitle>{t('nav.finance')}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {loading ? (
+                  <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
+                ) : !statement ? (
+                  <p className="text-sm text-muted-foreground">—</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                      {(
+                        [
+                          [t('finance.charged'), statement.totals.charged, ''],
+                          [t('finance.paid'), statement.totals.paid, 'text-aqua'],
+                          [t('finance.discounts'), statement.totals.discounts, ''],
+                          [t('finance.outstanding'), statement.totals.outstanding, 'text-coral'],
+                          [t('finance.credit'), statement.totals.creditBalance, 'text-aqua'],
+                          [t('finance.refunded'), statement.totals.refunded, ''],
+                        ] as const
+                      ).map(([label, value, tone]) => (
+                        <div
+                          key={label}
+                          className="rounded-lg border border-border bg-background/40 p-3"
+                        >
+                          <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                            {label}
+                          </div>
+                          <div className={`font-display text-lg font-semibold ${tone}`}>
+                            {Number(value).toFixed(3)}
+                          </div>
+                        </div>
                       ))}
-                    </TBody>
-                  </Table>
-                ) : null}
+                    </div>
 
-                <p className="text-end font-mono text-xs text-muted-foreground">
-                  {t('finance.outstanding')}: {money(statement.totals.outstanding)}
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                    <Table>
+                      <THead>
+                        <TR>
+                          <TH>{t('finance.description')}</TH>
+                          <TH className="text-end">{t('finance.net')}</TH>
+                          <TH className="text-end">{t('finance.balance')}</TH>
+                          <TH>{t('common.status')}</TH>
+                        </TR>
+                      </THead>
+                      <TBody>
+                        {statement.chargeBalances.map((b) => (
+                          <TR key={b.charge.id}>
+                            <TD>
+                              {b.charge.description}
+                              {b.charge.dueDate ? (
+                                <span className="block font-mono text-[11px] text-muted-foreground">
+                                  {b.charge.dueDate.slice(0, 10)}
+                                </span>
+                              ) : null}
+                            </TD>
+                            <TD className="text-end font-mono">{Number(b.net).toFixed(3)}</TD>
+                            <TD className="text-end font-mono">{Number(b.balance).toFixed(3)}</TD>
+                            <TD>
+                              <ChargeStatusBadge status={b.charge.status} />
+                            </TD>
+                          </TR>
+                        ))}
+                        {statement.chargeBalances.length === 0 ? (
+                          <TR>
+                            <TD colSpan={4} className="text-muted-foreground">
+                              {t('finance.noCharges')}
+                            </TD>
+                          </TR>
+                        ) : null}
+                      </TBody>
+                    </Table>
+
+                    {statement.transactions.length > 0 ? (
+                      <Table>
+                        <THead>
+                          <TR>
+                            <TH className="text-end">{t('finance.amount')}</TH>
+                            <TH>{t('finance.method')}</TH>
+                            <TH>{t('finance.reference')}</TH>
+                            <TH>{t('common.status')}</TH>
+                          </TR>
+                        </THead>
+                        <TBody>
+                          {statement.transactions.map((tx) => (
+                            <TR key={tx.id}>
+                              <TD className="text-end font-mono">{Number(tx.amount).toFixed(3)}</TD>
+                              <TD>{tx.method}</TD>
+                              <TD className="font-mono text-xs text-muted-foreground">
+                                {tx.reference ?? '—'}
+                              </TD>
+                              <TD>
+                                <TransactionStatusBadge status={tx.status} />
+                              </TD>
+                            </TR>
+                          ))}
+                        </TBody>
+                      </Table>
+                    ) : null}
+
+                    <p className="text-end font-mono text-xs text-muted-foreground">
+                      {t('finance.outstanding')}: {money(statement.totals.outstanding)}
+                    </p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {editingParent ? (

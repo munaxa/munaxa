@@ -258,6 +258,7 @@ export default function JoFotaraPage() {
                 <li key={label}>
                   <button
                     type="button"
+                    aria-current={step === i ? 'step' : undefined}
                     onClick={() => setStep(i)}
                     className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
                       step === i

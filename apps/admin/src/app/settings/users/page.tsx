@@ -11,6 +11,7 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   CardContent,
   CardDescription,
   CardHeader,
@@ -212,12 +213,7 @@ function RoleCheckboxes({
           key={r.id}
           className="flex cursor-pointer items-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-secondary/40"
         >
-          <input
-            type="checkbox"
-            className="accent-primary"
-            checked={selected.has(r.id)}
-            onChange={() => onToggle(r.id)}
-          />
+          <Checkbox checked={selected.has(r.id)} onChange={() => onToggle(r.id)} />
           <span className="flex-1">{r.nameEn || r.key}</span>
           {r.isSystem ? (
             <Badge tone="muted">{t('common.system')}</Badge>

@@ -64,7 +64,8 @@
     "schoolPlane": "نطاق المدرسة",
     "platformPlane": "نطاق المنصة",
     "openMenu": "فتح القائمة",
-    "closeMenu": "إغلاق القائمة"
+    "closeMenu": "إغلاق القائمة",
+    "skipToContent": "تخطّ إلى المحتوى"
   },
   "nav": {
     "dashboard": "الرئيسية",

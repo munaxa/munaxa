@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { useToast } from '@/components/toast';
@@ -20,7 +19,9 @@ import {
   Badge,
   Button,
   Card,
+  Checkbox,
   CardContent,
+  EmptyState,
   CardHeader,
   CardTitle,
   Field,
@@ -29,6 +30,7 @@ import {
   Table,
   TBody,
   TD,
+  Textarea,
   TH,
   THead,
   TR,
@@ -270,8 +272,8 @@ export default function StudentsPage() {
             ))}
             {students.length === 0 ? (
               <TR>
-                <TD colSpan={7} className="text-muted-foreground">
-                  {t('people.noStudents')}
+                <TD colSpan={7}>
+                  <EmptyState title={t('people.noStudents')} />
                 </TD>
               </TR>
             ) : null}
@@ -436,11 +438,8 @@ function ImportStudents({
   return (
     <form onSubmit={(e) => void submit(e)} className="space-y-2">
       <Field label="CSV">
-        <textarea
-          className={cn(
-            'h-28 w-full rounded-lg border border-input bg-background/60 px-3 py-2 font-mono text-xs',
-            'outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40',
-          )}
+        <Textarea
+          className="h-28 font-mono text-xs"
           value={csv}
           onChange={(e) => setCsv(e.target.value)}
         />
@@ -507,7 +506,7 @@ function StudentEditor({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
       <div
         className="relative my-8 w-full max-w-2xl rounded-xl border border-border bg-card p-5 shadow-card"
         role="dialog"
@@ -712,8 +711,7 @@ function Vaccines({ studentId }: { studentId: string }) {
           onChange={(e) => setForm({ ...form, grade: e.target.value })}
         />
         <label className="flex items-center gap-1.5 pb-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={form.received ?? true}
             onChange={(e) => setForm({ ...form, received: e.target.checked })}
           />

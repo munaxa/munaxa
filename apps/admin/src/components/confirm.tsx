@@ -96,7 +96,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
           aria-modal="true"
         >
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-foreground/40"
             onClick={() => close(false)}
             aria-hidden="true"
           />

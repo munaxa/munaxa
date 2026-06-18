@@ -20,6 +20,7 @@ import {
   Button,
   Card,
   CardContent,
+  EmptyState,
   CardHeader,
   CardTitle,
   Field,
@@ -251,8 +252,8 @@ export default function EmployeesPage() {
             )}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={6} className="text-muted-foreground">
-                  {t('people.noStaff')}
+                <TD colSpan={6}>
+                  <EmptyState title={t('people.noStaff')} />
                 </TD>
               </TR>
             ) : null}
@@ -435,7 +436,7 @@ function EmployeeEditor({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
       <div
         className="relative my-8 w-full max-w-xl rounded-xl border border-border bg-card p-5 shadow-card"
         role="dialog"
