@@ -5,7 +5,7 @@ import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { useToast } from '@/components/toast';
-import { useConfirm } from '@/components/confirm';
+import { useConfirm, useAlert } from '@/components/confirm';
 import {
   studentsApi,
   type ImportResult,
@@ -187,7 +187,7 @@ export default function StudentsPage() {
               <CardTitle>{t('people.addStudent')}</CardTitle>
             </CardHeader>
             <CardContent>
-              <CreateStudent sections={sections} onCreated={load} onError={setError} />
+              <CreateStudent sections={sections} onCreated={load} />
             </CardContent>
           </Card>
           <Card>
@@ -320,13 +320,12 @@ const EMPTY_STUDENT = {
 function CreateStudent({
   sections,
   onCreated,
-  onError,
 }: {
   sections: Section[];
   onCreated: () => Promise<void>;
-  onError: (m: string) => void;
 }) {
   const { t } = useI18n();
+  const alert = useAlert();
   const [form, setForm] = useState(EMPTY_STUDENT);
 
   async function submit(e: React.FormEvent) {
@@ -346,7 +345,7 @@ function CreateStudent({
       setForm(EMPTY_STUDENT);
       await onCreated();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Create failed');
+      await alert({ description: err instanceof Error ? err.message : 'Create failed' });
     }
   }
 
@@ -468,6 +467,7 @@ function StudentEditor({
 }) {
   const { t } = useI18n();
   const toast = useToast();
+  const alert = useAlert();
   const [form, setForm] = useState<UpdateStudentInput>({
     firstNameEn: student.firstNameEn,
     lastNameEn: student.lastNameEn,
@@ -497,7 +497,7 @@ function StudentEditor({
       toast.success(t('people.studentUpdated'));
       await onSaved();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Save failed');
+      await alert({ description: err instanceof Error ? err.message : 'Save failed' });
     } finally {
       setSaving(false);
     }
