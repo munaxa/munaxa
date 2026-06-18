@@ -38,7 +38,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@/components/ui';
-import { ChargeStatusBadge, TransactionStatusBadge } from '@/components/domain';
+import { ChargeStatusBadge, TransactionStatusBadge, RecordHeader } from '@/components/domain';
 
 const PARENT_RELATIONS = ['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER'];
 
@@ -107,35 +107,30 @@ export function StudentProfileDialog({
         aria-modal="true"
       >
         {/* Identity header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-secondary font-display text-xl font-semibold">
-              {initials}
-            </div>
-            <div>
-              <div className="flex flex-wrap items-center gap-x-3">
-                <h2 className="font-display text-xl font-semibold">{fullNameEn(student)}</h2>
-                <span className="text-muted-foreground" dir="rtl">
-                  {fullNameAr(student)}
-                </span>
-              </div>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <Badge tone={student.status === 'ACTIVE' ? 'success' : 'muted'}>
-                  {student.status}
-                </Badge>
-                {sectionLabel ? <Badge tone="muted">{sectionLabel}</Badge> : null}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              {t('people.edit')}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.cancel')}>
-              ✕
-            </Button>
-          </div>
-        </div>
+        <RecordHeader
+          initials={initials}
+          title={fullNameEn(student)}
+          subtitle={
+            <span dir="rtl" className="text-muted-foreground">
+              {fullNameAr(student)}
+            </span>
+          }
+          status={{
+            label: student.status,
+            tone: student.status === 'ACTIVE' ? 'success' : 'muted',
+          }}
+          badges={sectionLabel ? <Badge tone="muted">{sectionLabel}</Badge> : null}
+          actions={
+            <>
+              <Button variant="outline" size="sm" onClick={onEdit}>
+                {t('people.edit')}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.cancel')}>
+                ✕
+              </Button>
+            </>
+          }
+        />
 
         {error ? (
           <p className="text-sm text-destructive" role="alert">
