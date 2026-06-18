@@ -3,58 +3,68 @@
 @tailwind utilities;
 
 /*
- * Munaxa design tokens (shadcn bridge). Default theme is light, matching the
- * Munaxa Design System; dark mode (.dark) is fully supported via the toggle.
+ * Munaxa design tokens (shadcn bridge) — values ported verbatim from the Munaxa Design System
+ * (munaxadesignsystem/client/src/index.css): neutral surfaces + violet primary + standard
+ * green/amber/red/blue semantics; deep-navy dark mode. Default theme is light; dark via .dark.
+ * The brand-accent aliases are mapped to DS semantics: `aqua` → success, `coral` → warning.
  */
 @layer base {
   :root {
     /* --font-display / --font-body / --font-mono are provided by next/font (see layout.tsx). */
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    /* Light theme */
-    --background: 250 40% 99%;
-    --foreground: 258 60% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 258 60% 8%;
+    /* Light — neutral surfaces */
+    --background: 240 20% 98%; /* #FAFAFB */
+    --foreground: 221 39% 11%; /* #111827 */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 221 39% 11%;
     --primary: 258 100% 62%; /* #7A3FFF */
     --primary-foreground: 0 0% 100%;
-    --secondary: 258 30% 95%;
-    --secondary-foreground: 258 60% 12%;
-    --muted: 258 20% 94%;
-    --muted-foreground: 258 12% 40%;
-    --accent: 14 100% 71%; /* coral #FF8E6E */
-    --accent-foreground: 258 60% 10%;
-    --destructive: 4 100% 67%;
+    --secondary: 220 14% 96%; /* #F3F4F6 */
+    --secondary-foreground: 215 14% 34%; /* #4B5563 */
+    --muted: 220 13% 91%; /* #E5E7EB */
+    --muted-foreground: 220 9% 46%; /* #6B7280 */
+    --accent: 260 100% 97%; /* #F5F0FF primarySoft */
+    --accent-foreground: 258 100% 62%; /* #7A3FFF */
+    --destructive: 0 84% 60%; /* #EF4444 */
     --destructive-foreground: 0 0% 100%;
-    /* Brand accents — theme-aware so they read correctly in light mode (design system v2). */
-    --coral: 2 65% 58%; /* light #D9534F */
-    --aqua: 175 84% 32%; /* light #0D9488 */
-    --border: 258 20% 88%;
-    --input: 258 20% 88%;
+    --border: 220 13% 91%; /* #E5E7EB */
+    --input: 220 13% 91%;
     --ring: 258 100% 62%;
+    /* Semantic */
+    --success: 160 84% 39%; /* #10B981 */
+    --warning: 38 92% 50%; /* #F59E0B */
+    --info: 217 91% 60%; /* #3B82F6 */
+    /* Brand-accent aliases mapped to DS semantics */
+    --aqua: 160 84% 39%; /* success */
+    --coral: 38 92% 50%; /* warning */
   }
 
   .dark {
-    --background: 263 56% 6%; /* #0B0518 */
-    --foreground: 252 60% 96%;
-    --card: 258 58% 11%; /* #140A2E */
-    --card-foreground: 252 60% 96%;
-    --primary: 264 100% 74%; /* #B97BFF */
-    --primary-foreground: 263 56% 6%;
-    --secondary: 258 50% 16%;
-    --secondary-foreground: 252 60% 96%;
-    --muted: 258 45% 18%;
-    --muted-foreground: 252 20% 72%;
-    --accent: 14 100% 71%;
-    --accent-foreground: 263 56% 6%;
-    --destructive: 4 100% 67%;
+    /* Dark — deep navy surfaces */
+    --background: 229 49% 8%; /* #0B1020 */
+    --foreground: 210 20% 98%; /* #F9FAFB */
+    --card: 217 32% 15%; /* #1A2332 */
+    --card-foreground: 210 20% 98%;
+    --primary: 258 100% 65%; /* #8A4FFF */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 221 39% 11%; /* #111827 */
+    --secondary-foreground: 213 27% 84%; /* #CBD5E1 */
+    --muted: 214 22% 21%; /* #2A3441 */
+    --muted-foreground: 213 27% 84%;
+    --accent: 214 22% 21%; /* #2A3441 */
+    --accent-foreground: 258 100% 65%;
+    --destructive: 0 91% 71%; /* #F87171 */
     --destructive-foreground: 0 0% 100%;
-    /* Brand accents — full-brightness on dark surfaces. */
-    --coral: 13 100% 72%; /* #FF8E6E */
-    --aqua: 173 88% 63%; /* #4DF4E1 */
-    --border: 258 40% 22%;
-    --input: 258 40% 22%;
-    --ring: 264 100% 74%;
+    --border: 214 22% 21%; /* #2A3441 */
+    --input: 214 22% 21%;
+    --ring: 258 100% 65%;
+    /* Semantic — dark variants */
+    --success: 158 64% 52%; /* #34D399 */
+    --warning: 43 96% 56%; /* #FBBF24 */
+    --info: 213 94% 68%; /* #60A5FA */
+    --aqua: 158 64% 52%; /* success */
+    --coral: 43 96% 56%; /* warning */
   }
 }
 
