@@ -18,10 +18,10 @@ function applyTheme(theme: Theme) {
  */
 export function ThemeLocaleToggle() {
   const { locale, setLocale } = useI18n();
-  const [theme, setTheme] = useState<Theme>('dark');
+  const [theme, setTheme] = useState<Theme>('light');
 
   useEffect(() => {
-    const saved = (localStorage.getItem(THEME_KEY) as Theme | null) ?? 'dark';
+    const saved = (localStorage.getItem(THEME_KEY) as Theme | null) ?? 'light';
     setTheme(saved);
     applyTheme(saved);
   }, []);

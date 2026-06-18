@@ -7,7 +7,7 @@ import { cn } from '@munaxa/ui';
 import { logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache } from '@/lib/session';
 import { advancedApi } from '@/lib/advanced';
-import { Button } from './ui/button';
+import { Button } from '@munaxa/ui';
 import { Logo } from './logo';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
 import { useI18n } from './i18n-provider';
