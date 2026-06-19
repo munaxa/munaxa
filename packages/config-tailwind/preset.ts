@@ -2,16 +2,14 @@ import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 
 /**
- * Shared Tailwind preset carrying the Munaxa **product/admin** design tokens.
+ * Shared Tailwind preset carrying the Munaxa design-system tokens.
  *
- * NOTE ON THEME LINEAGE: this is the enterprise/admin theme — neutral surfaces, violet
- * primary (#7A3FFF light / #8A4FFF dark), conventional green/amber/red/blue semantics, and a
- * deep-navy dark mode. It deliberately DIVERGES from the v3 website brand defined in
- * munaxadesignsystem/client/src/index.css (which munaxalanding + munaxademo follow:
- * violet #5B1FD6→#B97BFF on ink/violet surfaces, coral/aqua accents, Sora/Inter type).
- * Status semantics here are mapped onto the brand-accent aliases: `aqua` → success, `coral`
- * → warning. Keep this in sync with the actual token values in apps/admin/src/app/globals.css.
- * Supports RTL/LTR via logical properties.
+ * Colours are the Munaxa Design System v3 brand — the single source of truth lives in
+ * munaxadesignsystem/client/src/index.css: violet primary (#5B1FD6 light / #B97BFF dark) on
+ * ink/violet surfaces, with coral + aqua accents. The theme-aware CSS variables consumed below
+ * (`hsl(var(--token))`) are defined per app (apps/admin/src/app/globals.css); the static brand
+ * swatches here (`violet`, `ink`) mirror the v3 hexes directly. Keep both in sync with
+ * munaxadesignsystem when the brand changes. Supports RTL/LTR via logical properties.
  */
 const preset: Omit<Config, 'content'> = {
   darkMode: ['class'],
@@ -27,12 +25,13 @@ const preset: Omit<Config, 'content'> = {
         // accents stay legible in both themes. Alpha modifiers (e.g. text-coral/40) supported.
         coral: 'hsl(var(--coral) / <alpha-value>)',
         aqua: 'hsl(var(--aqua) / <alpha-value>)',
-        // Dark neutral surfaces — Munaxa Design System navy scale (neutral.950 + slate steps).
+        // Ink surfaces — Munaxa Design System v3 deep ink/violet scale (matches the dark
+        // --background/--sidebar/--card/--secondary in munaxadesignsystem/client/src/index.css).
         ink: {
-          900: '#0B1020',
-          800: '#111827',
-          700: '#1A2332',
-          600: '#2A3441',
+          900: '#0B0518',
+          800: '#140A2E',
+          700: '#1A0F38',
+          600: '#221547',
         },
         // shadcn token bridge (CSS variables defined in globals.css)
         border: 'hsl(var(--border))',
@@ -109,16 +108,16 @@ const preset: Omit<Config, 'content'> = {
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       boxShadow: {
-        // Munaxa Design System: subtle neutral elevation (shadcn shadow-sm style); the card's
-        // own `border-border` provides definition. Plus a soft violet "glow" for accents.
-        card: '0 1px 3px 0 rgb(17 24 39 / 0.08), 0 1px 2px -1px rgb(17 24 39 / 0.06)',
+        // Munaxa Design System v3 elevation — soft violet-tinted card shadow (mirrors
+        // --shadow-card in munaxadesignsystem) plus a brand "glow" for accents.
+        card: '0 24px 50px -30px rgb(30 11 77 / 0.25), 0 0 0 1px hsl(var(--border)) inset',
         glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
-        // Focus ring — ported from design-system/tokens/shadows.ts (brand @ 28%).
+        // Focus ring — brand violet #7A3FFF @ 28%.
         focus: '0 0 0 3px rgb(122 63 255 / 0.28)',
       },
       backgroundImage: {
-        // Violet-only brand gradient (Munaxa Design System data palette) — no coral tint.
-        'grad-primary': 'linear-gradient(135deg, #8A4FFF 0%, #7A3FFF 55%, #652ED8 120%)',
+        // Brand violet gradient — Munaxa Design System v3 chart violets (#B97BFF→#7A3FFF→#5B1FD6).
+        'grad-primary': 'linear-gradient(135deg, #B97BFF 0%, #7A3FFF 55%, #5B1FD6 120%)',
         'grad-hero':
           'radial-gradient(ellipse 80% 60% at 50% 0%, hsl(var(--primary) / 0.16) 0%, transparent 62%)',
       },

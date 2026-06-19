@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 /*
- * Munaxa design tokens — aligned with the Munaxa Design System v3 (see
- * munaxa-design-system-v3) so the marketing site shares the same brand palette
- * (deep violet/ink surfaces, violet primary, theme-aware coral/aqua accents).
+ * Munaxa design tokens — sourced from the Munaxa Design System v3, the single source of truth
+ * at munaxadesignsystem/client/src/index.css, so the marketing site shares the same brand
+ * palette (deep violet/ink surfaces, violet primary, theme-aware coral/aqua accents).
  * The landing page defaults to the light theme (more conventional for marketing sites);
  * the dark theme tokens are kept for parity and used by the hero gradient backdrop.
  */
@@ -38,7 +38,11 @@
     --ring: 260 75% 48%;
 
     /* v3 --hero, light theme */
-    --grad-hero: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(122, 63, 255, 0.08), transparent 60%);
+    --grad-hero: radial-gradient(
+      ellipse 90% 60% at 50% -10%,
+      rgba(122, 63, 255, 0.08),
+      transparent 60%
+    );
   }
 
   .dark {
@@ -63,7 +67,11 @@
     --ring: 268 100% 74%;
 
     /* v3 --hero, dark theme */
-    --grad-hero: radial-gradient(ellipse 90% 60% at 50% -10%, rgba(122, 63, 255, 0.18), transparent 60%);
+    --grad-hero: radial-gradient(
+      ellipse 90% 60% at 50% -10%,
+      rgba(122, 63, 255, 0.18),
+      transparent 60%
+    );
   }
 }
 

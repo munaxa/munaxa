@@ -4,10 +4,12 @@ The visual language for the Munaxa School OS: a **violet / coral / aqua** palett
 surfaces, geometric display type, mono numerics, and a first‑class **bilingual EN/AR (LTR/RTL)**
 layout system with **light + dark** themes.
 
-> **Source of truth = code, not this doc.** The tokens are defined once in
-> [`packages/config-tailwind/preset.ts`](../../packages/config-tailwind/preset.ts) and the CSS
-> variables in [`apps/admin/src/app/globals.css`](../../apps/admin/src/app/globals.css). The HTML
-> files here are a **living visual reference**; if they ever disagree with the code, the code wins.
+> **Source of truth = [`munaxadesignsystem/client/src/index.css`](../../munaxadesignsystem/client/src/index.css).**
+> Every app derives its palette from that file: the shared Tailwind tokens in
+> [`packages/config-tailwind/preset.ts`](../../packages/config-tailwind/preset.ts) and the per-app
+> CSS variables ([`apps/admin/src/app/globals.css`](../../apps/admin/src/app/globals.css),
+> `munaxalanding`, `munaxademo`) all mirror its v3 brand. The HTML files here are an **archived
+> visual reference only**; if they ever disagree with `munaxadesignsystem`, the code wins.
 
 ## Files
 
