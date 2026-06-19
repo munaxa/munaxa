@@ -82,6 +82,12 @@ export class AllocatePaymentDto {
   allocations!: AllocationLineDto[];
 }
 
+export class AllocateFifoDto {
+  @ApiProperty({ format: 'uuid', description: 'Verified payment to cascade across open charges' })
+  @IsUUID()
+  transactionId!: string;
+}
+
 export class CreateRefundDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
