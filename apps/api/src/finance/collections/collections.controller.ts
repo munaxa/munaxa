@@ -47,4 +47,22 @@ export class CollectionsController {
   remindAll(@Body() dto: SendReminderDto) {
     return this.service.sendBatch(dto);
   }
+
+  @Post('students/:studentId/transport/evaluate')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({
+    summary: 'Reconcile this student transport suspension against the overdue policy threshold',
+  })
+  evaluateTransport(@Param('studentId', ParseUUIDPipe) studentId: string) {
+    return this.service.evaluateTransport(studentId);
+  }
+
+  @Post('transport/evaluate')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({
+    summary: 'Sweep all accounts: suspend overdue transport and restore those caught up',
+  })
+  evaluateTransportAll() {
+    return this.service.evaluateTransportBatch();
+  }
 }

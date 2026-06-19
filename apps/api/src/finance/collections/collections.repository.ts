@@ -86,6 +86,51 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
+  /** Overdue-installment threshold for transport suspension (defaults to a high cap when unset). */
+  suspendThreshold(): Promise<number> {
+    return this.run(async (tx, tenantId) => {
+      const policy = await tx.billingPolicy.findUnique({ where: { tenantId } });
+      return policy?.suspendTransportAfterOverdue ?? Number.MAX_SAFE_INTEGER;
+    });
+  }
+
+  /** Student ids whose transport is currently suspended (to reconcile/restore in bulk). */
+  suspendedStudentIds(): Promise<string[]> {
+    return this.run(async (tx) => {
+      const rows = await tx.studentBillingProfile.findMany({
+        where: { transportSuspended: true },
+        select: { studentId: true },
+      });
+      return rows.map((r) => r.studentId);
+    });
+  }
+
+  /** Flip a student's transport-suspension flag; audited. Stamps/clears the suspension timestamp. */
+  setTransportSuspended(studentId: string, suspended: boolean): Promise<StudentBillingProfile> {
+    return this.run(async (tx, tenantId) => {
+      const profile = await tx.studentBillingProfile.upsert({
+        where: { studentId },
+        create: {
+          tenantId,
+          studentId,
+          transportSuspended: suspended,
+          transportSuspendedAt: suspended ? new Date() : null,
+        },
+        update: {
+          transportSuspended: suspended,
+          transportSuspendedAt: suspended ? new Date() : null,
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: suspended ? 'finance.transport.suspend' : 'finance.transport.restore',
+        entityType: 'StudentBillingProfile',
+        entityId: profile.id,
+        metadata: { studentId },
+      });
+      return profile;
+    });
+  }
+
   /** Profiles for a set of students (to filter out LEGAL-tagged in bulk). */
   profilesFor(studentIds: string[]): Promise<StudentBillingProfile[]> {
     if (studentIds.length === 0) return Promise.resolve([]);

@@ -2007,6 +2007,10 @@ model StudentBillingProfile {
   flaggedById      String?           @db.Uuid
   flaggedAt        DateTime?         @db.Timestamptz(6)
   lastReminderAt   DateTime?         @db.Timestamptz(6)
+  /// Transport service suspended for non-payment (BillingPolicy.suspendTransportAfterOverdue).
+  /// Persisted state so boarding/transport flows can consult it; auto-restored when caught up.
+  transportSuspended   Boolean    @default(false)
+  transportSuspendedAt DateTime?  @db.Timestamptz(6)
   createdAt        DateTime          @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime          @updatedAt @db.Timestamptz(6)
 

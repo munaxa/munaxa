@@ -16,7 +16,27 @@ export interface ReminderSnapshot {
   outstanding: string;
   dueThisMonth: string;
   overdue: string;
+  overdueCount: number; // number of overdue installments/charges with a remaining balance
+  oldestOverdueDays: number; // age in days of the earliest overdue charge (0 if none)
+  delinquencyLevel: number; // 0 current, 1 ≤30d, 2 31–60d, 3 61–90d, 4 >90d (from oldest overdue)
   eligible: boolean; // has something due this month or overdue
+}
+
+export interface TransportEvaluation {
+  studentId: string;
+  overdueCount: number;
+  threshold: number;
+  suspended: boolean; // resulting state
+  changed: boolean; // whether this evaluation flipped the state
+}
+
+/** Delinquency level from the oldest overdue charge's age. */
+function levelFor(oldestOverdueDays: number): number {
+  if (oldestOverdueDays <= 0) return 0;
+  if (oldestOverdueDays <= 30) return 1;
+  if (oldestOverdueDays <= 60) return 2;
+  if (oldestOverdueDays <= 90) return 3;
+  return 4;
 }
 
 export interface SendResult {
@@ -57,6 +77,8 @@ export class CollectionsService {
     legalNote: string | null;
     flaggedAt: Date | null;
     lastReminderAt: Date | null;
+    transportSuspended: boolean;
+    transportSuspendedAt: Date | null;
     snapshot: ReminderSnapshot;
     reminders: Awaited<ReturnType<CollectionsRepository['listReminders']>>;
   }> {
@@ -74,6 +96,8 @@ export class CollectionsService {
       legalNote: profile?.legalNote ?? null,
       flaggedAt: profile?.flaggedAt ?? null,
       lastReminderAt: profile?.lastReminderAt ?? null,
+      transportSuspended: profile?.transportSuspended ?? false,
+      transportSuspendedAt: profile?.transportSuspendedAt ?? null,
       snapshot,
       reminders,
     };
@@ -101,19 +125,87 @@ export class CollectionsService {
 
     let overdue = ZERO;
     let dueThisMonth = ZERO;
+    let overdueCount = 0;
+    let oldestOverdue: Date | null = null;
     for (const b of balances) {
       const balance = new Prisma.Decimal(b.balance);
       if (balance.lessThanOrEqualTo(ZERO) || !b.charge.dueDate) continue;
       const due = new Date(b.charge.dueDate);
-      if (due < startOfDay) overdue = overdue.plus(balance);
-      else if (due >= startOfMonth && due <= endOfMonth) dueThisMonth = dueThisMonth.plus(balance);
+      if (due < startOfDay) {
+        overdue = overdue.plus(balance);
+        overdueCount += 1;
+        if (!oldestOverdue || due < oldestOverdue) oldestOverdue = due;
+      } else if (due >= startOfMonth && due <= endOfMonth) {
+        dueThisMonth = dueThisMonth.plus(balance);
+      }
     }
+    const oldestOverdueDays = oldestOverdue
+      ? Math.floor((startOfDay.getTime() - oldestOverdue.getTime()) / 86_400_000)
+      : 0;
     return {
       outstanding: summary.outstanding,
       dueThisMonth: dueThisMonth.toFixed(3),
       overdue: overdue.toFixed(3),
+      overdueCount,
+      oldestOverdueDays,
+      delinquencyLevel: levelFor(oldestOverdueDays),
       eligible: overdue.greaterThan(ZERO) || dueThisMonth.greaterThan(ZERO),
     };
+  }
+
+  // ---------------------------------------------------- transport suspension
+
+  /**
+   * Evaluate a student's transport service against the tenant billing policy: suspend when the
+   * number of overdue installments reaches BillingPolicy.suspendTransportAfterOverdue, and
+   * auto-restore once they fall back below it. Idempotent — only writes (and audits) on a flip.
+   */
+  async evaluateTransport(studentId: string): Promise<TransportEvaluation> {
+    if (!(await this.repo.studentExists(studentId))) {
+      throw new NotFoundException('Student not found in this tenant');
+    }
+    const [{ overdueCount }, threshold, profile] = await Promise.all([
+      this.snapshot(studentId),
+      this.repo.suspendThreshold(),
+      this.repo.getProfile(studentId),
+    ]);
+    const wasSuspended = profile?.transportSuspended ?? false;
+    const shouldSuspend = overdueCount >= threshold;
+    let suspended = wasSuspended;
+    let changed = false;
+    if (shouldSuspend && !wasSuspended) {
+      await this.repo.setTransportSuspended(studentId, true);
+      suspended = true;
+      changed = true;
+    } else if (!shouldSuspend && wasSuspended) {
+      await this.repo.setTransportSuspended(studentId, false);
+      suspended = false;
+      changed = true;
+    }
+    return { studentId, overdueCount, threshold, suspended, changed };
+  }
+
+  /** Sweep every student with unpaid charges and reconcile their transport-suspension state. */
+  async evaluateTransportBatch(): Promise<{
+    evaluated: number;
+    suspended: number;
+    restored: number;
+  }> {
+    // Union of students with unpaid charges and those currently suspended (so paid-off accounts
+    // are restored even though they no longer have an unpaid charge).
+    const [unpaid, suspendedIds] = await Promise.all([
+      this.repo.studentsWithUnpaidCharges(),
+      this.repo.suspendedStudentIds(),
+    ]);
+    const candidates = [...new Set([...unpaid, ...suspendedIds])];
+    let suspended = 0;
+    let restored = 0;
+    for (const studentId of candidates) {
+      const r = await this.evaluateTransport(studentId);
+      if (r.changed && r.suspended) suspended += 1;
+      if (r.changed && !r.suspended) restored += 1;
+    }
+    return { evaluated: candidates.length, suspended, restored };
   }
 
   /** Send a reminder to one student's parents. Blocked for LEGAL-tagged accounts. */
