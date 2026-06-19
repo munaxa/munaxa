@@ -9,15 +9,15 @@
 
 ## 0. One brand, all surfaces
 
-Every surface in the repo uses **one palette — the Munaxa Design System v3 brand** — defined once in **`munaxadesignsystem/client/src/index.css`** (the canonical source of truth): violet primary `#5B1FD6` (light) → `#B97BFF` (dark) on ink/violet surfaces (`#F7F5FF` / `#0B0518`), with coral + aqua accents and semantic success(aqua)/warning(amber)/error(coral)/info.
+Every surface in the repo uses **one palette — the Munaxa Design System brand** — defined once in **`munaxadesignsystem/client/src/index.css`** (the canonical source of truth): violet primary `#5B1FD6` (light) → `#B97BFF` (dark) on ink/violet surfaces (`#F7F5FF` / `#0B0518`), with coral + aqua accents and semantic success(aqua)/warning(amber)/error(coral)/info.
 
 | Surface | Tokens live in | Conforms? |
 |---|---|---|
 | `munaxalanding` (marketing) | inlined in `src/app/globals.css` + `tailwind.config.ts` | ✅ 1:1 |
 | `munaxademo` (sandbox) | inlined in `src/app/globals.css` + `tailwind.config.ts` | ✅ 1:1 |
-| `apps/admin` (product) + `@munaxa/config-tailwind`, `@munaxa/ui` | `@munaxa/config-tailwind/preset.ts` + `apps/admin/src/app/globals.css` (v3 hexes in shadcn HSL-channel form) | ✅ 1:1 |
+| `apps/admin` (product) + `@munaxa/config-tailwind`, `@munaxa/ui` | `@munaxa/config-tailwind/preset.ts` + `apps/admin/src/app/globals.css` (Munaxa Design System hexes in shadcn HSL-channel form) | ✅ 1:1 |
 
-**Rule:** the canonical `index.css` is the source of truth; all surfaces must track it 1:1. When the brand changes, update `index.css` first, then re-sync each app's inlined tokens — never edit an app's palette ad hoc or fork a separate theme. *(There is no longer a separate "enterprise" admin palette; the old standalone `munaxa-design-system-v3` HTML mockups have been removed in favour of this single source.)*
+**Rule:** the canonical `index.css` is the source of truth; all surfaces must track it 1:1. When the brand changes, update `index.css` first, then re-sync each app's inlined tokens — never edit an app's palette ad hoc or fork a separate theme. *(There is no longer a separate "enterprise" admin palette; the old standalone design-system HTML mockups have been removed in favour of this single source.)*
 
 ---
 
@@ -25,7 +25,7 @@ Every surface in the repo uses **one palette — the Munaxa Design System v3 bra
 
 | Layer | Home | Rule |
 |---|---|---|
-| **Tokens** | `@munaxa/config-tailwind/preset.ts` + `apps/admin/src/app/globals.css` | Colours are the v3 brand from `munaxadesignsystem` (the canonical `index.css` hexes, mirrored as shadcn HSL channels). Spacing/radius/shadow/z-index/motion follow `munaxadesignsystem`. Never invent values — use tokens only. |
+| **Tokens** | `@munaxa/config-tailwind/preset.ts` + `apps/admin/src/app/globals.css` | Colours are the Munaxa Design System brand from `munaxadesignsystem` (the canonical `index.css` hexes, mirrored as shadcn HSL channels). Spacing/radius/shadow/z-index/motion follow `munaxadesignsystem`. Never invent values — use tokens only. |
 | **Primitives** | `@munaxa/ui` (`packages/ui/src/components`) | The only home for Button, Input, Card, Dialog, Tabs, Table, etc. No app-local re-implementations. |
 | **Domain components** | `apps/admin/src/components/domain` | App-specific compositions over primitives (e.g. status badges, `RecordHeader`). Own the single source of truth for their domain's status colours. |
 | **Patterns** | primitives + domain | EmptyState / ErrorState / Timeline / Record Workspace / Enterprise Nav per the reference. |
@@ -49,8 +49,8 @@ Every surface in the repo uses **one palette — the Munaxa Design System v3 bra
 
 ## 4. Typography & theme baseline
 
-- **Colour:** the single v3 brand from `munaxadesignsystem` (see §0) — violet primary `#5B1FD6` (light) / `#B97BFF` (dark) on ink/violet surfaces, coral + aqua accents, semantic success(aqua)/warning(amber)/error(coral)/info. Radius `0.5rem` in `apps/admin`.
-- **Fonts (one intentional per-surface difference):** `apps/admin` ships **self-hosted IBM Plex Sans** (Latin) + **IBM Plex Sans Arabic** (RTL) so the product app has no Google-Fonts/CDN dependency; the public surfaces (`munaxalanding`, `munaxademo`) use the v3 display stack **Sora / Inter / Cairo**. Both expose the same `--font-display` / `--font-body` / `--font-arabic` variables, so components are font-agnostic.
+- **Colour:** the single Munaxa Design System brand from `munaxadesignsystem` (see §0) — violet primary `#5B1FD6` (light) / `#B97BFF` (dark) on ink/violet surfaces, coral + aqua accents, semantic success(aqua)/warning(amber)/error(coral)/info. Radius `0.5rem` in `apps/admin`.
+- **Fonts (one intentional per-surface difference):** `apps/admin` ships **self-hosted IBM Plex Sans** (Latin) + **IBM Plex Sans Arabic** (RTL) so the product app has no Google-Fonts/CDN dependency; the public surfaces (`munaxalanding`, `munaxademo`) use the Munaxa Design System display stack **Sora / Inter / Cairo**. Both expose the same `--font-display` / `--font-body` / `--font-arabic` variables, so components are font-agnostic.
 
 ## 5. Enforcement
 

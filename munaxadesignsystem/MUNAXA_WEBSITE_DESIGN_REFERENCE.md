@@ -1,9 +1,9 @@
-# Munaxa Website — Design Reference (Design System v3)
+# Munaxa Website — Design Reference
 
 This package is the **canonical visual reference** for the Munaxa marketing
 website (`munaxalanding`). Its foundations — colors, typography, radius,
 elevation, themes, and RTL behavior — are aligned 1:1 with the brand the website
-already ships (referred to in the website code as *"Design System v3"*).
+already ships.
 
 > **Status:** reference / living style guide. This is **not** a published package
 > the website imports at runtime. The website (`munaxalanding`) inlines the same
@@ -40,7 +40,7 @@ already ships (referred to in the website code as *"Design System v3"*).
 
 ### Radius
 
-v3 scale: `sm 8px` · `md 12px` · `lg/DEFAULT 14px` · `xl 22px` · `2xl 32px`.
+Scale: `sm 8px` · `md 12px` · `lg/DEFAULT 14px` · `xl 22px` · `2xl 32px`.
 
 ### Elevation
 
@@ -67,7 +67,7 @@ as CSS variables in `index.css` and typed in `themes/index.ts`.
 ## What changed in this retarget
 
 - Re-skinned all semantic CSS variables (`index.css`) from the previous neutral /
-  IBM Plex admin palette to the v3 website brand (violet + coral/aqua + ink).
+  IBM Plex admin palette to the Munaxa Design System website brand (violet + coral/aqua + ink).
 - Swapped fonts to Sora / Inter / Cairo (loaded in `index.html`); RTL resolves to Cairo.
 - Updated typed tokens (`colors`, `radius`, `typography`, `shadows`) and the theme
   contract to match.

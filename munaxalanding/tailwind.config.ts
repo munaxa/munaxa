@@ -3,9 +3,9 @@ import animate from 'tailwindcss-animate';
 import containerQueries from '@tailwindcss/container-queries';
 
 /**
- * Munaxa design-system v3 tokens (inlined so this app is fully standalone). Palette: violet
+ * Munaxa munaxadesignsystem tokens (inlined so this app is fully standalone). Palette: violet
  * primary, theme-aware coral/aqua accents, on deep dark or light surfaces. Radius scale
- * (sm/DEFAULT/lg/2xl/3xl = 8/14/12/22/32px) and fonts (display/body/mono/arabic) mirror v3.
+ * (sm/DEFAULT/lg/2xl/3xl = 8/14/12/22/32px) and fonts (display/body/mono/arabic) mirror munaxadesignsystem.
  * Supports RTL/LTR via logical properties + the `font-arabic` (Cairo) family.
  */
 const config: Config = {
@@ -75,7 +75,7 @@ const config: Config = {
         arabic: ['var(--font-arabic)', 'sans-serif'],
       },
       boxShadow: {
-        // From the Munaxa Design System v3 — soft elevation (light-theme formula, the
+        // From the Munaxa Design System — soft elevation (light-theme formula, the
         // landing page's default) + a violet "glow" for primaries.
         card: '0 24px 50px -30px rgba(30,11,77,0.25), 0 0 0 1px hsl(var(--border)) inset',
         glow: '0 14px 40px -16px rgba(122,63,255,0.55)',

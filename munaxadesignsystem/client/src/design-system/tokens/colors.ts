@@ -1,4 +1,4 @@
-// Munaxa Design System v3 palette — the canonical brand used by the Munaxa
+// Munaxa Design System palette — the canonical brand used by the Munaxa
 // website (munaxalanding). Violet primary with theme-aware coral/aqua accents on
 // deep "ink" dark surfaces or light violet-tinted surfaces. Components should
 // consume the semantic CSS variables (see index.css / themes); these typed
@@ -38,7 +38,7 @@ export const colors = {
     danger: "#D9534F",
     info: "#3B82F6",
   },
-  // Data-viz scale — brand violets + v3 accents
+  // Data-viz scale — brand violets + accents
   data: ["#7A3FFF", "#B97BFF", "#0D9488", "#D9534F", "#5B1FD6"],
 } as const;
 

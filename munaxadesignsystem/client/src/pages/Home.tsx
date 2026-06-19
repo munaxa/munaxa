@@ -39,7 +39,7 @@ export default function Home() {
           <div className="max-w-4xl mx-auto text-center">
             <img src="/munaxa-logo.svg" alt="Munaxa" className="mx-auto mb-6 h-28 w-auto object-contain" />
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent text-accent-foreground mb-6 text-sm font-medium">
-              <Sparkles className="size-4" aria-hidden /> MUNAXA Design System v2.0
+              <Sparkles className="size-4" aria-hidden /> MUNAXA Design System
             </div>
             
             <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
@@ -207,7 +207,7 @@ export default function Home() {
         {/* Footer */}
         <section className="px-6 py-12 border-t border-border bg-card/50">
           <div className="max-w-4xl mx-auto text-center text-foreground/60 text-sm">
-            <p>MUNAXA Design System v2.0 • Built for enterprise school operations</p>
+            <p>MUNAXA Design System • Built for enterprise school operations</p>
           </div>
         </section>
       </div>

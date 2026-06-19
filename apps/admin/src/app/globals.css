@@ -3,11 +3,11 @@
 @tailwind utilities;
 
 /*
- * Munaxa design tokens (shadcn bridge) — colours are the Munaxa Design System v3 brand,
+ * Munaxa design tokens (shadcn bridge) — colours are the Munaxa Design System brand,
  * sourced 1:1 from munaxadesignsystem/client/src/index.css (the single source of truth):
  * violet primary (#5B1FD6 light / #B97BFF dark) on ink/violet surfaces, coral + aqua accents,
  * with semantic success(aqua-teal) / warning(amber) / error(coral) / info. Values below are the
- * v3 hexes converted to the shadcn HSL channel format the Tailwind preset consumes
+ * Munaxa Design System hexes converted to the shadcn HSL channel format the Tailwind preset consumes
  * (`hsl(var(--token))`); the original hex is kept inline for reference. Default theme is light;
  * dark via .dark. When the brand changes, re-sync from munaxadesignsystem — do not edit ad hoc.
  */
@@ -16,7 +16,7 @@
     /* --font-display / --font-body / --font-mono are provided by next/font (see layout.tsx). */
     --radius: 0.5rem;
 
-    /* Light — v3 violet on near-white, violet-tinted surfaces */
+    /* Light — violet on near-white, violet-tinted surfaces */
     --background: 252 100% 98%; /* #f7f5ff */
     --foreground: 257 75% 17.3%; /* #1e0b4d */
     --card: 0 0% 100%; /* #ffffff */
@@ -38,13 +38,13 @@
     --success: 175 83.9% 31.6%; /* #0d9488 */
     --warning: 38 92.1% 50.2%; /* #f59e0b */
     --info: 217 91.2% 59.8%; /* #3b82f6 */
-    /* Brand accents (v3) */
+    /* Brand accents */
     --aqua: 175 83.9% 31.6%; /* #0d9488 */
     --coral: 2 64.5% 58%; /* #d9534f */
   }
 
   .dark {
-    /* Dark "ink" — v3 violet on deep ink/violet surfaces */
+    /* Dark "ink" — violet on deep ink/violet surfaces */
     --background: 259 65.5% 5.7%; /* #0b0518 */
     --foreground: 256 100% 97.1%; /* #f4f0ff */
     --card: 256 57.7% 13.9%; /* #1a0f38 */
@@ -66,7 +66,7 @@
     --success: 173 88.4% 62.9%; /* #4df4e1 */
     --warning: 43 96.4% 56.3%; /* #fbbf24 */
     --info: 213 93.9% 67.8%; /* #60a5fa */
-    /* Brand accents (v3) */
+    /* Brand accents */
     --aqua: 173 88.4% 62.9%; /* #4df4e1 */
     --coral: 13 100% 71.6%; /* #ff8e6e */
   }

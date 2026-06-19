@@ -4,11 +4,11 @@ import animate from 'tailwindcss-animate';
 /**
  * Shared Tailwind preset carrying the Munaxa design-system tokens.
  *
- * Colours are the Munaxa Design System v3 brand — the single source of truth lives in
+ * Colours are the Munaxa Design System brand — the single source of truth lives in
  * munaxadesignsystem/client/src/index.css: violet primary (#5B1FD6 light / #B97BFF dark) on
  * ink/violet surfaces, with coral + aqua accents. The theme-aware CSS variables consumed below
  * (`hsl(var(--token))`) are defined per app (apps/admin/src/app/globals.css); the static brand
- * swatches here (`violet`, `ink`) mirror the v3 hexes directly. Keep both in sync with
+ * swatches here (`violet`, `ink`) mirror the Munaxa Design System hexes directly. Keep both in sync with
  * munaxadesignsystem when the brand changes. Supports RTL/LTR via logical properties.
  */
 const preset: Omit<Config, 'content'> = {
@@ -25,7 +25,7 @@ const preset: Omit<Config, 'content'> = {
         // accents stay legible in both themes. Alpha modifiers (e.g. text-coral/40) supported.
         coral: 'hsl(var(--coral) / <alpha-value>)',
         aqua: 'hsl(var(--aqua) / <alpha-value>)',
-        // Ink surfaces — Munaxa Design System v3 deep ink/violet scale (matches the dark
+        // Ink surfaces — Munaxa Design System deep ink/violet scale (matches the dark
         // --background/--sidebar/--card/--secondary in munaxadesignsystem/client/src/index.css).
         ink: {
           900: '#0B0518',
@@ -108,7 +108,7 @@ const preset: Omit<Config, 'content'> = {
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       boxShadow: {
-        // Munaxa Design System v3 elevation — soft violet-tinted card shadow (mirrors
+        // Munaxa Design System elevation — soft violet-tinted card shadow (mirrors
         // --shadow-card in munaxadesignsystem) plus a brand "glow" for accents.
         card: '0 24px 50px -30px rgb(30 11 77 / 0.25), 0 0 0 1px hsl(var(--border)) inset',
         glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
@@ -116,7 +116,7 @@ const preset: Omit<Config, 'content'> = {
         focus: '0 0 0 3px rgb(122 63 255 / 0.28)',
       },
       backgroundImage: {
-        // Brand violet gradient — Munaxa Design System v3 chart violets (#B97BFF→#7A3FFF→#5B1FD6).
+        // Brand violet gradient — Munaxa Design System chart violets (#B97BFF→#7A3FFF→#5B1FD6).
         'grad-primary': 'linear-gradient(135deg, #B97BFF 0%, #7A3FFF 55%, #5B1FD6 120%)',
         'grad-hero':
           'radial-gradient(ellipse 80% 60% at 50% 0%, hsl(var(--primary) / 0.16) 0%, transparent 62%)',

@@ -8,15 +8,14 @@ layout system with **light + dark** themes.
 > Every app derives its palette from that file: the shared Tailwind tokens in
 > [`packages/config-tailwind/preset.ts`](../../packages/config-tailwind/preset.ts) and the per-app
 > CSS variables ([`apps/admin/src/app/globals.css`](../../apps/admin/src/app/globals.css),
-> `munaxalanding`, `munaxademo`) all mirror its v3 brand. The HTML files here are an **archived
-> visual reference only**; if they ever disagree with `munaxadesignsystem`, the code wins.
+> `munaxalanding`, `munaxademo`) all mirror its brand. If anything ever disagrees with
+> `munaxadesignsystem`, `munaxadesignsystem` wins.
 
 ## Files
 
 | File | Purpose |
 | --- | --- |
-| [`munaxa-design-system-v2.html`](./munaxa-design-system-v2.html) | **Current.** Interactive reference — toggle EN/ع (RTL) and Dark/Light; every token & component re-renders live. |
-| [`munaxa-design-system-v1.html`](./munaxa-design-system-v1.html) | Archived v1 (superseded by v2). |
+| [`munaxadesignsystem/`](../../munaxadesignsystem) | **The live reference.** Interactive app — toggle EN/ع (RTL) and Dark/Light; every token & component re-renders live. Tokens defined in [`client/src/index.css`](../../munaxadesignsystem/client/src/index.css). |
 | [`../integrations/jofotara/finance-card-preview.html`](../integrations/jofotara/finance-card-preview.html) | Worked example: the Finance student card rendered from these tokens (EN/AR + light/dark). |
 
 ## Where it lives in code
@@ -63,8 +62,8 @@ The Munaxa mark is a stylised **ibex** drawn in the brand gradient (coral horns 
 | Token | Value | Notes |
 | --- | --- | --- |
 | `violet` / primary | `#7A3FFF` | primary brand; `violet.light` `#B97BFF` |
-| `coral` | **dark `#FF8E6E` · light `#D9534F`** | theme‑aware (v2) |
-| `aqua` | **dark `#4DF4E1` · light `#0D9488`** | theme‑aware (v2) |
+| `coral` | **dark `#FF8E6E` · light `#D9534F`** | theme‑aware |
+| `aqua` | **dark `#4DF4E1` · light `#0D9488`** | theme‑aware |
 | `grad-primary` | `linear-gradient(135deg,#7A3FFF,#B97BFF 60%,#FF8E6E 120%)` | primary buttons, logo, active nav |
 
 `coral`/`aqua` are exposed to Tailwind as `hsl(var(--coral) / <alpha-value>)` so alpha modifiers
@@ -92,7 +91,7 @@ Semantic shadcn tokens (`background`, `card`, `primary`, `secondary`, `muted`, `
 `Button` (gradient / outline / ghost / destructive; sm/md/lg) · `Card` (+ Header/Title/Content/
 Footer) · `Badge` (tones: `default` violet, `success` aqua, `warning` coral, `danger`, `muted`) ·
 `Input` / `Select` · `Field` (mono micro‑label) · `Table` (THead/TBody/TR/TH/TD) · `Spinner`.
-Pattern examples (KPI stat card, collections banner, money cell) are shown in the v2 reference.
+Pattern examples (KPI stat card, collections banner, money cell) are shown in the `munaxadesignsystem` reference.
 
 ## Bilingual & RTL rules
 
@@ -110,14 +109,3 @@ Pattern examples (KPI stat card, collections banner, money cell) are shown in th
    literals in `src/**` (string or template), caught by `turbo lint` / CI.
 3. Gradient is for **primary actions only** (and the logo / active nav); accents are for emphasis.
 4. Money is always mono, **3‑dp JOD**, LTR.
-
-## Changelog
-
-### v2 (current)
-- **Theme‑aware `coral` / `aqua`** — CSS variables instead of fixed hex; legible light‑mode values
-  (`#D9534F` / `#0D9488`) while dark keeps full brightness. Alpha modifiers preserved.
-- **Light theme documented as first‑class** alongside the ☾/☀ switch (persisted to `localStorage`).
-- Documented component tones, the KPI/collections patterns, and the bilingual/RTL rules.
-
-### v1
-- Initial palette, typography, surfaces, radius/shadow, gradient; dark‑first.

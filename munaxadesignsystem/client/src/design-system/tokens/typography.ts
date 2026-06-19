@@ -1,4 +1,4 @@
-// Munaxa Design System v3 type families: Sora (display/headings), Inter (body),
+// Munaxa Design System type families: Sora (display/headings), Inter (body),
 // Cairo (Arabic/RTL — Sora & Inter lack Arabic glyphs).
 export const typography = {
   fontFamily: {
