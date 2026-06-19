@@ -22,6 +22,8 @@ import { SmsService } from './collections/sms.service';
 import { FeeConfigController } from './fee-config/fee-config.controller';
 import { FeeConfigService } from './fee-config/fee-config.service';
 import { FeeConfigRepository } from './fee-config/fee-config.repository';
+import { EnrollmentController } from './enrollment/enrollment.controller';
+import { EnrollmentService } from './enrollment/enrollment.service';
 
 /**
  * Finance: fee plans, charges, transactions (CliQ/e-wallet receipt uploads → verify/reject),
@@ -40,11 +42,13 @@ import { FeeConfigRepository } from './fee-config/fee-config.repository';
     LedgerController,
     CollectionsController,
     FeeConfigController,
+    EnrollmentController,
   ],
   providers: [
     StorageService,
     FeeConfigService,
     FeeConfigRepository,
+    EnrollmentService,
     FeePlanService,
     FeePlanRepository,
     ChargeService,

@@ -34,6 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     titleKey: 'nav.section.people',
     items: [
+      { href: '/enrollment', labelKey: 'nav.enrollment', perm: 'finance:manage' },
       { href: '/people/students', labelKey: 'nav.people', perm: 'student:manage' },
       { href: '/people/teachers', labelKey: 'nav.teachers', perm: 'teacher:manage' },
       { href: '/people/parents', labelKey: 'nav.parents', perm: 'parent:manage' },

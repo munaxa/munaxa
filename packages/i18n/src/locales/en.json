@@ -80,6 +80,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "enrollment": "New enrollment",
     "section": {
       "people": "People",
       "academics": "Academics",

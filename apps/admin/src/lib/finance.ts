@@ -359,3 +359,31 @@ export const feeConfigApi = {
       body: JSON.stringify(data),
     }).then((r) => json<BillingPolicy>(r)),
 };
+
+// ── Enrollment quote (Phase 2) ──
+export interface EnrollmentQuote {
+  registrationFee: string;
+  tuitionFee: string;
+  tuitionDiscount: string;
+  transportFee: string;
+  total: string;
+  fullPayment: boolean;
+  installments: number;
+  lines: { key: 'registration' | 'tuition' | 'transport' | 'discount'; amount: string }[];
+  schedule: { index: number; dueDate: string; amount: string }[];
+  warnings: string[];
+}
+
+export const enrollmentApi = {
+  quote: (data: {
+    gradeId: string;
+    academicYearId: string;
+    transportDirection?: TransportDirection;
+    fullPayment?: boolean;
+    installments?: number;
+    firstDueDate?: string;
+  }) =>
+    authFetch('/enrollment/quote', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<EnrollmentQuote>(r),
+    ),
+};
