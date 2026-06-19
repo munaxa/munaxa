@@ -109,6 +109,10 @@ export class FeeConfigRepository extends TenantRepository {
     return this.run((tx) => tx.discountRule.findMany({ orderBy: { createdAt: 'desc' } }));
   }
 
+  findDiscountRule(id: string): Promise<DiscountRule | null> {
+    return this.run((tx) => tx.discountRule.findFirst({ where: { id } }));
+  }
+
   createDiscountRule(
     data: Omit<Prisma.DiscountRuleUncheckedCreateInput, 'tenantId' | 'createdById'>,
   ): Promise<DiscountRule> {

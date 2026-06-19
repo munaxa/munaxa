@@ -106,6 +106,12 @@ export class CreateDiscountRuleDto {
 }
 export class UpdateDiscountRuleDto extends PartialType(CreateDiscountRuleDto) {}
 
+// ── Apply a configured discount rule to a student's charge (records a FeeAdjustment) ──
+export class ApplyDiscountRuleDto {
+  @ApiProperty() @IsUUID() studentId!: string;
+  @ApiProperty() @IsUUID() chargeId!: string;
+}
+
 // ── Billing policy (tenant singleton) ──
 export class UpsertBillingPolicyDto {
   @ApiProperty({ example: 1 }) @IsInt() @Min(1) @Max(24) minInstallments!: number;

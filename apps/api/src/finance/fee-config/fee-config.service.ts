@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { AdjustmentType, DiscountType } from '@prisma/client';
 import { FeeConfigRepository } from './fee-config.repository';
+import { LedgerService } from '../ledger/ledger.service';
 import type {
   CreateDiscountRuleDto,
   CreateGradeFeeScheduleDto,
@@ -16,9 +18,38 @@ const date = (s?: string) => (s === undefined ? undefined : new Date(s));
  * Configuration-layer service. Thin orchestration over the repository — the enrollment
  * quote/charge flows (later phases) consume this config. No money is moved here.
  */
+const DISCOUNT_TO_ADJUSTMENT: Record<DiscountType, AdjustmentType> = {
+  FULL_PAYMENT: 'DISCOUNT',
+  SIBLING: 'SIBLING_DISCOUNT',
+  SCHOLARSHIP: 'SCHOLARSHIP',
+  PROMOTIONAL: 'DISCOUNT',
+  MANUAL: 'DISCOUNT',
+};
+
 @Injectable()
 export class FeeConfigService {
-  constructor(private readonly repo: FeeConfigRepository) {}
+  constructor(
+    private readonly repo: FeeConfigRepository,
+    private readonly ledger: LedgerService,
+  ) {}
+
+  /**
+   * Apply a configured discount rule to a student's charge — records it as a FeeAdjustment via the
+   * existing ledger (the system of record for discounts). FIXED → amount; PERCENT → percent of the
+   * charge net (the ledger enforces "cannot exceed net"). Reuses all the ledger's audit + recompute.
+   */
+  async applyRule(ruleId: string, input: { studentId: string; chargeId: string }) {
+    const rule = await this.repo.findDiscountRule(ruleId);
+    if (!rule || !rule.isActive) throw new NotFoundException('Active discount rule not found');
+    const value = Number(rule.value);
+    return this.ledger.applyAdjustment({
+      studentId: input.studentId,
+      chargeId: input.chargeId,
+      type: DISCOUNT_TO_ADJUSTMENT[rule.type],
+      reason: rule.name,
+      ...(rule.calc === 'PERCENT' ? { percent: value } : { amount: value }),
+    });
+  }
 
   // Grade fee schedules
   listGradeFees(academicYearId?: string) {

@@ -4,6 +4,7 @@ import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { FeeConfigService } from './fee-config.service';
 import {
+  ApplyDiscountRuleDto,
   CreateDiscountRuleDto,
   CreateGradeFeeScheduleDto,
   CreateTransportFareDto,
@@ -73,6 +74,11 @@ export class FeeConfigController {
   @RequirePermissions(Permission.FINANCE_MANAGE)
   updateDiscountRule(@Param('id') id: string, @Body() dto: UpdateDiscountRuleDto) {
     return this.service.updateDiscountRule(id, dto);
+  }
+  @Post('discount-rules/:id/apply')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  applyDiscountRule(@Param('id') id: string, @Body() dto: ApplyDiscountRuleDto) {
+    return this.service.applyRule(id, dto);
   }
 
   // Billing policy (singleton)
