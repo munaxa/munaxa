@@ -48,6 +48,22 @@ export class CollectionsController {
     return this.service.sendBatch(dto);
   }
 
+  @Get('aging')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({
+    summary: 'Aging report (outstanding by 30/60/90-day buckets) + collection effectiveness',
+  })
+  aging() {
+    return this.service.agingReport();
+  }
+
+  @Get('students/:studentId/aging')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({ summary: 'Outstanding balance bucketed by age for one student' })
+  studentAging(@Param('studentId', ParseUUIDPipe) studentId: string) {
+    return this.service.aging(studentId);
+  }
+
   @Post('students/:studentId/transport/evaluate')
   @RequirePermissions(Permission.FINANCE_MANAGE)
   @ApiOperation({

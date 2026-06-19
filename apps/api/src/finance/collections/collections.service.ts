@@ -22,6 +22,23 @@ export interface ReminderSnapshot {
   eligible: boolean; // has something due this month or overdue
 }
 
+export interface AgingBuckets {
+  studentId: string;
+  current: string; // balance not yet overdue (incl. undated charges)
+  d1_30: string;
+  d31_60: string;
+  d61_90: string;
+  d90plus: string;
+  total: string; // total outstanding balance
+}
+
+export interface AgingReport {
+  rows: AgingBuckets[];
+  totals: Omit<AgingBuckets, 'studentId'>;
+  /** Collection effectiveness: share of total charged that has been settled (0–100, 2 dp). */
+  collectedPct: string;
+}
+
 export interface TransportEvaluation {
   studentId: string;
   overdueCount: number;
@@ -150,6 +167,85 @@ export class CollectionsService {
       oldestOverdueDays,
       delinquencyLevel: levelFor(oldestOverdueDays),
       eligible: overdue.greaterThan(ZERO) || dueThisMonth.greaterThan(ZERO),
+    };
+  }
+
+  // --------------------------------------------------------- aging / reports
+
+  /** Bucket a single student's outstanding balance by the age of each charge's due date. */
+  async aging(studentId: string): Promise<AgingBuckets> {
+    const balances = await this.billing.chargeBalances(studentId);
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let current = ZERO;
+    let d1_30 = ZERO;
+    let d31_60 = ZERO;
+    let d61_90 = ZERO;
+    let d90plus = ZERO;
+    for (const b of balances) {
+      const bal = new Prisma.Decimal(b.balance);
+      if (bal.lessThanOrEqualTo(ZERO)) continue;
+      const due = b.charge.dueDate ? new Date(b.charge.dueDate) : null;
+      if (!due || due >= startOfDay) {
+        current = current.plus(bal);
+        continue;
+      }
+      const days = Math.floor((startOfDay.getTime() - due.getTime()) / 86_400_000);
+      if (days <= 30) d1_30 = d1_30.plus(bal);
+      else if (days <= 60) d31_60 = d31_60.plus(bal);
+      else if (days <= 90) d61_90 = d61_90.plus(bal);
+      else d90plus = d90plus.plus(bal);
+    }
+    const total = current.plus(d1_30).plus(d31_60).plus(d61_90).plus(d90plus);
+    return {
+      studentId,
+      current: current.toFixed(3),
+      d1_30: d1_30.toFixed(3),
+      d31_60: d31_60.toFixed(3),
+      d61_90: d61_90.toFixed(3),
+      d90plus: d90plus.toFixed(3),
+      total: total.toFixed(3),
+    };
+  }
+
+  /** Aging report across all accounts with an outstanding balance, plus collection effectiveness. */
+  async agingReport(): Promise<AgingReport> {
+    const candidates = await this.repo.studentsWithUnpaidCharges();
+    const rows: AgingBuckets[] = [];
+    const sum = {
+      current: ZERO,
+      d1_30: ZERO,
+      d31_60: ZERO,
+      d61_90: ZERO,
+      d90plus: ZERO,
+      total: ZERO,
+    };
+    for (const studentId of candidates) {
+      const a = await this.aging(studentId);
+      if (new Prisma.Decimal(a.total).lessThanOrEqualTo(ZERO)) continue;
+      rows.push(a);
+      sum.current = sum.current.plus(a.current);
+      sum.d1_30 = sum.d1_30.plus(a.d1_30);
+      sum.d31_60 = sum.d31_60.plus(a.d31_60);
+      sum.d61_90 = sum.d61_90.plus(a.d61_90);
+      sum.d90plus = sum.d90plus.plus(a.d90plus);
+      sum.total = sum.total.plus(a.total);
+    }
+    const { charged, paid } = await this.repo.tenantChargedAndPaid();
+    const collectedPct = charged.greaterThan(ZERO)
+      ? paid.times(100).dividedBy(charged).toFixed(2)
+      : '0.00';
+    return {
+      rows,
+      totals: {
+        current: sum.current.toFixed(3),
+        d1_30: sum.d1_30.toFixed(3),
+        d31_60: sum.d31_60.toFixed(3),
+        d61_90: sum.d61_90.toFixed(3),
+        d90plus: sum.d90plus.toFixed(3),
+        total: sum.total.toFixed(3),
+      },
+      collectedPct,
     };
   }
 

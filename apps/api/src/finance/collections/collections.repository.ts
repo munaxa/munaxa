@@ -86,6 +86,20 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
+  /** Tenant-wide charged (excl. cancelled) and verified-paid totals — for collection effectiveness. */
+  tenantChargedAndPaid(): Promise<{ charged: Prisma.Decimal; paid: Prisma.Decimal }> {
+    return this.run(async (tx) => {
+      const [chargeAgg, paidAgg] = await Promise.all([
+        tx.charge.aggregate({ where: { status: { not: 'CANCELLED' } }, _sum: { amount: true } }),
+        tx.transaction.aggregate({ where: { status: 'VERIFIED' }, _sum: { amount: true } }),
+      ]);
+      return {
+        charged: chargeAgg._sum.amount ?? new Prisma.Decimal(0),
+        paid: paidAgg._sum.amount ?? new Prisma.Decimal(0),
+      };
+    });
+  }
+
   /** Overdue-installment threshold for transport suspension (defaults to a high cap when unset). */
   suspendThreshold(): Promise<number> {
     return this.run(async (tx, tenantId) => {
