@@ -101,7 +101,17 @@ export interface CollectionsProfile {
   legalNote: string | null;
   flaggedAt: string | null;
   lastReminderAt: string | null;
-  snapshot: { outstanding: string; dueThisMonth: string; overdue: string; eligible: boolean };
+  transportSuspended: boolean;
+  transportSuspendedAt: string | null;
+  snapshot: {
+    outstanding: string;
+    dueThisMonth: string;
+    overdue: string;
+    overdueCount: number;
+    oldestOverdueDays: number;
+    delinquencyLevel: number;
+    eligible: boolean;
+  };
   reminders: Array<{
     id: string;
     channels: string[];
@@ -112,6 +122,30 @@ export interface CollectionsProfile {
     smsSentCount: number;
     createdAt: string;
   }>;
+}
+
+export interface AgingBuckets {
+  studentId: string;
+  current: string;
+  d1_30: string;
+  d31_60: string;
+  d61_90: string;
+  d90plus: string;
+  total: string;
+}
+
+export interface AgingReport {
+  rows: AgingBuckets[];
+  totals: Omit<AgingBuckets, 'studentId'>;
+  collectedPct: string;
+}
+
+export interface TransportEvaluation {
+  studentId: string;
+  overdueCount: number;
+  threshold: number;
+  suspended: boolean;
+  changed: boolean;
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -199,6 +233,12 @@ export const financeApi = {
     ),
   reverseAdjustment: (id: string) =>
     authFetch(`/finance/ledger/adjustments/${id}/reverse`, { method: 'POST' }).then((r) => json(r)),
+  /** Cascade a verified payment across open charges, earliest due first (down payment). */
+  allocateFifo: (transactionId: string) =>
+    authFetch('/finance/ledger/allocate/fifo', {
+      method: 'POST',
+      body: JSON.stringify({ transactionId }),
+    }).then((r) => json(r)),
   createRefund: (data: { studentId: string; amount: number; method: string; reason: string }) =>
     authFetch('/finance/ledger/refunds', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json(r),
@@ -221,6 +261,23 @@ export const financeApi = {
       method: 'POST',
       body: JSON.stringify({ channels }),
     }).then((r) => json<{ recipients: number; smsSent: number }>(r)),
+
+  // Aging / collection effectiveness
+  aging: () => authFetch('/finance/collections/aging').then((r) => json<AgingReport>(r)),
+  studentAging: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/aging`).then((r) =>
+      json<AgingBuckets>(r),
+    ),
+
+  // Transport suspension (non-payment)
+  evaluateTransport: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/transport/evaluate`, {
+      method: 'POST',
+    }).then((r) => json<TransportEvaluation>(r)),
+  evaluateTransportAll: () =>
+    authFetch('/finance/collections/transport/evaluate', { method: 'POST' }).then((r) =>
+      json<{ evaluated: number; suspended: number; restored: number }>(r),
+    ),
 };
 
 // --------------------------------------------------------------------------- Fee plans
@@ -255,5 +312,135 @@ export const feePlansApi = {
   update: (id: string, data: Partial<CreateFeePlanInput>) =>
     authFetch(`/finance/fee-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(
       (r) => json<FeePlan>(r),
+    ),
+};
+
+// ── Enrollment & billing configuration (Phase 1) ──
+export type DiscountType = 'FULL_PAYMENT' | 'SIBLING' | 'SCHOLARSHIP' | 'PROMOTIONAL' | 'MANUAL';
+export type DiscountCalc = 'FIXED' | 'PERCENT';
+export type TransportDirection = 'NONE' | 'ONE_WAY' | 'TWO_WAY';
+
+export interface GradeFeeSchedule {
+  id: string;
+  gradeId: string;
+  academicYearId: string;
+  registrationFee: string;
+  tuitionFee: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  isActive: boolean;
+}
+export interface TransportFare {
+  id: string;
+  academicYearId: string;
+  direction: TransportDirection;
+  amount: string;
+  isActive: boolean;
+}
+export interface DiscountRule {
+  id: string;
+  name: string;
+  type: DiscountType;
+  calc: DiscountCalc;
+  value: string;
+  maxAmount: string | null;
+  appliesToTransport: boolean;
+  startDate: string | null;
+  endDate: string | null;
+  isActive: boolean;
+}
+export interface BillingPolicy {
+  id: string;
+  minInstallments: number;
+  maxInstallments: number;
+  fullPaymentDiscountPct: string;
+  suspendTransportAfterOverdue: number;
+}
+
+export const feeConfigApi = {
+  gradeFees: (academicYearId?: string) =>
+    authFetch(
+      `/finance/fee-config/grade-fees${academicYearId ? `?academicYearId=${encodeURIComponent(academicYearId)}` : ''}`,
+    ).then((r) => json<GradeFeeSchedule[]>(r)),
+  createGradeFee: (data: {
+    gradeId: string;
+    academicYearId: string;
+    registrationFee: number;
+    tuitionFee: number;
+    effectiveFrom: string;
+    effectiveTo?: string;
+  }) =>
+    authFetch('/finance/fee-config/grade-fees', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<GradeFeeSchedule>(r)),
+
+  transportFares: (academicYearId?: string) =>
+    authFetch(
+      `/finance/fee-config/transport-fares${academicYearId ? `?academicYearId=${encodeURIComponent(academicYearId)}` : ''}`,
+    ).then((r) => json<TransportFare[]>(r)),
+  createTransportFare: (data: {
+    academicYearId: string;
+    direction: TransportDirection;
+    amount: number;
+  }) =>
+    authFetch('/finance/fee-config/transport-fares', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<TransportFare>(r)),
+
+  discountRules: () =>
+    authFetch('/finance/fee-config/discount-rules').then((r) => json<DiscountRule[]>(r)),
+  createDiscountRule: (data: {
+    name: string;
+    type: DiscountType;
+    calc: DiscountCalc;
+    value: number;
+    maxAmount?: number;
+    appliesToTransport?: boolean;
+  }) =>
+    authFetch('/finance/fee-config/discount-rules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<DiscountRule>(r)),
+
+  policy: () => authFetch('/finance/fee-config/policy').then((r) => json<BillingPolicy | null>(r)),
+  upsertPolicy: (data: {
+    minInstallments: number;
+    maxInstallments: number;
+    fullPaymentDiscountPct: number;
+    suspendTransportAfterOverdue: number;
+  }) =>
+    authFetch('/finance/fee-config/policy', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }).then((r) => json<BillingPolicy>(r)),
+};
+
+// ── Enrollment quote (Phase 2) ──
+export interface EnrollmentQuote {
+  registrationFee: string;
+  tuitionFee: string;
+  tuitionDiscount: string;
+  transportFee: string;
+  total: string;
+  fullPayment: boolean;
+  installments: number;
+  lines: { key: 'registration' | 'tuition' | 'transport' | 'discount'; amount: string }[];
+  schedule: { index: number; dueDate: string; amount: string }[];
+  warnings: string[];
+}
+
+export const enrollmentApi = {
+  quote: (data: {
+    gradeId: string;
+    academicYearId: string;
+    transportDirection?: TransportDirection;
+    fullPayment?: boolean;
+    installments?: number;
+    firstDueDate?: string;
+  }) =>
+    authFetch('/enrollment/quote', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<EnrollmentQuote>(r),
     ),
 };

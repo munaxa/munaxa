@@ -3,7 +3,13 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { LedgerService } from './ledger.service';
-import { AllocatePaymentDto, ApplyAdjustmentDto, CreateRefundDto, RejectDto } from './ledger.dto';
+import {
+  AllocateFifoDto,
+  AllocatePaymentDto,
+  ApplyAdjustmentDto,
+  CreateRefundDto,
+  RejectDto,
+} from './ledger.dto';
 
 /**
  * Student billing ledger endpoints (Phase 17): deductions, payment allocation, and refunds.
@@ -37,6 +43,13 @@ export class LedgerController {
   @ApiOperation({ summary: 'Apply a verified payment to one or more charges' })
   allocate(@Body() dto: AllocatePaymentDto) {
     return this.service.allocate(dto);
+  }
+
+  @Post('allocate/fifo')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Cascade a verified payment across open charges (earliest due first)' })
+  allocateFifo(@Body() dto: AllocateFifoDto) {
+    return this.service.allocateFifo(dto.transactionId);
   }
 
   // ---- Refunds --------------------------------------------------------------

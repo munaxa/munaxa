@@ -6,4 +6,5 @@ build
 coverage
 pnpm-lock.yaml
 apps/mobile
+munaxadesignsystem
 *.md

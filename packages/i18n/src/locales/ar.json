@@ -80,6 +80,7 @@
   },
   "nav": {
     "dashboard": "الرئيسية",
+    "enrollment": "تسجيل جديد",
     "section": {
       "people": "الأشخاص",
       "academics": "الشؤون الأكاديمية",
@@ -99,6 +100,8 @@
     "academics": "الشؤون الأكاديمية",
     "finance": "المالية",
     "feePlans": "خطط الرسوم",
+    "feeConfig": "إعداد الرسوم",
+    "collections": "التحصيل",
     "communication": "التواصل",
     "reports": "التقارير",
     "modules": "الوحدات",

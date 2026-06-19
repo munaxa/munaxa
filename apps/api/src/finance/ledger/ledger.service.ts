@@ -131,6 +131,43 @@ export class LedgerService {
   }
 
   /**
+   * Allocate a verified payment across the student's open charges in FIFO (due-date) order.
+   * Used for a down payment / lump sum at enrollment: it cascades earliest-due first, capping at
+   * each charge's balance, until the payment is exhausted. Reuses the same audited allocate path.
+   */
+  async allocateFifo(transactionId: string): Promise<PaymentAllocation[]> {
+    const txn = await this.repo.transactionById(transactionId);
+    if (!txn) throw new NotFoundException('Transaction not found');
+    if (txn.status !== 'VERIFIED') {
+      throw new ConflictException('Only a verified payment can be allocated');
+    }
+    let remaining = await this.repo.unallocatedFor(transactionId);
+    if (remaining.lessThanOrEqualTo(ZERO)) return [];
+
+    const balances = await this.repo.chargeBalances(txn.studentId);
+    const open = balances
+      .filter(
+        (b) => b.charge.status !== 'CANCELLED' && new Prisma.Decimal(b.balance).greaterThan(ZERO),
+      )
+      .sort((a, b) => {
+        // Earliest due date first; charges without a due date settle last, then creation order.
+        const da = a.charge.dueDate?.getTime() ?? Number.POSITIVE_INFINITY;
+        const db = b.charge.dueDate?.getTime() ?? Number.POSITIVE_INFINITY;
+        if (da !== db) return da - db;
+        return a.charge.createdAt.getTime() - b.charge.createdAt.getTime();
+      });
+
+    const results: PaymentAllocation[] = [];
+    for (const cb of open) {
+      if (remaining.lessThanOrEqualTo(ZERO)) break;
+      const amount = Prisma.Decimal.min(new Prisma.Decimal(cb.balance), remaining);
+      results.push(await this.repo.allocate({ transactionId, chargeId: cb.charge.id, amount }));
+      remaining = remaining.minus(amount);
+    }
+    return results;
+  }
+
+  /**
    * Best-effort auto-allocation when a payment is verified against a specific charge
    * (called from the transaction verify flow). Caps at the charge's remaining balance.
    */

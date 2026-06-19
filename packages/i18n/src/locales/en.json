@@ -80,6 +80,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "enrollment": "New enrollment",
     "section": {
       "people": "People",
       "academics": "Academics",
@@ -99,6 +100,8 @@
     "academics": "Academics",
     "finance": "Finance",
     "feePlans": "Fee plans",
+    "feeConfig": "Fee configuration",
+    "collections": "Collections",
     "communication": "Communication",
     "reports": "Reports",
     "modules": "Modules",

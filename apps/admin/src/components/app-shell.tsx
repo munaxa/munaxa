@@ -34,6 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     titleKey: 'nav.section.people',
     items: [
+      { href: '/enrollment', labelKey: 'nav.enrollment', perm: 'finance:manage' },
       { href: '/people/students', labelKey: 'nav.people', perm: 'student:manage' },
       { href: '/people/teachers', labelKey: 'nav.teachers', perm: 'teacher:manage' },
       { href: '/people/parents', labelKey: 'nav.parents', perm: 'parent:manage' },
@@ -54,7 +55,9 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'nav.section.finance',
     items: [
       { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
+      { href: '/finance/collections', labelKey: 'nav.collections', perm: 'finance:read' },
       { href: '/finance/fee-plans', labelKey: 'nav.feePlans', perm: 'finance:read' },
+      { href: '/finance/fee-config', labelKey: 'nav.feeConfig', perm: 'finance:manage' },
     ],
   },
   {
