@@ -18,9 +18,7 @@ export function Hero({ dict }: { dict: Dictionary }) {
 
           <h1 className="mt-6 text-balance font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
             {dict.hero.titleLine1}
-            <span className="bg-grad-primary bg-clip-text text-transparent">
-              {dict.hero.titleHighlight}
-            </span>
+            <span className="text-primary">{dict.hero.titleHighlight}</span>
           </h1>
 
           <p className="mt-6 max-w-xl text-pretty text-lg text-muted-foreground">

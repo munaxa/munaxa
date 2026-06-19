@@ -13,51 +13,51 @@
     /* --font-display / --font-body / --font-mono are provided by next/font (see layout.tsx). */
     --radius: 0.875rem; /* 14px — Munaxa Design System --radius */
 
-    /* Light theme — values mirror the canonical munaxadesignsystem (client/src/index.css). */
+    /* Light theme — HSL channels are the exact conversion of the canonical hexes. */
     --background: 252 100% 98%; /* #F7F5FF */
-    --foreground: 257 75% 17%; /* #1E0B4D */
+    --foreground: 257 75% 17.3%; /* #1E0B4D */
     --card: 0 0% 100%; /* #FFFFFF */
-    --card-foreground: 257 75% 17%;
-    --primary: 260 75% 48%; /* #5B1FD6 */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 257 58% 95%; /* #F0ECFA */
-    --secondary-foreground: 257 75% 17%;
-    --muted: 257 58% 95%; /* #F0ECFA */
-    --muted-foreground: 257 23% 39%; /* #5A4D7A */
-    --accent: 2 64% 58%; /* coral #D9534F */
-    --accent-foreground: 0 0% 100%;
-    --destructive: 2 64% 58%; /* #D9534F */
-    --destructive-foreground: 0 0% 100%;
+    --card-foreground: 257 75% 17.3%; /* #1E0B4D */
+    --primary: 260 74.7% 48%; /* #5B1FD6 */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --secondary: 257 58.3% 95.3%; /* #F0ECFA */
+    --secondary-foreground: 257 75% 17.3%; /* #1E0B4D */
+    --muted: 257 58.3% 95.3%; /* #F0ECFA */
+    --muted-foreground: 257 22.6% 39%; /* #5A4D7A */
+    --accent: 2 64.5% 58%; /* coral #D9534F */
+    --accent-foreground: 0 0% 100%; /* #FFFFFF */
+    --destructive: 2 64.5% 58%; /* #D9534F */
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
     /* Brand accents — theme-aware so they read correctly in light mode (munaxadesignsystem). */
-    --coral: 2 64% 58%; /* light #D9534F */
-    --aqua: 175 84% 32%; /* light #0D9488 */
-    --border: 255 33% 91%; /* #E3DFEF */
-    --input: 257 29% 81%; /* #C8C0DC */
-    --ring: 260 75% 48%; /* #5B1FD6 */
+    --coral: 2 64.5% 58%; /* light #D9534F */
+    --aqua: 175 83.9% 31.6%; /* light #0D9488 */
+    --border: 255 33.3% 90.6%; /* #E3DFEF */
+    --input: 257 28.6% 80.8%; /* #C8C0DC */
+    --ring: 260 74.7% 48%; /* #5B1FD6 */
   }
 
   .dark {
-    /* Dark "ink" theme — values mirror the canonical munaxadesignsystem. */
-    --background: 263 56% 6%; /* #0B0518 */
-    --foreground: 256 100% 97%; /* #F4F0FF */
-    --card: 256 58% 14%; /* #1A0F38 */
-    --card-foreground: 256 100% 97%;
-    --primary: 268 100% 74%; /* #B97BFF */
-    --primary-foreground: 263 56% 6%;
-    --secondary: 256 54% 18%; /* #221547 */
-    --secondary-foreground: 256 100% 97%;
-    --muted: 256 54% 18%; /* #221547 */
-    --muted-foreground: 252 20% 72%;
-    --accent: 13 100% 72%; /* coral #FF8E6E */
-    --accent-foreground: 263 56% 6%;
+    /* Dark "ink" theme — HSL channels are the exact conversion of the canonical hexes. */
+    --background: 259 65.5% 5.7%; /* #0B0518 */
+    --foreground: 256 100% 97.1%; /* #F4F0FF */
+    --card: 256 57.7% 13.9%; /* #1A0F38 */
+    --card-foreground: 256 100% 97.1%; /* #F4F0FF */
+    --primary: 268 100% 74.1%; /* #B97BFF */
+    --primary-foreground: 259 65.5% 5.7%; /* #0B0518 */
+    --secondary: 256 54.3% 18%; /* #221547 */
+    --secondary-foreground: 256 100% 97.1%; /* #F4F0FF */
+    --muted: 256 54.3% 18%; /* #221547 */
+    --muted-foreground: 252 20.3% 72%; /* #AFA9C6 */
+    --accent: 13 100% 71.6%; /* coral #FF8E6E */
+    --accent-foreground: 259 65.5% 5.7%; /* #0B0518 */
     --destructive: 349 100% 68%; /* #FF5C7A */
-    --destructive-foreground: 0 0% 100%;
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
     /* Brand accents — full-brightness on dark surfaces. */
-    --coral: 13 100% 72%; /* #FF8E6E */
-    --aqua: 173 88% 63%; /* #4DF4E1 */
-    --border: 258 40% 22%;
-    --input: 258 40% 22%;
-    --ring: 268 100% 74%; /* #B97BFF */
+    --coral: 13 100% 71.6%; /* #FF8E6E */
+    --aqua: 173 88.4% 62.9%; /* #4DF4E1 */
+    --border: 257 39.8% 22.2%; /* #2F224F */
+    --input: 257 39.8% 22.2%; /* #2F224F */
+    --ring: 268 100% 74.1%; /* #B97BFF */
   }
 }
 
