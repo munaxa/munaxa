@@ -1,23 +1,23 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* Munaxa Design System v3 type families (mirrors munaxalanding): Sora (display),
+/* Munaxa Design System type families (mirrors munaxalanding): Sora (display),
    Inter (body), Cairo (Arabic/RTL). The font files are loaded in index.html. */
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* v3 radius scale: 8 / 12 / 14 / 22 / 32px */
+  /* radius scale: 8 / 12 / 14 / 22 / 32px */
   --radius-sm: 0.5rem;
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: 1.375rem;
   --radius-2xl: 2rem;
-  /* v3 type families */
+  /* type families */
   --font-sans: var(--font-body);
   --font-display: var(--font-display);
   --font-arabic: var(--font-arabic);
   --font-mono: var(--font-mono);
-  /* v3 accents + elevation */
+  /* accents + elevation */
   --color-coral: var(--coral);
   --color-aqua: var(--aqua);
   --shadow-card:
@@ -62,17 +62,17 @@
 }
 
 :root {
-  /* ── Munaxa Design System v3 — Light theme (website default) ───────────────
+  /* ── Munaxa Design System — Light theme (website default) ───────────────
      Brand violet #7A3FFF (light tint #B97BFF). On light surfaces the semantic
      primary darkens to #5B1FD6 so it stays legible; accents are coral + aqua. */
 
-  /* Type families (v3) */
+  /* Type families */
   --font-display: "Sora", system-ui, sans-serif;
   --font-body: "Inter", system-ui, sans-serif;
   --font-arabic: "Cairo", sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", monospace;
 
-  /* Radius — v3 14px base */
+  /* Radius — 14px base */
   --radius: 0.875rem;
 
   /* Primary / brand */
@@ -81,11 +81,11 @@
   --sidebar-primary: #5b1fd6;
   --sidebar-primary-foreground: #ffffff;
 
-  /* Accents (theme-aware in v3) */
+  /* Accents (theme-aware) */
   --coral: #d9534f;
   --aqua: #0d9488;
 
-  /* Chart palette — brand violets + v3 accents */
+  /* Chart palette — brand violets + accents */
   --chart-1: #7a3fff;
   --chart-2: #b97bff;
   --chart-3: #0d9488;
@@ -123,7 +123,7 @@
   --error: #d9534f;
   --info: #3b82f6;
 
-  /* Hero gradient backdrop (v3, light) */
+  /* Hero gradient backdrop (light) */
   --grad-hero: radial-gradient(
     ellipse 90% 60% at 50% -10%,
     rgb(122 63 255 / 0.08),
@@ -132,7 +132,7 @@
 }
 
 .dark {
-  /* ── Munaxa Design System v3 — Dark "ink" theme ──────────────────────────── */
+  /* ── Munaxa Design System — Dark "ink" theme ──────────────────────────── */
   --primary: #b97bff;
   --primary-foreground: #0b0518;
   --sidebar-primary: #b97bff;
@@ -180,7 +180,7 @@
   --error: #ff5c7a;
   --info: #60a5fa;
 
-  /* Hero gradient backdrop (v3, dark) */
+  /* Hero gradient backdrop (dark) */
   --grad-hero: radial-gradient(
     ellipse 90% 60% at 50% -10%,
     rgb(122 63 255 / 0.18),
@@ -196,7 +196,7 @@
     @apply bg-background text-foreground;
     font-family: var(--font-body);
   }
-  /* v3: display type (Sora) for headings */
+  /* display type (Sora) for headings */
   h1,
   h2,
   h3,
@@ -205,7 +205,7 @@
   h6 {
     font-family: var(--font-display);
   }
-  /* v3: in RTL/Arabic, display + body resolve to Cairo (Sora/Inter lack Arabic glyphs).
+  /* in RTL/Arabic, display + body resolve to Cairo (Sora/Inter lack Arabic glyphs).
      Numbers/IDs should stay LTR via the .mono utility below. */
   html[dir="rtl"] {
     --font-display: "Cairo", sans-serif;
@@ -265,7 +265,7 @@
     min-width: 0;
   }
 
-  /* v3: numbers, IDs, and dates stay LTR even inside RTL text. */
+  /* numbers, IDs, and dates stay LTR even inside RTL text. */
   .mono {
     direction: ltr;
     unicode-bidi: embed;

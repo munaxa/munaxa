@@ -1,4 +1,4 @@
-// Munaxa Design System v3 radius scale: 8 / 12 / 14 / 22 / 32px
+// Munaxa Design System radius scale: 8 / 12 / 14 / 22 / 32px
 export const radius = {
   none: "0",
   sm: "0.5rem",

@@ -1,4 +1,4 @@
-# MUNAXA Design System v2.0 - Visual Direction
+# MUNAXA Design System - Visual Direction
 
 ## Design Philosophy: Enterprise Elegance
 

@@ -85,7 +85,7 @@ export default function Layout({ children, currentPage }: LayoutProps) {
           {/* Footer */}
           <div className="border-t border-sidebar-border px-6 py-4">
             <p className="text-xs text-sidebar-foreground/60">
-              MUNAXA Design System v2.0
+              MUNAXA Design System
             </p>
           </div>
         </div>

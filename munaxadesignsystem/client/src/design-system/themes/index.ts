@@ -1,6 +1,6 @@
 import { colors } from "../tokens";
 
-// v3 light (website default) + dark "ink" theme contract. Values mirror the
+// light (website default) + dark "ink" theme contract. Values mirror the
 // semantic CSS variables in index.css.
 export const themes = {
   light: {

@@ -1,4 +1,4 @@
-// Munaxa Design System v3 elevation: soft violet-tinted card shadow + a violet
+// Munaxa Design System elevation: soft violet-tinted card shadow + a violet
 // "glow" for primary surfaces. `focus` matches the focus-visible ring.
 export const shadows = {
   none: "none",

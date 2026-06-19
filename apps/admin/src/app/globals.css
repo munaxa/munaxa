@@ -3,74 +3,72 @@
 @tailwind utilities;
 
 /*
- * Munaxa design tokens (shadcn bridge) — the ADMIN / PRODUCT enterprise theme: neutral
- * surfaces + violet primary + standard green/amber/red/blue semantics; deep-navy dark mode.
- * Default theme is light; dark via .dark. The brand-accent aliases are mapped to product
- * semantics: `aqua` → success, `coral` → warning.
- *
- * This theme intentionally DIVERGES from the v3 website brand in
- * munaxadesignsystem/client/src/index.css (violet #5B1FD6→#B97BFF on ink/violet surfaces,
- * coral/aqua accents, Sora/Inter type) that the public surfaces — munaxalanding + munaxademo —
- * follow. The divergence is deliberate (dense data UI favours neutral surfaces + conventional
- * status colours) and documented in /GOVERNANCE.md. Do NOT "re-sync" these to the v3 hexes.
+ * Munaxa design tokens (shadcn bridge) — colours are the Munaxa Design System brand,
+ * sourced 1:1 from munaxadesignsystem/client/src/index.css (the single source of truth):
+ * violet primary (#5B1FD6 light / #B97BFF dark) on ink/violet surfaces, coral + aqua accents,
+ * with semantic success(aqua-teal) / warning(amber) / error(coral) / info. Values below are the
+ * Munaxa Design System hexes converted to the shadcn HSL channel format the Tailwind preset consumes
+ * (`hsl(var(--token))`); the original hex is kept inline for reference. Default theme is light;
+ * dark via .dark. When the brand changes, re-sync from munaxadesignsystem — do not edit ad hoc.
  */
 @layer base {
   :root {
     /* --font-display / --font-body / --font-mono are provided by next/font (see layout.tsx). */
     --radius: 0.5rem;
 
-    /* Light — neutral surfaces */
-    --background: 240 20% 98%; /* #FAFAFB */
-    --foreground: 221 39% 11%; /* #111827 */
-    --card: 0 0% 100%; /* #FFFFFF */
-    --card-foreground: 221 39% 11%;
-    --primary: 258 100% 62%; /* #7A3FFF */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%; /* #F3F4F6 */
-    --secondary-foreground: 215 14% 34%; /* #4B5563 */
-    --muted: 220 13% 91%; /* #E5E7EB */
-    --muted-foreground: 220 9% 46%; /* #6B7280 */
-    --accent: 260 100% 97%; /* #F5F0FF primarySoft */
-    --accent-foreground: 258 100% 62%; /* #7A3FFF */
-    --destructive: 0 84% 60%; /* #EF4444 */
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%; /* #E5E7EB */
-    --input: 220 13% 91%;
-    --ring: 258 100% 62%;
+    /* Light — violet on near-white, violet-tinted surfaces */
+    --background: 252 100% 98%; /* #f7f5ff */
+    --foreground: 257 75% 17.3%; /* #1e0b4d */
+    --card: 0 0% 100%; /* #ffffff */
+    --card-foreground: 257 75% 17.3%; /* #1e0b4d */
+    --primary: 260 74.7% 48%; /* #5b1fd6 */
+    --primary-foreground: 0 0% 100%; /* #ffffff */
+    --secondary: 257 58.3% 95.3%; /* #f0ecfa */
+    --secondary-foreground: 257 75% 17.3%; /* #1e0b4d */
+    --muted: 257 58.3% 95.3%; /* #f0ecfa */
+    --muted-foreground: 257 22.6% 39%; /* #5a4d7a */
+    --accent: 2 64.5% 58%; /* #d9534f — coral */
+    --accent-foreground: 0 0% 100%; /* #ffffff */
+    --destructive: 2 64.5% 58%; /* #d9534f */
+    --destructive-foreground: 0 0% 100%; /* #ffffff */
+    --border: 255 33.3% 90.6%; /* #e3dfef */
+    --input: 257 28.6% 80.8%; /* #c8c0dc */
+    --ring: 260 74.7% 48%; /* #5b1fd6 */
     /* Semantic */
-    --success: 160 84% 39%; /* #10B981 */
-    --warning: 38 92% 50%; /* #F59E0B */
-    --info: 217 91% 60%; /* #3B82F6 */
-    /* Brand-accent aliases mapped to DS semantics */
-    --aqua: 160 84% 39%; /* success */
-    --coral: 38 92% 50%; /* warning */
+    --success: 175 83.9% 31.6%; /* #0d9488 */
+    --warning: 38 92.1% 50.2%; /* #f59e0b */
+    --info: 217 91.2% 59.8%; /* #3b82f6 */
+    /* Brand accents */
+    --aqua: 175 83.9% 31.6%; /* #0d9488 */
+    --coral: 2 64.5% 58%; /* #d9534f */
   }
 
   .dark {
-    /* Dark — deep navy surfaces */
-    --background: 229 49% 8%; /* #0B1020 */
-    --foreground: 210 20% 98%; /* #F9FAFB */
-    --card: 217 32% 15%; /* #1A2332 */
-    --card-foreground: 210 20% 98%;
-    --primary: 258 100% 65%; /* #8A4FFF */
-    --primary-foreground: 0 0% 100%;
-    --secondary: 221 39% 11%; /* #111827 */
-    --secondary-foreground: 213 27% 84%; /* #CBD5E1 */
-    --muted: 214 22% 21%; /* #2A3441 */
-    --muted-foreground: 213 27% 84%;
-    --accent: 214 22% 21%; /* #2A3441 */
-    --accent-foreground: 258 100% 65%;
-    --destructive: 0 91% 71%; /* #F87171 */
-    --destructive-foreground: 0 0% 100%;
-    --border: 214 22% 21%; /* #2A3441 */
-    --input: 214 22% 21%;
-    --ring: 258 100% 65%;
+    /* Dark "ink" — violet on deep ink/violet surfaces */
+    --background: 259 65.5% 5.7%; /* #0b0518 */
+    --foreground: 256 100% 97.1%; /* #f4f0ff */
+    --card: 256 57.7% 13.9%; /* #1a0f38 */
+    --card-foreground: 256 100% 97.1%; /* #f4f0ff */
+    --primary: 268 100% 74.1%; /* #b97bff */
+    --primary-foreground: 259 65.5% 5.7%; /* #0b0518 */
+    --secondary: 256 54.3% 18%; /* #221547 */
+    --secondary-foreground: 256 100% 97.1%; /* #f4f0ff */
+    --muted: 256 54.3% 18%; /* #221547 */
+    --muted-foreground: 252 20.3% 72%; /* #afa9c6 */
+    --accent: 13 100% 71.6%; /* #ff8e6e — coral */
+    --accent-foreground: 259 65.5% 5.7%; /* #0b0518 */
+    --destructive: 349 100% 68%; /* #ff5c7a */
+    --destructive-foreground: 0 0% 100%; /* #ffffff */
+    --border: 257 39.8% 22.2%; /* #2f224f */
+    --input: 257 39.8% 22.2%; /* #2f224f */
+    --ring: 268 100% 74.1%; /* #b97bff */
     /* Semantic — dark variants */
-    --success: 158 64% 52%; /* #34D399 */
-    --warning: 43 96% 56%; /* #FBBF24 */
-    --info: 213 94% 68%; /* #60A5FA */
-    --aqua: 158 64% 52%; /* success */
-    --coral: 43 96% 56%; /* warning */
+    --success: 173 88.4% 62.9%; /* #4df4e1 */
+    --warning: 43 96.4% 56.3%; /* #fbbf24 */
+    --info: 213 93.9% 67.8%; /* #60a5fa */
+    /* Brand accents */
+    --aqua: 173 88.4% 62.9%; /* #4df4e1 */
+    --coral: 13 100% 71.6%; /* #ff8e6e */
   }
 }
 
