@@ -101,7 +101,17 @@ export interface CollectionsProfile {
   legalNote: string | null;
   flaggedAt: string | null;
   lastReminderAt: string | null;
-  snapshot: { outstanding: string; dueThisMonth: string; overdue: string; eligible: boolean };
+  transportSuspended: boolean;
+  transportSuspendedAt: string | null;
+  snapshot: {
+    outstanding: string;
+    dueThisMonth: string;
+    overdue: string;
+    overdueCount: number;
+    oldestOverdueDays: number;
+    delinquencyLevel: number;
+    eligible: boolean;
+  };
   reminders: Array<{
     id: string;
     channels: string[];
@@ -112,6 +122,30 @@ export interface CollectionsProfile {
     smsSentCount: number;
     createdAt: string;
   }>;
+}
+
+export interface AgingBuckets {
+  studentId: string;
+  current: string;
+  d1_30: string;
+  d31_60: string;
+  d61_90: string;
+  d90plus: string;
+  total: string;
+}
+
+export interface AgingReport {
+  rows: AgingBuckets[];
+  totals: Omit<AgingBuckets, 'studentId'>;
+  collectedPct: string;
+}
+
+export interface TransportEvaluation {
+  studentId: string;
+  overdueCount: number;
+  threshold: number;
+  suspended: boolean;
+  changed: boolean;
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -199,6 +233,12 @@ export const financeApi = {
     ),
   reverseAdjustment: (id: string) =>
     authFetch(`/finance/ledger/adjustments/${id}/reverse`, { method: 'POST' }).then((r) => json(r)),
+  /** Cascade a verified payment across open charges, earliest due first (down payment). */
+  allocateFifo: (transactionId: string) =>
+    authFetch('/finance/ledger/allocate/fifo', {
+      method: 'POST',
+      body: JSON.stringify({ transactionId }),
+    }).then((r) => json(r)),
   createRefund: (data: { studentId: string; amount: number; method: string; reason: string }) =>
     authFetch('/finance/ledger/refunds', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json(r),
@@ -221,6 +261,23 @@ export const financeApi = {
       method: 'POST',
       body: JSON.stringify({ channels }),
     }).then((r) => json<{ recipients: number; smsSent: number }>(r)),
+
+  // Aging / collection effectiveness
+  aging: () => authFetch('/finance/collections/aging').then((r) => json<AgingReport>(r)),
+  studentAging: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/aging`).then((r) =>
+      json<AgingBuckets>(r),
+    ),
+
+  // Transport suspension (non-payment)
+  evaluateTransport: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/transport/evaluate`, {
+      method: 'POST',
+    }).then((r) => json<TransportEvaluation>(r)),
+  evaluateTransportAll: () =>
+    authFetch('/finance/collections/transport/evaluate', { method: 'POST' }).then((r) =>
+      json<{ evaluated: number; suspended: number; restored: number }>(r),
+    ),
 };
 
 // --------------------------------------------------------------------------- Fee plans

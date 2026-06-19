@@ -55,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'nav.section.finance',
     items: [
       { href: '/finance', labelKey: 'nav.finance', perm: 'finance:read' },
+      { href: '/finance/collections', labelKey: 'nav.collections', perm: 'finance:read' },
       { href: '/finance/fee-plans', labelKey: 'nav.feePlans', perm: 'finance:read' },
       { href: '/finance/fee-config', labelKey: 'nav.feeConfig', perm: 'finance:manage' },
     ],
