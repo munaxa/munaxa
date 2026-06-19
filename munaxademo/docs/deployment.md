@@ -74,8 +74,8 @@ npx wrangler secret put DEMO_SESSION_SECRET        # paste: openssl rand -base64
 # 3) (Optional) Enable "Book a Demo" intake emails via Resend:
 #    - Create a Resend account and verify the munaxa.com domain (add the SPF/DKIM
 #      DNS records Resend shows you) so you can send from demo@munaxa.com.
-#    - Set the API key as a secret:
-npx wrangler secret put RESEND_API_KEY
+#    - Set the API key as a secret (the code also accepts RESEND_API_KEY):
+npx wrangler secret put RESEND_DEMO
 #    - Recipients/sender are set as vars in wrangler.jsonc:
 #      DEMO_NOTIFY_EMAIL (team inbox) and DEMO_FROM_EMAIL (verified sender).
 ```
@@ -85,7 +85,7 @@ npx wrangler secret put RESEND_API_KEY
 When a visitor submits the public `/request-demo` form, the server stores the request **and**
 (via Resend) emails the details to `DEMO_NOTIFY_EMAIL` and sends the prospect an acknowledgement
 from `DEMO_FROM_EMAIL`. This is the only real outbound integration and is **fail-soft**: if
-`RESEND_API_KEY` is unset (or sending fails), the request is still saved and appears in the admin
+the Resend key (`RESEND_DEMO`, or `RESEND_API_KEY`) is unset (or sending fails), the request is still saved and appears in the admin
 **Demo Requests** queue — only the emails are skipped. The munaxa.com domain must be verified in
 Resend to send from `demo@munaxa.com`.
 

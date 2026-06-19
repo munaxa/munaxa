@@ -23,7 +23,7 @@
     "DEMO_PBKDF2_ITERATIONS": "10000",
     "DEMO_SESSION_TTL_MINUTES": "120",
     "DEMO_DEFAULT_EXPIRY_DAYS": "14",
-    // "Book a Demo" intake emails (sent via Resend). RESEND_API_KEY is a secret (below).
+    // "Book a Demo" intake emails (sent via Resend). RESEND_DEMO is a secret (below).
     "DEMO_NOTIFY_EMAIL": "demo@munaxa.com",
     "DEMO_FROM_EMAIL": "Munaxa Demo <demo@munaxa.com>"
   },
@@ -38,5 +38,6 @@
   ]
   // Secrets (NOT vars) — set each with `npx wrangler secret put <NAME>`:
   //   DEMO_SESSION_SECRET   signing key for the session cookie
-  //   RESEND_API_KEY        Resend API key for the "Book a Demo" intake emails
+  //   RESEND_DEMO           Resend API key for the "Book a Demo" intake emails
+  //                         (RESEND_API_KEY is also accepted as a fallback)
 }

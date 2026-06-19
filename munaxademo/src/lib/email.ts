@@ -65,7 +65,10 @@ export interface EmailResult {
  * Never throws — returns what happened so the caller can still respond 200.
  */
 export async function sendDemoRequestEmails(req: DemoRequest): Promise<EmailResult> {
-  const apiKey = await readEnv('RESEND_DEMO');
+  // Accept either name so delivery works regardless of which secret the operator set:
+  // RESEND_DEMO (preferred, demo-scoped key) or RESEND_API_KEY (the name used in the
+  // deployment docs and by the sibling landing app).
+  const apiKey = (await readEnv('RESEND_DEMO')) || (await readEnv('RESEND_API_KEY'));
   const from = (await readEnv('DEMO_FROM_EMAIL')) || 'Munaxa Demo <demo@munaxa.com>';
   const notify = (await readEnv('DEMO_NOTIFY_EMAIL')) || 'demo@munaxa.com';
 
