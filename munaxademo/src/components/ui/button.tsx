@@ -11,7 +11,7 @@ const base =
   'disabled:pointer-events-none disabled:opacity-50';
 
 const variantClass: Record<Variant, string> = {
-  default: 'bg-grad-primary text-primary-foreground shadow-glow hover:opacity-95',
+  default: 'bg-primary text-primary-foreground shadow-glow hover:bg-primary/90',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   outline: 'border border-border bg-transparent text-foreground hover:bg-secondary/50',
   ghost: 'bg-transparent text-muted-foreground hover:bg-secondary/50 hover:text-foreground',
