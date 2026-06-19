@@ -3,10 +3,16 @@
 @tailwind utilities;
 
 /*
- * Munaxa design tokens (shadcn bridge) — values ported verbatim from the Munaxa Design System
- * (munaxadesignsystem/client/src/index.css): neutral surfaces + violet primary + standard
- * green/amber/red/blue semantics; deep-navy dark mode. Default theme is light; dark via .dark.
- * The brand-accent aliases are mapped to DS semantics: `aqua` → success, `coral` → warning.
+ * Munaxa design tokens (shadcn bridge) — the ADMIN / PRODUCT enterprise theme: neutral
+ * surfaces + violet primary + standard green/amber/red/blue semantics; deep-navy dark mode.
+ * Default theme is light; dark via .dark. The brand-accent aliases are mapped to product
+ * semantics: `aqua` → success, `coral` → warning.
+ *
+ * This theme intentionally DIVERGES from the v3 website brand in
+ * munaxadesignsystem/client/src/index.css (violet #5B1FD6→#B97BFF on ink/violet surfaces,
+ * coral/aqua accents, Sora/Inter type) that the public surfaces — munaxalanding + munaxademo —
+ * follow. The divergence is deliberate (dense data UI favours neutral surfaces + conventional
+ * status colours) and documented in /GOVERNANCE.md. Do NOT "re-sync" these to the v3 hexes.
  */
 @layer base {
   :root {
