@@ -7,11 +7,25 @@
 
 ---
 
+## 0. Theme lineage & cross-app scope
+
+The repo ships **two deliberate theme lineages**, both governed by `munaxadesignsystem/`:
+
+| Surface | Theme lineage | Tokens live in | Conforms? |
+|---|---|---|---|
+| `munaxalanding` (marketing) | **v3 website brand** — violet `#5B1FD6`→`#B97BFF`, coral/aqua accents, ink/violet surfaces (`#F7F5FF` / `#0B0518`), Sora/Inter/Cairo type | `munaxadesignsystem/client/src/index.css` (canonical), inlined per-app | ✅ 1:1 |
+| `munaxademo` (sandbox) | same **v3 website brand** | inlined in `src/app/globals.css` + `tailwind.config.ts` | ✅ 1:1 |
+| `apps/admin` (product) + `@munaxa/config-tailwind`, `@munaxa/ui` | **enterprise/admin theme** — neutral surfaces, violet primary `#7A3FFF`/`#8A4FFF`, conventional green/amber/red/blue status, deep-navy dark, IBM Plex type | `@munaxa/config-tailwind/preset.ts` + `apps/admin/src/app/globals.css` | ⚠️ **deliberate divergence** |
+
+**Rule:** the v3 website brand (the canonical `index.css`) is the source of truth for the public surfaces (`munaxalanding`, `munaxademo`) and they must track it 1:1. `apps/admin` intentionally uses the enterprise theme below: dense data UI favours neutral surfaces and conventional, unambiguous status colours. This divergence is **documented, not accidental** — do not "re-sync" admin's tokens to the v3 hexes. §1–§7 below govern the admin/product theme specifically.
+
+---
+
 ## 1. Source of truth & layering
 
 | Layer | Home | Rule |
 |---|---|---|
-| **Tokens** | `@munaxa/config-tailwind/preset.ts` + `apps/admin/src/app/globals.css` | Values are **ported verbatim** from `munaxadesignsystem`. Never invent colors/spacing/radius/shadow/z-index/motion. |
+| **Tokens** | `@munaxa/config-tailwind/preset.ts` + `apps/admin/src/app/globals.css` | The admin/product theme baseline (see §0). Spacing/radius/shadow/z-index/motion follow `munaxadesignsystem`; colours follow the enterprise palette in §4. Never invent values — use tokens only. |
 | **Primitives** | `@munaxa/ui` (`packages/ui/src/components`) | The only home for Button, Input, Card, Dialog, Tabs, Table, etc. No app-local re-implementations. |
 | **Domain components** | `apps/admin/src/components/domain` | App-specific compositions over primitives (e.g. status badges, `RecordHeader`). Own the single source of truth for their domain's status colours. |
 | **Patterns** | primitives + domain | EmptyState / ErrorState / Timeline / Record Workspace / Enterprise Nav per the reference. |
@@ -33,10 +47,11 @@
 - **i18n:** all user-facing strings via `@munaxa/i18n` (EN + AR); no hardcoded copy.
 - **Permissions & tenancy:** respect `principal.permissions` (nav + actions) and tenant isolation; never surface data a role can't access.
 
-## 4. Typography & theme baseline (from the reference)
+## 4. Typography & theme baseline (admin/product theme — see §0)
 
 - Fonts: **IBM Plex Sans** (Latin) + **IBM Plex Sans Arabic** (RTL); system mono.
 - Brand primary **`#7A3FFF`** (light) / **`#8A4FFF`** (dark); neutral surfaces; semantic green/amber/red/blue. Radius `0.5rem`.
+- *(The public surfaces — `munaxalanding`, `munaxademo` — instead use the v3 website brand: violet `#5B1FD6`→`#B97BFF`, coral/aqua, ink/violet surfaces, Sora/Inter/Cairo. See §0.)*
 
 ## 5. Enforcement
 

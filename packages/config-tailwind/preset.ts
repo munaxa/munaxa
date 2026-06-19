@@ -2,9 +2,16 @@ import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 
 /**
- * Shared Tailwind preset carrying the Munaxa design-system tokens.
- * Palette derived from the Munaxa Design System: violet primary, coral accent,
- * aqua highlight, on deep dark surfaces. Supports RTL/LTR via logical properties.
+ * Shared Tailwind preset carrying the Munaxa **product/admin** design tokens.
+ *
+ * NOTE ON THEME LINEAGE: this is the enterprise/admin theme — neutral surfaces, violet
+ * primary (#7A3FFF light / #8A4FFF dark), conventional green/amber/red/blue semantics, and a
+ * deep-navy dark mode. It deliberately DIVERGES from the v3 website brand defined in
+ * munaxadesignsystem/client/src/index.css (which munaxalanding + munaxademo follow:
+ * violet #5B1FD6→#B97BFF on ink/violet surfaces, coral/aqua accents, Sora/Inter type).
+ * Status semantics here are mapped onto the brand-accent aliases: `aqua` → success, `coral`
+ * → warning. Keep this in sync with the actual token values in apps/admin/src/app/globals.css.
+ * Supports RTL/LTR via logical properties.
  */
 const preset: Omit<Config, 'content'> = {
   darkMode: ['class'],
