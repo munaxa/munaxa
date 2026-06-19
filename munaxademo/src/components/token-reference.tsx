@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { cn } from '@munaxa/ui';
+import { cn } from '@/lib/cn';
 
 /**
  * Live design-token reference. Renders the Munaxa palette/scale by reading the *actual* CSS
- * custom properties off the running document (`getComputedStyle`) and by painting each swatch
- * with the real Tailwind token utility. Because it reflects the live theme, it can never drift
- * from the source of truth (munaxadesignsystem → each app's globals.css): change a token and
- * the swatch + value here change with it. Re-reads automatically when the `.dark`/`dir` toggles.
+ * custom properties off the running document (`getComputedStyle`) and painting each swatch with
+ * the real Tailwind token utility. Because it reflects the live theme it can never drift from the
+ * source of truth (munaxadesignsystem -> this app's globals.css): change a token and the swatch +
+ * value here change with it. Re-reads automatically when the `.dark`/`dir` attributes toggle.
  *
  * Use it as the on-brand reference when building new pages: copy the "Use as" class, never a hex.
  */
@@ -29,11 +29,8 @@ const GROUPS: Group[] = [
     ],
   },
   {
-    title: 'Status / semantic',
+    title: 'Status',
     tokens: [
-      { varName: '--success', use: 'bg-success · text-success', kind: 'fill', cls: 'bg-success' },
-      { varName: '--warning', use: 'bg-warning · text-warning', kind: 'fill', cls: 'bg-warning' },
-      { varName: '--info', use: 'bg-info · text-info', kind: 'fill', cls: 'bg-info' },
       {
         varName: '--destructive',
         use: 'bg-destructive (error)',
@@ -80,11 +77,10 @@ const SCALE: { label: string; varName: string }[] = [
   { label: 'Mono', varName: '--font-mono' },
 ];
 
-/** Format a raw custom-property value for display (admin/landing tokens are HSL channels). */
+/** Format a raw custom-property value for display (these tokens are HSL channels). */
 function fmt(v: string): string {
   if (!v) return '—';
   if (/^#|rgb|hsl|var\(/.test(v) || v.includes(',') || v.includes('"') || /[a-z-]/i.test(v)) {
-    // Already a color/font/length expression — show verbatim.
     return /^\d[\d.]*\s+\d/.test(v) ? `hsl(${v})` : v;
   }
   return v;
