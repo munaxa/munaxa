@@ -28,6 +28,8 @@ jobs:
       pull-requests: read
     outputs:
       mobile: ${{ steps.filter.outputs.mobile }}
+      landing: ${{ steps.filter.outputs.landing }}
+      demo: ${{ steps.filter.outputs.demo }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -36,6 +38,10 @@ jobs:
           filters: |
             mobile:
               - 'apps/mobile/**'
+            landing:
+              - 'munaxalanding/**'
+            demo:
+              - 'munaxademo/**'
 
   node:
     name: Lint · Typecheck · Test · Build (JS/TS)
@@ -132,6 +138,65 @@ jobs:
       - name: Test
         working-directory: apps/mobile
         run: flutter test
+
+  landing:
+    name: Lint · Typecheck · Build (Landing)
+    runs-on: ubuntu-latest
+    # Standalone Cloudflare app (own pnpm root + lockfile, not in the workspace). Only run
+    # when its code changes.
+    needs: changes
+    if: needs.changes.outputs.landing == 'true'
+    defaults:
+      run:
+        working-directory: munaxalanding
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: munaxalanding/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Build
+        run: pnpm build
+
+  demo:
+    name: Lint · Typecheck · Build (Demo)
+    runs-on: ubuntu-latest
+    # Standalone Cloudflare app (own pnpm root + lockfile, not in the workspace). Only run
+    # when its code changes.
+    needs: changes
+    if: needs.changes.outputs.demo == 'true'
+    defaults:
+      run:
+        working-directory: munaxademo
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: munaxademo/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      # NOTE: demo has no ESLint setup yet (no config/deps — its `lint` script is leftover
+      # `next lint` scaffolding), so lint is omitted here. Typecheck + build still gate types
+      # and Next's build-time checks. Add an ESLint config (mirroring munaxalanding) to enable it.
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Build
+        run: pnpm build
 
   security:
     name: Security scans
