@@ -38,6 +38,8 @@ export class AuthController {
   @Public()
   @Post('session')
   @HttpCode(200)
+  // Same brute-force ceiling as local login for the credential-exchange path.
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Exchange a Firebase ID token for a Munaxa token pair' })
   async session(@Body() dto: SessionExchangeDto, @Req() req: Request) {
     const result = await this.auth.exchangeFirebaseSession(dto, this.meta(req));
@@ -47,6 +49,8 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(200)
+  // Legit clients refresh occasionally; cap abuse while leaving headroom for token rotation.
+  @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @ApiOperation({ summary: 'Rotate a refresh token (with reuse detection)' })
   refresh(@Body() dto: RefreshDto, @Req() req: Request) {
     return this.auth.refresh(dto.refreshToken, this.meta(req));
@@ -63,6 +67,8 @@ export class AuthController {
   @Public()
   @Post('password/reset/request')
   @HttpCode(202)
+  // Tight: a reset request emails the user — throttle to prevent mailbox-bombing and enumeration.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @ApiOperation({ summary: 'Request a password reset (always 202 to avoid enumeration)' })
   async requestReset(@Body() dto: RequestPasswordResetDto, @Req() req: Request) {
     await this.auth.requestPasswordReset(dto, this.meta(req));
@@ -71,6 +77,8 @@ export class AuthController {
   @Public()
   @Post('password/reset/confirm')
   @HttpCode(204)
+  // Tight: prevent brute-forcing the reset token.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Confirm a password reset with a token' })
   async confirmReset(@Body() dto: ConfirmPasswordResetDto, @Req() req: Request) {
     await this.auth.confirmPasswordReset(dto, this.meta(req));
@@ -79,6 +87,8 @@ export class AuthController {
   @ApiBearerAuth()
   @Post('password/change')
   @HttpCode(204)
+  // Authenticated, but still throttle to blunt online guessing of the current password.
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @ApiOperation({ summary: 'Change password (also clears the first-login flag)' })
   async changePassword(
     @CurrentUser() user: AuthenticatedUser,

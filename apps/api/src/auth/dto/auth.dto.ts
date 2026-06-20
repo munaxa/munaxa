@@ -1,5 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
+
+/**
+ * Minimum password strength: at least one lower-case letter, one upper-case letter, and one
+ * digit (length is enforced separately via @MinLength). Applied to every new/changed password.
+ */
+export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+export const PASSWORD_PATTERN_MESSAGE =
+  'Password must contain at least one lower-case letter, one upper-case letter, and one number';
 
 export class LoginDto {
   @ApiPropertyOptional({
@@ -63,6 +79,7 @@ export class ChangePasswordDto {
   @IsString()
   @MinLength(10)
   @MaxLength(200)
+  @Matches(PASSWORD_PATTERN, { message: PASSWORD_PATTERN_MESSAGE })
   newPassword!: string;
 }
 
@@ -87,6 +104,7 @@ export class ConfirmPasswordResetDto {
   @IsString()
   @MinLength(10)
   @MaxLength(200)
+  @Matches(PASSWORD_PATTERN, { message: PASSWORD_PATTERN_MESSAGE })
   newPassword!: string;
 }
 
