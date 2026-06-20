@@ -20,7 +20,16 @@ export interface DashboardOverview {
     collectedThisMonth: string;
   };
   einvoice: { accepted: number; pending: number; rejected: number };
-  recentActivity: Array<{ action: string; entityType: string; at: string }>;
+  recentActivity: Array<{
+    action: string;
+    entityType: string;
+    entityId: string | null;
+    actorName: string | null;
+    actorUsername: string | null;
+    actorRole: string | null;
+    ip: string | null;
+    at: string;
+  }>;
 }
 
 export const dashboardApi = {

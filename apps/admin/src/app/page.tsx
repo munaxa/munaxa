@@ -167,14 +167,30 @@ function Dashboard() {
                   <p className="text-sm text-muted-foreground">{t('dashboard.noRecentActivity')}</p>
                 ) : (
                   <Timeline>
-                    {data.recentActivity.map((a, i) => (
-                      <TimelineItem
-                        key={i}
-                        title={a.action}
-                        meta={a.entityType}
-                        timestamp={new Date(a.at).toLocaleString()}
-                      />
-                    ))}
+                    {data.recentActivity.map((a, i) => {
+                      const who = a.actorName ?? a.actorUsername ?? t('dashboard.systemActor');
+                      const metaParts = [
+                        a.entityType + (a.entityId ? ` #${a.entityId.slice(0, 8)}` : ''),
+                        a.actorRole ?? undefined,
+                        a.ip ?? undefined,
+                      ].filter(Boolean);
+                      return (
+                        <TimelineItem
+                          key={i}
+                          title={
+                            <>
+                              <span className="font-semibold">{who}</span>
+                              {a.actorName && a.actorUsername ? (
+                                <span className="text-muted-foreground"> @{a.actorUsername}</span>
+                              ) : null}
+                              <span className="text-muted-foreground"> — {a.action}</span>
+                            </>
+                          }
+                          meta={metaParts.join(' · ')}
+                          timestamp={new Date(a.at).toLocaleString()}
+                        />
+                      );
+                    })}
                   </Timeline>
                 )}
               </CardContent>

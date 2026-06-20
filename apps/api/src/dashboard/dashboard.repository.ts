@@ -22,7 +22,16 @@ export interface DashboardOverview {
     collectedThisMonth: string;
   };
   einvoice: { accepted: number; pending: number; rejected: number };
-  recentActivity: Array<{ action: string; entityType: string; at: string }>;
+  recentActivity: Array<{
+    action: string;
+    entityType: string;
+    entityId: string | null;
+    actorName: string | null;
+    actorUsername: string | null;
+    actorRole: string | null;
+    ip: string | null;
+    at: string;
+  }>;
 }
 
 /** Read-only tenant-wide aggregates for the admin dashboard (RLS-scoped like everything else). */
@@ -75,7 +84,18 @@ export class DashboardRepository extends TenantRepository {
           where: { tenantId },
           orderBy: { createdAt: 'desc' },
           take: 8,
-          select: { action: true, entityType: true, createdAt: true },
+          select: {
+            action: true,
+            entityType: true,
+            entityId: true,
+            actorRole: true,
+            metadata: true,
+            ip: true,
+            createdAt: true,
+            actor: {
+              select: { firstNameEn: true, lastNameEn: true, username: true, email: true },
+            },
+          },
         }),
       ]);
 
@@ -115,11 +135,28 @@ export class DashboardRepository extends TenantRepository {
           collectedThisMonth: (monthAgg._sum.amount ?? ZERO).toFixed(3),
         },
         einvoice,
-        recentActivity: activity.map((a) => ({
-          action: a.action,
-          entityType: a.entityType,
-          at: a.createdAt.toISOString(),
-        })),
+        recentActivity: activity.map((a) => {
+          const actor = a.actor;
+          const fullName = actor
+            ? `${actor.firstNameEn ?? ''} ${actor.lastNameEn ?? ''}`.trim()
+            : '';
+          // Failed logins for an unknown handle have no actor — surface the attempted identifier.
+          const meta =
+            a.metadata && typeof a.metadata === 'object' && !Array.isArray(a.metadata)
+              ? (a.metadata as Record<string, unknown>)
+              : {};
+          const attempted = typeof meta.identifier === 'string' ? meta.identifier : null;
+          return {
+            action: a.action,
+            entityType: a.entityType,
+            entityId: a.entityId ?? null,
+            actorName: fullName || null,
+            actorUsername: actor?.username ?? actor?.email ?? attempted,
+            actorRole: a.actorRole ?? null,
+            ip: a.ip ?? null,
+            at: a.createdAt.toISOString(),
+          };
+        }),
       };
     });
   }
