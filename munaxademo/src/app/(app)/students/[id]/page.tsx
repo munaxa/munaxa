@@ -136,7 +136,7 @@ function StudentProfile() {
       {/* Identity header */}
       <Card>
         <CardContent className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-grad-primary font-display text-2xl font-semibold text-primary-foreground shadow-glow">
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-primary font-display text-2xl font-semibold text-primary-foreground shadow-glow">
             {initials}
           </div>
           <div className="min-w-0 flex-1 space-y-2">

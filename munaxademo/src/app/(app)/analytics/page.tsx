@@ -78,7 +78,7 @@ function Analytics() {
                 label={e.grade.nameEn}
                 value={e.count}
                 max={maxEnroll}
-                tone="bg-grad-primary"
+                tone="bg-primary"
               />
             ))}
           </CardContent>
@@ -138,7 +138,7 @@ function Analytics() {
                 label={r.area}
                 value={r.studentIds.length}
                 max={30}
-                tone="bg-grad-primary"
+                tone="bg-primary"
               />
             ))}
           </CardContent>

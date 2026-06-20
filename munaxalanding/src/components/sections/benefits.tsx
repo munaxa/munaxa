@@ -40,7 +40,7 @@ export function Benefits({ dict }: { dict: Dictionary }) {
             return (
               <Card key={benefit.title} className="h-full">
                 <CardHeader>
-                  <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-grad-primary text-primary-foreground shadow-glow">
+                  <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-glow">
                     <Icon className="h-5 w-5" aria-hidden />
                   </div>
                   <CardTitle>{benefit.title}</CardTitle>

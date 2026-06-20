@@ -50,7 +50,7 @@ export function Hero({ dict }: { dict: Dictionary }) {
 
         <div className="relative">
           <div
-            className="absolute -inset-6 -z-10 rounded-3xl bg-grad-primary opacity-20 blur-3xl"
+            className="absolute -inset-6 -z-10 rounded-3xl bg-primary opacity-20 blur-3xl"
             aria-hidden
           />
           <AppFrame

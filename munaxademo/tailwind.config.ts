@@ -72,7 +72,8 @@ const config: Config = {
         glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
       },
       backgroundImage: {
-        'grad-primary': 'linear-gradient(135deg, #7A3FFF 0%, #B97BFF 60%, #FF8E6E 120%)',
+        // No primary gradient — the Munaxa Design System uses solid `bg-primary` CTAs and bans
+        // decorative gradients. Only the faint radial hero backdrop (--grad-hero) remains.
         'grad-hero':
           'radial-gradient(ellipse 80% 60% at 50% 0%, hsl(var(--primary) / 0.16) 0%, transparent 62%)',
       },
