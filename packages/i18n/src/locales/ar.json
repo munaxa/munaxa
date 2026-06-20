@@ -67,7 +67,9 @@
     "platformPlane": "نطاق المنصة",
     "openMenu": "فتح القائمة",
     "closeMenu": "إغلاق القائمة",
-    "skipToContent": "تخطّ إلى المحتوى"
+    "skipToContent": "تخطّ إلى المحتوى",
+    "expandNav": "توسيع القائمة",
+    "collapseNav": "طيّ القائمة"
   },
   "search": {
     "title": "بحث",
