@@ -25,7 +25,8 @@ export interface ReportFilters {
   semesterId?: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+// Same-origin base; Next reverse-proxies /api/v1/* to the real API (see next.config.mjs).
+const API_URL = '/api/v1';
 
 function query(filters: ReportFilters): string {
   const params = new URLSearchParams();

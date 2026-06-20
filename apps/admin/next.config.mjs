@@ -36,6 +36,26 @@ const nextConfig = {
   experimental: {
     typedRoutes: true,
   },
+  // Same-origin reverse proxy to the API. The browser calls /api/v1/* on the admin's own origin,
+  // so the httpOnly session cookies are first-party (SameSite=Strict works regardless of where the
+  // API is hosted). The admin's own /api/health route is unaffected (only /api/v1/* is proxied).
+  // Target precedence: API_PROXY_TARGET → origin of NEXT_PUBLIC_API_URL → localhost:4000.
+  async rewrites() {
+    const fromPublic = (() => {
+      try {
+        return process.env.NEXT_PUBLIC_API_URL
+          ? new URL(process.env.NEXT_PUBLIC_API_URL).origin
+          : '';
+      } catch {
+        return '';
+      }
+    })();
+    const apiTarget = (process.env.API_PROXY_TARGET || fromPublic || 'http://localhost:4000').replace(
+      /\/+$/,
+      '',
+    );
+    return [{ source: '/api/v1/:path*', destination: `${apiTarget}/api/v1/:path*` }];
+  },
   // Security headers (OWASP A05). CSP is production-only: dev needs eval for fast refresh.
   async headers() {
     return [

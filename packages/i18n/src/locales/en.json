@@ -58,7 +58,9 @@
     "changePassword": "Change password",
     "welcome": "Welcome to Munaxa",
     "signInToSchool": "Sign in to your school",
-    "school": "School"
+    "school": "School",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "shell": {
     "schoolPlane": "School plane",
