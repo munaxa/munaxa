@@ -24,7 +24,7 @@ export function ProductShowcase({ dict }: { dict: Dictionary }) {
 
         <div className="relative mt-12">
           <div
-            className="absolute -inset-x-8 -top-8 bottom-0 -z-10 rounded-[2.5rem] bg-grad-primary opacity-10 blur-3xl"
+            className="absolute -inset-x-8 -top-8 bottom-0 -z-10 rounded-[2.5rem] bg-primary opacity-10 blur-3xl"
             aria-hidden
           />
           <AppFrame label={s.frameLabel} ariaLabel={s.altText} className="mx-auto max-w-5xl">

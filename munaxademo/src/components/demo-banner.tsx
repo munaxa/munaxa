@@ -21,7 +21,7 @@ export function DemoBanner() {
   }
 
   return (
-    <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-grad-primary px-4 py-2 text-center text-xs font-medium text-primary-foreground">
+    <div className="sticky top-0 z-50 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-primary px-4 py-2 text-center text-xs font-medium text-primary-foreground">
       <span>
         This is a demonstration environment. All data is fictional. Changes are temporary and
         automatically reset.

@@ -74,7 +74,7 @@ export function DashboardPreview() {
       {/* Sidebar — only when the frame itself is wide enough (container query, not viewport) */}
       <aside className="hidden w-48 shrink-0 flex-col border-e border-border bg-card/60 p-3 @2xl:flex @5xl:w-52">
         <div className="flex items-center gap-2 px-2 py-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-grad-primary text-[11px] font-bold text-white">
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-[11px] font-bold text-white">
             M
           </span>
           <span className="font-display text-sm font-semibold">Munaxa Academy</span>
