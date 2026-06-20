@@ -28,6 +28,7 @@ import { PresenceModule } from './presence/presence.module';
 import { AdvancedModule } from './advanced/advanced.module';
 import { PlatformModule } from './platform/platform.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { CsrfGuard } from './auth/guards/csrf.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
 import { TenantContextInterceptor } from './auth/tenant-context.interceptor';
@@ -82,6 +83,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: TenantIsolationGuard },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },

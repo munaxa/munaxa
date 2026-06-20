@@ -139,9 +139,11 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const held = new Set(principal.permissions);
+  // Fail closed: an item is visible only when the user actually holds its permission (platform
+  // super-admins see everything). A user with no permissions sees no permissioned items — the
+  // API enforces the same permissions server-side, so this just keeps the nav honest.
   const canSee = (i: NavItem) =>
-    (!i.perm || held.has(i.perm) || principal.permissions.length === 0) &&
-    (!i.flag || flags?.[i.flag] === true);
+    (!i.perm || held.has(i.perm) || principal.isPlatform) && (!i.flag || flags?.[i.flag] === true);
 
   // Load feature flags so disabled modules drop out of the navigation entirely.
   useEffect(() => {
