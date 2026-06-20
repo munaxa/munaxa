@@ -6,6 +6,7 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
+import cookieParser from 'cookie-parser';
 import type { Application } from 'express';
 import { AppModule } from './app.module';
 import { PrismaExceptionFilter } from './common/prisma-exception.filter';
@@ -29,6 +30,9 @@ async function bootstrap(): Promise<void> {
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
+
+  // Parse cookies (httpOnly session for the web admin; mobile/API clients use Bearer tokens).
+  app.use(cookieParser());
 
   // --- Performance: gzip responses (skip when the client opts out) ---
   app.use(compression());

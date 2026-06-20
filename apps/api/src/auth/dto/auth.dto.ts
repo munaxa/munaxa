@@ -63,10 +63,13 @@ export class SessionExchangeDto {
 }
 
 export class RefreshDto {
-  @ApiProperty()
+  // Optional: web clients carry the refresh token in an httpOnly cookie (empty body); mobile/API
+  // clients send it here. The controller resolves it from the body or the cookie.
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
-  refreshToken!: string;
+  refreshToken?: string;
 }
 
 export class ChangePasswordDto {

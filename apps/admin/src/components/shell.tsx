@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { IDLE_TIMEOUT_MS, logout, tokenStore, type Principal } from '@/lib/auth';
+import { IDLE_TIMEOUT_MS, logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache, loadPrincipal } from '@/lib/session';
 import { AppShell } from './app-shell';
 import { Spinner } from './ui';
@@ -63,10 +63,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   useIdleLogout(Boolean(principal));
 
   useEffect(() => {
-    if (!tokenStore.access) {
-      router.replace('/login');
-      return;
-    }
+    // The session lives in httpOnly cookies (not readable here), so we just try to resolve the
+    // principal: success means a valid cookie session; failure (401 after refresh) → /login.
     loadPrincipal()
       .then(setPrincipal)
       .catch(() => router.replace('/login'))

@@ -1,11 +1,23 @@
-import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { AuthService } from './services/auth.service';
+import { TokenService } from './services/token.service';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { setAuthCookies, clearAuthCookies, refreshTokenFromCookie } from './cookies';
 import type { AuthenticatedUser } from './auth.types';
+import type { TokenPair } from './auth.types';
 import {
   LoginDto,
   SessionExchangeDto,
@@ -18,10 +30,24 @@ import {
 @ApiTags('auth')
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly tokens: TokenService,
+  ) {}
 
   private meta(req: Request) {
     return { ip: req.ip, userAgent: req.headers['user-agent'] };
+  }
+
+  /**
+   * Set the httpOnly session cookies for the web admin. The token pair is still returned in the
+   * body so mobile/API (Bearer) clients keep working — the web client simply ignores the body.
+   */
+  private issueCookies(res: Response, tokens: TokenPair): void {
+    setAuthCookies(res, tokens, {
+      accessTtl: this.tokens.accessTtl,
+      refreshTtl: this.tokens.refreshTtl,
+    });
   }
 
   @Public()
@@ -30,8 +56,13 @@ export class AuthController {
   // Brute-force protection: a tighter per-IP limit than the global throttle.
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Local login (email + password) → token pair' })
-  async login(@Body() dto: LoginDto, @Req() req: Request) {
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.auth.login(dto, this.meta(req));
+    this.issueCookies(res, result.tokens);
     return { ...result.tokens, mustChangePassword: result.mustChangePassword };
   }
 
@@ -41,8 +72,13 @@ export class AuthController {
   // Same brute-force ceiling as local login for the credential-exchange path.
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Exchange a Firebase ID token for a Munaxa token pair' })
-  async session(@Body() dto: SessionExchangeDto, @Req() req: Request) {
+  async session(
+    @Body() dto: SessionExchangeDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.auth.exchangeFirebaseSession(dto, this.meta(req));
+    this.issueCookies(res, result.tokens);
     return { ...result.tokens, mustChangePassword: result.mustChangePassword };
   }
 
@@ -52,16 +88,36 @@ export class AuthController {
   // Legit clients refresh occasionally; cap abuse while leaving headroom for token rotation.
   @Throttle({ default: { limit: 60, ttl: 60_000 } })
   @ApiOperation({ summary: 'Rotate a refresh token (with reuse detection)' })
-  refresh(@Body() dto: RefreshDto, @Req() req: Request) {
-    return this.auth.refresh(dto.refreshToken, this.meta(req));
+  async refresh(
+    @Body() dto: RefreshDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    // Web clients send the refresh token via httpOnly cookie; mobile/API send it in the body.
+    const token = dto.refreshToken ?? refreshTokenFromCookie(req);
+    if (!token) throw new BadRequestException('Missing refresh token');
+    try {
+      const tokens = await this.auth.refresh(token, this.meta(req));
+      this.issueCookies(res, tokens);
+      return tokens;
+    } catch (err) {
+      clearAuthCookies(res);
+      throw err;
+    }
   }
 
   @Public()
   @Post('logout')
   @HttpCode(204)
   @ApiOperation({ summary: 'Revoke a refresh token family' })
-  async logout(@Body() dto: RefreshDto) {
-    await this.auth.logout(dto.refreshToken);
+  async logout(
+    @Body() dto: RefreshDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const token = dto.refreshToken ?? refreshTokenFromCookie(req);
+    if (token) await this.auth.logout(token);
+    clearAuthCookies(res);
   }
 
   @Public()

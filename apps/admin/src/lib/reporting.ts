@@ -1,6 +1,6 @@
 'use client';
 
-import { authFetch, tokenStore } from './auth';
+import { authFetch } from './auth';
 
 export type ReportKind = 'attendance' | 'academic' | 'financial' | 'behavior';
 export type ReportFormat = 'csv' | 'xlsx' | 'pdf';
@@ -50,12 +50,12 @@ export const reportingApi = {
   view: (kind: ReportKind, filters: ReportFilters) =>
     authFetch(`/reports/${kind}${query(filters)}`).then((r) => json<ReportTable>(r)),
 
-  /** Download an export, honouring the auth header, and trigger a browser save. */
+  /** Download an export via the cookie session, and trigger a browser save. */
   async download(kind: ReportKind, format: ReportFormat, filters: ReportFilters): Promise<void> {
     const params = new URLSearchParams(query(filters).replace(/^\?/, ''));
     params.set('format', format);
     const res = await fetch(`${API_URL}/reports/${kind}/export?${params.toString()}`, {
-      headers: tokenStore.access ? { Authorization: `Bearer ${tokenStore.access}` } : {},
+      credentials: 'include',
     });
     if (!res.ok) {
       throw new Error(`Export failed (${res.status})`);

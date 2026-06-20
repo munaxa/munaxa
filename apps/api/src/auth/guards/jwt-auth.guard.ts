@@ -3,11 +3,13 @@ import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { TokenService } from '../services/token.service';
+import { accessTokenFromCookie } from '../cookies';
 import type { AuthenticatedUser } from '../auth.types';
 
 /**
- * Global authentication guard. Verifies the Bearer access token and attaches the
- * principal to the request. Routes annotated with @Public() are exempt.
+ * Global authentication guard. Verifies the access token — from the Authorization: Bearer header
+ * (mobile/API clients) or the httpOnly access cookie (web admin) — and attaches the principal to
+ * the request. Routes annotated with @Public() are exempt.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -45,8 +47,11 @@ export class JwtAuthGuard implements CanActivate {
 
   private extractToken(request: Request): string | undefined {
     const header = request.headers.authorization;
-    if (!header) return undefined;
-    const [scheme, value] = header.split(' ');
-    return scheme === 'Bearer' && value ? value : undefined;
+    if (header) {
+      const [scheme, value] = header.split(' ');
+      if (scheme === 'Bearer' && value) return value;
+    }
+    // Fall back to the httpOnly cookie (web admin session).
+    return accessTokenFromCookie(request);
   }
 }
