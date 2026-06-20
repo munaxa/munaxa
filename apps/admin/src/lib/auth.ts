@@ -9,7 +9,10 @@
  * user out after a period of no activity.
  */
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+// The browser always talks to the admin's own origin; Next reverse-proxies /api/v1/* to the API
+// (see next.config.mjs). This keeps the httpOnly session + CSRF cookies first-party so they are
+// actually sent and readable. The API origin is configured server-side via API_PROXY_TARGET.
+export const API_URL = '/api/v1';
 const CSRF_COOKIE = 'munaxa_csrf';
 
 /** Auto sign-out after this many milliseconds of user inactivity (15 minutes). */
