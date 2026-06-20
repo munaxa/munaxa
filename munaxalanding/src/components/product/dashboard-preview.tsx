@@ -125,7 +125,7 @@ export function DashboardPreview() {
             ))}
           </div>
 
-          <div className="grid gap-3 @3xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-3">
             {/* Attendance today */}
             <div className="rounded-xl border border-border bg-card p-3">
               <p className="mb-2 text-xs font-semibold">Attendance today</p>
@@ -179,7 +179,7 @@ export function DashboardPreview() {
           {/* Top outstanding balances */}
           <div className="rounded-xl border border-border bg-card p-3">
             <p className="mb-2 text-xs font-semibold">Top outstanding balances</p>
-            <div className="grid gap-x-6 gap-y-1.5 @2xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-x-6 gap-y-1.5 @2xl:grid-cols-2">
               {OUTSTANDING.map((row) => (
                 <div
                   key={row.name}
