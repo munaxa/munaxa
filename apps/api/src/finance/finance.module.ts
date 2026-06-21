@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { StorageService } from '../common/storage.service';
 import { EInvoicingModule } from '../einvoicing/einvoicing.module';
+import { CommunicationModule } from '../communication/communication.module';
 import { FeePlanController } from './fee-plans/fee-plan.controller';
 import { FeePlanService } from './fee-plans/fee-plan.service';
 import { FeePlanRepository } from './fee-plans/fee-plan.repository';
@@ -37,7 +38,7 @@ import { QuoteService } from './admissions/quote.service';
  * financial state change writes an AuditLog in the same transaction.
  */
 @Module({
-  imports: [EInvoicingModule],
+  imports: [EInvoicingModule, CommunicationModule],
   controllers: [
     FeePlanController,
     ChargeController,

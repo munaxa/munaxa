@@ -2227,6 +2227,7 @@ enum CollectionsStatus {
 enum ReminderChannel {
   IN_APP
   SMS
+  PUSH
 }
 
 /// One per student: collections/legal tag + reminder cadence bookkeeping.
