@@ -270,10 +270,14 @@ export function AppShell({
             ) : null}
             {groupItems.map((item) => {
               const active = isActive(item.href);
+              // next typedRoutes: hrefs come from this static nav table rather than literal route
+              // types, so the cast is required by `next build` even though local tooling can't see it.
+
+              const href = item.href as never;
               return (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  href={href}
                   aria-current={active ? 'page' : undefined}
                   title={mini ? t(item.labelKey) : undefined}
                   className={cn(
