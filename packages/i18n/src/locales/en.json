@@ -60,7 +60,16 @@
     "signInToSchool": "Sign in to your school",
     "school": "School",
     "showPassword": "Show password",
-    "hidePassword": "Hide password"
+    "hidePassword": "Hide password",
+    "heroTitle": "One platform to run your entire school.",
+    "heroSubtitle": "Admissions to graduation — students, attendance, academics, finance, and communication in one secure workspace.",
+    "heroFooter": "Enterprise-grade security · Multi-campus ready · Arabic & English",
+    "specificSchool": "Sign in to a specific school",
+    "resetTitle": "Reset your password",
+    "resetSubtitle": "Enter your email and we'll send a reset link.",
+    "resetSubmit": "Send reset link",
+    "resetSent": "If an account matches, a reset link is on its way.",
+    "backToSignIn": "Back to sign in"
   },
   "shell": {
     "schoolPlane": "School plane",
