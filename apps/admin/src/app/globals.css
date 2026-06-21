@@ -81,6 +81,18 @@
   }
 }
 
+@layer utilities {
+  /* Hide the scrollbar while keeping the element scrollable — used for the sidebar nav so a long,
+   * scrollable menu doesn't show an ugly track. Cross-browser (Firefox, IE/Edge, WebKit). */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 /* Respect users who prefer reduced motion (WCAG 2.3.3): neutralize animations,
  * transitions and smooth scrolling app-wide. */
 @media (prefers-reduced-motion: reduce) {

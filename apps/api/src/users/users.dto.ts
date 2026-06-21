@@ -63,6 +63,11 @@ export class CreateUserDto {
 }
 
 export class UpdateUserDto {
+  @ApiPropertyOptional({ example: 'reception@school.edu.jo' })
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

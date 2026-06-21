@@ -128,7 +128,8 @@ export function GlobalSearch({
     return () => clearTimeout(id);
   }, [query, open, run]);
 
-  // Reset + focus on open; lock body scroll.
+  // Reset + focus on open; lock body scroll. Also close on Escape at the document level so the
+  // shortcut works no matter where focus lands (input, an option button, or the backdrop).
   useEffect(() => {
     if (!open) return;
     setQuery('');
@@ -137,15 +138,23 @@ export function GlobalSearch({
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const focusId = setTimeout(() => inputRef.current?.focus(), 0);
+    const onEsc = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', onEsc);
     return () => {
       document.body.style.overflow = prev;
       clearTimeout(focusId);
+      document.removeEventListener('keydown', onEsc);
     };
-  }, [open]);
+  }, [open, onClose]);
 
   function choose(hit: Hit) {
     onClose();
-    router.push(ROUTE[hit.type] as never);
+    router.push(ROUTE[hit.type]);
   }
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -178,19 +187,42 @@ export function GlobalSearch({
         aria-label={t('search.title')}
         className="relative z-modal w-full max-w-xl overflow-hidden rounded-xl border border-border bg-card shadow-card"
       >
-        <input
-          ref={inputRef}
-          type="search"
-          role="combobox"
-          aria-expanded={hits.length > 0}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          value={query}
-          placeholder={t('search.placeholder')}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
-          className="w-full border-b border-border bg-transparent px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-        />
+        <div className="flex items-center border-b border-border">
+          <input
+            ref={inputRef}
+            type="search"
+            role="combobox"
+            aria-expanded={hits.length > 0}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            value={query}
+            placeholder={t('search.placeholder')}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
+            className="w-full bg-transparent px-4 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          />
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('common.close')}
+            title={t('common.close')}
+            className="me-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
         <ul id={listId} role="listbox" className="max-h-[50vh] overflow-auto p-1">
           {query.trim() && !busy && hits.length === 0 ? (
             <li className="px-3 py-6 text-center text-sm text-muted-foreground">

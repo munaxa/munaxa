@@ -273,7 +273,7 @@ export function AppShell({
               return (
                 <Link
                   key={item.href}
-                  href={item.href as never}
+                  href={item.href}
                   aria-current={active ? 'page' : undefined}
                   title={mini ? t(item.labelKey) : undefined}
                   className={cn(
@@ -350,7 +350,7 @@ export function AppShell({
             <ChevronIcon expanded={!collapsed} />
           </button>
 
-          <div className="mt-3 flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
+          <div className="scrollbar-none mt-3 flex flex-1 flex-col overflow-y-auto overflow-x-hidden">
             {renderNav(collapsed)}
           </div>
           {!collapsed ? sessionFooter : null}
@@ -365,7 +365,7 @@ export function AppShell({
             onClick={() => setMenuOpen(false)}
             aria-hidden="true"
           />
-          <aside className="absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col overflow-y-auto border-e border-border bg-card p-4 shadow-xl">
+          <aside className="scrollbar-none absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col overflow-y-auto border-e border-border bg-card p-4 shadow-xl">
             <div className="flex items-center justify-between px-2 py-3">
               <div className="flex items-center gap-2">
                 <Logo size={32} priority />

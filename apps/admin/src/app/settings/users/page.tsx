@@ -340,6 +340,7 @@ function UserEditor({
   const toast = useToast();
   const { t } = useI18n();
   const [status, setStatus] = useState<UserStatus>(user.status);
+  const [email, setEmail] = useState(user.email);
   const [firstNameEn, setFirstNameEn] = useState(user.firstNameEn ?? '');
   const [lastNameEn, setLastNameEn] = useState(user.lastNameEn ?? '');
   const [firstNameAr, setFirstNameAr] = useState(user.firstNameAr ?? '');
@@ -353,6 +354,7 @@ function UserEditor({
   const rolesDirty =
     selected.size !== user.roles.length || user.roles.some((r) => !selected.has(r.id));
   const profileDirty =
+    email.trim() !== user.email ||
     firstNameEn !== (user.firstNameEn ?? '') ||
     lastNameEn !== (user.lastNameEn ?? '') ||
     firstNameAr !== (user.firstNameAr ?? '') ||
@@ -377,6 +379,7 @@ function UserEditor({
       if (status !== user.status || profileDirty) {
         updated = await usersApi.update(user.id, {
           ...(status !== user.status ? { status } : {}),
+          ...(email.trim() !== user.email ? { email: email.trim() } : {}),
           firstNameEn,
           lastNameEn,
           firstNameAr,
@@ -442,6 +445,17 @@ function UserEditor({
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
+          <Field label={t('common.email')}>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={t('users.emailPlaceholder')}
+            />
+          </Field>
+          <Field label={t('common.phone')}>
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          </Field>
           <Field label={t('users.firstName')}>
             <Input value={firstNameEn} onChange={(e) => setFirstNameEn(e.target.value)} />
           </Field>
@@ -460,9 +474,6 @@ function UserEditor({
               onChange={(e) => setUsername(e.target.value)}
               autoComplete="off"
             />
-          </Field>
-          <Field label={t('common.phone')}>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
         </div>
         <Field label={t('common.status')}>
