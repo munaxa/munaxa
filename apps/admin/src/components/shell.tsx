@@ -43,6 +43,15 @@ function useIdleLogout(active: boolean): void {
 
 const PrincipalContext = createContext<Principal | null>(null);
 
+/**
+ * True once a {@link Shell} has mounted the app chrome higher in the tree (the `(app)` route-group
+ * layout). Individual pages still wrap their content in `<Shell>`, but when one is already mounted
+ * above them they render as a pass-through — so the sidebar/auth live in the persistent layout and
+ * survive client-side navigation (no remount, no scroll reset, no auth re-fetch flash) instead of
+ * being torn down and rebuilt on every page change.
+ */
+const ShellMountedContext = createContext(false);
+
 /** Read the authenticated principal inside a {@link Shell}. */
 export function usePrincipal(): Principal {
   const principal = useContext(PrincipalContext);
@@ -51,11 +60,27 @@ export function usePrincipal(): Principal {
 }
 
 /**
- * Auth-guarded application shell for every signed-in page: redirects to /login when there's no
- * session, resolves the principal once (cached), and renders the {@link AppShell} chrome around
- * the page. Page content reads the principal via {@link usePrincipal}.
+ * Auth-guarded application shell for every signed-in page. The persistent `(app)` layout renders
+ * the top-level instance (resolves the principal once and mounts the {@link AppShell} chrome);
+ * any `<Shell>` left inside a page detects that and just renders its children, so the chrome is
+ * never duplicated and never remounts on navigation.
  */
 export function Shell({ children }: { children: React.ReactNode }) {
+  const mounted = useContext(ShellMountedContext);
+  if (mounted) return <>{children}</>;
+  return (
+    <ShellMountedContext.Provider value={true}>
+      <ShellGuard>{children}</ShellGuard>
+    </ShellMountedContext.Provider>
+  );
+}
+
+/**
+ * Redirects to /login when there's no session, resolves the principal once (cached), and renders
+ * the {@link AppShell} chrome around the page. Page content reads the principal via
+ * {@link usePrincipal}.
+ */
+function ShellGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [principal, setPrincipal] = useState<Principal | null>(null);
   const [loading, setLoading] = useState(true);
