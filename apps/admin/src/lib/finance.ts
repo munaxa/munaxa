@@ -142,6 +142,27 @@ export interface AgingReport {
   collectedPct: string;
 }
 
+export interface PushOutstandingInput {
+  /** Only balances overdue by more than this many days. */
+  minAgeDays?: 30 | 60 | 90;
+  /** Only accounts whose total outstanding is ≥ this amount (JOD). */
+  minAmount?: string;
+  /** Combine the age + amount filters (default ALL). */
+  match?: 'ALL' | 'ANY';
+  /** Bypass parents' notification preferences (school-enforced finance notice). */
+  mandatory?: boolean;
+}
+
+export interface PushOutstandingResult {
+  filter: { minAgeDays: number | null; minAmount: string | null; match: 'ALL' | 'ANY' };
+  candidates: number;
+  matched: number;
+  pushed: number;
+  skippedLegal: number;
+  skippedNoParent: number;
+  totalRecipients: number;
+}
+
 export interface TransportEvaluation {
   studentId: string;
   overdueCount: number;
@@ -263,6 +284,12 @@ export const financeApi = {
       method: 'POST',
       body: JSON.stringify({ channels }),
     }).then((r) => json<{ recipients: number; smsSent: number }>(r)),
+  /** Push outstanding balances to parents, filtered by overdue age and/or minimum amount. */
+  pushOutstanding: (data: PushOutstandingInput) =>
+    authFetch('/finance/collections/reminders/push-outstanding', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<PushOutstandingResult>(r)),
 
   // Aging / collection effectiveness
   aging: () => authFetch('/finance/collections/aging').then((r) => json<AgingReport>(r)),
