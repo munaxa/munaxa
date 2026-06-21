@@ -34,10 +34,14 @@ export class UsersController {
   async create(@Body() dto: CreateUserDto) {
     const result = await this.repo.create(dto);
     // Best-effort, after the transaction committed; the admin still sees the password once.
+    const name =
+      [result.user.firstNameEn, result.user.lastNameEn].filter(Boolean).join(' ').trim() ||
+      result.user.username ||
+      undefined;
     const { sent } = await this.mail.sendTemporaryPassword({
       to: result.user.email,
+      userName: name,
       temporaryPassword: result.temporaryPassword,
-      isReset: false,
     });
     return { ...result, emailed: sent };
   }
@@ -59,11 +63,11 @@ export class UsersController {
     summary: 'Reset to a new temporary password (returned once, emailed if configured)',
   })
   async resetPassword(@Param('id') id: string) {
-    const { temporaryPassword, email } = await this.repo.resetPassword(id);
+    const { temporaryPassword, email, name } = await this.repo.resetPassword(id);
     const { sent } = await this.mail.sendTemporaryPassword({
       to: email,
+      userName: name,
       temporaryPassword,
-      isReset: true,
     });
     return { temporaryPassword, emailed: sent };
   }

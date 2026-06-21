@@ -41,6 +41,7 @@ export class TokenService {
       plat: user.isPlatform,
       roles: user.roles,
       perms: user.permissions,
+      ...(user.mustChangePassword ? { mcp: true } : {}),
     };
     const token = this.jwt.sign(payload, {
       secret: this.accessSecret,

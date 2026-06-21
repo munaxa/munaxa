@@ -28,6 +28,7 @@ import { PresenceModule } from './presence/presence.module';
 import { AdvancedModule } from './advanced/advanced.module';
 import { PlatformModule } from './platform/platform.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { MustChangePasswordGuard } from './auth/guards/must-change-password.guard';
 import { CsrfGuard } from './auth/guards/csrf.guard';
 import { PermissionsGuard } from './auth/guards/permissions.guard';
 import { TenantIsolationGuard } from './auth/guards/tenant-isolation.guard';
@@ -39,7 +40,8 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
  * Global concerns: config validation, Sentry, rate limiting, Prisma, health, and — from
  * Phase 3 — authentication (JWT), RBAC, and tenant-isolation guards + context binding.
  *
- * Guard order matters: rate limit → authenticate → authorize (permissions) → tenant isolation.
+ * Guard order matters: rate limit → authenticate → temp-password gate → CSRF → authorize
+ * (permissions) → tenant isolation.
  */
 @Module({
   imports: [
@@ -83,6 +85,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: MustChangePasswordGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: TenantIsolationGuard },

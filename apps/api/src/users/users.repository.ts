@@ -140,17 +140,26 @@ export class UsersRepository extends TenantRepository {
   }
 
   /** Reset to a fresh temporary password and revoke sessions; returns the new password once. */
-  resetPassword(id: string): Promise<{ temporaryPassword: string; email: string }> {
+  resetPassword(id: string): Promise<{ temporaryPassword: string; email: string; name?: string }> {
     return this.run(async (tx, tenantId) => {
       const target = await tx.user.findFirstOrThrow({
         where: { id, tenantId, deletedAt: null },
-        select: { email: true },
+        select: { email: true, firstNameEn: true, lastNameEn: true, username: true },
       });
       const temporaryPassword = this.passwords.generateTemporary();
       const passwordHash = await this.passwords.hash(temporaryPassword);
+      const now = new Date();
+      // 24h temporary-password window, matching the self-service Forgot Password flow.
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
       await tx.user.update({
         where: { id },
-        data: { passwordHash, mustChangePassword: true, passwordUpdatedAt: new Date() },
+        data: {
+          passwordHash,
+          mustChangePassword: true,
+          passwordUpdatedAt: now,
+          passwordResetIssuedAt: now,
+          passwordResetExpiresAt: expiresAt,
+        },
       });
       await tx.refreshToken.updateMany({
         where: { userId: id, revokedAt: null },
@@ -161,7 +170,11 @@ export class UsersRepository extends TenantRepository {
         entityType: 'User',
         entityId: id,
       });
-      return { temporaryPassword, email: target.email };
+      const name =
+        [target.firstNameEn, target.lastNameEn].filter(Boolean).join(' ').trim() ||
+        target.username ||
+        undefined;
+      return { temporaryPassword, email: target.email, name };
     });
   }
 

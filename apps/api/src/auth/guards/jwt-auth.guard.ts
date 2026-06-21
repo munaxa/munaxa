@@ -38,6 +38,7 @@ export class JwtAuthGuard implements CanActivate {
         isPlatform: payload.plat,
         roles: payload.roles,
         permissions: payload.perms,
+        mustChangePassword: payload.mcp === true,
       };
       return true;
     } catch {

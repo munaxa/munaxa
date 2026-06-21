@@ -10,12 +10,15 @@ import {
 } from 'class-validator';
 
 /**
- * Minimum password strength: at least one lower-case letter, one upper-case letter, and one
- * digit (length is enforced separately via @MinLength). Applied to every new/changed password.
+ * Minimum password strength: at least one lower-case letter, one upper-case letter, one digit and
+ * one special character (length is enforced separately via @MinLength). Applied to every
+ * new/changed password. Kept in lock-step with PasswordService.assertStrong (the runtime source
+ * of truth) and the frontend policy helper.
  */
-export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
 export const PASSWORD_PATTERN_MESSAGE =
-  'Password must contain at least one lower-case letter, one upper-case letter, and one number';
+  'Password must contain a lower-case letter, an upper-case letter, a number and a special character';
 
 export class LoginDto {
   @ApiPropertyOptional({
@@ -78,12 +81,19 @@ export class ChangePasswordDto {
   @IsNotEmpty()
   currentPassword!: string;
 
-  @ApiProperty({ minLength: 10 })
+  @ApiProperty({ minLength: PASSWORD_MIN_LENGTH })
   @IsString()
-  @MinLength(10)
+  @MinLength(PASSWORD_MIN_LENGTH)
   @MaxLength(200)
   @Matches(PASSWORD_PATTERN, { message: PASSWORD_PATTERN_MESSAGE })
   newPassword!: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional confirmation of newPassword. When supplied it must match.',
+  })
+  @IsOptional()
+  @IsString()
+  confirmPassword?: string;
 }
 
 export class RequestPasswordResetDto {
@@ -103,9 +113,9 @@ export class ConfirmPasswordResetDto {
   @IsNotEmpty()
   token!: string;
 
-  @ApiProperty({ minLength: 10 })
+  @ApiProperty({ minLength: PASSWORD_MIN_LENGTH })
   @IsString()
-  @MinLength(10)
+  @MinLength(PASSWORD_MIN_LENGTH)
   @MaxLength(200)
   @Matches(PASSWORD_PATTERN, { message: PASSWORD_PATTERN_MESSAGE })
   newPassword!: string;

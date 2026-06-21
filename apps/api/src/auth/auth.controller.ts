@@ -14,6 +14,7 @@ import type { Request, Response } from 'express';
 import { AuthService } from './services/auth.service';
 import { TokenService } from './services/token.service';
 import { Public } from './decorators/public.decorator';
+import { AllowDuringPasswordChange } from './decorators/allow-during-password-change.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { setAuthCookies, clearAuthCookies, refreshTokenFromCookie } from './cookies';
 import type { AuthenticatedUser } from './auth.types';
@@ -141,6 +142,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @AllowDuringPasswordChange()
   @Post('password/change')
   @HttpCode(204)
   // Authenticated, but still throttle to blunt online guessing of the current password.
@@ -155,6 +157,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @AllowDuringPasswordChange()
   @Get('me')
   @ApiOperation({ summary: 'Return the current principal (roles + permissions)' })
   me(@CurrentUser() user: AuthenticatedUser) {
