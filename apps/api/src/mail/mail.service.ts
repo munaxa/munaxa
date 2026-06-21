@@ -10,6 +10,8 @@ export interface SendMailInput {
   text?: string;
   /** Override the default From address (e.g. the admin sender for security emails). */
   from?: string;
+  /** Reply-To address (e.g. the tenant support inbox from NotificationSettings). */
+  replyTo?: string;
 }
 
 /**
@@ -43,6 +45,7 @@ export class MailService {
           subject: input.subject,
           html: input.html,
           ...(input.text ? { text: input.text } : {}),
+          ...(input.replyTo ? { reply_to: input.replyTo } : {}),
         }),
       });
       if (!res.ok) {

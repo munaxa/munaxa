@@ -1,43 +1,32 @@
 import { Injectable } from '@nestjs/common';
-import type { AnnouncementAudience } from '@prisma/client';
-import { NotificationRepository } from '../notifications/notification.repository';
 import { PushService } from './push.service';
-import { WhatsAppBridge } from './whatsapp.bridge';
+import { EmailChannel } from './email.channel';
+import { SettingsService } from '../settings/settings.service';
+import type { ChannelJob, DeliveryResult } from '../queue/channel-job';
 
 /**
- * Fans an announcement/event out to recipients: writes in-app notifications (the source of
- * truth for the notification center), then best-effort push (FCM) and the feature-flagged
- * WhatsApp bridge.
+ * Performs the actual send for a single resolved {@link ChannelJob}. The queue owns retry/backoff
+ * and delivery recording; this class only knows how to talk to a channel's provider. Runs inside a
+ * tenant context (set by the queue worker) so SettingsService can resolve the sender identity.
  */
 @Injectable()
-export class DispatcherService {
+export class ChannelDispatcher {
   constructor(
-    private readonly notifications: NotificationRepository,
     private readonly push: PushService,
-    private readonly whatsapp: WhatsAppBridge,
+    private readonly email: EmailChannel,
+    private readonly settings: SettingsService,
   ) {}
 
-  async dispatch(params: {
-    audience: AnnouncementAudience;
-    sectionId?: string | null;
-    title: string;
-    body: string;
-    category?: string;
-    announcementId?: string;
-  }): Promise<{ recipients: number }> {
-    const userIds = await this.notifications.resolveRecipients(params.audience, params.sectionId);
-    const created = await this.notifications.createMany(userIds, {
-      title: params.title,
-      body: params.body,
-      category: params.category,
-      announcementId: params.announcementId,
-    });
-
-    // Best-effort external channels (never block the in-app notification).
-    const tokens = await this.notifications.deviceTokens(userIds);
-    await this.push.sendToTokens(tokens, { title: params.title, body: params.body });
-    await this.whatsapp.notify({ title: params.title, body: params.body });
-
-    return { recipients: created };
+  async deliver(job: ChannelJob): Promise<DeliveryResult> {
+    if (job.channel === 'PUSH') {
+      return this.push.deliver(job.tokens ?? [], {
+        title: job.title,
+        body: job.body,
+        data: job.data,
+      });
+    }
+    // EMAIL — resolve the tenant's (never-hardcoded) sender identity.
+    const sender = await this.settings.sender();
+    return this.email.deliver(job, sender);
   }
 }

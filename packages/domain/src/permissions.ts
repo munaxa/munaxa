@@ -59,6 +59,7 @@ export const Permission = {
   ANNOUNCEMENT_MANAGE: 'announcement:manage',
   ANNOUNCEMENT_READ: 'announcement:read',
   NOTIFICATION_SEND: 'notification:send',
+  NOTIFICATION_SETTINGS: 'notification:settings',
 
   // Parent/student flows
   LEAVE_REQUEST: 'leave:request',
