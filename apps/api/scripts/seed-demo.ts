@@ -38,15 +38,18 @@ async function main(): Promise<void> {
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
 
   // Seed the global permission catalog here too, so this script is order-independent
-  // (no need to run db:seed first). The Permission table is not tenant-scoped.
-  for (const key of ALL_PERMISSIONS) {
-    const category = key.split(':')[0] ?? 'general';
-    await prisma.permission.upsert({
-      where: { key },
-      update: { category },
-      create: { key, category },
-    });
-  }
+  // (no need to run db:seed first). The Permission table is not tenant-scoped, but it
+  // is RLS-protected: writes require the platform context, so run them via platform().
+  await platform(async (tx) => {
+    for (const key of ALL_PERMISSIONS) {
+      const category = key.split(':')[0] ?? 'general';
+      await tx.permission.upsert({
+        where: { key },
+        update: { category },
+        create: { key, category },
+      });
+    }
+  });
 
   await platform(async (tx) => {
     await tx.tenant.upsert({
