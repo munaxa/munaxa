@@ -46,6 +46,7 @@ export const usersApi = {
   update: (
     id: string,
     data: {
+      email?: string;
       username?: string;
       firstNameEn?: string;
       lastNameEn?: string;

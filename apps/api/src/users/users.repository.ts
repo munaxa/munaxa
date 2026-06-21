@@ -96,9 +96,11 @@ export class UsersRepository extends TenantRepository {
         username = normalizeUsername(dto.username) ?? undefined;
         if (username) await this.assertUsernameFree(tx, tenantId, username, id);
       }
+      if (dto.email !== undefined) await this.assertEmailFree(tx, tenantId, dto.email, id);
       await tx.user.update({
         where: { id },
         data: {
+          ...(dto.email !== undefined ? { email: dto.email } : {}),
           ...(dto.username !== undefined ? { username: username ?? null } : {}),
           ...(dto.firstNameEn !== undefined ? { firstNameEn: dto.firstNameEn } : {}),
           ...(dto.lastNameEn !== undefined ? { lastNameEn: dto.lastNameEn } : {}),
@@ -176,6 +178,24 @@ export class UsersRepository extends TenantRepository {
         undefined;
       return { temporaryPassword, email: target.email, name };
     });
+  }
+
+  /** Reject an email already used by another user in the tenant (friendly 400 vs raw P2002). */
+  private async assertEmailFree(
+    tx: TxClient,
+    tenantId: string,
+    email: string,
+    exceptUserId?: string,
+  ): Promise<void> {
+    const clash = await tx.user.findFirst({
+      where: {
+        tenantId,
+        email,
+        ...(exceptUserId ? { id: { not: exceptUserId } } : {}),
+      },
+      select: { id: true },
+    });
+    if (clash) throw new BadRequestException('A user with this email already exists');
   }
 
   /** Reject a username already taken by another user in the tenant (friendly 400 vs raw P2002). */
