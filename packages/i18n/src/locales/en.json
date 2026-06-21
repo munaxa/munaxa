@@ -66,9 +66,10 @@
     "heroFooter": "Enterprise-grade security · Multi-campus ready · Arabic & English",
     "specificSchool": "Sign in to a specific school",
     "resetTitle": "Reset your password",
-    "resetSubtitle": "Enter your email and we'll send a reset link.",
-    "resetSubmit": "Send reset link",
-    "resetSent": "If an account matches, a reset link is on its way.",
+    "resetSubtitle": "Enter your email and we'll send a temporary password to sign in with.",
+    "resetSubmit": "Send temporary password",
+    "resetSent": "If the account exists, a password reset email has been sent.",
+    "resetSentHint": "Check your inbox for a temporary password. It expires in 24 hours and you'll be asked to set a new password at sign-in.",
     "backToSignIn": "Back to sign in"
   },
   "shell": {
@@ -604,10 +605,22 @@
   },
   "changePassword": {
     "title": "Set a new password",
-    "subtitle": "At least 10 characters, including upper, lower and a digit.",
+    "subtitle": "At least 8 characters with upper, lower, a number and a special character.",
     "currentPassword": "Current password",
     "newPassword": "New password",
-    "updatePassword": "Update password"
+    "confirmPassword": "Confirm new password",
+    "updatePassword": "Update password",
+    "success": "Your password has been changed. Redirecting you to sign in…",
+    "mismatch": "New password and confirmation do not match.",
+    "policyError": "Your new password does not meet the requirements."
+  },
+  "passwordPolicy": {
+    "minLength": "At least 8 characters",
+    "uppercase": "An uppercase letter",
+    "lowercase": "A lowercase letter",
+    "number": "A number",
+    "special": "A special character",
+    "match": "Passwords match"
   },
   "structure": {
     "schools": "Schools",

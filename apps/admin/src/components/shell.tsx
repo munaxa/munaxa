@@ -66,7 +66,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
     // The session lives in httpOnly cookies (not readable here), so we just try to resolve the
     // principal: success means a valid cookie session; failure (401 after refresh) → /login.
     loadPrincipal()
-      .then(setPrincipal)
+      .then((p) => {
+        // Temporary-password accounts are locked to the mandatory password-change screen — they
+        // cannot reach any protected page until they set a new password (the API enforces the same
+        // via MustChangePasswordGuard; this is the matching client-side redirect).
+        if (p.mustChangePassword) {
+          router.replace('/change-password');
+          return;
+        }
+        setPrincipal(p);
+      })
       .catch(() => router.replace('/login'))
       .finally(() => setLoading(false));
   }, [router]);

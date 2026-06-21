@@ -57,9 +57,13 @@ export default function ForgotPasswordPage() {
           </div>
 
           {sent ? (
-            <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm" role="status">
-              {t('auth.resetSent')}
-            </p>
+            <div
+              className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 text-sm"
+              role="status"
+            >
+              <p className="font-medium">{t('auth.resetSent')}</p>
+              <p className="text-muted-foreground">{t('auth.resetSentHint')}</p>
+            </div>
           ) : (
             <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
               <Field label={t('auth.email')} htmlFor="email">

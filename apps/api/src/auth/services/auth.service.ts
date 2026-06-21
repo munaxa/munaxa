@@ -13,6 +13,7 @@ import { TokenService } from './token.service';
 import { PasswordService } from './password.service';
 import { FirebaseService } from './firebase.service';
 import { RbacService } from './rbac.service';
+import { MailService } from '../../mail/mail.service';
 import type { AuthenticatedUser, TokenPair } from '../auth.types';
 import type {
   LoginDto,
@@ -41,7 +42,15 @@ export class AuthService {
     private readonly passwords: PasswordService,
     private readonly firebase: FirebaseService,
     private readonly rbac: RbacService,
+    private readonly mail: MailService,
   ) {}
+
+  // Temporary passwords are valid for this long after a Forgot Password request.
+  private static readonly RESET_TTL_MS = 24 * 60 * 60 * 1000;
+  // Per-email reset throttle (in addition to the per-IP controller throttle): cap reset requests
+  // for a single email within a window to blunt targeted mailbox-bombing.
+  private static readonly RESET_EMAIL_MAX = 3;
+  private static readonly RESET_EMAIL_WINDOW_MS = 15 * 60 * 1000;
 
   // ----- Local login -------------------------------------------------------
   async login(dto: LoginDto, meta: RequestMeta): Promise<LoginResult> {
@@ -72,10 +81,34 @@ export class AuthService {
         await this.audit(tx, user.tenantId, user.id, 'auth.login.failed', {}, meta);
         return { kind: 'invalid' as const };
       }
+
+      // Temporary-password expiry: a correct temporary password used past its 24h window is
+      // rejected and the attempt is audited. (Only applies while mustChangePassword is set AND a
+      // reset window exists — provisioned accounts with no expiry are unaffected.)
+      if (this.isTemporaryPasswordExpired(user)) {
+        await this.audit(tx, user.tenantId, user.id, 'auth.password.reset.expired', {}, meta);
+        await this.resetAudit(tx, user, 'reset.expired_attempt', meta);
+        return {
+          kind: 'blocked' as const,
+          message: 'Your temporary password has expired. Please request a new one.',
+        };
+      }
+
       const blocked = this.loginBlockReason(user);
       if (blocked) {
         await this.audit(tx, user.tenantId, user.id, 'auth.login.blocked', { blocked }, meta);
         return { kind: 'blocked' as const, message: blocked };
+      }
+
+      // First successful login on a freshly issued temporary password → audit it before we
+      // stamp lastLoginAt (which is what makes the attempt "first").
+      if (
+        user.mustChangePassword &&
+        user.passwordResetIssuedAt &&
+        (!user.lastLoginAt || user.lastLoginAt < user.passwordResetIssuedAt)
+      ) {
+        await this.audit(tx, user.tenantId, user.id, 'auth.password.reset.first_login', {}, meta);
+        await this.resetAudit(tx, user, 'reset.first_login', meta);
       }
 
       // Transparent KDF upgrade: legacy (bcrypt) hashes are re-hashed with scrypt on the
@@ -205,6 +238,9 @@ export class AuthService {
     dto: ChangePasswordDto,
     meta: RequestMeta,
   ): Promise<void> {
+    if (dto.confirmPassword !== undefined && dto.confirmPassword !== dto.newPassword) {
+      throw new BadRequestException('New password and confirmation do not match');
+    }
     this.passwords.assertStrong(dto.newPassword);
     await this.passwords.assertNotBreached(dto.newPassword);
     await withPlatform(this.prisma, async (tx) => {
@@ -215,37 +251,101 @@ export class AuthService {
       ) {
         throw new UnauthorizedException('Current password is incorrect');
       }
+      // Block reuse: the new password must differ from the current/temporary one.
+      if (await this.passwords.verify(dto.newPassword, user.passwordHash)) {
+        throw new BadRequestException('New password must be different from the current password');
+      }
+      const wasReset = user.mustChangePassword;
+      const now = new Date();
       const passwordHash = await this.passwords.hash(dto.newPassword);
       await tx.user.update({
         where: { id: user.id },
-        data: { passwordHash, mustChangePassword: false, passwordUpdatedAt: new Date() },
+        data: {
+          passwordHash,
+          mustChangePassword: false,
+          passwordUpdatedAt: now,
+          lastPasswordChangeAt: now,
+          // Invalidate the temporary-password window so the temp password can never be reused.
+          passwordResetIssuedAt: null,
+          passwordResetExpiresAt: null,
+        },
       });
       // Invalidate all existing sessions on password change.
       await tx.refreshToken.updateMany({
         where: { userId: user.id, revokedAt: null },
-        data: { revokedAt: new Date() },
+        data: { revokedAt: now },
       });
       await this.audit(tx, tenantId, user.id, 'auth.password.change', {}, meta);
+      if (wasReset) await this.resetAudit(tx, user, 'reset.completed', meta);
     });
   }
 
-  // ----- Password reset (request + confirm) --------------------------------
+  // ----- Forgot Password: temporary-password issuance ----------------------
+  /**
+   * Forgot Password. Generates a cryptographically secure temporary password, stores ONLY its
+   * scrypt hash, marks the account mustChangePassword with a 24h reset window, revokes existing
+   * sessions, and emails the temp password from the admin sender. Generating a new temp password
+   * overwrites the previous one, so prior temporary passwords are automatically invalidated.
+   *
+   * Anti-enumeration: this method never throws on unknown email and the controller always replies
+   * 202 with a generic message. A per-email throttle (on top of the per-IP controller throttle)
+   * blunts targeted mailbox-bombing — silently, so it leaks nothing about account existence.
+   */
   async requestPasswordReset(dto: RequestPasswordResetDto, meta: RequestMeta): Promise<void> {
+    // Normalised key for the audit trail + rate limit (case-insensitive); DB resolution below
+    // uses the raw input to keep exact-match semantics with the rest of the auth flow.
+    const emailKey = dto.email.trim().toLowerCase();
     await withPlatform(this.prisma, async (tx) => {
-      const user = await this.resolveUserByEmail(tx, dto.email, dto.tenantSlug);
+      // Always record the request attempt (even for unknown emails) for abuse analysis.
+      await this.resetAuditRaw(tx, null, null, emailKey, 'reset.request', meta);
+
+      // Per-email rate limit — checked from the dedicated audit trail. Silent on trip.
+      const since = new Date(Date.now() - AuthService.RESET_EMAIL_WINDOW_MS);
+      const recent = await tx.passwordResetAudit.count({
+        where: { email: emailKey, action: 'reset.request', createdAt: { gt: since } },
+      });
+      if (recent > AuthService.RESET_EMAIL_MAX) return;
+
+      const user = await this.resolveUserByEmail(tx, dto.email.trim(), dto.tenantSlug);
       if (!user) return; // do not reveal account existence
-      const { token, hash } = this.tokens.generateRefreshToken();
-      await tx.passwordResetToken.create({
+
+      const temporaryPassword = this.passwords.generateTemporary();
+      const passwordHash = await this.passwords.hash(temporaryPassword);
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + AuthService.RESET_TTL_MS);
+
+      // Overwriting passwordHash invalidates both the old password and any prior temp password.
+      await tx.user.update({
+        where: { id: user.id },
         data: {
-          tenantId: user.tenantId,
-          userId: user.id,
-          tokenHash: hash,
-          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+          passwordHash,
+          mustChangePassword: true,
+          passwordResetIssuedAt: now,
+          passwordResetExpiresAt: expiresAt,
         },
       });
+      // End every existing session so a stolen/old session can't outlive the reset.
+      await tx.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: now },
+      });
+
       await this.audit(tx, user.tenantId, user.id, 'auth.password.reset.request', {}, meta);
-      // The raw `token` is delivered out-of-band via Resend (Phase 10). It is never returned here.
-      void token;
+
+      const { sent } = await this.mail.sendTemporaryPassword({
+        to: user.email,
+        userName: this.displayName(user),
+        temporaryPassword,
+      });
+      await this.audit(
+        tx,
+        user.tenantId,
+        user.id,
+        'auth.password.reset.email',
+        { sent, channel: 'email' },
+        meta,
+      );
+      await this.resetAudit(tx, user, 'reset.email_sent', meta, { sent });
     });
   }
 
@@ -372,7 +472,14 @@ export class AuthService {
   private async buildPrincipal(tx: TxClient, user: User): Promise<AuthenticatedUser> {
     const { roles, permissions } = await this.rbac.loadUserAuthz(tx, user.id);
     const isPlatform = roles.some((r) => isPlatformRole(r));
-    return { userId: user.id, tenantId: user.tenantId, isPlatform, roles, permissions };
+    return {
+      userId: user.id,
+      tenantId: user.tenantId,
+      isPlatform,
+      roles,
+      permissions,
+      mustChangePassword: user.mustChangePassword,
+    };
   }
 
   private async issueTokens(
@@ -407,6 +514,23 @@ export class AuthService {
     return { raw: token, row };
   }
 
+  /** True when the account is on a temporary password whose 24h window has elapsed. */
+  private isTemporaryPasswordExpired(user: User): boolean {
+    return Boolean(
+      user.mustChangePassword &&
+      user.passwordResetExpiresAt &&
+      user.passwordResetExpiresAt.getTime() < Date.now(),
+    );
+  }
+
+  /** Best-effort human name for the temp-password email greeting. */
+  private displayName(user: User): string | undefined {
+    const en = [user.firstNameEn, user.lastNameEn].filter(Boolean).join(' ').trim();
+    if (en) return en;
+    const ar = [user.firstNameAr, user.lastNameAr].filter(Boolean).join(' ').trim();
+    return ar || user.username || undefined;
+  }
+
   private async audit(
     tx: TxClient,
     tenantId: string | null,
@@ -423,6 +547,39 @@ export class AuthService {
         entityType: 'Auth',
         metadata,
         ip: meta.ip,
+        userAgent: meta.userAgent,
+      },
+    });
+  }
+
+  /** Append to the dedicated password-reset audit trail for a resolved user. */
+  private async resetAudit(
+    tx: TxClient,
+    user: User,
+    action: string,
+    meta: RequestMeta,
+    extra?: Record<string, unknown>,
+  ): Promise<void> {
+    void extra; // currently captured via the generic AuditLog metadata; kept for signature parity.
+    await this.resetAuditRaw(tx, user.tenantId, user.id, user.email, action, meta);
+  }
+
+  /** Append to the password-reset audit trail; tenant/user may be null (pre-resolution events). */
+  private async resetAuditRaw(
+    tx: TxClient,
+    tenantId: string | null,
+    userId: string | null,
+    email: string,
+    action: string,
+    meta: RequestMeta,
+  ): Promise<void> {
+    await tx.passwordResetAudit.create({
+      data: {
+        tenantId,
+        userId,
+        email,
+        action,
+        ipAddress: meta.ip,
         userAgent: meta.userAgent,
       },
     });

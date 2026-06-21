@@ -80,8 +80,10 @@ export class PasswordService {
   }
 
   /**
-   * Generate a random temporary password that satisfies the policy. Handed to an admin once when
-   * provisioning/resetting an account (the user must change it at first login). Never logged.
+   * Generate a cryptographically secure random temporary password that satisfies the policy.
+   * Emailed to the user once on a Forgot Password request (they must change it at first login).
+   * Never logged. Guarantees at least one upper, lower, digit and special character so the result
+   * always passes {@link assertStrong}.
    */
   generateTemporary(): string {
     const pick = (set: string) =>
@@ -89,9 +91,11 @@ export class PasswordService {
     const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const lower = 'abcdefghijkmnpqrstuvwxyz';
     const digits = '23456789';
-    const all = upper + lower + digits;
-    const chars = [pick(upper), pick(lower), pick(digits), pick(digits)];
-    while (chars.length < 12) chars.push(pick(all));
+    // Unambiguous special characters (avoid ones that are easy to misread or get mangled by email).
+    const special = '!@#$%*?';
+    const all = upper + lower + digits + special;
+    const chars = [pick(upper), pick(lower), pick(digits), pick(special)];
+    while (chars.length < 14) chars.push(pick(all));
     // Fisher–Yates shuffle so the guaranteed-class characters aren't always in front.
     for (let i = chars.length - 1; i > 0; i--) {
       const j = Math.floor((crypto.getRandomValues(new Uint32Array(1))[0]! / 2 ** 32) * (i + 1));
@@ -133,17 +137,25 @@ export class PasswordService {
   }
 
   /**
-   * Enforce the password policy: min 10 chars, with upper, lower and a digit.
+   * Enforce the password policy: min 8 chars, with an upper-case letter, a lower-case letter, a
+   * digit and a special character. This is the single backend source of truth — mirrored on the
+   * frontend (see admin lib/password-policy) and by the class-validator pattern on the DTOs.
    * Throws BadRequestException on failure.
    */
   assertStrong(password: string): void {
     const failures: string[] = [];
-    if (password.length < 10) failures.push('at least 10 characters');
+    if (password.length < PasswordService.MIN_LENGTH) {
+      failures.push(`at least ${PasswordService.MIN_LENGTH} characters`);
+    }
     if (!/[A-Z]/.test(password)) failures.push('an uppercase letter');
     if (!/[a-z]/.test(password)) failures.push('a lowercase letter');
     if (!/\d/.test(password)) failures.push('a digit');
+    if (!/[^A-Za-z0-9]/.test(password)) failures.push('a special character');
     if (failures.length > 0) {
       throw new BadRequestException(`Password must contain ${failures.join(', ')}.`);
     }
   }
+
+  /** Minimum password length (policy: enterprise SaaS baseline). */
+  static readonly MIN_LENGTH = 8;
 }

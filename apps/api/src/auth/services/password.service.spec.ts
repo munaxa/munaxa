@@ -35,23 +35,37 @@ describe('PasswordService', () => {
     expect(await service.verify('Sup3rSecret!', 'scrypt:not:a:valid')).toBe(false);
   });
 
-  it('generates policy-compliant temporary passwords', () => {
-    for (let i = 0; i < 20; i++) {
+  it('generates policy-compliant temporary passwords (incl. a special character)', () => {
+    for (let i = 0; i < 50; i++) {
       const temp = service.generateTemporary();
       expect(() => service.assertStrong(temp)).not.toThrow();
+      // The generator must guarantee one of every required character class.
+      expect(/[A-Z]/.test(temp)).toBe(true);
+      expect(/[a-z]/.test(temp)).toBe(true);
+      expect(/\d/.test(temp)).toBe(true);
+      expect(/[^A-Za-z0-9]/.test(temp)).toBe(true);
     }
+  });
+
+  it('generates unique temporary passwords', () => {
+    const a = service.generateTemporary();
+    const b = service.generateTemporary();
+    expect(a).not.toBe(b);
   });
 
   it('accepts a strong password', () => {
     expect(() => service.assertStrong('Sup3rSecret!')).not.toThrow();
   });
 
-  it.each(['short1A', 'alllowercase1', 'ALLUPPERCASE1', 'NoDigitsHere'])(
-    'rejects weak password %s',
-    (weak) => {
-      expect(() => service.assertStrong(weak)).toThrow(BadRequestException);
-    },
-  );
+  it.each([
+    'Shrt1A!', // too short (7 chars)
+    'alllowercase1!', // no uppercase
+    'ALLUPPERCASE1!', // no lowercase
+    'NoDigitsHere!', // no digit
+    'NoSpecial123', // no special character
+  ])('rejects weak password %s', (weak) => {
+    expect(() => service.assertStrong(weak)).toThrow(BadRequestException);
+  });
 
   describe('assertNotBreached (HIBP k-anonymity)', () => {
     const realFetch = global.fetch;

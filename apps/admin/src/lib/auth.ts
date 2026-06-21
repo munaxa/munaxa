@@ -31,6 +31,9 @@ export interface Principal {
   isPlatform: boolean;
   roles: string[];
   permissions: string[];
+  // True while the account is on a temporary password and must set a new one before accessing
+  // any protected page. Enforced client-side by <Shell> and server-side by MustChangePasswordGuard.
+  mustChangePassword?: boolean;
 }
 
 /** Read the readable CSRF cookie the API set alongside the httpOnly session cookies. */
@@ -136,6 +139,7 @@ export async function requestPasswordReset(input: {
 export async function changePassword(input: {
   currentPassword: string;
   newPassword: string;
+  confirmPassword?: string;
 }): Promise<void> {
   const res = await authFetch('/auth/password/change', {
     method: 'POST',
