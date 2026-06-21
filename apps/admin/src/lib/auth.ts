@@ -120,6 +120,19 @@ export async function getMe(): Promise<Principal> {
   return (await res.json()) as Principal;
 }
 
+/** Request a password-reset email. Always resolves — the API responds 202 to avoid enumeration. */
+export async function requestPasswordReset(input: {
+  email: string;
+  tenantSlug?: string;
+}): Promise<void> {
+  await fetch(`${API_URL}/auth/password/reset/request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(input),
+  }).catch(() => undefined);
+}
+
 export async function changePassword(input: {
   currentPassword: string;
   newPassword: string;
