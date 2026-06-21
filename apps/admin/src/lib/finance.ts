@@ -103,6 +103,8 @@ export interface CollectionsProfile {
   lastReminderAt: string | null;
   transportSuspended: boolean;
   transportSuspendedAt: string | null;
+  feeModified: boolean;
+  customArrangement: boolean;
   snapshot: {
     outstanding: string;
     dueThisMonth: string;

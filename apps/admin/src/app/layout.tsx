@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${plexDisplay.variable} ${plexBody.variable} ${plexArabic.variable}`}
       suppressHydrationWarning
     >
-      <body className="min-h-screen bg-background bg-grad-hero font-body text-foreground antialiased">
+      <body className="min-h-screen bg-background bg-grad-hero bg-fixed font-body text-foreground antialiased">
         {/* Apply the saved theme before paint (light-first default) so it's reliable on every
             page and free of flash. The toggle keeps it in sync thereafter. */}
         <script

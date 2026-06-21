@@ -95,6 +95,10 @@
   },
   "nav": {
     "dashboard": "الرئيسية",
+    "admissions": "القبول والتسجيل",
+    "feeApprovals": "اعتمادات الرسوم",
+    "admissionsReports": "تقارير القبول",
+    "feeCatalog": "دليل الرسوم",
     "enrollment": "تسجيل جديد",
     "section": {
       "people": "الأشخاص",

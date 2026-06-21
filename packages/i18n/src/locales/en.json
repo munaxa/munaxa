@@ -95,6 +95,10 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "admissions": "Admissions",
+    "feeApprovals": "Fee approvals",
+    "admissionsReports": "Admissions reports",
+    "feeCatalog": "Fee catalog",
     "enrollment": "New enrollment",
     "section": {
       "people": "People",

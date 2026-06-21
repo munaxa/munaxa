@@ -7,6 +7,7 @@ import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
 import { useConfirm } from '@/components/confirm';
 import { ChargeStatusBadge, TransactionStatusBadge } from '@/components/domain';
+import { FeeModifiedBadge } from '@/components/fee-modified-badge';
 import { loadStudentOptions } from '@/lib/pickers';
 import {
   financeApi,
@@ -192,7 +193,15 @@ export default function FinancePage() {
   return (
     <Shell>
       <div className="mx-auto max-w-5xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">{t('nav.finance')}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="font-display text-2xl font-semibold">{t('nav.finance')}</h1>
+          {collections ? (
+            <FeeModifiedBadge
+              feeModified={collections.feeModified}
+              customArrangement={collections.customArrangement}
+            />
+          ) : null}
+        </div>
 
         <div className="flex items-end gap-2">
           <Field label={t('finance.student')} className="flex-1">

@@ -38,6 +38,18 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'nav.section.people',
     items: [
       {
+        href: '/admissions',
+        labelKey: 'nav.admissions',
+        icon: 'enrollment',
+        perm: 'enrollment:manage',
+      },
+      {
+        href: '/admissions/approvals',
+        labelKey: 'nav.feeApprovals',
+        icon: 'finance',
+        perm: 'finance:approve',
+      },
+      {
         href: '/enrollment',
         labelKey: 'nav.enrollment',
         icon: 'enrollment',
@@ -96,6 +108,12 @@ const NAV_GROUPS: NavGroup[] = [
         icon: 'feeConfig',
         perm: 'finance:manage',
       },
+      {
+        href: '/settings/fee-catalog',
+        labelKey: 'nav.feeCatalog',
+        icon: 'feePlans',
+        perm: 'finance:manage',
+      },
     ],
   },
   {
@@ -139,7 +157,15 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     titleKey: 'nav.section.reports',
-    items: [{ href: '/reports', labelKey: 'nav.reports', icon: 'reports', perm: 'report:read' }],
+    items: [
+      { href: '/reports', labelKey: 'nav.reports', icon: 'reports', perm: 'report:read' },
+      {
+        href: '/admissions/reports',
+        labelKey: 'nav.admissionsReports',
+        icon: 'reports',
+        perm: 'enrollment:manage',
+      },
+    ],
   },
   {
     titleKey: 'nav.section.settings',
