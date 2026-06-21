@@ -272,7 +272,6 @@ export function AppShell({
               const active = isActive(item.href);
               // next typedRoutes: hrefs come from this static nav table rather than literal route
               // types, so the cast is required by `next build` even though local tooling can't see it.
-
               const href = item.href as never;
               return (
                 <Link

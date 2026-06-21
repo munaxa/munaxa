@@ -154,9 +154,8 @@ export function GlobalSearch({
 
   function choose(hit: Hit) {
     onClose();
-    // next typedRoutes: ROUTE values are required by `next build` to be typed routes; the cast
-    // is needed there even though local tooling sees them as plain strings.
-
+    // next typedRoutes: ROUTE values must be typed routes for `next build`; the cast is required
+    // there even though local tooling sees them as plain strings.
     router.push(ROUTE[hit.type] as never);
   }
 
