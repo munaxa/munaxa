@@ -82,6 +82,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.FINANCE_EXPORT,
     Permission.TRANSACTION_CREATE,
     Permission.RECEIPT_UPLOAD,
+    Permission.ENROLLMENT_MANAGE,
+    Permission.FEE_OVERRIDE,
+    Permission.FINANCE_APPROVE,
     Permission.REPORT_READ,
     Permission.REPORT_EXPORT,
     Permission.AUDIT_READ,
@@ -94,6 +97,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.TRANSACTION_CREATE,
     Permission.RECEIPT_UPLOAD,
     Permission.STUDENT_MANAGE,
+    Permission.ENROLLMENT_MANAGE,
+    Permission.FEE_OVERRIDE,
     Permission.REPORT_READ,
     Permission.REPORT_EXPORT,
   ],
@@ -152,11 +157,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CARD_READ,
     Permission.DOCUMENT_MANAGE,
   ],
-  // Registrar: student/parent records and admissions documents.
+  // Registrar: student/parent records, admissions, quotations and fee overrides.
   Registrar: [
     Permission.STUDENT_MANAGE,
     Permission.PARENT_MANAGE,
     Permission.DOCUMENT_MANAGE,
+    Permission.ENROLLMENT_MANAGE,
+    Permission.FEE_OVERRIDE,
+    Permission.FINANCE_READ,
     Permission.REPORT_READ,
   ],
   // Counselor: behaviour & achievements, reads attendance.

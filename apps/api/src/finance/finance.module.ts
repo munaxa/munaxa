@@ -24,6 +24,10 @@ import { FeeConfigService } from './fee-config/fee-config.service';
 import { FeeConfigRepository } from './fee-config/fee-config.repository';
 import { EnrollmentController } from './enrollment/enrollment.controller';
 import { EnrollmentService } from './enrollment/enrollment.service';
+import { AdmissionsController } from './admissions/admissions.controller';
+import { AdmissionsService } from './admissions/admissions.service';
+import { AdmissionsRepository } from './admissions/admissions.repository';
+import { QuoteService } from './admissions/quote.service';
 
 /**
  * Finance: fee plans, charges, transactions (CliQ/e-wallet receipt uploads → verify/reject),
@@ -43,12 +47,16 @@ import { EnrollmentService } from './enrollment/enrollment.service';
     CollectionsController,
     FeeConfigController,
     EnrollmentController,
+    AdmissionsController,
   ],
   providers: [
     StorageService,
     FeeConfigService,
     FeeConfigRepository,
     EnrollmentService,
+    AdmissionsService,
+    AdmissionsRepository,
+    QuoteService,
     FeePlanService,
     FeePlanRepository,
     ChargeService,

@@ -38,6 +38,12 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'nav.section.people',
     items: [
       {
+        href: '/admissions',
+        labelKey: 'nav.admissions',
+        icon: 'enrollment',
+        perm: 'enrollment:manage',
+      },
+      {
         href: '/enrollment',
         labelKey: 'nav.enrollment',
         icon: 'enrollment',

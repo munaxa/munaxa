@@ -50,6 +50,10 @@ export const Permission = {
   FINANCE_EXPORT: 'finance:export',
   TRANSACTION_CREATE: 'transaction:create',
   RECEIPT_UPLOAD: 'receipt:upload',
+  // Admissions / enrollment (Phase 22)
+  ENROLLMENT_MANAGE: 'enrollment:manage',
+  FEE_OVERRIDE: 'fee:override',
+  FINANCE_APPROVE: 'finance:approve',
 
   // Communication
   ANNOUNCEMENT_MANAGE: 'announcement:manage',
