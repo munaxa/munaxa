@@ -122,6 +122,41 @@ export interface ReturningStudent {
   }>;
 }
 
+export interface FeeItem {
+  id: string;
+  kind: FeeItemKind;
+  nameEn: string;
+  nameAr: string;
+  mandatory: boolean;
+  discountable: boolean;
+  isActive: boolean;
+}
+
+export interface GradeFeeItem {
+  id: string;
+  feeItemId: string;
+  gradeId: string;
+  academicYearId: string;
+  amount: string;
+  mandatory: boolean;
+  discountable: boolean;
+  isActive: boolean;
+  effectiveFrom: string;
+  feeItem: FeeItem;
+}
+
+export interface FeeModificationRow {
+  id: string;
+  field: string;
+  originalValue: string;
+  newValue: string;
+  difference: string;
+  reason: string;
+  modifiedAt: string;
+  approval: { id: string; status: string; note: string | null; decidedAt: string | null } | null;
+  enrollment: { id: string; student: { firstNameEn: string; lastNameEn: string } } | null;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
@@ -154,4 +189,72 @@ export const admissionsApi = {
       json<EnrollmentRow[]>(r),
     );
   },
+
+  // ── Fee-item catalog ──
+  listFeeItems: () => authFetch('/admissions/fee-items').then((r) => json<FeeItem[]>(r)),
+  createFeeItem: (data: {
+    kind: FeeItemKind;
+    nameEn: string;
+    nameAr: string;
+    mandatory?: boolean;
+    discountable?: boolean;
+  }) =>
+    authFetch('/admissions/fee-items', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<FeeItem>(r),
+    ),
+  updateFeeItem: (
+    id: string,
+    data: {
+      nameEn?: string;
+      nameAr?: string;
+      mandatory?: boolean;
+      discountable?: boolean;
+      isActive?: boolean;
+    },
+  ) =>
+    authFetch(`/admissions/fee-items/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(
+      (r) => json<FeeItem>(r),
+    ),
+  listGradeFeeItems: (academicYearId: string, gradeId?: string) => {
+    const sp = new URLSearchParams({ academicYearId });
+    if (gradeId) sp.set('gradeId', gradeId);
+    return authFetch(`/admissions/grade-fee-items?${sp.toString()}`).then((r) =>
+      json<GradeFeeItem[]>(r),
+    );
+  },
+  upsertGradeFeeItem: (data: {
+    feeItemId: string;
+    gradeId: string;
+    academicYearId: string;
+    amount: number;
+    mandatory?: boolean;
+    discountable?: boolean;
+  }) =>
+    authFetch('/admissions/grade-fee-items', { method: 'POST', body: JSON.stringify(data) }).then(
+      (r) => json<GradeFeeItem>(r),
+    ),
+
+  // ── Approvals ──
+  listModifications: (status?: string) => {
+    const qs = status ? `?status=${status}` : '';
+    return authFetch(`/admissions/fee-modifications${qs}`).then((r) =>
+      json<FeeModificationRow[]>(r),
+    );
+  },
+  approveModification: (id: string, note?: string) =>
+    authFetch(`/admissions/fee-modifications/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ ...(note ? { note } : {}) }),
+    }).then((r) => json<{ id: string; status: string }>(r)),
+  rejectModification: (id: string, note?: string) =>
+    authFetch(`/admissions/fee-modifications/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ ...(note ? { note } : {}) }),
+    }).then((r) => json<{ id: string; status: string }>(r)),
+
+  // ── Financial arrangements ──
+  createArrangement: (data: { studentId: string; enrollmentId?: string; description: string }) =>
+    authFetch('/admissions/arrangements', { method: 'POST', body: JSON.stringify(data) }).then(
+      (r) => json<{ id: string }>(r),
+    ),
 };

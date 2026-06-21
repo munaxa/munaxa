@@ -239,3 +239,19 @@ BEGIN
     $f$, t);
   END LOOP;
 END $$;
+
+-- ── Seed canonical fee items for existing tenants (idempotent) ──
+INSERT INTO "FeeItem" ("id", "tenantId", "kind", "nameEn", "nameAr", "mandatory", "discountable", "isActive", "createdAt", "updatedAt")
+SELECT gen_random_uuid(), t."id", v.kind::"FeeItemKind", v.en, v.ar, v.mand, v.disc, true, now(), now()
+FROM "Tenant" t
+CROSS JOIN (VALUES
+  ('REGISTRATION', 'Registration fee', 'رسوم التسجيل', true,  false),
+  ('TUITION',      'Tuition',          'الرسوم الدراسية', true,  true),
+  ('TRANSPORT',    'Transportation',   'رسوم النقل',     false, false),
+  ('BOOKS',        'Books',            'الكتب',          true,  false),
+  ('UNIFORM',      'Uniform',          'الزي المدرسي',   true,  false),
+  ('INSURANCE',    'Insurance',        'التأمين',         false, false),
+  ('ACTIVITY',     'Activities',       'الأنشطة',         false, true),
+  ('TECHNOLOGY',   'Technology',       'التقنية',         false, true)
+) AS v(kind, en, ar, mand, disc)
+WHERE NOT EXISTS (SELECT 1 FROM "FeeItem" f WHERE f."tenantId" = t."id");

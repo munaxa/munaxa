@@ -96,6 +96,8 @@ export class CollectionsService {
     lastReminderAt: Date | null;
     transportSuspended: boolean;
     transportSuspendedAt: Date | null;
+    feeModified: boolean;
+    customArrangement: boolean;
     snapshot: ReminderSnapshot;
     reminders: Awaited<ReturnType<CollectionsRepository['listReminders']>>;
   }> {
@@ -115,6 +117,9 @@ export class CollectionsService {
       lastReminderAt: profile?.lastReminderAt ?? null,
       transportSuspended: profile?.transportSuspended ?? false,
       transportSuspendedAt: profile?.transportSuspendedAt ?? null,
+      // Permanent financial flags (set by admissions registrar overrides / arrangements).
+      feeModified: profile?.feeModified ?? false,
+      customArrangement: profile?.customArrangement ?? false,
       snapshot,
       reminders,
     };

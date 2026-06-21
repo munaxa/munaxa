@@ -65,6 +65,11 @@ export default function AdmissionsPage() {
   const [quote, setQuote] = useState<ComputedQuote | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Registrar fee overrides, keyed by fee kind: { amount, reason }.
+  const [overrides, setOverrides] = useState<Record<string, { amount: string; reason: string }>>(
+    {},
+  );
+
   // New-student + parent info (collected only at commit, after the parent agrees).
   const [sFirstEn, setSFirstEn] = useState('');
   const [sLastEn, setSLastEn] = useState('');
@@ -130,10 +135,21 @@ export default function AdmissionsPage() {
 
   const canQuote = Boolean(gradeId && academicYearId && (mode === 'NEW' || returningId));
 
+  function buildOverrides() {
+    return Object.entries(overrides)
+      .filter(([, v]) => v.amount.trim() !== '' && !Number.isNaN(Number(v.amount)))
+      .map(([kind, v]) => ({
+        kind: kind as ComputedQuote['lines'][number]['kind'],
+        amount: Number(v.amount),
+        reason: v.reason.trim() || 'Registrar override',
+      }));
+  }
+
   async function getQuote() {
     if (!canQuote) return;
     setBusy(true);
     try {
+      const ov = buildOverrides();
       const q = await admissionsApi.quote({
         gradeId,
         academicYearId,
@@ -142,6 +158,7 @@ export default function AdmissionsPage() {
         paymentMode,
         installments: Number(installments) || 1,
         firstDueDate,
+        ...(ov.length ? { overrides: ov } : {}),
         persist: true,
       });
       setQuote(q);
@@ -412,6 +429,49 @@ export default function AdmissionsPage() {
                 ))}
               </TBody>
             </Table>
+
+            <details className="rounded-lg border border-border p-3">
+              <summary className="cursor-pointer text-sm font-medium">
+                Adjust fees (registrar override)
+              </summary>
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Enter a new amount to override a fee. Overrides are tracked and flag the student
+                  as “Fee Modified”; a reason is required.
+                </p>
+                {quote.lines.map((l) => (
+                  <div key={`ov-${l.kind}`} className="grid items-center gap-2 sm:grid-cols-3">
+                    <span className="text-sm">{l.label}</span>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      dir="ltr"
+                      placeholder={l.amount}
+                      value={overrides[l.kind]?.amount ?? ''}
+                      onChange={(e) =>
+                        setOverrides((p) => ({
+                          ...p,
+                          [l.kind]: { amount: e.target.value, reason: p[l.kind]?.reason ?? '' },
+                        }))
+                      }
+                    />
+                    <Input
+                      placeholder="Reason"
+                      value={overrides[l.kind]?.reason ?? ''}
+                      onChange={(e) =>
+                        setOverrides((p) => ({
+                          ...p,
+                          [l.kind]: { amount: p[l.kind]?.amount ?? '', reason: e.target.value },
+                        }))
+                      }
+                    />
+                  </div>
+                ))}
+                <Button size="sm" variant="outline" onClick={() => void getQuote()} disabled={busy}>
+                  {busy ? 'Recomputing…' : 'Recompute with overrides'}
+                </Button>
+              </div>
+            </details>
 
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
               <Row label="Total fees" value={jod(quote.totalFees)} />
