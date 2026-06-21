@@ -67,7 +67,9 @@
     "platformPlane": "Platform plane",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "expandNav": "Expand navigation",
+    "collapseNav": "Collapse navigation"
   },
   "search": {
     "title": "Search",
