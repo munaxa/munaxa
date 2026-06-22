@@ -414,6 +414,22 @@ export const feeConfigApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<GradeFeeSchedule>(r)),
+  updateGradeFee: (
+    id: string,
+    data: Partial<{
+      gradeId: string;
+      academicYearId: string;
+      registrationFee: number;
+      tuitionFee: number;
+      effectiveFrom: string;
+      effectiveTo: string;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/grade-fees/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<GradeFeeSchedule>(r)),
 
   transportFares: (academicYearId?: string) =>
     authFetch(
@@ -426,6 +442,19 @@ export const feeConfigApi = {
   }) =>
     authFetch('/finance/fee-config/transport-fares', {
       method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<TransportFare>(r)),
+  updateTransportFare: (
+    id: string,
+    data: Partial<{
+      academicYearId: string;
+      direction: TransportDirection;
+      amount: number;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/transport-fares/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     }).then((r) => json<TransportFare>(r)),
 
@@ -441,6 +470,22 @@ export const feeConfigApi = {
   }) =>
     authFetch('/finance/fee-config/discount-rules', {
       method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<DiscountRule>(r)),
+  updateDiscountRule: (
+    id: string,
+    data: Partial<{
+      name: string;
+      type: DiscountType;
+      calc: DiscountCalc;
+      value: number;
+      maxAmount: number;
+      appliesToTransport: boolean;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/discount-rules/${id}`, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     }).then((r) => json<DiscountRule>(r)),
 
