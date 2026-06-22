@@ -130,6 +130,8 @@ export interface CollectionsProfile {
 
 export interface AgingBuckets {
   studentId: string;
+  /** Resolved student display name (present on aging-report rows). */
+  studentName?: string;
   current: string;
   d1_30: string;
   d31_60: string;
@@ -140,7 +142,7 @@ export interface AgingBuckets {
 
 export interface AgingReport {
   rows: AgingBuckets[];
-  totals: Omit<AgingBuckets, 'studentId'>;
+  totals: Omit<AgingBuckets, 'studentId' | 'studentName'>;
   collectedPct: string;
 }
 
@@ -153,6 +155,8 @@ export interface PushOutstandingInput {
   match?: 'ALL' | 'ANY';
   /** Bypass parents' notification preferences (school-enforced finance notice). */
   mandatory?: boolean;
+  /** Also email the assigned parent(s) beside the push (default true). */
+  email?: boolean;
 }
 
 export interface PushOutstandingResult {
@@ -163,6 +167,7 @@ export interface PushOutstandingResult {
   skippedLegal: number;
   skippedNoParent: number;
   totalRecipients: number;
+  totalEmails: number;
 }
 
 export interface TransportEvaluation {

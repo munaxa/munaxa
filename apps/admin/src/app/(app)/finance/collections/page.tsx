@@ -125,7 +125,7 @@ export default function CollectionsPage() {
                 <TBody>
                   {report.rows.map((r) => (
                     <TR key={r.studentId}>
-                      <TD className="font-mono text-xs">{r.studentId.slice(0, 8)}</TD>
+                      <TD className="text-sm">{r.studentName ?? r.studentId.slice(0, 8)}</TD>
                       <TD className="text-end font-mono">{Number(r.current).toFixed(3)}</TD>
                       <TD className="text-end font-mono">{Number(r.d1_30).toFixed(3)}</TD>
                       <TD className="text-end font-mono">{Number(r.d31_60).toFixed(3)}</TD>
@@ -203,6 +203,7 @@ function PushOutstandingDialog({
   const [minAmount, setMinAmount] = useState('');
   const [match, setMatch] = useState<'ALL' | 'ANY'>('ALL');
   const [mandatory, setMandatory] = useState(false);
+  const [alsoEmail, setAlsoEmail] = useState(true);
   const [sending, setSending] = useState(false);
 
   const hasAge = ageDays !== '';
@@ -214,6 +215,7 @@ function PushOutstandingDialog({
     setMinAmount('');
     setMatch('ALL');
     setMandatory(false);
+    setAlsoEmail(true);
   }
 
   async function submit() {
@@ -226,14 +228,16 @@ function PushOutstandingDialog({
     if (hasAmount) payload.minAmount = Number(minAmount).toFixed(3);
     if (bothFilters) payload.match = match;
     if (mandatory) payload.mandatory = true;
+    payload.email = alsoEmail;
 
     setSending(true);
     try {
       const r = await financeApi.pushOutstanding(payload);
       toast.success(
         `Pushed to ${r.pushed} account(s) — ${r.totalRecipients} parent(s)` +
+          (r.totalEmails ? `, ${r.totalEmails} email(s)` : '') +
           (r.skippedLegal ? `, ${r.skippedLegal} skipped (legal)` : '') +
-          (r.skippedNoParent ? `, ${r.skippedNoParent} without a parent account` : '') +
+          (r.skippedNoParent ? `, ${r.skippedNoParent} without a parent contact` : '') +
           '.',
       );
       reset();
@@ -251,14 +255,14 @@ function PushOutstandingDialog({
       open={open}
       onClose={onClose}
       title="Push outstanding balances"
-      description="Send a push notification of the outstanding balance to parents. Use the filters to target overdue or high-value accounts. Students in legal collections are always excluded."
+      description="Notify parents of the outstanding balance by push and (optionally) email. Use the filters to target overdue or high-value accounts. Students in legal collections are always excluded."
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={sending}>
             Cancel
           </Button>
           <Button onClick={() => void submit()} disabled={sending}>
-            {sending ? 'Sending…' : 'Send push'}
+            {sending ? 'Sending…' : 'Send notice'}
           </Button>
         </>
       }
@@ -306,6 +310,12 @@ function PushOutstandingDialog({
             </Select>
           </Field>
         ) : null}
+
+        <Checkbox
+          checked={alsoEmail}
+          onChange={(e) => setAlsoEmail(e.target.checked)}
+          label="Also email the assigned parent(s) at their email on file"
+        />
 
         <Checkbox
           checked={mandatory}

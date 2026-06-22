@@ -78,4 +78,12 @@ export class PushOutstandingDto {
   @IsOptional()
   @IsBoolean()
   mandatory?: boolean;
+
+  @ApiPropertyOptional({
+    default: true,
+    description: 'Also email the assigned parent(s) at their email on file (beside the push)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  email?: boolean;
 }

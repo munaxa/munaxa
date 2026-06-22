@@ -2236,6 +2236,7 @@ enum ReminderChannel {
   IN_APP
   SMS
   PUSH
+  EMAIL
 }
 
 /// One per student: collections/legal tag + reminder cadence bookkeeping.

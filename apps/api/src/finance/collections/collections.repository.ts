@@ -12,6 +12,7 @@ import { TenantContextStore } from '../../prisma/tenant-context';
 export interface ParentContact {
   userId: string | null;
   phone: string | null;
+  email: string | null;
   name: string;
 }
 
@@ -62,13 +63,20 @@ export class CollectionsRepository extends TenantRepository {
         where: { studentId },
         select: {
           parent: {
-            select: { userId: true, phone: true, firstNameEn: true, lastNameEn: true },
+            select: {
+              userId: true,
+              phone: true,
+              email: true,
+              firstNameEn: true,
+              lastNameEn: true,
+            },
           },
         },
       });
       return links.map((l) => ({
         userId: l.parent.userId,
         phone: l.parent.phone,
+        email: l.parent.email,
         name: `${l.parent.firstNameEn} ${l.parent.lastNameEn}`.trim(),
       }));
     });

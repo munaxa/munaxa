@@ -4,10 +4,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma, type ReminderChannel, type StudentBillingProfile } from '@prisma/client';
 import { BillingRepository } from '../ledger/billing.repository';
 import { CollectionsRepository } from './collections.repository';
 import { SmsService } from './sms.service';
+import { MailService } from '../../mail/mail.service';
+import type { Env } from '../../config/env.validation';
 import { NotificationEventBus } from '../../communication/engine/notification-event-bus';
 import { NotificationEventType } from '../../communication/engine/notification-events';
 import { agedAmount, qualifiesOutstanding } from './outstanding-filter';
@@ -27,6 +30,7 @@ export interface ReminderSnapshot {
 
 export interface AgingBuckets {
   studentId: string;
+  studentName?: string; // resolved display name (populated in the aging report)
   current: string; // balance not yet overdue (incl. undated charges)
   d1_30: string;
   d31_60: string;
@@ -83,6 +87,7 @@ export interface PushOutstandingResult {
   skippedLegal: number; // excluded (LEGAL collections tag)
   skippedNoParent: number; // matched but no parent account to notify
   totalRecipients: number; // total parent notifications created
+  totalEmails: number; // settlement emails sent to parents' email addresses
 }
 
 /**
@@ -98,6 +103,8 @@ export class CollectionsService {
     private readonly billing: BillingRepository,
     private readonly sms: SmsService,
     private readonly notifications: NotificationEventBus,
+    private readonly mail: MailService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   // ----------------------------------------------------------------- tagging
@@ -242,6 +249,8 @@ export class CollectionsService {
     for (const studentId of candidates) {
       const a = await this.aging(studentId);
       if (new Prisma.Decimal(a.total).lessThanOrEqualTo(ZERO)) continue;
+      const names = await this.repo.studentNames(studentId);
+      if (names) a.studentName = names.en;
       rows.push(a);
       sum.current = sum.current.plus(a.current);
       sum.d1_30 = sum.d1_30.plus(a.d1_30);
@@ -403,7 +412,9 @@ export class CollectionsService {
       skippedLegal: 0,
       skippedNoParent: 0,
       totalRecipients: 0,
+      totalEmails: 0,
     };
+    const alsoEmail = dto.email !== false;
 
     for (const studentId of candidates) {
       if (legal.has(studentId)) {
@@ -419,7 +430,11 @@ export class CollectionsService {
         this.repo.parentsOf(studentId),
       ]);
       const userIds = parents.map((p) => p.userId).filter((id): id is string => Boolean(id));
-      if (userIds.length === 0) {
+      const emails = alsoEmail
+        ? [...new Set(parents.map((p) => p.email).filter((e): e is string => Boolean(e)))]
+        : [];
+      // Nothing to reach the family by — neither an in-app/push account nor an email on file.
+      if (userIds.length === 0 && emails.length === 0) {
         result.skippedNoParent += 1;
         continue;
       }
@@ -432,28 +447,51 @@ export class CollectionsService {
         dto.minAgeDays,
       );
 
-      const summary = await this.notifications.emit({
-        type: NotificationEventType.PaymentOverdue,
-        recipients: { userIds },
-        title,
-        body,
-        context: { StudentName: names?.en ?? 'your child', Amount: `${a.total} JOD` },
-        data: { studentId, outstanding: a.total, overdue: overdue.toFixed(3) },
-        mandatory: dto.mandatory ?? false,
-      });
+      let pushRecipients = 0;
+      if (userIds.length > 0) {
+        const summary = await this.notifications.emit({
+          type: NotificationEventType.PaymentOverdue,
+          recipients: { userIds },
+          title,
+          body,
+          context: { StudentName: names?.en ?? 'your child', Amount: `${a.total} JOD` },
+          data: { studentId, outstanding: a.total, overdue: overdue.toFixed(3) },
+          mandatory: dto.mandatory ?? false,
+        });
+        pushRecipients = summary.recipients;
+      }
 
+      // Email the assigned parent(s) directly (reaches guardians without a login account).
+      let emailsSent = 0;
+      if (emails.length > 0) {
+        const from = this.config.get('EMAIL_FROM_FINANCE', { infer: true });
+        const html = body
+          .split('\n')
+          .map((line) => `<p>${line}</p>`)
+          .join('');
+        for (const to of emails) {
+          const { sent } = await this.mail.send({ to, from, subject: title, html, text: body });
+          if (sent) emailsSent += 1;
+        }
+      }
+
+      const channels: ReminderChannel[] = [
+        ...(pushRecipients > 0 ? (['PUSH'] as const) : []),
+        ...(emailsSent > 0 ? (['EMAIL'] as const) : []),
+      ];
       await this.repo.logReminder({
         studentId,
-        channels: ['PUSH'],
+        channels: channels.length ? channels : ['PUSH'],
         outstanding: new Prisma.Decimal(a.total),
         dueThisMonth: ZERO,
         overdue,
-        recipientCount: summary.recipients,
+        recipientCount: pushRecipients,
         smsSentCount: 0,
       });
 
       result.pushed += 1;
-      result.totalRecipients += summary.recipients;
+      result.totalRecipients += pushRecipients;
+      result.totalEmails += emailsSent;
     }
 
     return result;
