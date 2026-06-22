@@ -39,6 +39,18 @@ import {
 const DIRECTIONS: TransportDirection[] = ['NONE', 'ONE_WAY', 'TWO_WAY'];
 const jod = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
 
+function StatusBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+        active ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'
+      }`}
+    >
+      {active ? 'Active' : 'Archived'}
+    </span>
+  );
+}
+
 export default function FeeConfigPage() {
   const toast = useToast();
   const [tab, setTab] = useState('grade');
@@ -206,17 +218,24 @@ function GradeFees({
     }
   }
 
-  async function remove(r: GradeFeeSchedule) {
-    if (!(await confirm({ description: `Delete the grade fee for ${gradeName(r.gradeId)}?` }))) {
+  async function toggleActive(r: GradeFeeSchedule) {
+    if (
+      r.isActive &&
+      !(await confirm({
+        description: `Archive the grade fee for ${gradeName(r.gradeId)}? It will no longer be used for new quotes but is kept for the record.`,
+        confirmLabel: 'Archive',
+        destructive: false,
+      }))
+    ) {
       return;
     }
     try {
-      await feeConfigApi.deleteGradeFee(r.id);
+      await feeConfigApi.updateGradeFee(r.id, { isActive: !r.isActive });
       if (editingId === r.id) cancelEdit();
-      toast.success('Deleted');
+      toast.success(r.isActive ? 'Archived' : 'Restored');
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Delete failed');
+      toast.error(err instanceof Error ? err.message : 'Update failed');
     }
   }
 
@@ -286,23 +305,27 @@ function GradeFees({
               <TH className="text-end">Registration</TH>
               <TH className="text-end">Tuition</TH>
               <TH>Effective from</TH>
+              <TH>Status</TH>
               <TH className="text-end">Actions</TH>
             </TR>
           </THead>
           <TBody>
             {rows.map((r) => (
-              <TR key={r.id}>
+              <TR key={r.id} className={r.isActive ? undefined : 'opacity-60'}>
                 <TD>{gradeName(r.gradeId)}</TD>
                 <TD className="text-end font-mono">{jod(r.registrationFee)}</TD>
                 <TD className="text-end font-mono">{jod(r.tuitionFee)}</TD>
                 <TD className="font-mono text-xs">{r.effectiveFrom.slice(0, 10)}</TD>
+                <TD>
+                  <StatusBadge active={r.isActive} />
+                </TD>
                 <TD className="text-end">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
                       Edit
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void remove(r)}>
-                      Delete
+                    <Button size="sm" variant="ghost" onClick={() => void toggleActive(r)}>
+                      {r.isActive ? 'Archive' : 'Restore'}
                     </Button>
                   </div>
                 </TD>
@@ -310,7 +333,7 @@ function GradeFees({
             ))}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={5}>
+                <TD colSpan={6}>
                   <EmptyState title={yearId ? 'No grade fees yet' : 'Select an academic year'} />
                 </TD>
               </TR>
@@ -379,17 +402,24 @@ function TransportFares({ yearId }: { yearId: string }) {
     }
   }
 
-  async function remove(r: TransportFare) {
-    if (!(await confirm({ description: `Delete the ${r.direction.replace('_', ' ')} fare?` }))) {
+  async function toggleActive(r: TransportFare) {
+    if (
+      r.isActive &&
+      !(await confirm({
+        description: `Archive the ${r.direction.replace('_', ' ')} fare? It will no longer be used for new quotes but is kept for the record.`,
+        confirmLabel: 'Archive',
+        destructive: false,
+      }))
+    ) {
       return;
     }
     try {
-      await feeConfigApi.deleteTransportFare(r.id);
+      await feeConfigApi.updateTransportFare(r.id, { isActive: !r.isActive });
       if (editingId === r.id) cancelEdit();
-      toast.success('Deleted');
+      toast.success(r.isActive ? 'Archived' : 'Restored');
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Delete failed');
+      toast.error(err instanceof Error ? err.message : 'Update failed');
     }
   }
 
@@ -439,21 +469,25 @@ function TransportFares({ yearId }: { yearId: string }) {
             <TR>
               <TH>Direction</TH>
               <TH className="text-end">Amount</TH>
+              <TH>Status</TH>
               <TH className="text-end">Actions</TH>
             </TR>
           </THead>
           <TBody>
             {rows.map((r) => (
-              <TR key={r.id}>
+              <TR key={r.id} className={r.isActive ? undefined : 'opacity-60'}>
                 <TD>{r.direction.replace('_', ' ')}</TD>
                 <TD className="text-end font-mono">{jod(r.amount)}</TD>
+                <TD>
+                  <StatusBadge active={r.isActive} />
+                </TD>
                 <TD className="text-end">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
                       Edit
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void remove(r)}>
-                      Delete
+                    <Button size="sm" variant="ghost" onClick={() => void toggleActive(r)}>
+                      {r.isActive ? 'Archive' : 'Restore'}
                     </Button>
                   </div>
                 </TD>
@@ -461,7 +495,7 @@ function TransportFares({ yearId }: { yearId: string }) {
             ))}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={3}>
+                <TD colSpan={4}>
                   <EmptyState
                     title={yearId ? 'No transport fares yet' : 'Select an academic year'}
                   />
@@ -532,15 +566,24 @@ function DiscountRules() {
     }
   }
 
-  async function remove(r: DiscountRule) {
-    if (!(await confirm({ description: `Delete the discount rule "${r.name}"?` }))) return;
+  async function toggleActive(r: DiscountRule) {
+    if (
+      r.isActive &&
+      !(await confirm({
+        description: `Archive the discount rule "${r.name}"? It can no longer be applied but is kept for the record.`,
+        confirmLabel: 'Archive',
+        destructive: false,
+      }))
+    ) {
+      return;
+    }
     try {
-      await feeConfigApi.deleteDiscountRule(r.id);
+      await feeConfigApi.updateDiscountRule(r.id, { isActive: !r.isActive });
       if (editingId === r.id) cancelEdit();
-      toast.success('Deleted');
+      toast.success(r.isActive ? 'Archived' : 'Restored');
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Delete failed');
+      toast.error(err instanceof Error ? err.message : 'Update failed');
     }
   }
 
@@ -606,25 +649,29 @@ function DiscountRules() {
               <TH>Type</TH>
               <TH>Calc</TH>
               <TH className="text-end">Value</TH>
+              <TH>Status</TH>
               <TH className="text-end">Actions</TH>
             </TR>
           </THead>
           <TBody>
             {rows.map((r) => (
-              <TR key={r.id}>
+              <TR key={r.id} className={r.isActive ? undefined : 'opacity-60'}>
                 <TD>{r.name}</TD>
                 <TD>{r.type.replace('_', ' ')}</TD>
                 <TD>{r.calc}</TD>
                 <TD className="text-end font-mono">
                   {r.calc === 'PERCENT' ? `${Number(r.value)}%` : jod(r.value)}
                 </TD>
+                <TD>
+                  <StatusBadge active={r.isActive} />
+                </TD>
                 <TD className="text-end">
                   <div className="flex justify-end gap-1">
                     <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
                       Edit
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void remove(r)}>
-                      Delete
+                    <Button size="sm" variant="ghost" onClick={() => void toggleActive(r)}>
+                      {r.isActive ? 'Archive' : 'Restore'}
                     </Button>
                   </div>
                 </TD>
@@ -632,7 +679,7 @@ function DiscountRules() {
             ))}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={5}>
+                <TD colSpan={6}>
                   <EmptyState title="No discount rules yet" />
                 </TD>
               </TR>

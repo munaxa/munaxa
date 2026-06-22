@@ -80,10 +80,6 @@ export class FeeConfigService {
     });
   }
 
-  deleteGradeFee(id: string) {
-    return this.repo.deleteGradeFee(id);
-  }
-
   // Transport fares
   listTransportFares(academicYearId?: string) {
     return this.repo.listTransportFares(academicYearId);
@@ -105,10 +101,6 @@ export class FeeConfigService {
       ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
     });
-  }
-
-  deleteTransportFare(id: string) {
-    return this.repo.deleteTransportFare(id);
   }
 
   // Discount rules
@@ -148,10 +140,6 @@ export class FeeConfigService {
       ...(dto.endDate !== undefined ? { endDate: date(dto.endDate) ?? null } : {}),
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
     });
-  }
-
-  deleteDiscountRule(id: string) {
-    return this.repo.deleteDiscountRule(id);
   }
 
   // Billing policy

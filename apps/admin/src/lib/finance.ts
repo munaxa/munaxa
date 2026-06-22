@@ -430,8 +430,6 @@ export const feeConfigApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }).then((r) => json<GradeFeeSchedule>(r)),
-  deleteGradeFee: (id: string) =>
-    authFetch(`/finance/fee-config/grade-fees/${id}`, { method: 'DELETE' }).then(() => undefined),
 
   transportFares: (academicYearId?: string) =>
     authFetch(
@@ -459,10 +457,6 @@ export const feeConfigApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }).then((r) => json<TransportFare>(r)),
-  deleteTransportFare: (id: string) =>
-    authFetch(`/finance/fee-config/transport-fares/${id}`, { method: 'DELETE' }).then(
-      () => undefined,
-    ),
 
   discountRules: () =>
     authFetch('/finance/fee-config/discount-rules').then((r) => json<DiscountRule[]>(r)),
@@ -494,10 +488,6 @@ export const feeConfigApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }).then((r) => json<DiscountRule>(r)),
-  deleteDiscountRule: (id: string) =>
-    authFetch(`/finance/fee-config/discount-rules/${id}`, { method: 'DELETE' }).then(
-      () => undefined,
-    ),
 
   policy: () => authFetch('/finance/fee-config/policy').then((r) => json<BillingPolicy | null>(r)),
   upsertPolicy: (data: {
