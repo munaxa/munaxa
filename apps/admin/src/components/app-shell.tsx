@@ -50,12 +50,6 @@ const NAV_GROUPS: NavGroup[] = [
         perm: 'finance:approve',
       },
       {
-        href: '/enrollment',
-        labelKey: 'nav.enrollment',
-        icon: 'enrollment',
-        perm: 'finance:manage',
-      },
-      {
         href: '/people/students',
         labelKey: 'nav.people',
         icon: 'students',
