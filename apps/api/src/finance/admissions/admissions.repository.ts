@@ -282,6 +282,7 @@ export class AdmissionsRepository extends TenantRepository {
               firstNameAr: p.firstNameAr || p.firstNameEn,
               lastNameAr: p.lastNameAr || p.lastNameEn,
               ...(p.phone ? { phone: p.phone } : {}),
+              ...(p.email ? { email: p.email } : {}),
             },
           });
           await tx.parentStudent.create({

@@ -209,6 +209,7 @@ export interface Parent {
   firstNameAr: string;
   lastNameAr: string;
   phone?: string | null;
+  email?: string | null;
   nationalId?: string | null;
   occupation?: string | null;
 }
@@ -219,6 +220,7 @@ export interface CreateParentInput {
   firstNameAr: string;
   lastNameAr: string;
   phone?: string;
+  email?: string;
   nationalId?: string;
   occupation?: string;
 }
@@ -229,6 +231,7 @@ export interface UpdateParentInput {
   firstNameAr?: string;
   lastNameAr?: string;
   phone?: string;
+  email?: string;
   nationalId?: string;
   occupation?: string;
 }

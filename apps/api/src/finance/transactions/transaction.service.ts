@@ -3,10 +3,12 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Transaction } from '@prisma/client';
 import { TransactionRepository } from './transaction.repository';
 import { StorageService, type PresignedUpload } from '../../common/storage.service';
+import { MailService } from '../../mail/mail.service';
 import { requireTenantId } from '../../common/tenant.util';
 import { LedgerService } from '../ledger/ledger.service';
 import type {
@@ -21,6 +23,7 @@ export class TransactionService {
     private readonly repo: TransactionRepository,
     private readonly storage: StorageService,
     private readonly ledger: LedgerService,
+    private readonly mail: MailService,
   ) {}
 
   presignReceipt(dto: PresignReceiptDto): Promise<PresignedUpload> {
@@ -64,6 +67,38 @@ export class TransactionService {
   async reject(id: string, dto: RejectTransactionDto): Promise<Transaction> {
     const txn = await this.requirePending(id);
     return this.repo.setStatus(txn.id, 'REJECTED', dto.note);
+  }
+
+  /**
+   * Email the student's parent that a settled (verified) payment was received, and record on the
+   * transaction that the notification was sent. Staff trigger this from Finance after verifying.
+   */
+  async notifyParent(id: string): Promise<Transaction> {
+    const txn = await this.repo.findById(id);
+    if (!txn) throw new NotFoundException('Transaction not found');
+    if (txn.status !== 'VERIFIED') {
+      throw new ConflictException('Only a settled (verified) payment can be notified');
+    }
+    const { studentNameEn, parentEmail } = await this.repo.studentNotifyContact(txn.studentId);
+    if (!parentEmail) {
+      throw new BadRequestException('No parent email on file for this student');
+    }
+    const schoolName = await this.repo.tenantName();
+    const amount = `${txn.amount.toFixed(3)} JOD`;
+    const subject = `${schoolName}: payment received`;
+    const html =
+      `<p>Dear parent,</p>` +
+      `<p>We confirm we have received a payment of <strong>${amount}</strong>` +
+      `${studentNameEn ? ` for <strong>${studentNameEn}</strong>` : ''}.</p>` +
+      `<p>Thank you,<br/>${schoolName}</p>`;
+    const text =
+      `Dear parent,\n\nWe confirm we have received a payment of ${amount}` +
+      `${studentNameEn ? ` for ${studentNameEn}` : ''}.\n\nThank you,\n${schoolName}`;
+    const { sent } = await this.mail.send({ to: parentEmail, subject, html, text });
+    if (!sent) {
+      throw new ServiceUnavailableException('Email could not be sent (mail service unavailable)');
+    }
+    return this.repo.setParentNotified(id);
   }
 
   listForStudent(studentId: string): Promise<Transaction[]> {

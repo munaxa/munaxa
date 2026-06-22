@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateParentDto {
   @ApiProperty()
@@ -31,6 +31,12 @@ export class CreateParentDto {
   @IsString()
   @MaxLength(40)
   phone?: string;
+
+  @ApiPropertyOptional({ description: 'Contact email for payment/settlement notifications' })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(160)
+  email?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

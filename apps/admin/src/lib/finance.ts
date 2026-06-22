@@ -9,6 +9,8 @@ export interface Transaction {
   status: string;
   reference?: string | null;
   chargeId?: string | null;
+  /** ISO timestamp when the parent was emailed about this settled payment (null = not sent). */
+  parentNotifiedAt?: string | null;
 }
 
 export interface Charge {
@@ -240,6 +242,10 @@ export const financeApi = {
   reject: (id: string) =>
     authFetch(`/finance/transactions/${id}/reject`, { method: 'POST', body: '{}' }).then((r) =>
       json(r),
+    ),
+  notifyParent: (id: string) =>
+    authFetch(`/finance/transactions/${id}/notify-parent`, { method: 'POST' }).then((r) =>
+      json<Transaction>(r),
     ),
 
   // Ledger — deductions, allocation, refunds

@@ -42,6 +42,14 @@ export class TransactionController {
     return this.service.reject(id, dto);
   }
 
+  @Post(':id/notify-parent')
+  @HttpCode(200)
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Email the parent that a settled payment was received (records it)' })
+  notifyParent(@Param('id') id: string) {
+    return this.service.notifyParent(id);
+  }
+
   @Get()
   @RequirePermissions(Permission.FINANCE_READ)
   @ApiQuery({ name: 'studentId', required: true })

@@ -677,6 +677,7 @@ model Parent {
   firstNameAr String
   lastNameAr  String
   phone       String?
+  email       String?
   nationalId  String?
   occupation  String?
   createdAt   DateTime  @default(now()) @db.Timestamptz(6)
@@ -1281,6 +1282,8 @@ model Transaction {
   recordedById String?           @db.Uuid
   verifiedById String?           @db.Uuid
   verifiedAt   DateTime?         @db.Timestamptz(6)
+  // When a parent was notified by email that this settled payment was received (null = not sent).
+  parentNotifiedAt DateTime?     @db.Timestamptz(6)
   createdAt    DateTime          @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime          @updatedAt @db.Timestamptz(6)
 
