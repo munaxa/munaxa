@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
@@ -41,7 +41,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-bg flex min-h-screen items-center justify-center p-4">
+    <main className="login-bg relative flex min-h-screen items-center justify-center p-4">
+      <ThemeToggle />
       <div className="login-card relative w-full max-w-sm overflow-hidden rounded-[2rem]">
         {/* Content sits above the wave (z-10); pb leaves room for the wave + legal text. */}
         <div className="relative z-10 flex flex-col px-8 pb-32 pt-12">
@@ -134,6 +135,40 @@ export default function LoginPage() {
   );
 }
 
+const THEME_KEY = 'munaxa.theme';
+type Theme = 'light' | 'dark';
+
+/**
+ * Light/dark switch for the sign-in screen. Mirrors the shell's toggle: persists to localStorage
+ * under the shared `munaxa.theme` key and flips the `.dark` class on <html> (the root layout reads
+ * the same key before paint, so the choice carries into the app after sign-in). Icon renders only
+ * after mount to avoid a hydration mismatch with the server's light default.
+ */
+function ThemeToggle() {
+  const [theme, setTheme] = useState<Theme>('light');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const saved = (localStorage.getItem(THEME_KEY) as Theme | null) ?? 'light';
+    setTheme(saved);
+    document.documentElement.classList.toggle('dark', saved === 'dark');
+    setMounted(true);
+  }, []);
+
+  function toggle() {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem(THEME_KEY, next);
+    document.documentElement.classList.toggle('dark', next === 'dark');
+  }
+
+  return (
+    <button type="button" onClick={toggle} aria-label="Toggle theme" className="login-toggle">
+      {mounted && theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+    </button>
+  );
+}
+
 /**
  * Underline input with a floating label and a leading brand icon. The label rides on the baseline
  * as a placeholder and animates up + turns violet on focus or once a value is present — driven by
@@ -222,6 +257,33 @@ function WaveSvg({
         </linearGradient>
       </defs>
       <path d={d} fill={`url(#${id})`} />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
     </svg>
   );
 }
