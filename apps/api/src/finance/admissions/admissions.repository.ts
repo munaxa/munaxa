@@ -276,10 +276,16 @@ export class AdmissionsRepository extends TenantRepository {
         });
         studentId = created.id;
 
-        // 2) Parent + link (new students only; returning students keep existing links).
-        if (dto.parent) {
-          const p = dto.parent;
-          const parent = await tx.parent.create({
+        // 2) Parent — reuse an existing guardian by mobile (de-dup), else create. Then link.
+        // `dto.parent` is guaranteed present for a new student (validated above).
+        const p = dto.parent;
+        const relation = p.relation ?? ParentRelation.GUARDIAN;
+        const existingParent = p.phone
+          ? await tx.parent.findFirst({ where: { tenantId, phone: p.phone, deletedAt: null } })
+          : null;
+        const parent =
+          existingParent ??
+          (await tx.parent.create({
             data: {
               tenantId,
               firstNameEn: p.firstNameEn,
@@ -290,15 +296,14 @@ export class AdmissionsRepository extends TenantRepository {
               ...(p.phoneAlt ? { phoneAlt: p.phoneAlt } : {}),
               ...(p.email ? { email: p.email } : {}),
             },
-          });
+          }));
+        // Link the guardian to the new student (skip if reusing a parent already linked).
+        const existingLink = await tx.parentStudent.findFirst({
+          where: { tenantId, parentId: parent.id, studentId },
+        });
+        if (!existingLink) {
           await tx.parentStudent.create({
-            data: {
-              tenantId,
-              parentId: parent.id,
-              studentId,
-              relation: ParentRelation.GUARDIAN,
-              isPrimary: true,
-            },
+            data: { tenantId, parentId: parent.id, studentId, relation, isPrimary: true },
           });
         }
       } else if (dto.sectionId) {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Parent } from '@prisma/client';
 import { ParentRepository } from './parent.repository';
 import type { CreateParentDto, UpdateParentDto } from './parent.dto';
@@ -7,7 +7,11 @@ import type { CreateParentDto, UpdateParentDto } from './parent.dto';
 export class ParentService {
   constructor(private readonly repo: ParentRepository) {}
 
-  create(dto: CreateParentDto): Promise<Parent> {
+  async create(dto: CreateParentDto): Promise<Parent> {
+    // Mobile is the de-duplication key — point staff at the existing record instead of duplicating.
+    if (dto.phone && (await this.repo.findByPhone(dto.phone))) {
+      throw new ConflictException('A parent with this mobile number already exists');
+    }
     return this.repo.create(dto);
   }
 
@@ -23,6 +27,12 @@ export class ParentService {
 
   async update(id: string, dto: UpdateParentDto): Promise<Parent> {
     await this.get(id);
+    if (dto.phone) {
+      const holder = await this.repo.findByPhone(dto.phone);
+      if (holder && holder.id !== id) {
+        throw new ConflictException('Another parent already uses this mobile number');
+      }
+    }
     return this.repo.update(id, dto);
   }
 

@@ -18,6 +18,11 @@ export class ParentRepository extends TenantRepository {
     return this.run((tx) => tx.parent.findFirst({ where: { id, deletedAt: null } }));
   }
 
+  /** An active parent holding this mobile number, if any (de-duplication key). */
+  findByPhone(phone: string): Promise<Parent | null> {
+    return this.run((tx) => tx.parent.findFirst({ where: { phone, deletedAt: null } }));
+  }
+
   /** Parents linked to a given student (used by the parent portal in later phases). */
   findByStudent(studentId: string): Promise<Parent[]> {
     return this.run((tx) =>

@@ -42,6 +42,7 @@ export default function ParentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState<Parent | null>(null);
+  const [editing, setEditing] = useState<Parent | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -90,7 +91,7 @@ export default function ParentsPage() {
             <CardTitle>{t('people.addParent')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <CreateParent onCreated={load} onError={setError} />
+            <ParentForm onDone={load} onError={setError} />
           </CardContent>
         </Card>
 
@@ -134,9 +135,14 @@ export default function ParentsPage() {
                 <TD className="font-mono text-xs text-muted-foreground">{p.nationalId || '—'}</TD>
                 <TD>{p.occupation || '—'}</TD>
                 <TD className="text-end">
-                  <Button variant="ghost" size="sm" onClick={() => void remove(p.id)}>
-                    {t('common.delete')}
-                  </Button>
+                  <span className="flex justify-end gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(p)}>
+                      {t('people.edit')}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => void remove(p.id)}>
+                      {t('common.delete')}
+                    </Button>
+                  </span>
                 </TD>
               </TR>
             ))}
@@ -150,20 +156,81 @@ export default function ParentsPage() {
           </TBody>
         </Table>
       </div>
-      {viewing ? <ParentProfileDialog parent={viewing} onClose={() => setViewing(null)} /> : null}
+      {viewing ? (
+        <ParentProfileDialog
+          parent={viewing}
+          onClose={() => setViewing(null)}
+          onEdit={() => {
+            setEditing(viewing);
+            setViewing(null);
+          }}
+        />
+      ) : null}
+      {editing ? (
+        <div
+          className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setEditing(null);
+          }}
+        >
+          <div className="fixed inset-0 bg-foreground/40" aria-hidden="true" />
+          <div
+            className="relative my-8 w-full max-w-2xl rounded-xl border border-border bg-card p-5 shadow-card"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-lg font-semibold">{t('people.edit')}</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setEditing(null)}
+                aria-label={t('common.cancel')}
+              >
+                ✕
+              </Button>
+            </div>
+            <ParentForm
+              initial={editing}
+              onDone={async () => {
+                setEditing(null);
+                await load();
+              }}
+              onError={setError}
+            />
+          </div>
+        </div>
+      ) : null}
     </Shell>
   );
 }
 
-function CreateParent({
-  onCreated,
+function ParentForm({
+  initial,
+  onDone,
   onError,
 }: {
-  onCreated: () => Promise<void>;
+  initial?: Parent;
+  onDone: () => Promise<void>;
   onError: (m: string) => void;
 }) {
   const { t } = useI18n();
-  const [form, setForm] = useState<CreateParentInput>(EMPTY);
+  const isEdit = Boolean(initial);
+  const [form, setForm] = useState<CreateParentInput>(
+    initial
+      ? {
+          firstNameEn: initial.firstNameEn,
+          lastNameEn: initial.lastNameEn,
+          firstNameAr: initial.firstNameAr,
+          lastNameAr: initial.lastNameAr,
+          phone: initial.phone ?? '',
+          phoneAlt: initial.phoneAlt ?? '',
+          email: initial.email ?? '',
+          nationalId: initial.nationalId ?? '',
+          occupation: initial.occupation ?? '',
+        }
+      : EMPTY,
+  );
   const [busy, setBusy] = useState(false);
 
   function set<K extends keyof CreateParentInput>(key: K, value: CreateParentInput[K]) {
@@ -181,15 +248,21 @@ function CreateParent({
         lastNameAr: form.lastNameAr,
         phone: form.phone,
       };
-      if (form.phoneAlt) payload.phoneAlt = form.phoneAlt;
+      // On edit, send blanks too so cleared fields persist; on create, omit empty optionals.
+      // Email is the exception: '' fails the API's email validation, so only send it when present.
+      if (isEdit || form.phoneAlt) payload.phoneAlt = form.phoneAlt ?? '';
       if (form.email) payload.email = form.email;
-      if (form.nationalId) payload.nationalId = form.nationalId;
-      if (form.occupation) payload.occupation = form.occupation;
-      await parentsApi.create(payload);
-      setForm(EMPTY);
-      await onCreated();
+      if (isEdit || form.nationalId) payload.nationalId = form.nationalId ?? '';
+      if (isEdit || form.occupation) payload.occupation = form.occupation ?? '';
+      if (initial) {
+        await parentsApi.update(initial.id, payload);
+      } else {
+        await parentsApi.create(payload);
+        setForm(EMPTY);
+      }
+      await onDone();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Create failed');
+      onError(err instanceof Error ? err.message : isEdit ? 'Update failed' : 'Create failed');
     } finally {
       setBusy(false);
     }
@@ -281,7 +354,7 @@ function CreateParent({
         />
       </Field>
       <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? t('common.adding') : t('people.addParentButton')}
+        {busy ? t('common.saving') : isEdit ? t('common.save') : t('people.addParentButton')}
       </Button>
     </form>
   );

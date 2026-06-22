@@ -1,5 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { FeeItemKind, Gender, QuotePaymentMode, TransportDirection } from '@prisma/client';
+import {
+  FeeItemKind,
+  Gender,
+  ParentRelation,
+  QuotePaymentMode,
+  TransportDirection,
+} from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
@@ -117,6 +123,10 @@ class ParentInfoDto {
   @IsString()
   phoneAlt?: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
+  @ApiPropertyOptional({ enum: ParentRelation, description: 'Relation to the student' })
+  @IsOptional()
+  @IsEnum(ParentRelation)
+  relation?: ParentRelation;
 }
 
 export class CommitDto {
