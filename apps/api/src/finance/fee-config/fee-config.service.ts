@@ -88,7 +88,7 @@ export class FeeConfigService {
     return this.repo.createTransportFare({
       academicYearId: dto.academicYearId,
       amount: dto.amount,
-      oneWayPct: dto.oneWayPct ?? 100,
+      oneWayPct: dto.oneWayPct,
       isActive: dto.isActive ?? true,
       ...(dto.routeId !== undefined ? { routeId: dto.routeId } : {}),
       ...(dto.routeName !== undefined ? { routeName: dto.routeName } : {}),

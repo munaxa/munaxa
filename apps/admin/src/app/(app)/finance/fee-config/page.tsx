@@ -349,7 +349,7 @@ function TransportFares({ yearId }: { yearId: string }) {
   const confirm = useConfirm();
   const [rows, setRows] = useState<TransportFare[]>([]);
   const [routes, setRoutes] = useState<BusRoute[]>([]);
-  const EMPTY = { routeName: '', amount: '', oneWayPct: '100' };
+  const EMPTY = { routeName: '', amount: '', oneWayPct: '' };
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -472,7 +472,7 @@ function TransportFares({ yearId }: { yearId: string }) {
               dir="ltr"
             />
           </Field>
-          <Field label="One-way (% of total)">
+          <Field label="One-way (% of total) *">
             <Input
               type="number"
               step="0.01"
@@ -480,6 +480,7 @@ function TransportFares({ yearId }: { yearId: string }) {
               max={100}
               value={form.oneWayPct}
               onChange={(e) => setForm({ ...form, oneWayPct: e.target.value })}
+              required
               dir="ltr"
             />
           </Field>

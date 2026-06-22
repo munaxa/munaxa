@@ -72,16 +72,14 @@ export class CreateTransportFareDto {
   @Max(100000000)
   amount!: number;
 
-  @ApiPropertyOptional({
+  @ApiProperty({
     example: 70,
-    default: 100,
     description: 'One-way price as a percentage of the two-way total (0–100).',
   })
-  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   @Max(100)
-  oneWayPct?: number;
+  oneWayPct!: number;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
