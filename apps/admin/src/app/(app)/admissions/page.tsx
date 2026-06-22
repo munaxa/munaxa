@@ -523,7 +523,7 @@ export default function AdmissionsPage() {
       {quote && mode === 'NEW' ? (
         <Card>
           <CardHeader>
-            <CardTitle>Student & parent information</CardTitle>
+            <CardTitle>Student & parent / guardian information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -559,7 +559,7 @@ export default function AdmissionsPage() {
               </Field>
             </div>
             <p className="text-xs text-muted-foreground">
-              A guardian with a primary mobile number is required for every new student.
+              A parent / guardian with a primary mobile number is required for every new student.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Relation to student *" className="sm:col-span-2">
@@ -575,10 +575,10 @@ export default function AdmissionsPage() {
                   <option value="OTHER">Other</option>
                 </Select>
               </Field>
-              <Field label="Guardian first name (EN) *">
+              <Field label="Parent / guardian first name (EN) *">
                 <Input value={pFirstEn} onChange={(e) => setPFirstEn(e.target.value)} required />
               </Field>
-              <Field label="Guardian last name (EN) *">
+              <Field label="Parent / guardian last name (EN) *">
                 <Input value={pLastEn} onChange={(e) => setPLastEn(e.target.value)} required />
               </Field>
               <Field label="Mobile *">

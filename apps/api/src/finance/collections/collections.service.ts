@@ -497,21 +497,27 @@ export class CollectionsService {
     return result;
   }
 
-  /** Concise bilingual outstanding-balance push, optionally noting the overdue age threshold. */
+  /**
+   * Concise bilingual outstanding-balance notice. When an age filter is in effect AND the account
+   * actually has a positive amount aged beyond it, the notice leads with that overdue amount (what
+   * the admin filtered for); otherwise it states the total outstanding. It never claims a "0 JOD
+   * overdue" amount.
+   */
   private buildOutstandingMessage(
     names: { en: string; ar: string },
     total: string,
     overdue: Prisma.Decimal,
     minAgeDays?: 30 | 60 | 90,
   ): { title: string; body: string } {
-    const agePartEn = minAgeDays
-      ? ` (${overdue.toFixed(3)} JOD overdue more than ${minAgeDays} days)`
-      : '';
-    const agePartAr = minAgeDays
-      ? ` (منها ${overdue.toFixed(3)} دينار متأخرة أكثر من ${minAgeDays} يومًا)`
-      : '';
-    const en = `Outstanding balance for ${names.en}: ${total} JOD${agePartEn}. Please settle at your earliest convenience.`;
-    const ar = `رصيد مستحق للطالب ${names.ar}: ${total} دينار${agePartAr}. نرجو المبادرة بالسداد.`;
+    const showOverdue = minAgeDays != null && overdue.greaterThan(0);
+    const en = showOverdue
+      ? `${names.en}: ${overdue.toFixed(3)} JOD overdue by more than ${minAgeDays} days ` +
+        `(of ${total} JOD total outstanding). Please settle the overdue amount at your earliest convenience.`
+      : `Outstanding balance for ${names.en}: ${total} JOD. Please settle at your earliest convenience.`;
+    const ar = showOverdue
+      ? `${names.ar}: ${overdue.toFixed(3)} دينار متأخرة أكثر من ${minAgeDays} يومًا ` +
+        `(من إجمالي ${total} دينار مستحقة). نرجو سداد المبلغ المتأخر في أقرب وقت.`
+      : `رصيد مستحق للطالب ${names.ar}: ${total} دينار. نرجو المبادرة بالسداد.`;
     return { title: 'Outstanding balance | رصيد مستحق', body: `${en}\n${ar}` };
   }
 
