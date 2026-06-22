@@ -88,7 +88,8 @@ export interface CommitRequest {
     lastNameEn: string;
     firstNameAr?: string;
     lastNameAr?: string;
-    phone?: string;
+    phone: string;
+    phoneAlt?: string;
     email?: string;
   };
   sectionId?: string;

@@ -29,6 +29,8 @@ const EMPTY: CreateParentInput = {
   firstNameAr: '',
   lastNameAr: '',
   phone: '',
+  phoneAlt: '',
+  email: '',
   nationalId: '',
   occupation: '',
 };
@@ -98,6 +100,8 @@ export default function ParentsPage() {
               <TH>{t('common.name')}</TH>
               <TH>{t('common.arabicName')}</TH>
               <TH>{t('common.phone')}</TH>
+              <TH>{t('common.phoneAlt')}</TH>
+              <TH>{t('common.email')}</TH>
               <TH>{t('people.nationalId')}</TH>
               <TH>{t('people.occupation')}</TH>
               <TH className="text-end">{t('common.actions')}</TH>
@@ -121,6 +125,12 @@ export default function ParentsPage() {
                 <TD className="font-mono text-xs" dir="ltr">
                   {p.phone || '—'}
                 </TD>
+                <TD className="font-mono text-xs" dir="ltr">
+                  {p.phoneAlt || '—'}
+                </TD>
+                <TD className="font-mono text-xs" dir="ltr">
+                  {p.email || '—'}
+                </TD>
                 <TD className="font-mono text-xs text-muted-foreground">{p.nationalId || '—'}</TD>
                 <TD>{p.occupation || '—'}</TD>
                 <TD className="text-end">
@@ -132,7 +142,7 @@ export default function ParentsPage() {
             ))}
             {parents.length === 0 ? (
               <TR>
-                <TD colSpan={6}>
+                <TD colSpan={8}>
                   <EmptyState title={t('people.noParents')} />
                 </TD>
               </TR>
@@ -169,8 +179,10 @@ function CreateParent({
         lastNameEn: form.lastNameEn,
         firstNameAr: form.firstNameAr,
         lastNameAr: form.lastNameAr,
+        phone: form.phone,
       };
-      if (form.phone) payload.phone = form.phone;
+      if (form.phoneAlt) payload.phoneAlt = form.phoneAlt;
+      if (form.email) payload.email = form.email;
       if (form.nationalId) payload.nationalId = form.nationalId;
       if (form.occupation) payload.occupation = form.occupation;
       await parentsApi.create(payload);
@@ -229,6 +241,26 @@ function CreateParent({
           placeholder={t('common.phone')}
           value={form.phone ?? ''}
           onChange={(e) => set('phone', e.target.value)}
+          dir="ltr"
+          required
+        />
+      </Field>
+      <Field label={t('common.phoneAlt')} htmlFor="parent-phoneAlt">
+        <Input
+          id="parent-phoneAlt"
+          placeholder={t('common.phoneAlt')}
+          value={form.phoneAlt ?? ''}
+          onChange={(e) => set('phoneAlt', e.target.value)}
+          dir="ltr"
+        />
+      </Field>
+      <Field label={t('common.email')} htmlFor="parent-email">
+        <Input
+          id="parent-email"
+          type="email"
+          placeholder={t('common.email')}
+          value={form.email ?? ''}
+          onChange={(e) => set('email', e.target.value)}
           dir="ltr"
         />
       </Field>

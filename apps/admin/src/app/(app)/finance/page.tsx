@@ -124,6 +124,33 @@ export default function FinancePage() {
     }
   }
 
+  /** Verify a payment, then offer to email the parent that it settled. */
+  async function verifyPayment(txId: string) {
+    try {
+      await financeApi.verify(txId);
+      toast.success(t('finance.verified'));
+      if (
+        await confirm({
+          title: t('finance.notifyParentTitle'),
+          description: t('finance.notifyParentPrompt'),
+          confirmLabel: t('finance.notifyParent'),
+          destructive: false,
+        })
+      ) {
+        try {
+          await financeApi.notifyParent(txId);
+          toast.success(t('finance.parentNotified'));
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : 'Notify failed');
+        }
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      await load();
+    }
+  }
+
   async function submitRowAction() {
     if (!rowAction) return;
     const { id, kind } = rowAction;
@@ -862,7 +889,7 @@ export default function FinancePage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => void run(() => financeApi.verify(tx.id), 'Verified')}
+                                onClick={() => void verifyPayment(tx.id)}
                               >
                                 {t('finance.verify')}
                               </Button>
@@ -875,6 +902,23 @@ export default function FinancePage() {
                                 {t('finance.reject')}
                               </Button>
                             </span>
+                          ) : tx.status === 'VERIFIED' ? (
+                            tx.parentNotifiedAt ? (
+                              <Badge tone="success">{t('finance.parentNotified')}</Badge>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() =>
+                                  void run(
+                                    () => financeApi.notifyParent(tx.id),
+                                    t('finance.parentNotified'),
+                                  )
+                                }
+                              >
+                                {t('finance.notifyParent')}
+                              </Button>
+                            )
                           ) : null}
                         </TD>
                       </TR>

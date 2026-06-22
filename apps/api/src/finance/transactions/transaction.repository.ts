@@ -57,6 +57,53 @@ export class TransactionRepository extends TenantRepository {
     return this.run((tx) => tx.transaction.findFirst({ where: { id } }));
   }
 
+  /** Student display name + the best parent email (primary first) for settlement notifications. */
+  studentNotifyContact(
+    studentId: string,
+  ): Promise<{ studentNameEn: string; parentEmail: string | null }> {
+    return this.run(async (tx) => {
+      const student = await tx.student.findFirst({
+        where: { id: studentId },
+        select: {
+          firstNameEn: true,
+          lastNameEn: true,
+          parentLinks: {
+            orderBy: { isPrimary: 'desc' },
+            select: { parent: { select: { email: true } } },
+          },
+        },
+      });
+      const studentNameEn = student ? `${student.firstNameEn} ${student.lastNameEn}`.trim() : '';
+      const parentEmail = student?.parentLinks.map((l) => l.parent.email).find(Boolean) ?? null;
+      return { studentNameEn, parentEmail };
+    });
+  }
+
+  /** The tenant's display name, for email subject/signature. */
+  tenantName(): Promise<string> {
+    return this.run(async (tx, tenantId) => {
+      const t = await tx.tenant.findFirst({ where: { id: tenantId }, select: { name: true } });
+      return t?.name ?? 'School';
+    });
+  }
+
+  /** Mark that the parent was emailed about this settled payment (audited). */
+  setParentNotified(id: string): Promise<Transaction> {
+    return this.run(async (tx, tenantId) => {
+      const txn = await tx.transaction.update({
+        where: { id },
+        data: { parentNotifiedAt: new Date() },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.transaction.notifyParent',
+        entityType: 'Transaction',
+        entityId: txn.id,
+        metadata: { studentId: txn.studentId },
+      });
+      return txn;
+    });
+  }
+
   sumVerifiedForStudent(studentId: string): Promise<Prisma.Decimal> {
     return this.run(async (tx) => {
       const result = await tx.transaction.aggregate({

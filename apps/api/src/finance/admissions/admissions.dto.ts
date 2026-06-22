@@ -12,6 +12,7 @@ import {
   IsUUID,
   Max,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -107,7 +108,14 @@ class ParentInfoDto {
   @ApiProperty() @IsString() lastNameEn!: string;
   @ApiPropertyOptional() @IsOptional() @IsString() firstNameAr?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() lastNameAr?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() phone?: string;
+  @ApiProperty({ description: 'Primary mobile number (mandatory)' })
+  @IsString()
+  @MinLength(1)
+  phone!: string;
+  @ApiPropertyOptional({ description: 'Secondary/alternate mobile number' })
+  @IsOptional()
+  @IsString()
+  phoneAlt?: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
 }
 

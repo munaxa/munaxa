@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateParentDto {
   @ApiProperty()
@@ -26,11 +26,23 @@ export class CreateParentDto {
   @MaxLength(100)
   lastNameAr!: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ description: 'Primary mobile number (mandatory)' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  phone!: string;
+
+  @ApiPropertyOptional({ description: 'Secondary/alternate mobile number (optional)' })
   @IsOptional()
   @IsString()
   @MaxLength(40)
-  phone?: string;
+  phoneAlt?: string;
+
+  @ApiPropertyOptional({ description: 'Contact email for payment/settlement notifications' })
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(160)
+  email?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
