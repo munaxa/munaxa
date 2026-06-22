@@ -6,6 +6,7 @@ import {
   ALL_PERMISSIONS,
   SCHOOL_ROLES,
   PLATFORM_ROLES,
+  DEFAULT_ROLE_PERMISSIONS,
   permissionsForRole,
 } from '@munaxa/domain';
 import type { TxClient } from '../../prisma/tenant.helpers';
@@ -77,6 +78,51 @@ export class RbacService {
         });
       }
     }
+  }
+
+  /**
+   * Idempotently align the database with the code baseline: (1) upsert the global permission
+   * catalog from {@link ALL_PERMISSIONS}, then (2) re-grant each *system* role its default
+   * permission set from {@link DEFAULT_ROLE_PERMISSIONS}, for every tenant (and global roles).
+   *
+   * Additive only — it never removes grants, so per-tenant customizations to system roles are
+   * preserved. Custom (non-system) roles are skipped. Must run under platform context
+   * (`withPlatform`) so it can read/write across tenants. Used by the boot-time sync so newly
+   * shipped permissions reach tenants provisioned before they existed.
+   */
+  async syncCatalogAndSystemRoles(tx: TxClient): Promise<{ permissions: number; roles: number }> {
+    for (const key of ALL_PERMISSIONS) {
+      const category = key.split(':')[0] ?? 'general';
+      await tx.permission.upsert({
+        where: { key },
+        update: { category },
+        create: { key, category },
+      });
+    }
+    // Resolve catalog ids once (key → id) to avoid a query per grant.
+    const catalog = await tx.permission.findMany({ select: { id: true, key: true } });
+    const idByKey = new Map(catalog.map((p) => [p.key, p.id]));
+
+    const roles = await tx.role.findMany({
+      where: { isSystem: true },
+      select: { id: true, key: true },
+    });
+    let synced = 0;
+    for (const role of roles) {
+      // Only system roles defined in the baseline; custom roles have generated keys.
+      if (!(role.key in DEFAULT_ROLE_PERMISSIONS)) continue;
+      for (const permKey of permissionsForRole(role.key as RoleKey)) {
+        const permissionId = idByKey.get(permKey);
+        if (!permissionId) continue;
+        await tx.rolePermission.upsert({
+          where: { roleId_permissionId: { roleId: role.id, permissionId } },
+          update: {},
+          create: { roleId: role.id, permissionId },
+        });
+      }
+      synced += 1;
+    }
+    return { permissions: ALL_PERMISSIONS.length, roles: synced };
   }
 
   /** Grant a role (by key) to a user within a tenant. */
