@@ -185,7 +185,8 @@ export class CollectionsRepository extends TenantRepository {
           userId,
           title: data.title,
           body: data.body,
-          category: 'finance.reminder',
+          type: 'PaymentReminder',
+          category: 'FINANCE' as const,
         })),
       });
       return result.count;

@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CollectionsService } from './collections.service';
-import { SendReminderDto, SetCollectionsDto } from './collections.dto';
+import { PushOutstandingDto, SendReminderDto, SetCollectionsDto } from './collections.dto';
 
 /**
  * Fee collections (Phase 18): the per-student legal/collections tag shown on the finance card,
@@ -46,6 +46,16 @@ export class CollectionsController {
   })
   remindAll(@Body() dto: SendReminderDto) {
     return this.service.sendBatch(dto);
+  }
+
+  @Post('reminders/push-outstanding')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({
+    summary:
+      'Push outstanding balances to parents, filtered by overdue age (>30/60/90 days) and/or a minimum amount',
+  })
+  pushOutstanding(@Body() dto: PushOutstandingDto) {
+    return this.service.pushOutstanding(dto);
   }
 
   @Get('aging')

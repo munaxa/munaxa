@@ -3,14 +3,19 @@
 import { useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
-import { financeApi, type AgingReport } from '@/lib/finance';
+import { financeApi, type AgingReport, type PushOutstandingInput } from '@/lib/finance';
 import {
   Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  Checkbox,
+  Dialog,
   EmptyState,
+  Field,
+  Input,
+  Select,
   Table,
   TBody,
   TD,
@@ -31,6 +36,7 @@ export default function CollectionsPage() {
   const [report, setReport] = useState<AgingReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [sweeping, setSweeping] = useState(false);
+  const [pushOpen, setPushOpen] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -72,10 +78,19 @@ export default function CollectionsPage() {
               Outstanding balances by age, collection effectiveness, and transport suspension.
             </p>
           </div>
-          <Button variant="outline" onClick={() => void runSweep()} disabled={sweeping}>
-            {sweeping ? 'Running…' : 'Run transport sweep'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setPushOpen(true)}>Push outstanding</Button>
+            <Button variant="outline" onClick={() => void runSweep()} disabled={sweeping}>
+              {sweeping ? 'Running…' : 'Run transport sweep'}
+            </Button>
+          </div>
         </header>
+
+        <PushOutstandingDialog
+          open={pushOpen}
+          onClose={() => setPushOpen(false)}
+          onSent={() => void load()}
+        />
 
         {report ? (
           <div className="grid gap-4 sm:grid-cols-3">
@@ -166,5 +181,138 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
         <p className={`font-display text-2xl font-semibold ${tone ?? ''}`}>{value}</p>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Filtered push of outstanding balances to parents (FCM push via the notification engine).
+ * Narrow by overdue age (>30/60/90 days) and/or a minimum amount; when both are set, choose
+ * whether an account must match both (ALL) or either (ANY).
+ */
+function PushOutstandingDialog({
+  open,
+  onClose,
+  onSent,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const toast = useToast();
+  const [ageDays, setAgeDays] = useState<'' | '30' | '60' | '90'>('');
+  const [minAmount, setMinAmount] = useState('');
+  const [match, setMatch] = useState<'ALL' | 'ANY'>('ALL');
+  const [mandatory, setMandatory] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const hasAge = ageDays !== '';
+  const hasAmount = minAmount.trim() !== '';
+  const bothFilters = hasAge && hasAmount;
+
+  function reset() {
+    setAgeDays('');
+    setMinAmount('');
+    setMatch('ALL');
+    setMandatory(false);
+  }
+
+  async function submit() {
+    if (hasAmount && !(Number(minAmount) > 0)) {
+      toast.error('Minimum amount must be a positive number');
+      return;
+    }
+    const payload: PushOutstandingInput = {};
+    if (hasAge) payload.minAgeDays = Number(ageDays) as 30 | 60 | 90;
+    if (hasAmount) payload.minAmount = Number(minAmount).toFixed(3);
+    if (bothFilters) payload.match = match;
+    if (mandatory) payload.mandatory = true;
+
+    setSending(true);
+    try {
+      const r = await financeApi.pushOutstanding(payload);
+      toast.success(
+        `Pushed to ${r.pushed} account(s) — ${r.totalRecipients} parent(s)` +
+          (r.skippedLegal ? `, ${r.skippedLegal} skipped (legal)` : '') +
+          (r.skippedNoParent ? `, ${r.skippedNoParent} without a parent account` : '') +
+          '.',
+      );
+      reset();
+      onClose();
+      onSent();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to push outstanding balances');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Push outstanding balances"
+      description="Send a push notification of the outstanding balance to parents. Use the filters to target overdue or high-value accounts. Students in legal collections are always excluded."
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={sending}>
+            Cancel
+          </Button>
+          <Button onClick={() => void submit()} disabled={sending}>
+            {sending ? 'Sending…' : 'Send push'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Overdue age" htmlFor="push-age" hint="Only balances overdue beyond this age">
+          <Select
+            id="push-age"
+            value={ageDays}
+            onChange={(e) => setAgeDays(e.target.value as '' | '30' | '60' | '90')}
+          >
+            <option value="">Any age (all outstanding)</option>
+            <option value="30">More than 30 days</option>
+            <option value="60">More than 60 days</option>
+            <option value="90">More than 90 days</option>
+          </Select>
+        </Field>
+
+        <Field
+          label="Minimum amount (JOD)"
+          htmlFor="push-amount"
+          hint="Only accounts whose total outstanding is at least this amount"
+        >
+          <Input
+            id="push-amount"
+            type="number"
+            min="0"
+            step="0.001"
+            inputMode="decimal"
+            placeholder="e.g. 100.000"
+            value={minAmount}
+            onChange={(e) => setMinAmount(e.target.value)}
+          />
+        </Field>
+
+        {bothFilters ? (
+          <Field label="Combine filters" htmlFor="push-match">
+            <Select
+              id="push-match"
+              value={match}
+              onChange={(e) => setMatch(e.target.value as 'ALL' | 'ANY')}
+            >
+              <option value="ALL">Match both (age and amount)</option>
+              <option value="ANY">Match either (age or amount)</option>
+            </Select>
+          </Field>
+        ) : null}
+
+        <Checkbox
+          checked={mandatory}
+          onChange={(e) => setMandatory(e.target.checked)}
+          label="Ignore parents’ notification preferences (school-enforced notice)"
+        />
+      </div>
+    </Dialog>
   );
 }

@@ -172,6 +172,55 @@ enum DevicePlatform {
   WEB
 }
 
+// ----------------------------------------------------------------------------
+// Notification platform (Push + Email only — no SMS/WhatsApp/Telegram)
+// ----------------------------------------------------------------------------
+
+// Channel-independent dispatch priority. Drives PriorityEngine channel selection + escalation.
+enum NotificationPriority {
+  CRITICAL // push + email immediately (emergencies, security, OTP)
+  HIGH // push first; escalate to email if unread
+  NORMAL // push only
+  LOW // email only (digests/newsletters)
+}
+
+// Lifecycle of the in-app Notification (source of truth for the center).
+enum NotificationStatus {
+  PENDING // created, awaiting channel dispatch
+  SENT // handed to at least one channel
+  DELIVERED // a provider confirmed delivery
+  READ // user opened it
+  FAILED // all channels failed
+  ARCHIVED // user archived it
+}
+
+// Functional grouping — mirrors the per-category preference matrix.
+enum NotificationCategory {
+  ATTENDANCE
+  FINANCE
+  ACADEMIC
+  BEHAVIOR
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+// Concrete delivery channels Munaxa supports.
+enum NotificationChannel {
+  PUSH
+  EMAIL
+  IN_APP
+}
+
+// Per-attempt delivery outcome recorded against a channel send.
+enum DeliveryStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  SKIPPED // suppressed by preference / kill-switch
+}
+
 // Parent portal: a leave (planned future absence) or an explanation/excuse for a past absence.
 enum LeaveRequestType {
   LEAVE
@@ -298,89 +347,94 @@ model Tenant {
   createdAt DateTime     @default(now()) @db.Timestamptz(6)
   updatedAt DateTime     @updatedAt @db.Timestamptz(6)
 
-  schools                School[]
-  campuses               Campus[]
-  academicYears          AcademicYear[]
-  semesters              Semester[]
-  grades                 Grade[]
-  classrooms             Classroom[]
-  sections               Section[]
-  users                  User[]
-  roles                  Role[]
-  userRoles              UserRole[]
-  refreshTokens          RefreshToken[]
-  passwordResets         PasswordResetToken[]
-  passwordResetAudits    PasswordResetAudit[]
-  students               Student[]
-  parents                Parent[]
-  teachers               Teacher[]
-  employees              Employee[]
-  parentStudents         ParentStudent[]
-  teacherSections        TeacherSection[]
-  timetableSlots         TimetableSlot[]
-  scheduleExceptions     ScheduleException[]
-  timetableConfigs       TimetableConfig[]
-  studentAttendance      StudentAttendance[]
-  teacherAttendance      TeacherAttendance[]
-  homework               Homework[]
-  homeworkAttachments    HomeworkAttachment[]
-  behaviorLogs           BehaviorLog[]
-  gradeRecords           GradeRecord[]
-  feePlans               FeePlan[]
-  charges                Charge[]
-  transactions           Transaction[]
-  announcements          Announcement[]
-  notifications          Notification[]
-  deviceTokens           DeviceToken[]
-  featureFlags           FeatureFlag[]
-  auditLogs              AuditLog[]
-  leaveRequests          LeaveRequest[]
-  ptmSlots               PtmSlot[]
-  ptmBookings            PtmBooking[]
-  documents              Document[]
-  resources              Resource[]
-  achievements           Achievement[]
-  studentAchievements    StudentAchievement[]
-  studentGamification    StudentGamification[]
-  busRoutes              BusRoute[]
-  buses                  Bus[]
-  busStops               BusStop[]
-  busAssignments         StudentBusAssignment[]
-  libraryBooks           LibraryBook[]
-  bookLoans              BookLoan[]
-  inventoryItems         InventoryItem[]
-  inventoryTxns          InventoryTransaction[]
-  medicalRecords         StudentMedicalRecord[]
-  clinicVisits           ClinicVisit[]
-  tenantDatabase         TenantDatabase?
-  einvoiceSettings       EInvoiceSettings?
-  einvoiceCredentials    EInvoiceCredential[]
-  einvoiceCounter        EInvoiceCounter?
-  einvoiceDocuments      EInvoiceDocument[]
-  einvoiceLogs           EInvoiceLog[]
-  feeAdjustments         FeeAdjustment[]
-  paymentAllocations     PaymentAllocation[]
-  refunds                Refund[]
-  billingProfiles        StudentBillingProfile[]
-  paymentReminders       PaymentReminder[]
-  presenceEvents         StudentPresenceEvent[]
-  busAttendanceEvents    BusAttendanceEvent[]
-  attendanceSourceConfig AttendanceSourceConfig?
-  studentCards           StudentCard[]
-  studentVaccines        StudentVaccine[]
-  gradeFeeSchedules      GradeFeeSchedule[]
-  transportFares         TransportFare[]
-  discountRules          DiscountRule[]
-  billingPolicy          BillingPolicy?
-  feeItems               FeeItem[]
-  gradeFeeItems          GradeFeeItem[]
-  enrollmentQuotes       EnrollmentQuote[]
-  enrollmentQuoteItems   EnrollmentQuoteItem[]
-  enrollments            Enrollment[]
-  feeModifications       FeeModification[]
+  schools                  School[]
+  campuses                 Campus[]
+  academicYears            AcademicYear[]
+  semesters                Semester[]
+  grades                   Grade[]
+  classrooms               Classroom[]
+  sections                 Section[]
+  users                    User[]
+  roles                    Role[]
+  userRoles                UserRole[]
+  refreshTokens            RefreshToken[]
+  passwordResets           PasswordResetToken[]
+  passwordResetAudits      PasswordResetAudit[]
+  students                 Student[]
+  parents                  Parent[]
+  teachers                 Teacher[]
+  employees                Employee[]
+  parentStudents           ParentStudent[]
+  teacherSections          TeacherSection[]
+  timetableSlots           TimetableSlot[]
+  scheduleExceptions       ScheduleException[]
+  timetableConfigs         TimetableConfig[]
+  studentAttendance        StudentAttendance[]
+  teacherAttendance        TeacherAttendance[]
+  homework                 Homework[]
+  homeworkAttachments      HomeworkAttachment[]
+  behaviorLogs             BehaviorLog[]
+  gradeRecords             GradeRecord[]
+  feePlans                 FeePlan[]
+  charges                  Charge[]
+  transactions             Transaction[]
+  announcements            Announcement[]
+  notifications            Notification[]
+  notificationPreferences  NotificationPreference[]
+  notificationTemplates    NotificationTemplate[]
+  notificationDeliveries   NotificationDelivery[]
+  notificationAudits       NotificationAudit[]
+  notificationSettings     NotificationSettings?
+  deviceTokens             DeviceToken[]
+  featureFlags             FeatureFlag[]
+  auditLogs                AuditLog[]
+  leaveRequests            LeaveRequest[]
+  ptmSlots                 PtmSlot[]
+  ptmBookings              PtmBooking[]
+  documents                Document[]
+  resources                Resource[]
+  achievements             Achievement[]
+  studentAchievements      StudentAchievement[]
+  studentGamification      StudentGamification[]
+  busRoutes                BusRoute[]
+  buses                    Bus[]
+  busStops                 BusStop[]
+  busAssignments           StudentBusAssignment[]
+  libraryBooks             LibraryBook[]
+  bookLoans                BookLoan[]
+  inventoryItems           InventoryItem[]
+  inventoryTxns            InventoryTransaction[]
+  medicalRecords           StudentMedicalRecord[]
+  clinicVisits             ClinicVisit[]
+  tenantDatabase           TenantDatabase?
+  einvoiceSettings         EInvoiceSettings?
+  einvoiceCredentials      EInvoiceCredential[]
+  einvoiceCounter          EInvoiceCounter?
+  einvoiceDocuments        EInvoiceDocument[]
+  einvoiceLogs             EInvoiceLog[]
+  feeAdjustments           FeeAdjustment[]
+  paymentAllocations       PaymentAllocation[]
+  refunds                  Refund[]
+  billingProfiles          StudentBillingProfile[]
+  paymentReminders         PaymentReminder[]
+  presenceEvents           StudentPresenceEvent[]
+  busAttendanceEvents      BusAttendanceEvent[]
+  attendanceSourceConfig   AttendanceSourceConfig?
+  studentCards             StudentCard[]
+  studentVaccines          StudentVaccine[]
+  gradeFeeSchedules        GradeFeeSchedule[]
+  transportFares           TransportFare[]
+  discountRules            DiscountRule[]
+  billingPolicy            BillingPolicy?
+  feeItems                 FeeItem[]
+  gradeFeeItems            GradeFeeItem[]
+  enrollmentQuotes         EnrollmentQuote[]
+  enrollmentQuoteItems     EnrollmentQuoteItem[]
+  enrollments              Enrollment[]
+  feeModifications         FeeModification[]
   feeModificationApprovals FeeModificationApproval[]
-  financialArrangements  FinancialArrangement[]
-  registrationCommitments RegistrationCommitment[]
+  financialArrangements    FinancialArrangement[]
+  registrationCommitments  RegistrationCommitment[]
 
   @@index([status])
 }
@@ -442,11 +496,11 @@ model AcademicYear {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant         Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campus         Campus             @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  semesters      Semester[]
-  feeSchedules   GradeFeeSchedule[]
-  transportFares TransportFare[]
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus           Campus             @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  semesters        Semester[]
+  feeSchedules     GradeFeeSchedule[]
+  transportFares   TransportFare[]
   gradeFeeItems    GradeFeeItem[]
   enrollmentQuotes EnrollmentQuote[]
   enrollments      Enrollment[]
@@ -484,11 +538,11 @@ model Grade {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campus       Campus             @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  sections     Section[]
-  resources    Resource[]
-  feeSchedules GradeFeeSchedule[]
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus           Campus             @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  sections         Section[]
+  resources        Resource[]
+  feeSchedules     GradeFeeSchedule[]
   gradeFeeItems    GradeFeeItem[]
   enrollmentQuotes EnrollmentQuote[]
   enrollments      Enrollment[]
@@ -576,35 +630,35 @@ model Student {
   updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt        DateTime?     @db.Timestamptz(6)
 
-  tenant              Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user                User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  section             Section?               @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  parentLinks         ParentStudent[]
-  attendance          StudentAttendance[]
-  behaviorLogs        BehaviorLog[]
-  gradeRecords        GradeRecord[]
-  charges             Charge[]
-  transactions        Transaction[]
-  leaveRequests       LeaveRequest[]
-  ptmBookings         PtmBooking[]
-  documents           Document[]
-  achievements        StudentAchievement[]
-  gamification        StudentGamification?
-  busAssignments      StudentBusAssignment[]
-  bookLoans           BookLoan[]
-  medicalRecord       StudentMedicalRecord?
-  clinicVisits        ClinicVisit[]
-  einvoiceDocuments   EInvoiceDocument[]
-  adjustments         FeeAdjustment[]
-  refunds             Refund[]
-  billingProfile      StudentBillingProfile?
-  paymentReminders    PaymentReminder[]
-  presenceEvents      StudentPresenceEvent[]
-  busAttendanceEvents BusAttendanceEvent[]
-  cards               StudentCard[]
-  vaccines            StudentVaccine[]
-  enrollments         Enrollment[]
-  enrollmentQuotes    EnrollmentQuote[]
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                  User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  section               Section?               @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  parentLinks           ParentStudent[]
+  attendance            StudentAttendance[]
+  behaviorLogs          BehaviorLog[]
+  gradeRecords          GradeRecord[]
+  charges               Charge[]
+  transactions          Transaction[]
+  leaveRequests         LeaveRequest[]
+  ptmBookings           PtmBooking[]
+  documents             Document[]
+  achievements          StudentAchievement[]
+  gamification          StudentGamification?
+  busAssignments        StudentBusAssignment[]
+  bookLoans             BookLoan[]
+  medicalRecord         StudentMedicalRecord?
+  clinicVisits          ClinicVisit[]
+  einvoiceDocuments     EInvoiceDocument[]
+  adjustments           FeeAdjustment[]
+  refunds               Refund[]
+  billingProfile        StudentBillingProfile?
+  paymentReminders      PaymentReminder[]
+  presenceEvents        StudentPresenceEvent[]
+  busAttendanceEvents   BusAttendanceEvent[]
+  cards                 StudentCard[]
+  vaccines              StudentVaccine[]
+  enrollments           Enrollment[]
+  enrollmentQuotes      EnrollmentQuote[]
   financialArrangements FinancialArrangement[]
 
   @@unique([tenantId, moeStudentNumber])
@@ -755,7 +809,7 @@ model User {
   updatedAt              DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt              DateTime?  @db.Timestamptz(6)
 
-  tenant                 Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userRoles              UserRole[]
   refreshTokens          RefreshToken[]
   passwordResets         PasswordResetToken[]
@@ -764,18 +818,19 @@ model User {
   parentProfile          Parent?
   teacherProfile         Teacher?
   employeeProfile        Employee?
-  studentAttendanceMarks StudentAttendance[]  @relation("StudentAttendanceMarkedBy")
-  teacherAttendanceMarks TeacherAttendance[]  @relation("TeacherAttendanceMarkedBy")
+  studentAttendanceMarks StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
+  teacherAttendanceMarks TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
   notifications          Notification[]
+  notificationPreference NotificationPreference?
   deviceTokens           DeviceToken[]
-  auditLogs              AuditLog[]           @relation("AuditActor")
-  leaveRequestsMade      LeaveRequest[]       @relation("LeaveRequestedBy")
-  leaveRequestsReviewed  LeaveRequest[]       @relation("LeaveReviewedBy")
-  ptmSlotsCreated        PtmSlot[]            @relation("PtmSlotCreatedBy")
-  ptmBookingsMade        PtmBooking[]         @relation("PtmBookedBy")
-  documentsUploaded      Document[]           @relation("DocumentUploadedBy")
-  resourcesUploaded      Resource[]           @relation("ResourceUploadedBy")
-  achievementsAwarded    StudentAchievement[] @relation("AchievementAwardedBy")
+  auditLogs              AuditLog[]              @relation("AuditActor")
+  leaveRequestsMade      LeaveRequest[]          @relation("LeaveRequestedBy")
+  leaveRequestsReviewed  LeaveRequest[]          @relation("LeaveReviewedBy")
+  ptmSlotsCreated        PtmSlot[]               @relation("PtmSlotCreatedBy")
+  ptmBookingsMade        PtmBooking[]            @relation("PtmBookedBy")
+  documentsUploaded      Document[]              @relation("DocumentUploadedBy")
+  resourcesUploaded      Resource[]              @relation("ResourceUploadedBy")
+  achievementsAwarded    StudentAchievement[]    @relation("AchievementAwardedBy")
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])
@@ -1262,24 +1317,147 @@ model Announcement {
 }
 
 // A per-user item in the in-app notification center. Fanned out from announcements/events.
+// `title`/`body` hold the recipient's resolved (localized) display text; the `*En`/`*Ar` fields
+// retain the rendered bilingual variants for re-localization and audit.
 model Notification {
-  id             String    @id @default(uuid()) @db.Uuid
-  tenantId       String    @db.Uuid
-  userId         String    @db.Uuid
+  id             String               @id @default(uuid()) @db.Uuid
+  tenantId       String               @db.Uuid
+  userId         String               @db.Uuid
+  type           String? // event type, e.g. "StudentAbsent"
+  category       NotificationCategory @default(SYSTEM)
+  priority       NotificationPriority @default(NORMAL)
+  status         NotificationStatus   @default(PENDING)
   title          String
   body           String
-  category       String?
+  titleEn        String?
+  titleAr        String?
+  bodyEn         String?
+  bodyAr         String?
   data           Json?
-  announcementId String?   @db.Uuid
-  readAt         DateTime? @db.Timestamptz(6)
-  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  mandatory      Boolean              @default(false)
+  announcementId String?              @db.Uuid
+  readAt         DateTime?            @db.Timestamptz(6)
+  archivedAt     DateTime?            @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @db.Timestamptz(6)
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  announcement Announcement? @relation(fields: [announcementId], references: [id], onDelete: SetNull)
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  announcement Announcement?          @relation(fields: [announcementId], references: [id], onDelete: SetNull)
+  deliveries   NotificationDelivery[]
+  audits       NotificationAudit[]
 
   @@index([tenantId, userId, readAt])
   @@index([tenantId, userId, createdAt])
+  @@index([tenantId, status])
+  @@index([tenantId, category, createdAt])
+}
+
+// Per-user channel/category opt-in matrix. One row per (tenantId, userId); missing rows imply
+// opt-in defaults. School-enforced (mandatory) notifications bypass this — see NotificationEngine.
+model NotificationPreference {
+  id           String  @id @default(uuid()) @db.Uuid
+  tenantId     String  @db.Uuid
+  userId       String  @unique @db.Uuid
+  pushEnabled  Boolean @default(true)
+  emailEnabled Boolean @default(true)
+
+  attendancePush    Boolean @default(true)
+  attendanceEmail   Boolean @default(true)
+  financePush       Boolean @default(true)
+  financeEmail      Boolean @default(true)
+  academicPush      Boolean @default(true)
+  academicEmail     Boolean @default(true)
+  behaviorPush      Boolean @default(true)
+  behaviorEmail     Boolean @default(true)
+  announcementPush  Boolean @default(true)
+  announcementEmail Boolean @default(true)
+  systemPush        Boolean @default(true)
+  systemEmail       Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([tenantId])
+}
+
+// Versioned, bilingual templates per (eventType, channel, language). Tenant overrides the
+// built-in default; renderer falls back to the default when no active row exists.
+model NotificationTemplate {
+  id        String              @id @default(uuid()) @db.Uuid
+  tenantId  String              @db.Uuid
+  eventType String
+  channel   NotificationChannel
+  language  String // "en" | "ar"
+  subject   String?
+  body      String
+  active    Boolean             @default(true)
+  createdAt DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime            @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, eventType, channel, language])
+  @@index([tenantId])
+}
+
+// One row per channel send attempt — the delivery ledger powering analytics + manual resend.
+model NotificationDelivery {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @db.Uuid
+  notificationId   String              @db.Uuid
+  channel          NotificationChannel
+  provider         String // "fcm" | "resend" | "in-app"
+  status           DeliveryStatus      @default(QUEUED)
+  providerResponse Json?
+  attempts         Int                 @default(0)
+  deliveredAt      DateTime?           @db.Timestamptz(6)
+  createdAt        DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, notificationId])
+  @@index([tenantId, status])
+  @@index([tenantId, channel, createdAt])
+}
+
+// Append-only audit trail per notification (created/sent/read/resend/...).
+model NotificationAudit {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  notificationId String?  @db.Uuid
+  action         String
+  actorId        String?  @db.Uuid
+  metadata       Json?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  notification Notification? @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, notificationId])
+  @@index([tenantId, createdAt])
+}
+
+// Per-tenant sender identity + global channel kill-switches. The sender email is NEVER hardcoded;
+// it defaults to notification@munaxa.com and is editable from the Admin Portal.
+model NotificationSettings {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @unique @db.Uuid
+  senderName   String   @default("Munaxa Notifications")
+  senderEmail  String   @default("notification@munaxa.com")
+  replyToEmail String   @default("support@munaxa.com")
+  emailEnabled Boolean  @default(true)
+  pushEnabled  Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model DeviceToken {
@@ -1288,6 +1466,8 @@ model DeviceToken {
   userId     String         @db.Uuid
   token      String         @unique
   platform   DevicePlatform
+  deviceType String? // free-form device label (e.g. "Pixel 8", "iPad")
+  active     Boolean        @default(true)
   lastSeenAt DateTime       @default(now()) @db.Timestamptz(6)
   createdAt  DateTime       @default(now()) @db.Timestamptz(6)
 
@@ -1295,6 +1475,7 @@ model DeviceToken {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, userId])
+  @@index([tenantId, active])
 }
 
 // Per-tenant feature flags (e.g. the WhatsApp bridge). Disabled by default.
@@ -2046,6 +2227,7 @@ enum CollectionsStatus {
 enum ReminderChannel {
   IN_APP
   SMS
+  PUSH
 }
 
 /// One per student: collections/legal tag + reminder cadence bookkeeping.
@@ -2361,20 +2543,20 @@ model DiscountRule {
 /// One tenant-level billing policy (installment bounds, full-payment discount,
 /// transport suspension threshold). Singleton per tenant.
 model BillingPolicy {
-  id                           String   @id @default(uuid()) @db.Uuid
-  tenantId                     String   @unique @db.Uuid
-  minInstallments              Int      @default(1)
-  maxInstallments              Int      @default(9)
-  fullPaymentDiscountPct       Decimal  @default(0) @db.Decimal(5, 2) // e.g. 5.00 = 5%
-  earlyRegistrationDiscountPct Decimal  @default(0) @db.Decimal(5, 2)
+  id                                  String   @id @default(uuid()) @db.Uuid
+  tenantId                            String   @unique @db.Uuid
+  minInstallments                     Int      @default(1)
+  maxInstallments                     Int      @default(9)
+  fullPaymentDiscountPct              Decimal  @default(0) @db.Decimal(5, 2) // e.g. 5.00 = 5%
+  earlyRegistrationDiscountPct        Decimal  @default(0) @db.Decimal(5, 2)
   /// When true, registrar fee modifications need FinanceOfficer approval before the
   /// enrollment/billing/invoices can be activated (FeeModificationApproval workflow).
-  requireFinanceApprovalForFeeChanges Boolean @default(false)
-  suspendTransportAfterOverdue Int      @default(2) // # overdue installments
-  createdById                  String?  @db.Uuid
-  updatedById                  String?  @db.Uuid
-  createdAt                    DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt                    DateTime @updatedAt @db.Timestamptz(6)
+  requireFinanceApprovalForFeeChanges Boolean  @default(false)
+  suspendTransportAfterOverdue        Int      @default(2) // # overdue installments
+  createdById                         String?  @db.Uuid
+  updatedById                         String?  @db.Uuid
+  createdAt                           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt                           DateTime @updatedAt @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
@@ -2600,15 +2782,15 @@ model FeeModificationApproval {
 
 /// A special/custom financial arrangement (bespoke schedule, negotiated terms).
 model FinancialArrangement {
-  id           String      @id @default(uuid()) @db.Uuid
-  tenantId     String      @db.Uuid
-  studentId    String      @db.Uuid
-  enrollmentId String?     @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  studentId    String   @db.Uuid
+  enrollmentId String?  @db.Uuid
   description  String
   schedule     Json?
-  createdById  String?     @db.Uuid
-  createdAt    DateTime    @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime    @updatedAt @db.Timestamptz(6)
+  createdById  String?  @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
 
   tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   student    Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)

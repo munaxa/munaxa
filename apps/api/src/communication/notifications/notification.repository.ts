@@ -1,6 +1,46 @@
 import { Injectable } from '@nestjs/common';
-import type { AnnouncementAudience, Notification, Prisma, RoleKey } from '@prisma/client';
+import type {
+  AnnouncementAudience,
+  Notification,
+  NotificationCategory,
+  NotificationPriority,
+  NotificationStatus,
+  Prisma,
+  RoleKey,
+} from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+
+export interface RecipientContact {
+  email: string | null;
+  tokens: string[];
+}
+
+export interface CreateNotificationInput {
+  userId: string;
+  type?: string | null;
+  category: NotificationCategory;
+  priority: NotificationPriority;
+  title: string;
+  body: string;
+  titleEn?: string | null;
+  titleAr?: string | null;
+  bodyEn?: string | null;
+  bodyAr?: string | null;
+  mandatory?: boolean;
+  data?: Prisma.InputJsonValue;
+  announcementId?: string | null;
+}
+
+export interface FeedFilters {
+  category?: NotificationCategory;
+  priority?: NotificationPriority;
+  read?: boolean;
+  search?: string;
+  from?: Date;
+  to?: Date;
+  cursor?: string;
+  limit: number;
+}
 
 @Injectable()
 export class NotificationRepository extends TenantRepository {
@@ -41,60 +81,121 @@ export class NotificationRepository extends TenantRepository {
     });
   }
 
-  createMany(
-    userIds: string[],
-    data: { title: string; body: string; category?: string; announcementId?: string },
-  ): Promise<number> {
-    if (userIds.length === 0) return Promise.resolve(0);
-    return this.run(async (tx, tenantId) => {
-      const result = await tx.notification.createMany({
-        data: userIds.map((userId) => ({
+  /** Create one notification row (the engine fans out per recipient to capture delivery ids). */
+  createForRecipient(input: CreateNotificationInput): Promise<Notification> {
+    return this.run((tx, tenantId) =>
+      tx.notification.create({
+        data: {
           tenantId,
-          userId,
-          title: data.title,
-          body: data.body,
-          category: data.category ?? null,
-          announcementId: data.announcementId ?? null,
-        })),
-      });
-      return result.count;
-    });
-  }
-
-  listForUser(userId: string): Promise<Notification[]> {
-    return this.run((tx) =>
-      tx.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 100 }),
+          userId: input.userId,
+          type: input.type ?? null,
+          category: input.category,
+          priority: input.priority,
+          status: 'PENDING',
+          title: input.title,
+          body: input.body,
+          titleEn: input.titleEn ?? null,
+          titleAr: input.titleAr ?? null,
+          bodyEn: input.bodyEn ?? null,
+          bodyAr: input.bodyAr ?? null,
+          mandatory: input.mandatory ?? false,
+          ...(input.data !== undefined ? { data: input.data } : {}),
+          announcementId: input.announcementId ?? null,
+        },
+      }),
     );
   }
 
+  setStatus(id: string, status: NotificationStatus): Promise<unknown> {
+    return this.run((tx) => tx.notification.update({ where: { id }, data: { status } }));
+  }
+
+  /** Active device tokens + email per user (for channel fan-out). */
+  async recipientContacts(userIds: string[]): Promise<Map<string, RecipientContact>> {
+    if (userIds.length === 0) return new Map();
+    const { users, tokens } = await this.run((tx) =>
+      Promise.all([
+        tx.user.findMany({ where: { id: { in: userIds } }, select: { id: true, email: true } }),
+        tx.deviceToken.findMany({
+          where: { userId: { in: userIds }, active: true },
+          select: { userId: true, token: true },
+        }),
+      ]).then(([users, tokens]) => ({ users, tokens })),
+    );
+    const map = new Map<string, RecipientContact>();
+    for (const u of users) map.set(u.id, { email: u.email, tokens: [] });
+    for (const t of tokens) map.get(t.userId)?.tokens.push(t.token);
+    return map;
+  }
+
+  // ----- Notification center -------------------------------------------------
+
+  /** Cursor-paged, filterable feed for one user (infinite scroll). */
+  listForUser(userId: string, filters: FeedFilters): Promise<Notification[]> {
+    return this.run((tx) => {
+      const where: Prisma.NotificationWhereInput = {
+        userId,
+        archivedAt: null,
+        ...(filters.category ? { category: filters.category } : {}),
+        ...(filters.priority ? { priority: filters.priority } : {}),
+        ...(filters.read === true ? { readAt: { not: null } } : {}),
+        ...(filters.read === false ? { readAt: null } : {}),
+        ...(filters.from || filters.to
+          ? {
+              createdAt: {
+                ...(filters.from ? { gte: filters.from } : {}),
+                ...(filters.to ? { lte: filters.to } : {}),
+              },
+            }
+          : {}),
+        ...(filters.search
+          ? {
+              OR: [
+                { title: { contains: filters.search, mode: 'insensitive' } },
+                { body: { contains: filters.search, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      };
+      return tx.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: filters.limit,
+        ...(filters.cursor ? { skip: 1, cursor: { id: filters.cursor } } : {}),
+      });
+    });
+  }
+
   unreadCount(userId: string): Promise<number> {
-    return this.run((tx) => tx.notification.count({ where: { userId, readAt: null } }));
+    return this.run((tx) =>
+      tx.notification.count({ where: { userId, readAt: null, archivedAt: null } }),
+    );
   }
 
   markRead(id: string, userId: string): Promise<Prisma.BatchPayload> {
     return this.run((tx) =>
       tx.notification.updateMany({
         where: { id, userId, readAt: null },
-        data: { readAt: new Date() },
+        data: { readAt: new Date(), status: 'READ' },
       }),
     );
   }
 
   markAllRead(userId: string): Promise<Prisma.BatchPayload> {
     return this.run((tx) =>
-      tx.notification.updateMany({ where: { userId, readAt: null }, data: { readAt: new Date() } }),
+      tx.notification.updateMany({
+        where: { userId, readAt: null },
+        data: { readAt: new Date(), status: 'READ' },
+      }),
     );
   }
 
-  /** Device tokens for a set of users (for push fan-out). */
-  deviceTokens(userIds: string[]): Promise<string[]> {
-    if (userIds.length === 0) return Promise.resolve([]);
-    return this.run(async (tx) => {
-      const rows = await tx.deviceToken.findMany({
-        where: { userId: { in: userIds } },
-        select: { token: true },
-      });
-      return rows.map((r) => r.token);
-    });
+  archive(id: string, userId: string): Promise<Prisma.BatchPayload> {
+    return this.run((tx) =>
+      tx.notification.updateMany({
+        where: { id, userId, archivedAt: null },
+        data: { archivedAt: new Date(), status: 'ARCHIVED' },
+      }),
+    );
   }
 }

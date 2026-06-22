@@ -42,6 +42,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.GRADE_READ,
     Permission.ANNOUNCEMENT_MANAGE,
     Permission.NOTIFICATION_SEND,
+    Permission.NOTIFICATION_SETTINGS,
     Permission.LEAVE_APPROVE,
     Permission.REPORT_READ,
     Permission.REPORT_EXPORT,

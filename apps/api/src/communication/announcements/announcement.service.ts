@@ -1,14 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { Announcement } from '@prisma/client';
 import { AnnouncementRepository } from './announcement.repository';
-import { DispatcherService } from '../dispatch/dispatcher.service';
+import { NotificationEventBus } from '../engine/notification-event-bus';
+import { NotificationEventType } from '../engine/notification-events';
 import type { CreateAnnouncementDto } from './announcement.dto';
 
 @Injectable()
 export class AnnouncementService {
   constructor(
     private readonly repo: AnnouncementRepository,
-    private readonly dispatcher: DispatcherService,
+    private readonly bus: NotificationEventBus,
   ) {}
 
   async create(dto: CreateAnnouncementDto): Promise<Announcement & { recipients: number }> {
@@ -26,12 +27,13 @@ export class AnnouncementService {
       sectionId: dto.sectionId ?? null,
     });
 
-    const { recipients } = await this.dispatcher.dispatch({
-      audience: dto.audience,
-      sectionId: dto.sectionId ?? null,
+    // Modules never send directly — raise an event; the engine handles preference/priority/channels.
+    const { recipients } = await this.bus.emit({
+      type: NotificationEventType.AnnouncementCreated,
+      recipients: { audience: dto.audience, sectionId: dto.sectionId ?? null },
       title: dto.title,
       body: dto.body,
-      category: 'announcement',
+      context: { Body: dto.body },
       announcementId: announcement.id,
     });
 

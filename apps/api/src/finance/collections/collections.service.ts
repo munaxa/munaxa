@@ -8,7 +8,10 @@ import { Prisma, type ReminderChannel, type StudentBillingProfile } from '@prism
 import { BillingRepository } from '../ledger/billing.repository';
 import { CollectionsRepository } from './collections.repository';
 import { SmsService } from './sms.service';
-import type { SendReminderDto, SetCollectionsDto } from './collections.dto';
+import { NotificationEventBus } from '../../communication/engine/notification-event-bus';
+import { NotificationEventType } from '../../communication/engine/notification-events';
+import { agedAmount, qualifiesOutstanding } from './outstanding-filter';
+import type { PushOutstandingDto, SendReminderDto, SetCollectionsDto } from './collections.dto';
 
 const ZERO = new Prisma.Decimal(0);
 
@@ -72,6 +75,16 @@ export interface BatchResult {
   totalSms: number;
 }
 
+export interface PushOutstandingResult {
+  filter: { minAgeDays: number | null; minAmount: string | null; match: 'ALL' | 'ANY' };
+  candidates: number; // accounts with unpaid charges considered
+  matched: number; // accounts that passed the filter
+  pushed: number; // accounts an outstanding-balance push was emitted for
+  skippedLegal: number; // excluded (LEGAL collections tag)
+  skippedNoParent: number; // matched but no parent account to notify
+  totalRecipients: number; // total parent notifications created
+}
+
 /**
  * Fee collections: per-student legal/collections tagging and late-payment reminders.
  * Reminders bundle "this month's payment" and "late (overdue) payments", and are sent to the
@@ -84,6 +97,7 @@ export class CollectionsService {
     private readonly repo: CollectionsRepository,
     private readonly billing: BillingRepository,
     private readonly sms: SmsService,
+    private readonly notifications: NotificationEventBus,
   ) {}
 
   // ----------------------------------------------------------------- tagging
@@ -360,6 +374,107 @@ export class CollectionsService {
       result.totalSms += sent.smsSent;
     }
     return result;
+  }
+
+  // --------------------------------------------------- push outstanding balance
+
+  /**
+   * Admin-triggered: push each qualifying student's outstanding balance to their parents via the
+   * notification engine (FCM push, with the platform's email escalation for HIGH-priority finance
+   * alerts). Narrowed by aging (>30/60/90 days) and/or a minimum amount. LEGAL-tagged students are
+   * excluded. Routes through the engine — no direct sends.
+   */
+  async pushOutstanding(dto: PushOutstandingDto): Promise<PushOutstandingResult> {
+    const candidates = await this.repo.studentsWithUnpaidCharges();
+    const profiles = await this.repo.profilesFor(candidates);
+    const legal = new Set(
+      profiles.filter((p) => p.collectionsStatus === 'LEGAL').map((p) => p.studentId),
+    );
+
+    const result: PushOutstandingResult = {
+      filter: {
+        minAgeDays: dto.minAgeDays ?? null,
+        minAmount: dto.minAmount ?? null,
+        match: dto.match ?? 'ALL',
+      },
+      candidates: candidates.length,
+      matched: 0,
+      pushed: 0,
+      skippedLegal: 0,
+      skippedNoParent: 0,
+      totalRecipients: 0,
+    };
+
+    for (const studentId of candidates) {
+      if (legal.has(studentId)) {
+        result.skippedLegal += 1;
+        continue;
+      }
+      const a = await this.aging(studentId);
+      if (!qualifiesOutstanding(a, dto)) continue;
+      result.matched += 1;
+
+      const [names, parents] = await Promise.all([
+        this.repo.studentNames(studentId),
+        this.repo.parentsOf(studentId),
+      ]);
+      const userIds = parents.map((p) => p.userId).filter((id): id is string => Boolean(id));
+      if (userIds.length === 0) {
+        result.skippedNoParent += 1;
+        continue;
+      }
+
+      const overdue = agedAmount(a, dto.minAgeDays);
+      const { title, body } = this.buildOutstandingMessage(
+        names ?? { en: 'your child', ar: 'ابنكم' },
+        a.total,
+        overdue,
+        dto.minAgeDays,
+      );
+
+      const summary = await this.notifications.emit({
+        type: NotificationEventType.PaymentOverdue,
+        recipients: { userIds },
+        title,
+        body,
+        context: { StudentName: names?.en ?? 'your child', Amount: `${a.total} JOD` },
+        data: { studentId, outstanding: a.total, overdue: overdue.toFixed(3) },
+        mandatory: dto.mandatory ?? false,
+      });
+
+      await this.repo.logReminder({
+        studentId,
+        channels: ['PUSH'],
+        outstanding: new Prisma.Decimal(a.total),
+        dueThisMonth: ZERO,
+        overdue,
+        recipientCount: summary.recipients,
+        smsSentCount: 0,
+      });
+
+      result.pushed += 1;
+      result.totalRecipients += summary.recipients;
+    }
+
+    return result;
+  }
+
+  /** Concise bilingual outstanding-balance push, optionally noting the overdue age threshold. */
+  private buildOutstandingMessage(
+    names: { en: string; ar: string },
+    total: string,
+    overdue: Prisma.Decimal,
+    minAgeDays?: 30 | 60 | 90,
+  ): { title: string; body: string } {
+    const agePartEn = minAgeDays
+      ? ` (${overdue.toFixed(3)} JOD overdue more than ${minAgeDays} days)`
+      : '';
+    const agePartAr = minAgeDays
+      ? ` (منها ${overdue.toFixed(3)} دينار متأخرة أكثر من ${minAgeDays} يومًا)`
+      : '';
+    const en = `Outstanding balance for ${names.en}: ${total} JOD${agePartEn}. Please settle at your earliest convenience.`;
+    const ar = `رصيد مستحق للطالب ${names.ar}: ${total} دينار${agePartAr}. نرجو المبادرة بالسداد.`;
+    return { title: 'Outstanding balance | رصيد مستحق', body: `${en}\n${ar}` };
   }
 
   // ------------------------------------------------------------------ helpers

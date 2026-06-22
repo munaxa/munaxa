@@ -166,7 +166,7 @@ describe('Fee collections & reminders (e2e)', () => {
 
     // The parent actually received a notification.
     const notes = await withTenant(prisma, TENANT, (tx) =>
-      tx.notification.findMany({ where: { userId: parentUserId, category: 'finance.reminder' } }),
+      tx.notification.findMany({ where: { userId: parentUserId, category: 'FINANCE' } }),
     );
     expect(notes.length).toBeGreaterThanOrEqual(1);
     expect(notes[0]!.body).toContain('500.000');
