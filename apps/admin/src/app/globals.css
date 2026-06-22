@@ -81,6 +81,325 @@
   }
 }
 
+/*
+ * Sign-in screen — a glassy "device card" with an animated brand wave, inspired by the attached
+ * reference and rendered in the Munaxa palette (violet primary + aqua accent). The screen has its
+ * own light + dark treatment driven by the app's `.dark` class: the base rules below are LIGHT and
+ * the `.dark` blocks override them with the deep "ink" look. The brand wave (aqua → violet) is
+ * shared by both modes. Motion is suppressed by the prefers-reduced-motion block further down.
+ */
+@layer components {
+  /* Full-bleed backdrop with a soft violet glow behind the card. */
+  .login-bg {
+    background:
+      radial-gradient(120% 80% at 50% 0%, #ece4ff 0%, transparent 55%),
+      radial-gradient(90% 70% at 50% 110%, #e7daff 0%, transparent 50%), #f5f2ff;
+  }
+  .dark .login-bg {
+    background:
+      radial-gradient(120% 80% at 50% 0%, #1d0f44 0%, transparent 55%),
+      radial-gradient(90% 70% at 50% 110%, #2a0f5e 0%, transparent 50%), #0b0518;
+  }
+
+  /* The card. overflow-hidden clips the wave to the rounded corners. */
+  .login-card {
+    background: #ffffff;
+    border: 1px solid #e3dfef;
+    box-shadow:
+      0 30px 60px -25px rgba(91, 31, 214, 0.28),
+      0 0 0 1px rgba(0, 0, 0, 0.02) inset;
+  }
+  .dark .login-card {
+    background: linear-gradient(180deg, #1b1040 0%, #140b30 55%, #0d0722 100%);
+    border: 1px solid #2a1d4d;
+    box-shadow:
+      0 30px 80px -20px rgba(0, 0, 0, 0.65),
+      0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  }
+
+  /* Theme toggle pinned to the top corner of the screen. */
+  .login-toggle {
+    position: absolute;
+    top: 1rem;
+    inset-inline-end: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    border: 1px solid #e3dfef;
+    background: rgba(255, 255, 255, 0.7);
+    color: #5a4d7a;
+    backdrop-filter: blur(4px);
+    transition:
+      color 0.2s,
+      background 0.2s;
+    cursor: pointer;
+  }
+  .login-toggle:hover {
+    color: #1e0b4d;
+    background: #ffffff;
+  }
+  .dark .login-toggle {
+    border-color: #2a1d4d;
+    background: rgba(26, 15, 56, 0.6);
+    color: #afa9c6;
+  }
+  .dark .login-toggle:hover {
+    color: #ffffff;
+    background: rgba(26, 15, 56, 0.95);
+  }
+
+  /* Animated wave stack pinned to the bottom of the card. */
+  .login-wave {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 160px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .login-wave svg {
+    position: absolute;
+    inset-inline-start: 0;
+    bottom: 0;
+    width: 200%;
+    height: 100%;
+    will-change: transform;
+  }
+  .login-wave svg.w1 {
+    opacity: 0.9;
+    animation: login-wave-flow 18s linear infinite;
+  }
+  .login-wave svg.w2 {
+    opacity: 0.55;
+    animation: login-wave-flow 26s linear infinite reverse;
+  }
+  .login-wave svg.w3 {
+    opacity: 0.4;
+    animation: login-wave-flow 34s linear infinite;
+  }
+  @keyframes login-wave-flow {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* Per-wave gradient stops (kept here so the JSX stays free of raw hex per the lint rule). */
+  .login-wave svg.w1 stop:nth-of-type(1) {
+    stop-color: #4df4e1;
+  }
+  .login-wave svg.w1 stop:nth-of-type(2) {
+    stop-color: #5b1fd6;
+  }
+  .login-wave svg.w1 stop:nth-of-type(3) {
+    stop-color: #b97bff;
+  }
+  .login-wave svg.w2 stop:nth-of-type(1) {
+    stop-color: #7c3aed;
+  }
+  .login-wave svg.w2 stop:nth-of-type(2) {
+    stop-color: #b97bff;
+  }
+  .login-wave svg.w2 stop:nth-of-type(3) {
+    stop-color: #4df4e1;
+  }
+  .login-wave svg.w3 stop:nth-of-type(1) {
+    stop-color: #5b1fd6;
+  }
+  .login-wave svg.w3 stop:nth-of-type(2) {
+    stop-color: #4df4e1;
+  }
+  .login-wave svg.w3 stop:nth-of-type(3) {
+    stop-color: #5b1fd6;
+  }
+
+  /* Text accents for the sign-in card. Base = light; .dark overrides = ink. */
+  .login-heading {
+    color: #1e0b4d;
+  }
+  .dark .login-heading {
+    color: #ffffff;
+  }
+  .login-sub {
+    color: #5a4d7a;
+  }
+  .dark .login-sub {
+    color: #afa9c6;
+  }
+  .login-muted {
+    color: #6b5e8f;
+    transition: color 0.2s;
+  }
+  .login-muted:hover {
+    color: #1e0b4d;
+  }
+  .dark .login-muted {
+    color: #8b80b0;
+  }
+  .dark .login-muted:hover {
+    color: #ffffff;
+  }
+  .login-error {
+    color: #d9534f;
+  }
+  .dark .login-error {
+    color: #ff8e6e;
+  }
+  .login-link {
+    color: #5b1fd6;
+  }
+  .dark .login-link {
+    color: #b97bff;
+  }
+  /* The legal line sits over the colourful wave in both modes, so it stays light. */
+  .login-legal {
+    color: rgba(255, 255, 255, 0.92);
+  }
+  .dark .login-legal {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  /* Floating-label underline field. The input precedes its label/icon siblings so the
+   * `~` general-sibling selectors below can react to :focus / :not(:placeholder-shown). */
+  .login-field {
+    position: relative;
+    padding-top: 1rem;
+  }
+  .login-input {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid #cfc7e3;
+    background: transparent;
+    padding-inline: 1.75rem 1.75rem;
+    padding-block: 0.25rem 0.5rem;
+    font-size: 1rem;
+    color: #1e0b4d;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .login-input::placeholder {
+    color: transparent;
+  }
+  .login-input:focus {
+    border-bottom-color: #5b1fd6;
+  }
+  .dark .login-input {
+    border-bottom-color: #3a2b5e;
+    color: #ffffff;
+  }
+  .dark .login-input:focus {
+    border-bottom-color: #b97bff;
+  }
+  .login-field-label {
+    position: absolute;
+    inset-inline-start: 1.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    color: #8a7fb0;
+    pointer-events: none;
+    transition: all 0.2s;
+  }
+  .dark .login-field-label {
+    color: #8b80b0;
+  }
+  .login-input:not(:placeholder-shown) ~ .login-field-label {
+    top: 0.25rem;
+    transform: translateY(0);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #5a4d7a;
+  }
+  .dark .login-input:not(:placeholder-shown) ~ .login-field-label {
+    color: #afa9c6;
+  }
+  /* Listed after the filled rule so a focused field's label stays violet even when filled. */
+  .login-input:focus ~ .login-field-label {
+    top: 0.25rem;
+    transform: translateY(0);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #5b1fd6;
+  }
+  .dark .login-input:focus ~ .login-field-label {
+    color: #b97bff;
+  }
+  .login-field-icon {
+    position: absolute;
+    inset-inline-start: 0;
+    bottom: 0.5rem;
+    color: #9b90c0;
+    pointer-events: none;
+    transition: color 0.2s;
+  }
+  .dark .login-field-icon {
+    color: #8b80b0;
+  }
+  .login-input:focus ~ .login-field-icon {
+    color: #5b1fd6;
+  }
+  .dark .login-input:focus ~ .login-field-icon {
+    color: #b97bff;
+  }
+  .login-eye {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    display: flex;
+    align-items: center;
+    padding-inline-end: 0.25rem;
+    color: #9b90c0;
+    transition: color 0.2s;
+  }
+  .login-eye:hover {
+    color: #1e0b4d;
+  }
+  .dark .login-eye {
+    color: #8b80b0;
+  }
+  .dark .login-eye:hover {
+    color: #ffffff;
+  }
+
+  /* Primary submit button — Munaxa violet gradient with a soft glow. */
+  .login-button {
+    margin-top: 1.25rem;
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 0;
+    background: linear-gradient(90deg, #5b1fd6, #7c3aed);
+    padding: 0.875rem 1rem;
+    font-weight: 600;
+    color: #ffffff;
+    box-shadow: 0 10px 30px -8px rgba(91, 31, 214, 0.7);
+    transition: filter 0.2s;
+    cursor: pointer;
+  }
+  .login-button:hover {
+    filter: brightness(1.12);
+  }
+  .login-button:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px #ffffff,
+      0 0 0 4px #5b1fd6;
+  }
+  .dark .login-button:focus-visible {
+    box-shadow:
+      0 0 0 2px #140b30,
+      0 0 0 4px #b97bff;
+  }
+  .login-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
 @layer utilities {
   /* Hide the scrollbar while keeping the element scrollable — used for the sidebar nav so a long,
    * scrollable menu doesn't show an ugly track. Cross-browser (Firefox, IE/Edge, WebKit). */
