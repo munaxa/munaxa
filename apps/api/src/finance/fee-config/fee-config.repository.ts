@@ -62,6 +62,17 @@ export class FeeConfigRepository extends TenantRepository {
     });
   }
 
+  deleteGradeFee(id: string): Promise<void> {
+    return this.run(async (tx, tenantId) => {
+      await tx.gradeFeeSchedule.delete({ where: { id } });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.feeconfig.gradeFee.delete',
+        entityType: 'GradeFeeSchedule',
+        entityId: id,
+      });
+    });
+  }
+
   // ── Transport fares ──
   listTransportFares(academicYearId?: string): Promise<TransportFare[]> {
     return this.run((tx) =>
@@ -104,6 +115,17 @@ export class FeeConfigRepository extends TenantRepository {
     });
   }
 
+  deleteTransportFare(id: string): Promise<void> {
+    return this.run(async (tx, tenantId) => {
+      await tx.transportFare.delete({ where: { id } });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.feeconfig.transportFare.delete',
+        entityType: 'TransportFare',
+        entityId: id,
+      });
+    });
+  }
+
   // ── Discount rules ──
   listDiscountRules(): Promise<DiscountRule[]> {
     return this.run((tx) => tx.discountRule.findMany({ orderBy: { createdAt: 'desc' } }));
@@ -142,6 +164,17 @@ export class FeeConfigRepository extends TenantRepository {
         entityId: id,
       });
       return row;
+    });
+  }
+
+  deleteDiscountRule(id: string): Promise<void> {
+    return this.run(async (tx, tenantId) => {
+      await tx.discountRule.delete({ where: { id } });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.feeconfig.discountRule.delete',
+        entityType: 'DiscountRule',
+        entityId: id,
+      });
     });
   }
 

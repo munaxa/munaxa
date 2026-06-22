@@ -191,15 +191,11 @@ export class QuoteService {
         throw new BadRequestException(`Installments must be between ${minI} and ${maxI}.`);
       }
       const base = dto.firstDueDate ? new Date(dto.firstDueDate) : new Date();
-      const year = await this.repo.findAcademicYear(dto.academicYearId);
       const totalFils = grandTotal.mul(1000).toNearest(1).toNumber();
       const per = Math.floor(totalFils / installments);
       for (let i = 0; i < installments; i += 1) {
         const fils = i === installments - 1 ? totalFils - per * (installments - 1) : per;
         const due = this.addMonths(base, i);
-        if (year && due > year.endDate) {
-          warnings.push('Installment schedule extends past the end of the academic year.');
-        }
         schedule.push({
           index: i + 1,
           dueDate: due.toISOString().slice(0, 10),

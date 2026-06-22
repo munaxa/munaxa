@@ -414,6 +414,24 @@ export const feeConfigApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<GradeFeeSchedule>(r)),
+  updateGradeFee: (
+    id: string,
+    data: Partial<{
+      gradeId: string;
+      academicYearId: string;
+      registrationFee: number;
+      tuitionFee: number;
+      effectiveFrom: string;
+      effectiveTo: string;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/grade-fees/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<GradeFeeSchedule>(r)),
+  deleteGradeFee: (id: string) =>
+    authFetch(`/finance/fee-config/grade-fees/${id}`, { method: 'DELETE' }).then(() => undefined),
 
   transportFares: (academicYearId?: string) =>
     authFetch(
@@ -428,6 +446,23 @@ export const feeConfigApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<TransportFare>(r)),
+  updateTransportFare: (
+    id: string,
+    data: Partial<{
+      academicYearId: string;
+      direction: TransportDirection;
+      amount: number;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/transport-fares/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<TransportFare>(r)),
+  deleteTransportFare: (id: string) =>
+    authFetch(`/finance/fee-config/transport-fares/${id}`, { method: 'DELETE' }).then(
+      () => undefined,
+    ),
 
   discountRules: () =>
     authFetch('/finance/fee-config/discount-rules').then((r) => json<DiscountRule[]>(r)),
@@ -443,6 +478,26 @@ export const feeConfigApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<DiscountRule>(r)),
+  updateDiscountRule: (
+    id: string,
+    data: Partial<{
+      name: string;
+      type: DiscountType;
+      calc: DiscountCalc;
+      value: number;
+      maxAmount: number;
+      appliesToTransport: boolean;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/discount-rules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<DiscountRule>(r)),
+  deleteDiscountRule: (id: string) =>
+    authFetch(`/finance/fee-config/discount-rules/${id}`, { method: 'DELETE' }).then(
+      () => undefined,
+    ),
 
   policy: () => authFetch('/finance/fee-config/policy').then((r) => json<BillingPolicy | null>(r)),
   upsertPolicy: (data: {

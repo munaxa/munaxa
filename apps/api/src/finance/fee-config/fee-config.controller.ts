@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
@@ -41,6 +52,12 @@ export class FeeConfigController {
   updateGradeFee(@Param('id') id: string, @Body() dto: UpdateGradeFeeScheduleDto) {
     return this.service.updateGradeFee(id, dto);
   }
+  @Delete('grade-fees/:id')
+  @HttpCode(204)
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  deleteGradeFee(@Param('id') id: string) {
+    return this.service.deleteGradeFee(id);
+  }
 
   // Transport fares
   @Get('transport-fares')
@@ -58,6 +75,12 @@ export class FeeConfigController {
   updateTransportFare(@Param('id') id: string, @Body() dto: UpdateTransportFareDto) {
     return this.service.updateTransportFare(id, dto);
   }
+  @Delete('transport-fares/:id')
+  @HttpCode(204)
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  deleteTransportFare(@Param('id') id: string) {
+    return this.service.deleteTransportFare(id);
+  }
 
   // Discount rules
   @Get('discount-rules')
@@ -74,6 +97,12 @@ export class FeeConfigController {
   @RequirePermissions(Permission.FINANCE_MANAGE)
   updateDiscountRule(@Param('id') id: string, @Body() dto: UpdateDiscountRuleDto) {
     return this.service.updateDiscountRule(id, dto);
+  }
+  @Delete('discount-rules/:id')
+  @HttpCode(204)
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  deleteDiscountRule(@Param('id') id: string) {
+    return this.service.deleteDiscountRule(id);
   }
   @Post('discount-rules/:id/apply')
   @RequirePermissions(Permission.FINANCE_MANAGE)

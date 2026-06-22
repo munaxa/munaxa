@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
+import { useConfirm } from '@/components/confirm';
 import {
   feeConfigApi,
   type BillingPolicy,
@@ -149,13 +150,11 @@ function GradeFees({
   gradeName: (id: string) => string;
 }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<GradeFeeSchedule[]>([]);
-  const [form, setForm] = useState({
-    gradeId: '',
-    registrationFee: '',
-    tuitionFee: '',
-    effectiveFrom: '',
-  });
+  const EMPTY = { gradeId: '', registrationFee: '', tuitionFee: '', effectiveFrom: '' };
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -167,25 +166,57 @@ function GradeFees({
   }, [yearId, toast]);
   useEffect(load, [load]);
 
+  function startEdit(r: GradeFeeSchedule) {
+    setEditingId(r.id);
+    setForm({
+      gradeId: r.gradeId,
+      registrationFee: String(Number(r.registrationFee)),
+      tuitionFee: String(Number(r.tuitionFee)),
+      effectiveFrom: r.effectiveFrom.slice(0, 10),
+    });
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(EMPTY);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!yearId || !form.gradeId) return;
     setBusy(true);
     try {
-      await feeConfigApi.createGradeFee({
+      const payload = {
         gradeId: form.gradeId,
-        academicYearId: yearId,
         registrationFee: Number(form.registrationFee) || 0,
         tuitionFee: Number(form.tuitionFee) || 0,
         effectiveFrom: form.effectiveFrom || new Date().toISOString().slice(0, 10),
-      });
-      setForm({ gradeId: '', registrationFee: '', tuitionFee: '', effectiveFrom: '' });
+      };
+      if (editingId) {
+        await feeConfigApi.updateGradeFee(editingId, payload);
+      } else {
+        await feeConfigApi.createGradeFee({ ...payload, academicYearId: yearId });
+      }
+      cancelEdit();
       toast.success('Saved');
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function remove(r: GradeFeeSchedule) {
+    if (!(await confirm({ description: `Delete the grade fee for ${gradeName(r.gradeId)}?` }))) {
+      return;
+    }
+    try {
+      await feeConfigApi.deleteGradeFee(r.id);
+      if (editingId === r.id) cancelEdit();
+      toast.success('Deleted');
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
     }
   }
 
@@ -236,10 +267,15 @@ function GradeFees({
               dir="ltr"
             />
           </Field>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
             <Button type="submit" disabled={!yearId || !form.gradeId || busy}>
-              {busy ? '…' : 'Add'}
+              {busy ? '…' : editingId ? 'Save' : 'Add'}
             </Button>
+            {editingId ? (
+              <Button type="button" variant="outline" onClick={cancelEdit} disabled={busy}>
+                Cancel
+              </Button>
+            ) : null}
           </div>
         </form>
 
@@ -250,6 +286,7 @@ function GradeFees({
               <TH className="text-end">Registration</TH>
               <TH className="text-end">Tuition</TH>
               <TH>Effective from</TH>
+              <TH className="text-end">Actions</TH>
             </TR>
           </THead>
           <TBody>
@@ -259,11 +296,21 @@ function GradeFees({
                 <TD className="text-end font-mono">{jod(r.registrationFee)}</TD>
                 <TD className="text-end font-mono">{jod(r.tuitionFee)}</TD>
                 <TD className="font-mono text-xs">{r.effectiveFrom.slice(0, 10)}</TD>
+                <TD className="text-end">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void remove(r)}>
+                      Delete
+                    </Button>
+                  </div>
+                </TD>
               </TR>
             ))}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={4}>
+                <TD colSpan={5}>
                   <EmptyState title={yearId ? 'No grade fees yet' : 'Select an academic year'} />
                 </TD>
               </TR>
@@ -277,11 +324,14 @@ function GradeFees({
 
 function TransportFares({ yearId }: { yearId: string }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<TransportFare[]>([]);
-  const [form, setForm] = useState<{ direction: TransportDirection; amount: string }>({
+  const EMPTY: { direction: TransportDirection; amount: string } = {
     direction: 'ONE_WAY',
     amount: '',
-  });
+  };
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -293,23 +343,53 @@ function TransportFares({ yearId }: { yearId: string }) {
   }, [yearId, toast]);
   useEffect(load, [load]);
 
+  function startEdit(r: TransportFare) {
+    setEditingId(r.id);
+    setForm({ direction: r.direction, amount: String(Number(r.amount)) });
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(EMPTY);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!yearId) return;
     setBusy(true);
     try {
-      await feeConfigApi.createTransportFare({
-        academicYearId: yearId,
-        direction: form.direction,
-        amount: Number(form.amount) || 0,
-      });
-      setForm({ direction: 'ONE_WAY', amount: '' });
+      if (editingId) {
+        await feeConfigApi.updateTransportFare(editingId, {
+          direction: form.direction,
+          amount: Number(form.amount) || 0,
+        });
+      } else {
+        await feeConfigApi.createTransportFare({
+          academicYearId: yearId,
+          direction: form.direction,
+          amount: Number(form.amount) || 0,
+        });
+      }
+      cancelEdit();
       toast.success('Saved');
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function remove(r: TransportFare) {
+    if (!(await confirm({ description: `Delete the ${r.direction.replace('_', ' ')} fare?` }))) {
+      return;
+    }
+    try {
+      await feeConfigApi.deleteTransportFare(r.id);
+      if (editingId === r.id) cancelEdit();
+      toast.success('Deleted');
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
     }
   }
 
@@ -343,10 +423,15 @@ function TransportFares({ yearId }: { yearId: string }) {
               dir="ltr"
             />
           </Field>
-          <div className="flex items-end">
+          <div className="flex items-end gap-2">
             <Button type="submit" disabled={!yearId || busy}>
-              {busy ? '…' : 'Add'}
+              {busy ? '…' : editingId ? 'Save' : 'Add'}
             </Button>
+            {editingId ? (
+              <Button type="button" variant="outline" onClick={cancelEdit} disabled={busy}>
+                Cancel
+              </Button>
+            ) : null}
           </div>
         </form>
         <Table>
@@ -354,6 +439,7 @@ function TransportFares({ yearId }: { yearId: string }) {
             <TR>
               <TH>Direction</TH>
               <TH className="text-end">Amount</TH>
+              <TH className="text-end">Actions</TH>
             </TR>
           </THead>
           <TBody>
@@ -361,11 +447,21 @@ function TransportFares({ yearId }: { yearId: string }) {
               <TR key={r.id}>
                 <TD>{r.direction.replace('_', ' ')}</TD>
                 <TD className="text-end font-mono">{jod(r.amount)}</TD>
+                <TD className="text-end">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void remove(r)}>
+                      Delete
+                    </Button>
+                  </div>
+                </TD>
               </TR>
             ))}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={2}>
+                <TD colSpan={3}>
                   <EmptyState
                     title={yearId ? 'No transport fares yet' : 'Select an academic year'}
                   />
@@ -381,13 +477,16 @@ function TransportFares({ yearId }: { yearId: string }) {
 
 function DiscountRules() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [rows, setRows] = useState<DiscountRule[]>([]);
-  const [form, setForm] = useState({
+  const EMPTY = {
     name: '',
     type: 'FULL_PAYMENT' as DiscountRule['type'],
     calc: 'PERCENT' as DiscountRule['calc'],
     value: '',
-  });
+  };
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
@@ -398,24 +497,50 @@ function DiscountRules() {
   }, [toast]);
   useEffect(load, [load]);
 
+  function startEdit(r: DiscountRule) {
+    setEditingId(r.id);
+    setForm({ name: r.name, type: r.type, calc: r.calc, value: String(Number(r.value)) });
+  }
+  function cancelEdit() {
+    setEditingId(null);
+    setForm(EMPTY);
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name) return;
     setBusy(true);
     try {
-      await feeConfigApi.createDiscountRule({
+      const payload = {
         name: form.name,
         type: form.type,
         calc: form.calc,
         value: Number(form.value) || 0,
-      });
-      setForm({ name: '', type: 'FULL_PAYMENT', calc: 'PERCENT', value: '' });
+      };
+      if (editingId) {
+        await feeConfigApi.updateDiscountRule(editingId, payload);
+      } else {
+        await feeConfigApi.createDiscountRule(payload);
+      }
+      cancelEdit();
       toast.success('Saved');
       load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function remove(r: DiscountRule) {
+    if (!(await confirm({ description: `Delete the discount rule "${r.name}"?` }))) return;
+    try {
+      await feeConfigApi.deleteDiscountRule(r.id);
+      if (editingId === r.id) cancelEdit();
+      toast.success('Deleted');
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
     }
   }
 
@@ -463,10 +588,15 @@ function DiscountRules() {
               dir="ltr"
             />
           </Field>
-          <div className="flex items-end sm:col-span-5">
+          <div className="flex items-end gap-2 sm:col-span-5">
             <Button type="submit" disabled={!form.name || busy}>
-              {busy ? '…' : 'Add rule'}
+              {busy ? '…' : editingId ? 'Save rule' : 'Add rule'}
             </Button>
+            {editingId ? (
+              <Button type="button" variant="outline" onClick={cancelEdit} disabled={busy}>
+                Cancel
+              </Button>
+            ) : null}
           </div>
         </form>
         <Table>
@@ -476,6 +606,7 @@ function DiscountRules() {
               <TH>Type</TH>
               <TH>Calc</TH>
               <TH className="text-end">Value</TH>
+              <TH className="text-end">Actions</TH>
             </TR>
           </THead>
           <TBody>
@@ -487,11 +618,21 @@ function DiscountRules() {
                 <TD className="text-end font-mono">
                   {r.calc === 'PERCENT' ? `${Number(r.value)}%` : jod(r.value)}
                 </TD>
+                <TD className="text-end">
+                  <div className="flex justify-end gap-1">
+                    <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => void remove(r)}>
+                      Delete
+                    </Button>
+                  </div>
+                </TD>
               </TR>
             ))}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={4}>
+                <TD colSpan={5}>
                   <EmptyState title="No discount rules yet" />
                 </TD>
               </TR>
@@ -595,6 +736,32 @@ function PolicyForm() {
             </Button>
           </div>
         </form>
+
+        {policy ? (
+          <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+            <h3 className="text-sm font-medium">Current policy</h3>
+            <dl className="mt-2 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Installments</dt>
+                <dd className="font-mono">
+                  {policy.minInstallments}–{policy.maxInstallments}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Full-payment discount</dt>
+                <dd className="font-mono">{Number(policy.fullPaymentDiscountPct)}%</dd>
+              </div>
+              <div className="flex justify-between gap-2">
+                <dt className="text-muted-foreground">Suspend transport after</dt>
+                <dd className="font-mono">{policy.suspendTransportAfterOverdue} overdue</dd>
+              </div>
+            </dl>
+          </div>
+        ) : (
+          <p className="mt-6 text-sm text-muted-foreground">
+            No billing policy saved yet — create one above.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
