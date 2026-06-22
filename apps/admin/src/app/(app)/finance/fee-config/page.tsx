@@ -14,6 +14,7 @@ import {
 } from '@/lib/finance';
 import { schoolsApi, campusesApi, gradesApi, academicYearsApi } from '@/lib/structure';
 import type { AcademicYear, Campus, Grade } from '@/lib/structure';
+import { busApi, type BusRoute } from '@/lib/bus';
 import {
   Button,
   Card,
@@ -349,7 +350,9 @@ function TransportFares({ yearId }: { yearId: string }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [rows, setRows] = useState<TransportFare[]>([]);
-  const EMPTY: { direction: TransportDirection; amount: string } = {
+  const [routes, setRoutes] = useState<BusRoute[]>([]);
+  const EMPTY: { routeGroup: string; direction: TransportDirection; amount: string } = {
+    routeGroup: '',
     direction: 'ONE_WAY',
     amount: '',
   };
@@ -366,9 +369,17 @@ function TransportFares({ yearId }: { yearId: string }) {
   }, [yearId, toast]);
   useEffect(load, [load]);
 
+  // Suggest route groups from the fleet's routes so finance + transport stay aligned.
+  useEffect(() => {
+    busApi
+      .listRoutes()
+      .then(setRoutes)
+      .catch(() => setRoutes([]));
+  }, []);
+
   function startEdit(r: TransportFare) {
     setEditingId(r.id);
-    setForm({ direction: r.direction, amount: String(Number(r.amount)) });
+    setForm({ routeGroup: r.routeGroup, direction: r.direction, amount: String(Number(r.amount)) });
   }
   function cancelEdit() {
     setEditingId(null);
@@ -382,12 +393,29 @@ function TransportFares({ yearId }: { yearId: string }) {
     try {
       if (editingId) {
         await feeConfigApi.updateTransportFare(editingId, {
+          routeGroup: form.routeGroup.trim(),
           direction: form.direction,
           amount: Number(form.amount) || 0,
         });
       } else {
+        const rg = form.routeGroup.trim();
+        // Keep finance + fleet aligned: a brand-new route group is also created as a fleet route
+        // so it shows up in the Transport/Fleet tab. Best-effort — the fare still records the
+        // label even if the actor lacks bus:manage.
+        if (rg && !routes.some((r) => r.name.toLowerCase() === rg.toLowerCase())) {
+          try {
+            await busApi.createRoute({ name: rg });
+            busApi
+              .listRoutes()
+              .then(setRoutes)
+              .catch(() => undefined);
+          } catch {
+            /* ignore — route group label is still stored on the fare */
+          }
+        }
         await feeConfigApi.createTransportFare({
           academicYearId: yearId,
+          routeGroup: rg,
           direction: form.direction,
           amount: Number(form.amount) || 0,
         });
@@ -406,7 +434,7 @@ function TransportFares({ yearId }: { yearId: string }) {
     if (
       r.isActive &&
       !(await confirm({
-        description: `Archive the ${r.direction.replace('_', ' ')} fare? It will no longer be used for new quotes but is kept for the record.`,
+        description: `Archive the ${r.routeGroup || '—'} ${r.direction.replace('_', ' ')} fare? It will no longer be used for new quotes but is kept for the record.`,
         confirmLabel: 'Archive',
         destructive: false,
       }))
@@ -429,7 +457,24 @@ function TransportFares({ yearId }: { yearId: string }) {
         <CardTitle>Transport fares</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-3">
+        <p className="text-xs text-muted-foreground">
+          Route groups are shared with the Transport/Fleet tab. Pick an existing route or type a new
+          one — a new route group is also added to the fleet. The fare amount is set here only.
+        </p>
+        <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-4">
+          <Field label="Route group">
+            <Input
+              list="fleet-route-groups"
+              value={form.routeGroup}
+              onChange={(e) => setForm({ ...form, routeGroup: e.target.value })}
+              placeholder="e.g. A,B,C"
+            />
+            <datalist id="fleet-route-groups">
+              {routes.map((r) => (
+                <option key={r.id} value={r.name} />
+              ))}
+            </datalist>
+          </Field>
           <Field label="Direction">
             <Select
               value={form.direction}
@@ -467,6 +512,7 @@ function TransportFares({ yearId }: { yearId: string }) {
         <Table>
           <THead>
             <TR>
+              <TH>Route group</TH>
               <TH>Direction</TH>
               <TH className="text-end">Amount</TH>
               <TH>Status</TH>
@@ -476,6 +522,7 @@ function TransportFares({ yearId }: { yearId: string }) {
           <TBody>
             {rows.map((r) => (
               <TR key={r.id} className={r.isActive ? undefined : 'opacity-60'}>
+                <TD>{r.routeGroup || <span className="text-muted-foreground">—</span>}</TD>
                 <TD>{r.direction.replace('_', ' ')}</TD>
                 <TD className="text-end font-mono">{jod(r.amount)}</TD>
                 <TD>
@@ -495,7 +542,7 @@ function TransportFares({ yearId }: { yearId: string }) {
             ))}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={4}>
+                <TD colSpan={5}>
                   <EmptyState
                     title={yearId ? 'No transport fares yet' : 'Select an academic year'}
                   />

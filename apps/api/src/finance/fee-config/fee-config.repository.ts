@@ -67,7 +67,7 @@ export class FeeConfigRepository extends TenantRepository {
     return this.run((tx) =>
       tx.transportFare.findMany({
         where: academicYearId ? { academicYearId } : {},
-        orderBy: [{ createdAt: 'desc' }],
+        orderBy: [{ routeGroup: 'asc' }, { direction: 'asc' }],
       }),
     );
   }
@@ -83,7 +83,11 @@ export class FeeConfigRepository extends TenantRepository {
         action: 'finance.feeconfig.transportFare.create',
         entityType: 'TransportFare',
         entityId: row.id,
-        metadata: { direction: row.direction, amount: row.amount.toString() },
+        metadata: {
+          routeGroup: row.routeGroup,
+          direction: row.direction,
+          amount: row.amount.toString(),
+        },
       });
       return row;
     });

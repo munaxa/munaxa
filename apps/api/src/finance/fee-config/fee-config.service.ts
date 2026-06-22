@@ -87,6 +87,7 @@ export class FeeConfigService {
   createTransportFare(dto: CreateTransportFareDto) {
     return this.repo.createTransportFare({
       academicYearId: dto.academicYearId,
+      routeGroup: dto.routeGroup?.trim() ?? '',
       direction: dto.direction,
       amount: dto.amount,
       isActive: dto.isActive ?? true,
@@ -97,6 +98,7 @@ export class FeeConfigService {
       ...(dto.academicYearId !== undefined
         ? { academicYear: { connect: { id: dto.academicYearId } } }
         : {}),
+      ...(dto.routeGroup !== undefined ? { routeGroup: dto.routeGroup.trim() } : {}),
       ...(dto.direction !== undefined ? { direction: dto.direction } : {}),
       ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),

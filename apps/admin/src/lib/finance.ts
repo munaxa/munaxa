@@ -373,6 +373,7 @@ export interface GradeFeeSchedule {
 export interface TransportFare {
   id: string;
   academicYearId: string;
+  routeGroup: string;
   direction: TransportDirection;
   amount: string;
   isActive: boolean;
@@ -437,6 +438,7 @@ export const feeConfigApi = {
     ).then((r) => json<TransportFare[]>(r)),
   createTransportFare: (data: {
     academicYearId: string;
+    routeGroup?: string;
     direction: TransportDirection;
     amount: number;
   }) =>
@@ -448,6 +450,7 @@ export const feeConfigApi = {
     id: string,
     data: Partial<{
       academicYearId: string;
+      routeGroup: string;
       direction: TransportDirection;
       amount: number;
       isActive: boolean;
@@ -521,6 +524,7 @@ export const enrollmentApi = {
     gradeId: string;
     academicYearId: string;
     transportDirection?: TransportDirection;
+    transportRouteGroup?: string;
     fullPayment?: boolean;
     installments?: number;
     firstDueDate?: string;

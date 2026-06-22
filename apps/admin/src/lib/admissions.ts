@@ -63,6 +63,7 @@ export interface QuoteRequest {
   academicYearId: string;
   studentId?: string;
   transportDirection?: TransportDirection;
+  transportRouteGroup?: string;
   paymentMode?: QuotePaymentMode;
   installments?: number;
   firstDueDate?: string;

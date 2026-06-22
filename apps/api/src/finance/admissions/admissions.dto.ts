@@ -71,6 +71,14 @@ export class QuoteDto {
   @IsEnum(TransportDirection)
   transportDirection?: TransportDirection;
 
+  @ApiPropertyOptional({
+    example: 'A,B,C',
+    description: 'Route group to price transport against (must match a configured fare).',
+  })
+  @IsOptional()
+  @IsString()
+  transportRouteGroup?: string;
+
   @ApiPropertyOptional({ enum: QuotePaymentMode, default: QuotePaymentMode.INSTALLMENTS })
   @IsOptional()
   @IsEnum(QuotePaymentMode)

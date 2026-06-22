@@ -46,9 +46,18 @@ export class CreateGradeFeeScheduleDto {
 }
 export class UpdateGradeFeeScheduleDto extends PartialType(CreateGradeFeeScheduleDto) {}
 
-// ── Transport fare (per academic year × direction) ──
+// ── Transport fare (per academic year × route group × direction) ──
 export class CreateTransportFareDto {
   @ApiProperty() @IsUUID() academicYearId!: string;
+
+  @ApiPropertyOptional({
+    example: 'A,B,C',
+    description: 'User-defined route group label (aligns with the fleet routes). Defaults to "".',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  routeGroup?: string;
 
   @ApiProperty({ enum: TransportDirection })
   @IsEnum(TransportDirection)

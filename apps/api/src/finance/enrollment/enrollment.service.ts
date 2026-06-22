@@ -70,14 +70,21 @@ export class EnrollmentService {
     const registration = d(schedule.registrationFee);
     const tuition = d(schedule.tuitionFee);
 
-    // Transport fare for the direction (0 for NONE).
+    // Transport fare for the direction (0 for NONE), priced against the route group when given.
     let transport = ZERO;
     if (direction !== 'NONE') {
-      const fare = (await this.config.listTransportFares(dto.academicYearId)).find(
+      const routeGroup = dto.transportRouteGroup?.trim();
+      const fares = (await this.config.listTransportFares(dto.academicYearId)).filter(
         (f) => f.direction === direction && f.isActive,
       );
-      if (!fare) warnings.push(`No transport fare configured for ${direction}; using 0.`);
-      else transport = d(fare.amount);
+      const fare = routeGroup ? fares.find((f) => f.routeGroup === routeGroup) : fares[0];
+      if (!fare) {
+        warnings.push(
+          routeGroup
+            ? `No transport fare configured for route "${routeGroup}" (${direction}); using 0.`
+            : `No transport fare configured for ${direction}; using 0.`,
+        );
+      } else transport = d(fare.amount);
     }
 
     // Policy: installment bounds + full-payment discount.
