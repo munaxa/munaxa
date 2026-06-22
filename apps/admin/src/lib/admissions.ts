@@ -91,6 +91,7 @@ export interface CommitRequest {
     phone: string;
     phoneAlt?: string;
     email?: string;
+    relation?: 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER';
   };
   sectionId?: string;
 }

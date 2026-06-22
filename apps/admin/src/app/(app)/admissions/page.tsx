@@ -83,6 +83,7 @@ export default function AdmissionsPage() {
   const [pPhone, setPPhone] = useState('');
   const [pPhoneAlt, setPPhoneAlt] = useState('');
   const [pEmail, setPEmail] = useState('');
+  const [pRelation, setPRelation] = useState<'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER'>('FATHER');
 
   useEffect(() => {
     void (async () => {
@@ -207,6 +208,7 @@ export default function AdmissionsPage() {
                 firstNameEn: pFirstEn,
                 lastNameEn: pLastEn,
                 phone: pPhone,
+                relation: pRelation,
                 ...(pPhoneAlt ? { phoneAlt: pPhoneAlt } : {}),
                 ...(pEmail ? { email: pEmail } : {}),
               },
@@ -560,6 +562,19 @@ export default function AdmissionsPage() {
               A guardian with a primary mobile number is required for every new student.
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Relation to student *" className="sm:col-span-2">
+                <Select
+                  value={pRelation}
+                  onChange={(e) =>
+                    setPRelation(e.target.value as 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER')
+                  }
+                >
+                  <option value="FATHER">Father</option>
+                  <option value="MOTHER">Mother</option>
+                  <option value="GUARDIAN">Guardian</option>
+                  <option value="OTHER">Other</option>
+                </Select>
+              </Field>
               <Field label="Guardian first name (EN) *">
                 <Input value={pFirstEn} onChange={(e) => setPFirstEn(e.target.value)} required />
               </Field>

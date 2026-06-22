@@ -690,6 +690,10 @@ model Parent {
   studentLinks ParentStudent[]
 
   @@unique([tenantId, nationalId])
+  // Mobile is the de-duplication key: one parent record per (tenant, mobile). Registration
+  // reuses an existing parent by mobile rather than creating a duplicate. NULLs are allowed
+  // (treated as distinct by Postgres) for legacy parents without a number.
+  @@unique([tenantId, phone])
   @@index([tenantId])
 }
 
@@ -2232,6 +2236,7 @@ enum ReminderChannel {
   IN_APP
   SMS
   PUSH
+  EMAIL
 }
 
 /// One per student: collections/legal tag + reminder cadence bookkeeping.
