@@ -2507,23 +2507,23 @@ model GradeFeeSchedule {
 
 /// Per-academic-year transportation fares by direction. Independent of tuition.
 model TransportFare {
-  id             String             @id @default(uuid()) @db.Uuid
-  tenantId       String             @db.Uuid
-  academicYearId String             @db.Uuid
-  routeId        String?            @db.Uuid // shared fleet route (source of truth for identity)
-  direction      TransportDirection
-  amount         Decimal            @db.Decimal(12, 3) // JOD, annual
-  isActive       Boolean            @default(true)
-  createdById    String?            @db.Uuid
-  updatedById    String?            @db.Uuid
-  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  academicYearId String   @db.Uuid
+  routeId        String?  @db.Uuid // shared fleet route (source of truth for identity)
+  amount         Decimal  @db.Decimal(12, 3) // JOD, annual — the two-way (round trip) total
+  oneWayPct      Decimal  @default(100) @db.Decimal(5, 2) // one-way price as a % of the total
+  isActive       Boolean  @default(true)
+  createdById    String?  @db.Uuid
+  updatedById    String?  @db.Uuid
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   route        BusRoute?    @relation(fields: [routeId], references: [id], onDelete: SetNull)
 
-  @@unique([tenantId, academicYearId, routeId, direction])
+  @@unique([tenantId, academicYearId, routeId])
   @@index([tenantId, academicYearId])
   @@index([routeId])
 }

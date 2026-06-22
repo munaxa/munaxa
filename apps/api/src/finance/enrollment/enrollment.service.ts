@@ -70,21 +70,25 @@ export class EnrollmentService {
     const registration = d(schedule.registrationFee);
     const tuition = d(schedule.tuitionFee);
 
-    // Transport fare for the direction (0 for NONE), priced against the route group when given.
+    // Transport fare (0 for NONE): one fare per route holds the two-way total + one-way %, so the
+    // direction decides which portion applies.
     let transport = ZERO;
     if (direction !== 'NONE') {
-      const routeGroup = dto.transportRouteGroup?.trim();
+      const routeName = dto.transportRouteGroup?.trim();
       const fares = (await this.config.listTransportFares(dto.academicYearId)).filter(
-        (f) => f.direction === direction && f.isActive,
+        (f) => f.isActive,
       );
-      const fare = routeGroup ? fares.find((f) => f.route?.name === routeGroup) : fares[0];
+      const fare = routeName ? fares.find((f) => f.route?.name === routeName) : fares[0];
       if (!fare) {
         warnings.push(
-          routeGroup
-            ? `No transport fare configured for route "${routeGroup}" (${direction}); using 0.`
-            : `No transport fare configured for ${direction}; using 0.`,
+          routeName
+            ? `No transport fare configured for route "${routeName}"; using 0.`
+            : 'No transport fare configured; using 0.',
         );
-      } else transport = d(fare.amount);
+      } else {
+        const total = d(fare.amount);
+        transport = direction === 'ONE_WAY' ? total.mul(d(fare.oneWayPct)).div(100) : total;
+      }
     }
 
     // Policy: installment bounds + full-payment discount.

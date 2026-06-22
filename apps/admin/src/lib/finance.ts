@@ -376,8 +376,10 @@ export interface TransportFare {
   routeId: string | null;
   /** Resolved fleet route (source of truth for the route's name). */
   route: { id: string; name: string } | null;
-  direction: TransportDirection;
+  /** Two-way (round trip) annual total. */
   amount: string;
+  /** One-way price as a percentage of the two-way total. */
+  oneWayPct: string;
   isActive: boolean;
 }
 export interface DiscountRule {
@@ -442,8 +444,8 @@ export const feeConfigApi = {
     academicYearId: string;
     routeId?: string;
     routeName?: string;
-    direction: TransportDirection;
     amount: number;
+    oneWayPct?: number;
   }) =>
     authFetch('/finance/fee-config/transport-fares', {
       method: 'POST',
@@ -455,8 +457,8 @@ export const feeConfigApi = {
       academicYearId: string;
       routeId: string | null;
       routeName: string;
-      direction: TransportDirection;
       amount: number;
+      oneWayPct: number;
       isActive: boolean;
     }>,
   ) =>

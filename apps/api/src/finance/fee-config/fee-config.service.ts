@@ -87,8 +87,8 @@ export class FeeConfigService {
   createTransportFare(dto: CreateTransportFareDto) {
     return this.repo.createTransportFare({
       academicYearId: dto.academicYearId,
-      direction: dto.direction,
       amount: dto.amount,
+      oneWayPct: dto.oneWayPct ?? 100,
       isActive: dto.isActive ?? true,
       ...(dto.routeId !== undefined ? { routeId: dto.routeId } : {}),
       ...(dto.routeName !== undefined ? { routeName: dto.routeName } : {}),
@@ -97,8 +97,8 @@ export class FeeConfigService {
   updateTransportFare(id: string, dto: UpdateTransportFareDto) {
     return this.repo.updateTransportFare(id, {
       ...(dto.academicYearId !== undefined ? { academicYearId: dto.academicYearId } : {}),
-      ...(dto.direction !== undefined ? { direction: dto.direction } : {}),
       ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
+      ...(dto.oneWayPct !== undefined ? { oneWayPct: dto.oneWayPct } : {}),
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
       ...(dto.routeId !== undefined ? { routeId: dto.routeId } : {}),
       ...(dto.routeName !== undefined ? { routeName: dto.routeName } : {}),

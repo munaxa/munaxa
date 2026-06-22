@@ -9,7 +9,6 @@ import {
   type BillingPolicy,
   type DiscountRule,
   type GradeFeeSchedule,
-  type TransportDirection,
   type TransportFare,
 } from '@/lib/finance';
 import { schoolsApi, campusesApi, gradesApi, academicYearsApi } from '@/lib/structure';
@@ -37,7 +36,6 @@ import {
   TabsContent,
 } from '@/components/ui';
 
-const DIRECTIONS: TransportDirection[] = ['NONE', 'ONE_WAY', 'TWO_WAY'];
 const jod = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
 
 function StatusBadge({ active }: { active: boolean }) {
@@ -351,11 +349,7 @@ function TransportFares({ yearId }: { yearId: string }) {
   const confirm = useConfirm();
   const [rows, setRows] = useState<TransportFare[]>([]);
   const [routes, setRoutes] = useState<BusRoute[]>([]);
-  const EMPTY: { routeName: string; direction: TransportDirection; amount: string } = {
-    routeName: '',
-    direction: 'ONE_WAY',
-    amount: '',
-  };
+  const EMPTY = { routeName: '', amount: '', oneWayPct: '100' };
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -382,8 +376,8 @@ function TransportFares({ yearId }: { yearId: string }) {
     setEditingId(r.id);
     setForm({
       routeName: r.route?.name ?? '',
-      direction: r.direction,
       amount: String(Number(r.amount)),
+      oneWayPct: String(Number(r.oneWayPct)),
     });
   }
   function cancelEdit() {
@@ -401,15 +395,15 @@ function TransportFares({ yearId }: { yearId: string }) {
       if (editingId) {
         await feeConfigApi.updateTransportFare(editingId, {
           ...(routeName ? { routeName } : { routeId: null }),
-          direction: form.direction,
           amount: Number(form.amount) || 0,
+          oneWayPct: Number(form.oneWayPct) || 0,
         });
       } else {
         await feeConfigApi.createTransportFare({
           academicYearId: yearId,
           ...(routeName ? { routeName } : {}),
-          direction: form.direction,
           amount: Number(form.amount) || 0,
+          oneWayPct: Number(form.oneWayPct) || 0,
         });
       }
       cancelEdit();
@@ -427,7 +421,7 @@ function TransportFares({ yearId }: { yearId: string }) {
     if (
       r.isActive &&
       !(await confirm({
-        description: `Archive the ${r.route?.name || '—'} ${r.direction.replace('_', ' ')} fare? It will no longer be used for new quotes but is kept for the record.`,
+        description: `Archive the ${r.route?.name || '—'} fare? It will no longer be used for new quotes but is kept for the record.`,
         confirmLabel: 'Archive',
         destructive: false,
       }))
@@ -452,7 +446,8 @@ function TransportFares({ yearId }: { yearId: string }) {
       <CardContent className="space-y-4">
         <p className="text-xs text-muted-foreground">
           Routes are shared with the Transport/Fleet tab. Pick an existing route or type a new one —
-          a new route is also created in the fleet. The fare amount is set here only.
+          a new route is also created in the fleet. Set the two-way (round trip) total and the
+          one-way price as a percentage of it; the direction is chosen per student at admission.
         </p>
         <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-4">
           <Field label="Route">
@@ -468,26 +463,23 @@ function TransportFares({ yearId }: { yearId: string }) {
               ))}
             </datalist>
           </Field>
-          <Field label="Direction">
-            <Select
-              value={form.direction}
-              onChange={(e) =>
-                setForm({ ...form, direction: e.target.value as TransportDirection })
-              }
-            >
-              {DIRECTIONS.map((d) => (
-                <option key={d} value={d}>
-                  {d.replace('_', ' ')}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Amount (annual)">
+          <Field label="Two-way total (annual)">
             <Input
               type="number"
               step="0.001"
               value={form.amount}
               onChange={(e) => setForm({ ...form, amount: e.target.value })}
+              dir="ltr"
+            />
+          </Field>
+          <Field label="One-way (% of total)">
+            <Input
+              type="number"
+              step="0.01"
+              min={0}
+              max={100}
+              value={form.oneWayPct}
+              onChange={(e) => setForm({ ...form, oneWayPct: e.target.value })}
               dir="ltr"
             />
           </Field>
@@ -506,8 +498,8 @@ function TransportFares({ yearId }: { yearId: string }) {
           <THead>
             <TR>
               <TH>Route</TH>
-              <TH>Direction</TH>
-              <TH className="text-end">Amount</TH>
+              <TH className="text-end">Two-way total</TH>
+              <TH className="text-end">One-way</TH>
               <TH>Status</TH>
               <TH className="text-end">Actions</TH>
             </TR>
@@ -516,8 +508,11 @@ function TransportFares({ yearId }: { yearId: string }) {
             {rows.map((r) => (
               <TR key={r.id} className={r.isActive ? undefined : 'opacity-60'}>
                 <TD>{r.route?.name || <span className="text-muted-foreground">—</span>}</TD>
-                <TD>{r.direction.replace('_', ' ')}</TD>
                 <TD className="text-end font-mono">{jod(r.amount)}</TD>
+                <TD className="text-end font-mono">
+                  {jod((Number(r.amount) * Number(r.oneWayPct)) / 100)}
+                  <span className="text-muted-foreground"> ({Number(r.oneWayPct)}%)</span>
+                </TD>
                 <TD>
                   <StatusBadge active={r.isActive} />
                 </TD>

@@ -122,12 +122,10 @@ export default function AdmissionsPage() {
       .catch(() => setFares([]));
   }, [academicYearId]);
 
-  // Routes configured (active) for the chosen direction.
+  // Routes that have a configured (active) fare for the year — direction is applied to the fare.
   const routeGroupOptions = useMemo(() => {
     if (transportDirection === 'NONE') return [] as string[];
-    const names = fares
-      .filter((f) => f.direction === transportDirection && f.isActive && f.route)
-      .map((f) => f.route!.name);
+    const names = fares.filter((f) => f.isActive && f.route).map((f) => f.route!.name);
     return Array.from(new Set(names));
   }, [fares, transportDirection]);
 

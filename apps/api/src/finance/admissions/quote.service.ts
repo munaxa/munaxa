@@ -123,20 +123,26 @@ export class QuoteService {
       });
     }
 
-    // 2) Transport (never discountable). Priced against the chosen fleet route when given.
-    const routeGroup = dto.transportRouteGroup?.trim();
+    // 2) Transport (never discountable). One fare per route holds the two-way total + one-way %;
+    // the chosen direction decides which portion applies.
+    const routeName = dto.transportRouteGroup?.trim();
     if (direction !== TransportDirection.NONE) {
       const fares = (await this.config.listTransportFares(dto.academicYearId)).filter(
-        (f) => f.direction === direction && f.isActive,
+        (f) => f.isActive,
       );
-      const fare = routeGroup ? fares.find((f) => f.route?.name === routeGroup) : fares[0];
+      const fare = routeName ? fares.find((f) => f.route?.name === routeName) : fares[0];
       if (!fare) {
         warnings.push(
-          routeGroup
-            ? `No transport fare configured for route "${routeGroup}" (${direction}); using 0.`
-            : `No transport fare configured for ${direction}; using 0.`,
+          routeName
+            ? `No transport fare configured for route "${routeName}"; using 0.`
+            : 'No transport fare configured; using 0.',
         );
       }
+      const total = d(fare?.amount ?? 0);
+      const fee =
+        direction === TransportDirection.ONE_WAY
+          ? total.mul(d(fare?.oneWayPct ?? 100)).div(100)
+          : total;
       const label = fare?.route?.name
         ? `Transportation (${fare.route.name} · ${direction.replace('_', ' ')})`
         : `Transportation (${direction.replace('_', ' ')})`;
@@ -144,7 +150,7 @@ export class QuoteService {
         kind: FeeItemKind.TRANSPORT,
         feeItemId: null,
         label,
-        amount: d(fare?.amount ?? 0).toFixed(3),
+        amount: fee.toDecimalPlaces(3).toFixed(3),
         discountable: false,
         discountAmount: '0.000',
         overridden: false,
