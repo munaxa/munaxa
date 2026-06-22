@@ -81,6 +81,224 @@
   }
 }
 
+/*
+ * Sign-in screen — a self-contained dark, glassy "device card" with an animated brand wave,
+ * inspired by the attached reference but rendered in the Munaxa palette (violet primary + aqua
+ * accent). These styles are intentionally fixed to the brand "ink" colours rather than the
+ * theme tokens so the screen reads the same in light and dark mode. Motion is suppressed by the
+ * prefers-reduced-motion block below (it neutralises all animations app-wide).
+ */
+@layer components {
+  /* Full-bleed ink backdrop with a soft violet glow behind the card. */
+  .login-bg {
+    background:
+      radial-gradient(120% 80% at 50% 0%, #1d0f44 0%, transparent 55%),
+      radial-gradient(90% 70% at 50% 110%, #2a0f5e 0%, transparent 50%), #0b0518;
+  }
+
+  /* The glassy card. overflow-hidden clips the wave to the rounded corners. */
+  .login-card {
+    background: linear-gradient(180deg, #1b1040 0%, #140b30 55%, #0d0722 100%);
+    border: 1px solid #2a1d4d;
+    box-shadow:
+      0 30px 80px -20px rgba(0, 0, 0, 0.65),
+      0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+  }
+
+  /* Animated wave stack pinned to the bottom of the card. */
+  .login-wave {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 160px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .login-wave svg {
+    position: absolute;
+    inset-inline-start: 0;
+    bottom: 0;
+    width: 200%;
+    height: 100%;
+    will-change: transform;
+  }
+  .login-wave svg.w1 {
+    opacity: 0.9;
+    animation: login-wave-flow 18s linear infinite;
+  }
+  .login-wave svg.w2 {
+    opacity: 0.55;
+    animation: login-wave-flow 26s linear infinite reverse;
+  }
+  .login-wave svg.w3 {
+    opacity: 0.4;
+    animation: login-wave-flow 34s linear infinite;
+  }
+  @keyframes login-wave-flow {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* Per-wave gradient stops (kept here so the JSX stays free of raw hex per the lint rule). */
+  .login-wave svg.w1 stop:nth-of-type(1) {
+    stop-color: #4df4e1;
+  }
+  .login-wave svg.w1 stop:nth-of-type(2) {
+    stop-color: #5b1fd6;
+  }
+  .login-wave svg.w1 stop:nth-of-type(3) {
+    stop-color: #b97bff;
+  }
+  .login-wave svg.w2 stop:nth-of-type(1) {
+    stop-color: #7c3aed;
+  }
+  .login-wave svg.w2 stop:nth-of-type(2) {
+    stop-color: #b97bff;
+  }
+  .login-wave svg.w2 stop:nth-of-type(3) {
+    stop-color: #4df4e1;
+  }
+  .login-wave svg.w3 stop:nth-of-type(1) {
+    stop-color: #5b1fd6;
+  }
+  .login-wave svg.w3 stop:nth-of-type(2) {
+    stop-color: #4df4e1;
+  }
+  .login-wave svg.w3 stop:nth-of-type(3) {
+    stop-color: #5b1fd6;
+  }
+
+  /* Text accents for the sign-in card (fixed brand "ink" palette, theme-independent). */
+  .login-heading {
+    color: #ffffff;
+  }
+  .login-sub {
+    color: #afa9c6;
+  }
+  .login-muted {
+    color: #8b80b0;
+    transition: color 0.2s;
+  }
+  .login-muted:hover {
+    color: #ffffff;
+  }
+  .login-error {
+    color: #ff8e6e;
+  }
+  .login-link {
+    color: #b97bff;
+  }
+  .login-legal {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  /* Floating-label underline field. The input precedes its label/icon siblings so the
+   * `~` general-sibling selectors below can react to :focus / :not(:placeholder-shown). */
+  .login-field {
+    position: relative;
+    padding-top: 1rem;
+  }
+  .login-input {
+    width: 100%;
+    border: 0;
+    border-bottom: 1px solid #3a2b5e;
+    background: transparent;
+    padding-inline: 1.75rem 1.75rem;
+    padding-block: 0.25rem 0.5rem;
+    font-size: 1rem;
+    color: #ffffff;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .login-input::placeholder {
+    color: transparent;
+  }
+  .login-input:focus {
+    border-bottom-color: #b97bff;
+  }
+  .login-field-label {
+    position: absolute;
+    inset-inline-start: 1.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    color: #8b80b0;
+    pointer-events: none;
+    transition: all 0.2s;
+  }
+  .login-input:not(:placeholder-shown) ~ .login-field-label {
+    top: 0.25rem;
+    transform: translateY(0);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #afa9c6;
+  }
+  /* Listed after the filled rule so a focused field's label stays violet even when filled. */
+  .login-input:focus ~ .login-field-label {
+    top: 0.25rem;
+    transform: translateY(0);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #b97bff;
+  }
+  .login-field-icon {
+    position: absolute;
+    inset-inline-start: 0;
+    bottom: 0.5rem;
+    color: #8b80b0;
+    pointer-events: none;
+    transition: color 0.2s;
+  }
+  .login-input:focus ~ .login-field-icon {
+    color: #b97bff;
+  }
+  .login-eye {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    display: flex;
+    align-items: center;
+    padding-inline-end: 0.25rem;
+    color: #8b80b0;
+    transition: color 0.2s;
+  }
+  .login-eye:hover {
+    color: #ffffff;
+  }
+
+  /* Primary submit button — Munaxa violet gradient with a soft glow. */
+  .login-button {
+    margin-top: 1.25rem;
+    width: 100%;
+    border-radius: 0.75rem;
+    border: 0;
+    background: linear-gradient(90deg, #5b1fd6, #7c3aed);
+    padding: 0.875rem 1rem;
+    font-weight: 600;
+    color: #ffffff;
+    box-shadow: 0 10px 30px -8px rgba(91, 31, 214, 0.7);
+    transition: filter 0.2s;
+    cursor: pointer;
+  }
+  .login-button:hover {
+    filter: brightness(1.12);
+  }
+  .login-button:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px #140b30,
+      0 0 0 4px #b97bff;
+  }
+  .login-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
 @layer utilities {
   /* Hide the scrollbar while keeping the element scrollable — used for the sidebar nav so a long,
    * scrollable menu doesn't show an ugly track. Cross-browser (Firefox, IE/Edge, WebKit). */

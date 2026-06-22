@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
 import { useI18n } from '@/components/i18n-provider';
 import { Logo } from '@/components/logo';
-import { Button, Field, Input } from '@/components/ui';
 
 // Typed as a plain string so the cast below is required under Next's typedRoutes (the route
 // registry isn't generated during standalone typecheck) — matching the app's href convention.
@@ -42,113 +41,212 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen">
-      {/* Left: brand hero (hidden on small screens). */}
-      <section className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-grad-primary p-12 text-white lg:flex">
-        <div className="flex items-center gap-2">
-          <Logo size={36} priority />
-          <span className="font-display text-xl font-semibold">Munaxa</span>
-        </div>
-        <div className="max-w-md space-y-4">
-          <h2 className="font-display text-4xl font-bold leading-tight">{t('auth.heroTitle')}</h2>
-          <p className="text-base leading-relaxed text-white/80">{t('auth.heroSubtitle')}</p>
-        </div>
-        <p className="text-sm text-white/60">{t('auth.heroFooter')}</p>
-      </section>
-
-      {/* Right: sign-in form. */}
-      <section className="flex flex-1 items-center justify-center bg-background p-6 sm:p-10">
-        <div className="w-full max-w-sm space-y-8">
-          {/* Brand for small screens where the hero is hidden. */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <Logo size={32} priority />
-            <span className="font-display text-lg font-semibold">Munaxa</span>
+    <main className="login-bg flex min-h-screen items-center justify-center p-4">
+      <div className="login-card relative w-full max-w-sm overflow-hidden rounded-[2rem]">
+        {/* Content sits above the wave (z-10); pb leaves room for the wave + legal text. */}
+        <div className="relative z-10 flex flex-col px-8 pb-32 pt-12">
+          <div className="mb-8 flex flex-col items-center gap-3 text-center">
+            <Logo size={56} priority />
+            <div className="space-y-1">
+              <h1 className="login-heading font-display text-xl font-semibold">
+                {t('auth.welcome')}
+              </h1>
+              <p className="login-sub text-sm">{t('auth.signInToSchool')}</p>
+            </div>
           </div>
 
-          <div className="space-y-1">
-            <h1 className="font-display text-2xl font-semibold">{t('auth.signIn')}</h1>
-            <p className="text-sm text-muted-foreground">{t('auth.signInToSchool')}</p>
-          </div>
+          <form onSubmit={(e) => void onSubmit(e)} className="space-y-2">
+            <FloatingField
+              label={t('auth.identifier')}
+              value={identifier}
+              onChange={setIdentifier}
+              type="text"
+              autoComplete="username"
+              icon={<UserIcon />}
+            />
 
-          <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
-            <Field label={t('auth.identifier')} htmlFor="identifier">
-              <Input
-                id="identifier"
-                type="text"
-                required
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                autoComplete="username"
-                placeholder="name@school.edu.jo"
-              />
-            </Field>
-
-            <Field label={t('auth.password')} htmlFor="password">
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                  className="pe-10"
-                />
+            <FloatingField
+              label={t('auth.password')}
+              value={password}
+              onChange={setPassword}
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="current-password"
+              icon={<LockIcon />}
+              trailing={
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
                   aria-pressed={showPassword}
                   title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                  className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground hover:text-foreground"
+                  className="login-eye"
                 >
                   {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
-              </div>
-            </Field>
+              }
+            />
 
             {showSchool ? (
-              <Field label={t('auth.school')} htmlFor="tenant">
-                <Input
-                  id="tenant"
-                  value={tenantSlug}
-                  onChange={(e) => setTenantSlug(e.target.value)}
-                  placeholder="green-valley"
-                  autoComplete="organization"
-                />
-              </Field>
+              <FloatingField
+                label={t('auth.school')}
+                value={tenantSlug}
+                onChange={setTenantSlug}
+                type="text"
+                autoComplete="organization"
+                icon={<SchoolIcon />}
+              />
             ) : null}
 
             {error ? (
-              <p className="text-sm text-destructive" role="alert">
+              <p className="login-error pt-1 text-sm" role="alert">
                 {error}
               </p>
             ) : null}
 
-            <Button type="submit" disabled={loading} className="w-full">
-              {loading ? `${t('common.loading')}` : t('auth.signIn')}
-            </Button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="login-button font-display text-base"
+            >
+              {loading ? t('common.loading') : t('auth.signIn')}
+            </button>
           </form>
 
-          <div className="flex items-center justify-between text-sm">
-            {!showSchool ? (
-              <button
-                type="button"
-                onClick={() => setShowSchool(true)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                {t('auth.specificSchool')}
-              </button>
-            ) : (
-              <span />
-            )}
-            <Link href={forgotPasswordHref} className="font-medium text-primary hover:underline">
+          <div className="mt-5 flex flex-col items-center gap-2 text-sm">
+            <Link href={forgotPasswordHref} className="login-link font-medium hover:underline">
               {t('auth.forgotPassword')}
             </Link>
+            {!showSchool ? (
+              <button type="button" onClick={() => setShowSchool(true)} className="login-muted">
+                {t('auth.specificSchool')}
+              </button>
+            ) : null}
           </div>
         </div>
-      </section>
+
+        {/* Animated brand wave + legal footer, clipped to the card's rounded corners. */}
+        <BrandWave />
+        <p className="login-legal absolute inset-x-0 bottom-4 z-10 px-8 text-center text-[11px] leading-relaxed">
+          {t('auth.heroFooter')}
+        </p>
+      </div>
     </main>
+  );
+}
+
+/**
+ * Underline input with a floating label and a leading brand icon. The label rides on the baseline
+ * as a placeholder and animates up + turns violet on focus or once a value is present — driven by
+ * the input's :focus / :placeholder-shown state (see .login-input rules in globals.css). The input
+ * is rendered before the label/icon so the CSS general-sibling selectors can target them.
+ */
+function FloatingField({
+  label,
+  value,
+  onChange,
+  type,
+  autoComplete,
+  icon,
+  trailing,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type: string;
+  autoComplete: string;
+  icon: React.ReactNode;
+  trailing?: React.ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div className="login-field">
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+        autoComplete={autoComplete}
+        placeholder=" "
+        className="login-input"
+      />
+      <label htmlFor={id} className="login-field-label">
+        {label}
+      </label>
+      <span className="login-field-icon">{icon}</span>
+      {trailing}
+    </div>
+  );
+}
+
+/** Three stacked, horizontally-flowing waves in the Munaxa gradient (aqua → violet). */
+function BrandWave() {
+  return (
+    <div className="login-wave" aria-hidden="true">
+      <WaveSvg className="w1" id="login-grad-1" mid={80} amp={30} />
+      <WaveSvg className="w2" id="login-grad-2" mid={68} amp={38} />
+      <WaveSvg className="w3" id="login-grad-3" mid={96} amp={26} />
+    </div>
+  );
+}
+
+function WaveSvg({
+  className,
+  id,
+  mid,
+  amp,
+}: {
+  className: string;
+  id: string;
+  mid: number;
+  amp: number;
+}) {
+  // A periodic wave 2880 units wide (6 humps of period 480). Translating the <svg> by -50%
+  // (one 1440-unit block of 3 humps) lands on an identical phase, so the loop is seamless.
+  // Stop colours are set per-wave in globals.css (keeps raw hex out of the JSX).
+  const width = 2880;
+  const period = 480;
+  let d = `M 0 ${mid}`;
+  for (let x = 0; x < width; x += period) {
+    d += ` Q ${x + period * 0.25} ${mid - amp} ${x + period * 0.5} ${mid}`;
+    d += ` Q ${x + period * 0.75} ${mid + amp} ${x + period} ${mid}`;
+  }
+  d += ` L ${width} 200 L 0 200 Z`;
+  return (
+    <svg className={className} viewBox="0 0 2880 200" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" />
+          <stop offset="50%" />
+          <stop offset="100%" />
+        </linearGradient>
+      </defs>
+      <path d={d} fill={`url(#${id})`} />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.69-8 6v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-3.31-3.58-6-8-6Z" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17 9V7a5 5 0 0 0-10 0v2a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3Zm-8-2a3 3 0 0 1 6 0v2H9V7Zm4 9.73V18a1 1 0 0 1-2 0v-1.27a2 2 0 1 1 2 0Z" />
+    </svg>
+  );
+}
+
+function SchoolIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2 1 8l11 6 9-4.91V17h2V8L12 2Zm0 13.5L5 11.7V14c0 2.21 3.13 4 7 4s7-1.79 7-4v-2.3l-7 3.8Z" />
+    </svg>
   );
 }
 
