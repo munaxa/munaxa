@@ -278,6 +278,8 @@
     "recurrence": "Recurrence",
     "amountJod": "Amount (JOD)",
     "createButton": "Create fee plan",
+    "editTitle": "Edit fee plan",
+    "saveButton": "Save changes",
     "noPlans": "No fee plans yet.",
     "description": "Description"
   },

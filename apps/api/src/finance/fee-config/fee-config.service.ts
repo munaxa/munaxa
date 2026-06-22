@@ -90,16 +90,18 @@ export class FeeConfigService {
       direction: dto.direction,
       amount: dto.amount,
       isActive: dto.isActive ?? true,
+      ...(dto.routeId !== undefined ? { routeId: dto.routeId } : {}),
+      ...(dto.routeName !== undefined ? { routeName: dto.routeName } : {}),
     });
   }
   updateTransportFare(id: string, dto: UpdateTransportFareDto) {
     return this.repo.updateTransportFare(id, {
-      ...(dto.academicYearId !== undefined
-        ? { academicYear: { connect: { id: dto.academicYearId } } }
-        : {}),
+      ...(dto.academicYearId !== undefined ? { academicYearId: dto.academicYearId } : {}),
       ...(dto.direction !== undefined ? { direction: dto.direction } : {}),
       ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      ...(dto.routeId !== undefined ? { routeId: dto.routeId } : {}),
+      ...(dto.routeName !== undefined ? { routeName: dto.routeName } : {}),
     });
   }
 

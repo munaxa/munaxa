@@ -278,6 +278,8 @@
     "recurrence": "التكرار",
     "amountJod": "المبلغ (دينار)",
     "createButton": "إنشاء خطة الرسوم",
+    "editTitle": "تعديل خطة الرسوم",
+    "saveButton": "حفظ التغييرات",
     "noPlans": "لا توجد خطط رسوم بعد.",
     "description": "الوصف"
   },

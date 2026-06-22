@@ -1720,10 +1720,11 @@ model BusRoute {
   updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt   DateTime? @db.Timestamptz(6)
 
-  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  buses       Bus[]
-  stops       BusStop[]
-  assignments StudentBusAssignment[]
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  buses          Bus[]
+  stops          BusStop[]
+  assignments    StudentBusAssignment[]
+  transportFares TransportFare[]
 
   @@index([tenantId])
 }
@@ -2509,6 +2510,7 @@ model TransportFare {
   id             String             @id @default(uuid()) @db.Uuid
   tenantId       String             @db.Uuid
   academicYearId String             @db.Uuid
+  routeId        String?            @db.Uuid // shared fleet route (source of truth for identity)
   direction      TransportDirection
   amount         Decimal            @db.Decimal(12, 3) // JOD, annual
   isActive       Boolean            @default(true)
@@ -2519,9 +2521,11 @@ model TransportFare {
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  route        BusRoute?    @relation(fields: [routeId], references: [id], onDelete: SetNull)
 
-  @@unique([tenantId, academicYearId, direction])
+  @@unique([tenantId, academicYearId, routeId, direction])
   @@index([tenantId, academicYearId])
+  @@index([routeId])
 }
 
 /// Configurable discount rules. Applications are recorded as FeeAdjustment rows

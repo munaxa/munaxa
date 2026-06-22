@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type {
   BillingPolicy,
   DiscountRule,
@@ -7,7 +7,13 @@ import type {
   TransportFare,
 } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+import type { TxClient } from '../../prisma/tenant.helpers';
 import { TenantContextStore } from '../../prisma/tenant-context';
+
+const ROUTE_INCLUDE = { route: { select: { id: true, name: true } } } as const;
+export type TransportFareWithRoute = Prisma.TransportFareGetPayload<{
+  include: typeof ROUTE_INCLUDE;
+}>;
 
 /**
  * Enrollment & billing configuration store (Phase 1): grade fee schedules, transport fares,
@@ -63,37 +69,112 @@ export class FeeConfigRepository extends TenantRepository {
   }
 
   // ── Transport fares ──
-  listTransportFares(academicYearId?: string): Promise<TransportFare[]> {
+  // Resolve the fare's fleet route inside the caller's transaction: an explicit routeId wins,
+  // otherwise a non-empty name is reused (case-insensitive) or created — keeping the Fleet and
+  // Fee-configuration tabs pointing at the same BusRoute. Returns the route id (or null).
+  private async resolveRouteId(
+    tx: TxClient,
+    tenantId: string,
+    input: { routeId?: string | null; routeName?: string | null },
+  ): Promise<string | null> {
+    if (input.routeId) {
+      const route = await tx.busRoute.findFirst({
+        where: { id: input.routeId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!route) throw new NotFoundException('Route not found');
+      return route.id;
+    }
+    const name = input.routeName?.trim();
+    if (!name) return null;
+    const existing = await tx.busRoute.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' }, deletedAt: null },
+      select: { id: true },
+    });
+    if (existing) return existing.id;
+    const created = await tx.busRoute.create({ data: { tenantId, name }, select: { id: true } });
+    return created.id;
+  }
+
+  listTransportFares(academicYearId?: string): Promise<TransportFareWithRoute[]> {
     return this.run((tx) =>
       tx.transportFare.findMany({
         where: academicYearId ? { academicYearId } : {},
-        orderBy: [{ createdAt: 'desc' }],
+        orderBy: [{ direction: 'asc' }],
+        include: ROUTE_INCLUDE,
       }),
     );
   }
 
-  createTransportFare(
-    data: Omit<Prisma.TransportFareUncheckedCreateInput, 'tenantId' | 'createdById'>,
-  ): Promise<TransportFare> {
+  createTransportFare(data: {
+    academicYearId: string;
+    direction: TransportFare['direction'];
+    amount: number;
+    isActive: boolean;
+    routeId?: string | null;
+    routeName?: string | null;
+  }): Promise<TransportFareWithRoute> {
     return this.run(async (tx, tenantId) => {
+      const routeId = await this.resolveRouteId(tx, tenantId, data);
       const row = await tx.transportFare.create({
-        data: { ...data, tenantId, createdById: this.actor(), updatedById: this.actor() },
+        data: {
+          tenantId,
+          academicYearId: data.academicYearId,
+          routeId,
+          direction: data.direction,
+          amount: data.amount,
+          isActive: data.isActive,
+          createdById: this.actor(),
+          updatedById: this.actor(),
+        },
+        include: ROUTE_INCLUDE,
       });
       await this.writeAudit(tx, tenantId, {
         action: 'finance.feeconfig.transportFare.create',
         entityType: 'TransportFare',
         entityId: row.id,
-        metadata: { direction: row.direction, amount: row.amount.toString() },
+        metadata: {
+          route: row.route?.name ?? null,
+          direction: row.direction,
+          amount: row.amount.toString(),
+        },
       });
       return row;
     });
   }
 
-  updateTransportFare(id: string, data: Prisma.TransportFareUpdateInput): Promise<TransportFare> {
+  updateTransportFare(
+    id: string,
+    data: {
+      academicYearId?: string;
+      direction?: TransportFare['direction'];
+      amount?: number;
+      isActive?: boolean;
+      routeId?: string | null;
+      routeName?: string | null;
+    },
+  ): Promise<TransportFareWithRoute> {
     return this.run(async (tx, tenantId) => {
+      // Only re-resolve the route when the caller actually passed routeId/routeName.
+      const reroute = data.routeId !== undefined || data.routeName !== undefined;
+      const routeId = reroute ? await this.resolveRouteId(tx, tenantId, data) : undefined;
       const row = await tx.transportFare.update({
         where: { id },
-        data: { ...data, updatedById: this.actor() },
+        data: {
+          ...(data.academicYearId !== undefined
+            ? { academicYear: { connect: { id: data.academicYearId } } }
+            : {}),
+          ...(data.direction !== undefined ? { direction: data.direction } : {}),
+          ...(data.amount !== undefined ? { amount: data.amount } : {}),
+          ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
+          ...(routeId !== undefined
+            ? routeId === null
+              ? { route: { disconnect: true } }
+              : { route: { connect: { id: routeId } } }
+            : {}),
+          updatedById: this.actor(),
+        },
+        include: ROUTE_INCLUDE,
       });
       await this.writeAudit(tx, tenantId, {
         action: 'finance.feeconfig.transportFare.update',

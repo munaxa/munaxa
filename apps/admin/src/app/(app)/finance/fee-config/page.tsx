@@ -14,6 +14,7 @@ import {
 } from '@/lib/finance';
 import { schoolsApi, campusesApi, gradesApi, academicYearsApi } from '@/lib/structure';
 import type { AcademicYear, Campus, Grade } from '@/lib/structure';
+import { busApi, type BusRoute } from '@/lib/bus';
 import {
   Button,
   Card,
@@ -349,7 +350,9 @@ function TransportFares({ yearId }: { yearId: string }) {
   const toast = useToast();
   const confirm = useConfirm();
   const [rows, setRows] = useState<TransportFare[]>([]);
-  const EMPTY: { direction: TransportDirection; amount: string } = {
+  const [routes, setRoutes] = useState<BusRoute[]>([]);
+  const EMPTY: { routeName: string; direction: TransportDirection; amount: string } = {
+    routeName: '',
     direction: 'ONE_WAY',
     amount: '',
   };
@@ -366,9 +369,22 @@ function TransportFares({ yearId }: { yearId: string }) {
   }, [yearId, toast]);
   useEffect(load, [load]);
 
+  // Suggest routes from the fleet so finance + transport stay aligned (shared BusRoute entity).
+  const loadRoutes = useCallback(() => {
+    busApi
+      .listRoutes()
+      .then(setRoutes)
+      .catch(() => setRoutes([]));
+  }, []);
+  useEffect(loadRoutes, [loadRoutes]);
+
   function startEdit(r: TransportFare) {
     setEditingId(r.id);
-    setForm({ direction: r.direction, amount: String(Number(r.amount)) });
+    setForm({
+      routeName: r.route?.name ?? '',
+      direction: r.direction,
+      amount: String(Number(r.amount)),
+    });
   }
   function cancelEdit() {
     setEditingId(null);
@@ -380,19 +396,24 @@ function TransportFares({ yearId }: { yearId: string }) {
     if (!yearId) return;
     setBusy(true);
     try {
+      // Send the route name; the API reuses the matching fleet route or creates it atomically.
+      const routeName = form.routeName.trim();
       if (editingId) {
         await feeConfigApi.updateTransportFare(editingId, {
+          ...(routeName ? { routeName } : { routeId: null }),
           direction: form.direction,
           amount: Number(form.amount) || 0,
         });
       } else {
         await feeConfigApi.createTransportFare({
           academicYearId: yearId,
+          ...(routeName ? { routeName } : {}),
           direction: form.direction,
           amount: Number(form.amount) || 0,
         });
       }
       cancelEdit();
+      loadRoutes(); // a new route may have just been created
       toast.success('Saved');
       load();
     } catch (err) {
@@ -406,7 +427,7 @@ function TransportFares({ yearId }: { yearId: string }) {
     if (
       r.isActive &&
       !(await confirm({
-        description: `Archive the ${r.direction.replace('_', ' ')} fare? It will no longer be used for new quotes but is kept for the record.`,
+        description: `Archive the ${r.route?.name || '—'} ${r.direction.replace('_', ' ')} fare? It will no longer be used for new quotes but is kept for the record.`,
         confirmLabel: 'Archive',
         destructive: false,
       }))
@@ -429,7 +450,24 @@ function TransportFares({ yearId }: { yearId: string }) {
         <CardTitle>Transport fares</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-3">
+        <p className="text-xs text-muted-foreground">
+          Routes are shared with the Transport/Fleet tab. Pick an existing route or type a new one —
+          a new route is also created in the fleet. The fare amount is set here only.
+        </p>
+        <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-4">
+          <Field label="Route">
+            <Input
+              list="fleet-routes"
+              value={form.routeName}
+              onChange={(e) => setForm({ ...form, routeName: e.target.value })}
+              placeholder="e.g. A,B,C"
+            />
+            <datalist id="fleet-routes">
+              {routes.map((r) => (
+                <option key={r.id} value={r.name} />
+              ))}
+            </datalist>
+          </Field>
           <Field label="Direction">
             <Select
               value={form.direction}
@@ -467,6 +505,7 @@ function TransportFares({ yearId }: { yearId: string }) {
         <Table>
           <THead>
             <TR>
+              <TH>Route</TH>
               <TH>Direction</TH>
               <TH className="text-end">Amount</TH>
               <TH>Status</TH>
@@ -476,6 +515,7 @@ function TransportFares({ yearId }: { yearId: string }) {
           <TBody>
             {rows.map((r) => (
               <TR key={r.id} className={r.isActive ? undefined : 'opacity-60'}>
+                <TD>{r.route?.name || <span className="text-muted-foreground">—</span>}</TD>
                 <TD>{r.direction.replace('_', ' ')}</TD>
                 <TD className="text-end font-mono">{jod(r.amount)}</TD>
                 <TD>
@@ -495,7 +535,7 @@ function TransportFares({ yearId }: { yearId: string }) {
             ))}
             {rows.length === 0 ? (
               <TR>
-                <TD colSpan={4}>
+                <TD colSpan={5}>
                   <EmptyState
                     title={yearId ? 'No transport fares yet' : 'Select an academic year'}
                   />

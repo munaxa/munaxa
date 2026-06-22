@@ -15,6 +15,7 @@ import {
 } from '@/lib/admissions';
 import { schoolsApi, campusesApi, gradesApi, academicYearsApi } from '@/lib/structure';
 import type { AcademicYear, Campus, Grade } from '@/lib/structure';
+import { feeConfigApi, type TransportFare } from '@/lib/finance';
 import {
   Badge,
   Button,
@@ -58,6 +59,8 @@ export default function AdmissionsPage() {
   const [academicYearId, setAcademicYearId] = useState('');
   const [gradeId, setGradeId] = useState('');
   const [transportDirection, setTransportDirection] = useState<TransportDirection>('NONE');
+  const [transportRouteGroup, setTransportRouteGroup] = useState('');
+  const [fares, setFares] = useState<TransportFare[]>([]);
   const [paymentMode, setPaymentMode] = useState<QuotePaymentMode>('INSTALLMENTS');
   const [installments, setInstallments] = useState('1');
   const [firstDueDate, setFirstDueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -110,12 +113,31 @@ export default function AdmissionsPage() {
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Failed to load structure'));
   }, [campusId, toast]);
 
+  // Transport fares for the year drive the available route groups (only configured fares are priced).
+  useEffect(() => {
+    if (!academicYearId) return setFares([]);
+    feeConfigApi
+      .transportFares(academicYearId)
+      .then(setFares)
+      .catch(() => setFares([]));
+  }, [academicYearId]);
+
+  // Routes configured (active) for the chosen direction.
+  const routeGroupOptions = useMemo(() => {
+    if (transportDirection === 'NONE') return [] as string[];
+    const names = fares
+      .filter((f) => f.direction === transportDirection && f.isActive && f.route)
+      .map((f) => f.route!.name);
+    return Array.from(new Set(names));
+  }, [fares, transportDirection]);
+
   useEffect(
     () => setQuote(null),
     [
       gradeId,
       academicYearId,
       transportDirection,
+      transportRouteGroup,
       paymentMode,
       installments,
       firstDueDate,
@@ -157,6 +179,7 @@ export default function AdmissionsPage() {
         academicYearId,
         ...(mode === 'RETURNING' && returningId ? { studentId: returningId } : {}),
         transportDirection,
+        ...(transportDirection !== 'NONE' && transportRouteGroup ? { transportRouteGroup } : {}),
         paymentMode,
         installments: Number(installments) || 1,
         firstDueDate,
@@ -334,7 +357,10 @@ export default function AdmissionsPage() {
           <Field label="Transportation">
             <Select
               value={transportDirection}
-              onChange={(e) => setTransportDirection(e.target.value as TransportDirection)}
+              onChange={(e) => {
+                setTransportDirection(e.target.value as TransportDirection);
+                setTransportRouteGroup('');
+              }}
             >
               {DIRECTIONS.map((dirn) => (
                 <option key={dirn} value={dirn}>
@@ -343,6 +369,28 @@ export default function AdmissionsPage() {
               ))}
             </Select>
           </Field>
+          {transportDirection !== 'NONE' ? (
+            <Field
+              label="Route"
+              hint={
+                routeGroupOptions.length
+                  ? 'Configured under Fee configuration → Transport fares'
+                  : 'No route fares configured for this direction yet'
+              }
+            >
+              <Select
+                value={transportRouteGroup}
+                onChange={(e) => setTransportRouteGroup(e.target.value)}
+              >
+                <option value="">Default (first configured)</option>
+                {routeGroupOptions.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : null}
         </CardContent>
       </Card>
 
