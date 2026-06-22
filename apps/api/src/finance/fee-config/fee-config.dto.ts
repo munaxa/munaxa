@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { DiscountCalc, DiscountType, TransportDirection } from '@prisma/client';
+import { DiscountCalc, DiscountType } from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,
@@ -46,7 +46,7 @@ export class CreateGradeFeeScheduleDto {
 }
 export class UpdateGradeFeeScheduleDto extends PartialType(CreateGradeFeeScheduleDto) {}
 
-// ── Transport fare (per academic year × fleet route × direction) ──
+// ── Transport fare (one per academic year × fleet route; two-way total + one-way %) ──
 export class CreateTransportFareDto {
   @ApiProperty() @IsUUID() academicYearId!: string;
 
@@ -66,15 +66,20 @@ export class CreateTransportFareDto {
   @MaxLength(150)
   routeName?: string;
 
-  @ApiProperty({ enum: TransportDirection })
-  @IsEnum(TransportDirection)
-  direction!: TransportDirection;
-
-  @ApiProperty({ example: 300, description: 'Annual transport fee (JOD)' })
+  @ApiProperty({ example: 300, description: 'Annual two-way (round trip) transport fee (JOD)' })
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)
   @Max(100000000)
   amount!: number;
+
+  @ApiProperty({
+    example: 70,
+    description: 'One-way price as a percentage of the two-way total (0–100).',
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  oneWayPct!: number;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()

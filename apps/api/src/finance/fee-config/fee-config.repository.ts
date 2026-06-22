@@ -1,11 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type {
-  BillingPolicy,
-  DiscountRule,
-  GradeFeeSchedule,
-  Prisma,
-  TransportFare,
-} from '@prisma/client';
+import type { BillingPolicy, DiscountRule, GradeFeeSchedule, Prisma } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 import type { TxClient } from '../../prisma/tenant.helpers';
 import { TenantContextStore } from '../../prisma/tenant-context';
@@ -100,7 +94,7 @@ export class FeeConfigRepository extends TenantRepository {
     return this.run((tx) =>
       tx.transportFare.findMany({
         where: academicYearId ? { academicYearId } : {},
-        orderBy: [{ direction: 'asc' }],
+        orderBy: [{ createdAt: 'asc' }],
         include: ROUTE_INCLUDE,
       }),
     );
@@ -108,8 +102,8 @@ export class FeeConfigRepository extends TenantRepository {
 
   createTransportFare(data: {
     academicYearId: string;
-    direction: TransportFare['direction'];
     amount: number;
+    oneWayPct: number;
     isActive: boolean;
     routeId?: string | null;
     routeName?: string | null;
@@ -121,8 +115,8 @@ export class FeeConfigRepository extends TenantRepository {
           tenantId,
           academicYearId: data.academicYearId,
           routeId,
-          direction: data.direction,
           amount: data.amount,
+          oneWayPct: data.oneWayPct,
           isActive: data.isActive,
           createdById: this.actor(),
           updatedById: this.actor(),
@@ -135,8 +129,8 @@ export class FeeConfigRepository extends TenantRepository {
         entityId: row.id,
         metadata: {
           route: row.route?.name ?? null,
-          direction: row.direction,
           amount: row.amount.toString(),
+          oneWayPct: row.oneWayPct.toString(),
         },
       });
       return row;
@@ -147,8 +141,8 @@ export class FeeConfigRepository extends TenantRepository {
     id: string,
     data: {
       academicYearId?: string;
-      direction?: TransportFare['direction'];
       amount?: number;
+      oneWayPct?: number;
       isActive?: boolean;
       routeId?: string | null;
       routeName?: string | null;
@@ -164,8 +158,8 @@ export class FeeConfigRepository extends TenantRepository {
           ...(data.academicYearId !== undefined
             ? { academicYear: { connect: { id: data.academicYearId } } }
             : {}),
-          ...(data.direction !== undefined ? { direction: data.direction } : {}),
           ...(data.amount !== undefined ? { amount: data.amount } : {}),
+          ...(data.oneWayPct !== undefined ? { oneWayPct: data.oneWayPct } : {}),
           ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
           ...(routeId !== undefined
             ? routeId === null
