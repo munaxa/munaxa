@@ -26,11 +26,17 @@ export class CreateParentDto {
   @MaxLength(100)
   lastNameAr!: string;
 
-  @ApiPropertyOptional()
+  @ApiProperty({ description: 'Primary mobile number (mandatory)' })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  phone!: string;
+
+  @ApiPropertyOptional({ description: 'Secondary/alternate mobile number (optional)' })
   @IsOptional()
   @IsString()
   @MaxLength(40)
-  phone?: string;
+  phoneAlt?: string;
 
   @ApiPropertyOptional({ description: 'Contact email for payment/settlement notifications' })
   @IsOptional()

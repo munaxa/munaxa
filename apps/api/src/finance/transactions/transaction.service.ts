@@ -5,10 +5,12 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Transaction } from '@prisma/client';
 import { TransactionRepository } from './transaction.repository';
 import { StorageService, type PresignedUpload } from '../../common/storage.service';
 import { MailService } from '../../mail/mail.service';
+import type { Env } from '../../config/env.validation';
 import { requireTenantId } from '../../common/tenant.util';
 import { LedgerService } from '../ledger/ledger.service';
 import type {
@@ -24,6 +26,7 @@ export class TransactionService {
     private readonly storage: StorageService,
     private readonly ledger: LedgerService,
     private readonly mail: MailService,
+    private readonly config: ConfigService<Env, true>,
   ) {}
 
   presignReceipt(dto: PresignReceiptDto): Promise<PresignedUpload> {
@@ -94,7 +97,8 @@ export class TransactionService {
     const text =
       `Dear parent,\n\nWe confirm we have received a payment of ${amount}` +
       `${studentNameEn ? ` for ${studentNameEn}` : ''}.\n\nThank you,\n${schoolName}`;
-    const { sent } = await this.mail.send({ to: parentEmail, subject, html, text });
+    const from = this.config.get('EMAIL_FROM_FINANCE', { infer: true });
+    const { sent } = await this.mail.send({ to: parentEmail, subject, html, text, from });
     if (!sent) {
       throw new ServiceUnavailableException('Email could not be sent (mail service unavailable)');
     }

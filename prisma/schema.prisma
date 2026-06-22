@@ -677,6 +677,7 @@ model Parent {
   firstNameAr String
   lastNameAr  String
   phone       String?
+  phoneAlt    String?
   email       String?
   nationalId  String?
   occupation  String?

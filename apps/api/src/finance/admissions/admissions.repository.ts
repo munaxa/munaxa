@@ -253,6 +253,11 @@ export class AdmissionsRepository extends TenantRepository {
       if (!studentId) {
         if (!dto.student)
           throw new BadRequestException('Student information is required for a new registration');
+        // A guardian (with a primary mobile) is mandatory for every new student.
+        if (!dto.parent)
+          throw new BadRequestException('A parent/guardian is required for a new registration');
+        if (!dto.parent.phone?.trim())
+          throw new BadRequestException('A parent mobile number is required');
         const s = dto.student;
         const created = await tx.student.create({
           data: {
@@ -282,6 +287,7 @@ export class AdmissionsRepository extends TenantRepository {
               firstNameAr: p.firstNameAr || p.firstNameEn,
               lastNameAr: p.lastNameAr || p.lastNameEn,
               ...(p.phone ? { phone: p.phone } : {}),
+              ...(p.phoneAlt ? { phoneAlt: p.phoneAlt } : {}),
               ...(p.email ? { email: p.email } : {}),
             },
           });

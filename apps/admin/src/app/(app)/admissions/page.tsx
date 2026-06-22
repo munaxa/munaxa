@@ -81,6 +81,7 @@ export default function AdmissionsPage() {
   const [pFirstEn, setPFirstEn] = useState('');
   const [pLastEn, setPLastEn] = useState('');
   const [pPhone, setPPhone] = useState('');
+  const [pPhoneAlt, setPPhoneAlt] = useState('');
   const [pEmail, setPEmail] = useState('');
 
   useEffect(() => {
@@ -170,7 +171,11 @@ export default function AdmissionsPage() {
     }
   }
 
-  const newStudentReady = mode === 'NEW' ? Boolean(sFirstEn && sLastEn) : Boolean(returningId);
+  // A new student needs their own details AND a mandatory guardian (name + primary mobile).
+  const newStudentReady =
+    mode === 'NEW'
+      ? Boolean(sFirstEn && sLastEn && pFirstEn && pLastEn && pPhone.trim())
+      : Boolean(returningId);
 
   async function commit() {
     if (!quote?.quoteId) {
@@ -198,16 +203,13 @@ export default function AdmissionsPage() {
                 ...(sDob ? { dateOfBirth: sDob } : {}),
                 ...(sNationalId ? { nationalId: sNationalId } : {}),
               },
-              ...(pFirstEn && pLastEn
-                ? {
-                    parent: {
-                      firstNameEn: pFirstEn,
-                      lastNameEn: pLastEn,
-                      ...(pPhone ? { phone: pPhone } : {}),
-                      ...(pEmail ? { email: pEmail } : {}),
-                    },
-                  }
-                : {}),
+              parent: {
+                firstNameEn: pFirstEn,
+                lastNameEn: pLastEn,
+                phone: pPhone,
+                ...(pPhoneAlt ? { phoneAlt: pPhoneAlt } : {}),
+                ...(pEmail ? { email: pEmail } : {}),
+              },
             }
           : {}),
       });
@@ -554,15 +556,26 @@ export default function AdmissionsPage() {
                 <Input value={sNationalId} onChange={(e) => setSNationalId(e.target.value)} />
               </Field>
             </div>
+            <p className="text-xs text-muted-foreground">
+              A guardian with a primary mobile number is required for every new student.
+            </p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Guardian first name (EN)">
-                <Input value={pFirstEn} onChange={(e) => setPFirstEn(e.target.value)} />
+              <Field label="Guardian first name (EN) *">
+                <Input value={pFirstEn} onChange={(e) => setPFirstEn(e.target.value)} required />
               </Field>
-              <Field label="Guardian last name (EN)">
-                <Input value={pLastEn} onChange={(e) => setPLastEn(e.target.value)} />
+              <Field label="Guardian last name (EN) *">
+                <Input value={pLastEn} onChange={(e) => setPLastEn(e.target.value)} required />
               </Field>
-              <Field label="Mobile">
-                <Input value={pPhone} onChange={(e) => setPPhone(e.target.value)} dir="ltr" />
+              <Field label="Mobile *">
+                <Input
+                  value={pPhone}
+                  onChange={(e) => setPPhone(e.target.value)}
+                  dir="ltr"
+                  required
+                />
+              </Field>
+              <Field label="Alternate mobile">
+                <Input value={pPhoneAlt} onChange={(e) => setPPhoneAlt(e.target.value)} dir="ltr" />
               </Field>
               <Field label="Email">
                 <Input

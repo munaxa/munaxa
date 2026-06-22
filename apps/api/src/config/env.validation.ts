@@ -28,6 +28,8 @@ export const envSchema = z
     EMAIL_FROM: z.string().default('Munaxa <no-reply@munaxa.app>'),
     /** Sender for security/account emails (temporary passwords). Per spec: admin@munaxa.com. */
     EMAIL_FROM_ADMIN: z.string().default('Munaxa <admin@munaxa.com>'),
+    /** Sender for finance/payment emails (settlement notifications). Per spec: payment@munaxa.com. */
+    EMAIL_FROM_FINANCE: z.string().default('Munaxa <payment@munaxa.com>'),
     /** '1' enables the HIBP k-anonymity breach check on password set/change (fail-open). */
     PASSWORD_BREACH_CHECK: z.string().optional(),
 
