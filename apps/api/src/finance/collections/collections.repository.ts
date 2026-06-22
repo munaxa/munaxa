@@ -86,7 +86,8 @@ export class CollectionsRepository extends TenantRepository {
   studentsWithUnpaidCharges(): Promise<string[]> {
     return this.run(async (tx) => {
       const rows = await tx.charge.findMany({
-        where: { status: { in: ['PENDING', 'PARTIAL'] } },
+        // Exclude soft-deleted students so withdrawn pupils drop out of collections/aging.
+        where: { status: { in: ['PENDING', 'PARTIAL'] }, student: { deletedAt: null } },
         select: { studentId: true },
         distinct: ['studentId'],
       });

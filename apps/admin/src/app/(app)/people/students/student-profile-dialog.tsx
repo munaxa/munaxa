@@ -16,7 +16,6 @@ import {
   type StudentVaccine,
 } from '@/lib/people';
 import { financeApi, type Statement } from '@/lib/finance';
-import { ParentEditDialog } from './parent-edit-dialog';
 
 import {
   Badge,
@@ -43,6 +42,7 @@ import {
   TransactionStatusBadge,
   RecordHeader,
   ParentProfileDialog,
+  ParentEditDialog,
 } from '@/components/domain';
 
 const PARENT_RELATIONS = ['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER'];
