@@ -123,13 +123,13 @@ export class QuoteService {
       });
     }
 
-    // 2) Transport (never discountable). Priced against the chosen route group when given.
+    // 2) Transport (never discountable). Priced against the chosen fleet route when given.
     const routeGroup = dto.transportRouteGroup?.trim();
     if (direction !== TransportDirection.NONE) {
       const fares = (await this.config.listTransportFares(dto.academicYearId)).filter(
         (f) => f.direction === direction && f.isActive,
       );
-      const fare = routeGroup ? fares.find((f) => f.routeGroup === routeGroup) : fares[0];
+      const fare = routeGroup ? fares.find((f) => f.route?.name === routeGroup) : fares[0];
       if (!fare) {
         warnings.push(
           routeGroup
@@ -137,8 +137,8 @@ export class QuoteService {
             : `No transport fare configured for ${direction}; using 0.`,
         );
       }
-      const label = fare?.routeGroup
-        ? `Transportation (${fare.routeGroup} · ${direction.replace('_', ' ')})`
+      const label = fare?.route?.name
+        ? `Transportation (${fare.route.name} · ${direction.replace('_', ' ')})`
         : `Transportation (${direction.replace('_', ' ')})`;
       lines.push({
         kind: FeeItemKind.TRANSPORT,

@@ -122,13 +122,13 @@ export default function AdmissionsPage() {
       .catch(() => setFares([]));
   }, [academicYearId]);
 
-  // Route groups configured (active) for the chosen direction.
+  // Routes configured (active) for the chosen direction.
   const routeGroupOptions = useMemo(() => {
     if (transportDirection === 'NONE') return [] as string[];
-    const groups = fares
-      .filter((f) => f.direction === transportDirection && f.isActive)
-      .map((f) => f.routeGroup);
-    return Array.from(new Set(groups));
+    const names = fares
+      .filter((f) => f.direction === transportDirection && f.isActive && f.route)
+      .map((f) => f.route!.name);
+    return Array.from(new Set(names));
   }, [fares, transportDirection]);
 
   useEffect(
@@ -371,7 +371,7 @@ export default function AdmissionsPage() {
           </Field>
           {transportDirection !== 'NONE' ? (
             <Field
-              label="Route group"
+              label="Route"
               hint={
                 routeGroupOptions.length
                   ? 'Configured under Fee configuration → Transport fares'
@@ -385,7 +385,7 @@ export default function AdmissionsPage() {
                 <option value="">Default (first configured)</option>
                 {routeGroupOptions.map((g) => (
                   <option key={g} value={g}>
-                    {g || '—'}
+                    {g}
                   </option>
                 ))}
               </Select>

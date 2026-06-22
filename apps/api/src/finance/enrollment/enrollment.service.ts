@@ -77,7 +77,7 @@ export class EnrollmentService {
       const fares = (await this.config.listTransportFares(dto.academicYearId)).filter(
         (f) => f.direction === direction && f.isActive,
       );
-      const fare = routeGroup ? fares.find((f) => f.routeGroup === routeGroup) : fares[0];
+      const fare = routeGroup ? fares.find((f) => f.route?.name === routeGroup) : fares[0];
       if (!fare) {
         warnings.push(
           routeGroup
