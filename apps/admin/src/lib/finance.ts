@@ -374,12 +374,13 @@ export interface TransportFare {
   id: string;
   academicYearId: string;
   routeId: string | null;
-  /** Resolved fleet route (source of truth for the route's name + round times). */
+  /** Resolved fleet route (source of truth for the route's name + trip times + disabled state). */
   route: {
     id: string;
     name: string;
     round1Time: string | null;
     round2Time: string | null;
+    disabledAt: string | null;
   } | null;
   /** Two-way (round trip) annual total. */
   amount: string;
@@ -471,6 +472,10 @@ export const feeConfigApi = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }).then((r) => json<TransportFare>(r)),
+  deleteTransportFare: (id: string) =>
+    authFetch(`/finance/fee-config/transport-fares/${id}`, { method: 'DELETE' }).then(
+      () => undefined,
+    ),
 
   discountRules: () =>
     authFetch('/finance/fee-config/discount-rules').then((r) => json<DiscountRule[]>(r)),

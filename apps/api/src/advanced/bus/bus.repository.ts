@@ -87,20 +87,29 @@ export class BusRepository extends TenantRepository {
     studentId: string;
     routeId: string;
     stopId: string | null;
+    tripRound: number | null;
   }): Promise<StudentBusAssignment> {
     return this.run(async (tx, tenantId) => {
-      // One assignment per student: reassigning moves them (route + stop) rather than adding a row.
+      // One assignment per student: reassigning moves them (route + stop + trip) rather than adding a row.
       const existing = await tx.studentBusAssignment.findFirst({
         where: { studentId: data.studentId },
       });
       if (existing) {
         return tx.studentBusAssignment.update({
           where: { id: existing.id },
-          data: { routeId: data.routeId, stopId: data.stopId },
+          data: { routeId: data.routeId, stopId: data.stopId, tripRound: data.tripRound },
         });
       }
       return tx.studentBusAssignment.create({ data: { ...data, tenantId } });
     });
+  }
+
+  findAssignment(id: string): Promise<StudentBusAssignment | null> {
+    return this.run((tx) => tx.studentBusAssignment.findFirst({ where: { id } }));
+  }
+
+  deleteAssignment(id: string): Promise<StudentBusAssignment> {
+    return this.run((tx) => tx.studentBusAssignment.delete({ where: { id } }));
   }
 
   listAssignments(routeId?: string): Promise<StudentBusAssignment[]> {

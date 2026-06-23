@@ -1718,8 +1718,9 @@ model BusRoute {
   academicYearId String?   @db.Uuid // groups routes by academic year (e.g. 2026/2027)
   name           String
   description    String?
-  round1Time     String? // 1st round trip time, "HH:MM"
-  round2Time     String? // 2nd round trip time, "HH:MM"
+  round1Time     String? // 1st trip time, "HH:MM"
+  round2Time     String? // 2nd trip time, "HH:MM"
+  disabledAt     DateTime? @db.Timestamptz(6) // when set, the route is disabled (still listed, shown as disabled)
   createdAt      DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt      DateTime? @db.Timestamptz(6)
@@ -1742,6 +1743,7 @@ model Bus {
   plateNumber String
   label       String?
   capacity    Int?
+  tripRound   Int? // which trip of the route this bus serves: 1 (1st) or 2 (2nd)
   driverName  String?
   driverPhone String?
   lastLat     Float?
@@ -1784,6 +1786,7 @@ model StudentBusAssignment {
   studentId String   @db.Uuid
   routeId   String   @db.Uuid
   stopId    String?  @db.Uuid
+  tripRound Int? // which trip of the route the student rides: 1 (1st) or 2 (2nd)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)

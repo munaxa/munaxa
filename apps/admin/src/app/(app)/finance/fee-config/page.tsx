@@ -422,24 +422,23 @@ function TransportFares({ yearId }: { yearId: string }) {
     }
   }
 
-  async function toggleActive(r: TransportFare) {
+  async function deleteFare(r: TransportFare) {
     if (
-      r.isActive &&
       !(await confirm({
-        description: `Archive the ${r.route?.name || '—'} fare? It will no longer be used for new quotes but is kept for the record.`,
-        confirmLabel: 'Archive',
-        destructive: false,
+        description: `Delete the ${r.route?.name || '—'} fare? This removes the fare only — the route stays in Fleet & transport.`,
+        confirmLabel: 'Delete',
+        destructive: true,
       }))
     ) {
       return;
     }
     try {
-      await feeConfigApi.updateTransportFare(r.id, { isActive: !r.isActive });
+      await feeConfigApi.deleteTransportFare(r.id);
       if (editingId === r.id) cancelEdit();
-      toast.success(r.isActive ? 'Archived' : 'Restored');
+      toast.success('Deleted');
       load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Update failed');
+      toast.error(err instanceof Error ? err.message : 'Delete failed');
     }
   }
 
@@ -528,36 +527,45 @@ function TransportFares({ yearId }: { yearId: string }) {
             </TR>
           </THead>
           <TBody>
-            {rows.map((r) => (
-              <TR key={r.id} className={r.isActive ? undefined : 'opacity-60'}>
-                <TD>
-                  {r.route?.name || <span className="text-muted-foreground">—</span>}
-                  {r.route?.round1Time || r.route?.round2Time ? (
-                    <span className="block font-mono text-xs text-muted-foreground">
-                      {[r.route?.round1Time, r.route?.round2Time].filter(Boolean).join(' · ')}
-                    </span>
-                  ) : null}
-                </TD>
-                <TD className="text-end font-mono">{jod(r.amount)}</TD>
-                <TD className="text-end font-mono">
-                  {jod((Number(r.amount) * Number(r.oneWayPct)) / 100)}
-                  <span className="text-muted-foreground"> ({Number(r.oneWayPct)}%)</span>
-                </TD>
-                <TD>
-                  <StatusBadge active={r.isActive} />
-                </TD>
-                <TD className="text-end">
-                  <div className="flex justify-end gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => void toggleActive(r)}>
-                      {r.isActive ? 'Archive' : 'Restore'}
-                    </Button>
-                  </div>
-                </TD>
-              </TR>
-            ))}
+            {rows.map((r) => {
+              const routeDisabled = Boolean(r.route?.disabledAt);
+              return (
+                <TR key={r.id} className={routeDisabled ? 'opacity-60' : undefined}>
+                  <TD>
+                    {r.route?.name || <span className="text-muted-foreground">—</span>}
+                    {r.route?.round1Time || r.route?.round2Time ? (
+                      <span className="block font-mono text-xs text-muted-foreground">
+                        {[r.route?.round1Time, r.route?.round2Time].filter(Boolean).join(' · ')}
+                      </span>
+                    ) : null}
+                  </TD>
+                  <TD className="text-end font-mono">{jod(r.amount)}</TD>
+                  <TD className="text-end font-mono">
+                    {jod((Number(r.amount) * Number(r.oneWayPct)) / 100)}
+                    <span className="text-muted-foreground"> ({Number(r.oneWayPct)}%)</span>
+                  </TD>
+                  <TD>
+                    {routeDisabled ? (
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                        Disabled
+                      </span>
+                    ) : (
+                      <StatusBadge active />
+                    )}
+                  </TD>
+                  <TD className="text-end">
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                        Edit
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => void deleteFare(r)}>
+                        Delete
+                      </Button>
+                    </div>
+                  </TD>
+                </TR>
+              );
+            })}
             {rows.length === 0 ? (
               <TR>
                 <TD colSpan={5}>

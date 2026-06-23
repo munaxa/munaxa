@@ -105,6 +105,12 @@ export class FeeConfigService {
     });
   }
 
+  // Hard-delete a fare (the shared fleet route is preserved).
+  async deleteTransportFare(id: string) {
+    await this.repo.deleteTransportFare(id);
+    return { id };
+  }
+
   // Discount rules
   listDiscountRules() {
     return this.repo.listDiscountRules();
