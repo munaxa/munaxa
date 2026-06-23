@@ -11,16 +11,33 @@ import { Logo } from '@/components/logo';
 // registry isn't generated during standalone typecheck) — matching the app's href convention.
 const forgotPasswordHref = '/forgot-password' as never;
 
+const REMEMBER_KEY = 'munaxa.remember';
+const IDENTIFIER_KEY = 'munaxa.identifier';
+const SCHOOL_KEY = 'munaxa.school';
+
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const [schoolCode, setSchoolCode] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [tenantSlug, setTenantSlug] = useState('');
-  const [showSchool, setShowSchool] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Restore a remembered school code + identifier so returning users only type their password.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(REMEMBER_KEY) === '1') {
+        setRemember(true);
+        setIdentifier(localStorage.getItem(IDENTIFIER_KEY) ?? '');
+        setSchoolCode(localStorage.getItem(SCHOOL_KEY) ?? '');
+      }
+    } catch {
+      /* ignore storage access errors */
+    }
+  }, []);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -30,8 +47,21 @@ export default function LoginPage() {
       const result = await login({
         identifier,
         password,
-        ...(tenantSlug ? { tenantSlug } : {}),
+        ...(schoolCode ? { tenantSlug: schoolCode } : {}),
       });
+      try {
+        if (remember) {
+          localStorage.setItem(REMEMBER_KEY, '1');
+          localStorage.setItem(IDENTIFIER_KEY, identifier);
+          localStorage.setItem(SCHOOL_KEY, schoolCode);
+        } else {
+          localStorage.removeItem(REMEMBER_KEY);
+          localStorage.removeItem(IDENTIFIER_KEY);
+          localStorage.removeItem(SCHOOL_KEY);
+        }
+      } catch {
+        /* ignore storage access errors */
+      }
       router.push(result.mustChangePassword ? '/change-password' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -41,111 +71,438 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-bg relative flex min-h-screen items-center justify-center p-4">
+    <main className="login-aurora relative min-h-screen overflow-hidden bg-background text-foreground">
+      {/* Abstract geometric accents — quiet, enterprise (not cyberpunk). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -end-24 top-10 h-72 w-72 rounded-full border border-border/60 opacity-40"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -start-32 bottom-0 h-96 w-96 rounded-full border border-border/40 opacity-30"
+      />
+
       <ThemeToggle />
-      <div className="login-card relative w-full max-w-sm overflow-hidden rounded-[2rem]">
-        {/* Content sits above the wave (z-10); pb leaves room for the wave + legal text. */}
-        <div className="relative z-10 flex flex-col px-8 pb-32 pt-12">
-          <div className="mb-8 flex flex-col items-center gap-3 text-center">
-            <Logo size={56} priority />
-            <div className="space-y-1">
-              <h1 className="login-heading font-display text-xl font-semibold">
-                {t('auth.welcome')}
-              </h1>
-              <p className="login-sub text-sm">{t('auth.signInToSchool')}</p>
-            </div>
+
+      <div className="relative mx-auto flex min-h-screen max-w-[1440px] flex-col px-5 py-6 lg:px-10">
+        {/* Brand lockup. */}
+        <header className="flex items-center gap-3">
+          <Logo size={40} priority />
+          <div className="leading-tight">
+            <p className="font-display text-2xl font-bold lowercase tracking-tight">munaxa</p>
+            <p className="text-xs text-muted-foreground">School OS</p>
           </div>
+        </header>
 
-          <form onSubmit={(e) => void onSubmit(e)} className="space-y-2">
-            <FloatingField
-              label={t('auth.identifier')}
-              value={identifier}
-              onChange={setIdentifier}
-              type="text"
-              autoComplete="username"
-              icon={<UserIcon />}
-            />
-
-            <FloatingField
-              label={t('auth.password')}
-              value={password}
-              onChange={setPassword}
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
-              icon={<LockIcon />}
-              trailing={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                  aria-pressed={showPassword}
-                  title={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                  className="login-eye"
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </button>
-              }
-            />
-
-            {showSchool ? (
-              <FloatingField
-                label={t('auth.school')}
-                value={tenantSlug}
-                onChange={setTenantSlug}
-                type="text"
-                autoComplete="organization"
-                icon={<SchoolIcon />}
-              />
-            ) : null}
-
-            {error ? (
-              <p className="login-error pt-1 text-sm" role="alert">
-                {error}
-              </p>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="login-button font-display text-base"
-            >
-              {loading ? t('common.loading') : t('auth.signIn')}
-            </button>
-          </form>
-
-          <div className="mt-5 flex flex-col items-center gap-2 text-sm">
-            <Link href={forgotPasswordHref} className="login-link font-medium hover:underline">
-              {t('auth.forgotPassword')}
-            </Link>
-            {!showSchool ? (
-              <button type="button" onClick={() => setShowSchool(true)} className="login-muted">
-                {t('auth.specificSchool')}
-              </button>
-            ) : null}
-          </div>
+        <div className="grid flex-1 items-center gap-10 py-10 md:grid-cols-[2fr_3fr] md:gap-12 lg:grid-cols-[45fr_55fr] lg:gap-16">
+          <BrandPanel t={t} />
+          <SignInCard
+            t={t}
+            schoolCode={schoolCode}
+            setSchoolCode={setSchoolCode}
+            identifier={identifier}
+            setIdentifier={setIdentifier}
+            password={password}
+            setPassword={setPassword}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            remember={remember}
+            setRemember={setRemember}
+            error={error}
+            loading={loading}
+            onSubmit={(e) => void onSubmit(e)}
+          />
         </div>
 
-        {/* Animated brand wave + legal footer, clipped to the card's rounded corners. */}
-        <BrandWave />
-        <p className="login-legal absolute inset-x-0 bottom-4 z-10 px-8 text-center text-[11px] leading-relaxed">
-          {t('auth.heroFooter')}
-        </p>
+        <footer className="space-y-0.5 pb-2 pt-4 text-center text-xs text-muted-foreground">
+          <p>© {new Date().getFullYear()} Munaxa School OS</p>
+          <p className="tracking-wide">{t('auth.footerTagline')}</p>
+        </footer>
       </div>
     </main>
   );
 }
 
+/* ───────────────────────── Sign-in card ───────────────────────── */
+
+interface CardProps {
+  t: (k: string) => string;
+  schoolCode: string;
+  setSchoolCode: (v: string) => void;
+  identifier: string;
+  setIdentifier: (v: string) => void;
+  password: string;
+  setPassword: (v: string) => void;
+  showPassword: boolean;
+  setShowPassword: (f: (v: boolean) => boolean) => void;
+  remember: boolean;
+  setRemember: (v: boolean) => void;
+  error: string | null;
+  loading: boolean;
+  onSubmit: (e: React.FormEvent) => void;
+}
+
+function SignInCard(p: CardProps) {
+  const { t } = p;
+  return (
+    <div className="mx-auto w-full max-w-[520px]">
+      <div className="rounded-3xl border border-border bg-card/70 p-7 shadow-card backdrop-blur-xl sm:p-10 lg:p-12">
+        <h1 className="font-display text-3xl font-bold">{t('auth.welcomeBack')}</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">{t('auth.signInContinue')}</p>
+
+        <form onSubmit={p.onSubmit} className="mt-8 space-y-5">
+          <Field label={t('auth.schoolCode')}>
+            {(id) => (
+              <InputWithIcon icon={<BuildingIcon />}>
+                <input
+                  id={id}
+                  type="text"
+                  value={p.schoolCode}
+                  onChange={(e) => p.setSchoolCode(e.target.value)}
+                  autoComplete="organization"
+                  placeholder={t('auth.schoolCodePlaceholder')}
+                  className="login-input-field"
+                />
+              </InputWithIcon>
+            )}
+          </Field>
+
+          <Field label={t('auth.usernameOrEmail')}>
+            {(id) => (
+              <InputWithIcon icon={<UserIcon />}>
+                <input
+                  id={id}
+                  type="text"
+                  required
+                  value={p.identifier}
+                  onChange={(e) => p.setIdentifier(e.target.value)}
+                  autoComplete="username"
+                  placeholder={t('auth.usernamePlaceholder')}
+                  className="login-input-field"
+                />
+              </InputWithIcon>
+            )}
+          </Field>
+
+          <Field label={t('auth.password')}>
+            {(id) => (
+              <InputWithIcon icon={<LockIcon />}>
+                <input
+                  id={id}
+                  type={p.showPassword ? 'text' : 'password'}
+                  required
+                  value={p.password}
+                  onChange={(e) => p.setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder={t('auth.passwordPlaceholder')}
+                  className="login-input-field !pe-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => p.setShowPassword((v) => !v)}
+                  aria-label={p.showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                  aria-pressed={p.showPassword}
+                  className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {p.showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </InputWithIcon>
+            )}
+          </Field>
+
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex cursor-pointer select-none items-center gap-2 text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={p.remember}
+                onChange={(e) => p.setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              {t('auth.rememberMe')}
+            </label>
+            <Link href={forgotPasswordHref} className="font-medium text-primary hover:underline">
+              {t('auth.forgotPassword')}
+            </Link>
+          </div>
+
+          {p.error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {p.error}
+            </p>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={p.loading}
+            className="bg-grad-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-display font-semibold text-white shadow-glow transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {p.loading ? (
+              <>
+                <Spinner />
+                {t('common.loading')}
+              </>
+            ) : (
+              t('auth.signIn')
+            )}
+          </button>
+        </form>
+
+        {/* Security notice. */}
+        <div className="mt-6 flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+          <span className="mt-0.5 shrink-0 text-success">
+            <ShieldIcon size={16} />
+          </span>
+          <p>{t('auth.securityNotice')}</p>
+        </div>
+
+        {/* In-card technology badges. */}
+        <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-6">
+          <TechBadge
+            icon={<InvoiceIcon />}
+            title={t('auth.jofotaraConnected')}
+            desc={t('auth.jofotaraConnectedDesc')}
+          />
+          <TechBadge
+            icon={<CloudIcon />}
+            title={t('auth.cloudService')}
+            desc={t('auth.cloudServiceDesc')}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TechBadge({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-background/40 px-3 py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <div className="min-w-0 leading-tight">
+        <p className="flex items-center gap-1 text-xs font-semibold">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+          {title}
+        </p>
+        <p className="text-[11px] leading-tight text-muted-foreground">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Brand panel ───────────────────────── */
+
+function BrandPanel({ t }: { t: (k: string) => string }) {
+  return (
+    <section className="flex flex-col">
+      <h2 className="font-display text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl">
+        {t('auth.marketingTitle1')}
+        <br />
+        <span className="text-primary">{t('auth.marketingTitle2')}</span>
+      </h2>
+      <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground">
+        {t('auth.marketingSubtitle')}
+      </p>
+
+      <DashboardPreview t={t} />
+
+      <div className="mt-7 grid grid-cols-2 gap-3">
+        <ComplianceBadge
+          icon={<ShieldIcon />}
+          title="ISO 27001"
+          sub={t('auth.badgeInfoSecurity')}
+        />
+        <ComplianceBadge
+          icon={<CheckBadgeIcon />}
+          title={t('auth.gdprReady')}
+          sub={t('auth.badgeDataProtection')}
+        />
+        <ComplianceBadge
+          icon={<JordanFlag />}
+          title={t('auth.jordanCompliance')}
+          sub={t('auth.badgeJofotaraReady')}
+        />
+        <ComplianceBadge
+          icon={<CloudIcon />}
+          title={t('auth.cloudHosted')}
+          sub={t('auth.badgeHighlyAvailable')}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ComplianceBadge({
+  icon,
+  title,
+  sub,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card/60 px-3 py-2.5 backdrop-blur">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-xs font-semibold">{title}</p>
+        <p className="truncate text-[11px] text-muted-foreground">{sub}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Floating glass analytics panel — Academic, Financial and Operations metrics. */
+function DashboardPreview({ t }: { t: (k: string) => string }) {
+  void t;
+  const academic = [
+    { label: 'Total Students', value: '2,480' },
+    { label: 'Active Teachers', value: '142' },
+    { label: 'Attendance Rate', value: '96.2%' },
+    { label: 'Enrollment Growth', value: '+12%', good: true },
+  ];
+  const ops = [
+    { label: 'Transportation', value: 'On Route 18/20', icon: <BusIcon /> },
+    { label: 'Daily Attendance', value: '94%', icon: <CheckIcon /> },
+    { label: 'Parent Comms', value: '320 sent', icon: <ChatIcon /> },
+  ];
+  return (
+    <div className="relative mt-9 overflow-hidden rounded-2xl border border-border bg-card/70 p-4 shadow-card backdrop-blur-xl">
+      <div className="login-glow pointer-events-none absolute -end-12 -top-12 h-48 w-48 opacity-40 blur-2xl" />
+      <div className="relative">
+        {/* Header */}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
+            <p className="text-sm font-semibold">School Overview</p>
+          </div>
+          <p className="font-mono text-[10px] text-muted-foreground">Live • Today</p>
+        </div>
+
+        {/* Academic metrics */}
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {academic.map((s) => (
+            <div key={s.label} className="rounded-xl border border-border bg-background/50 p-2.5">
+              <p className="text-[10px] text-muted-foreground">{s.label}</p>
+              <p
+                className={`font-mono text-base font-bold leading-tight ${
+                  s.good ? 'text-success' : ''
+                }`}
+              >
+                {s.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Financial + Operations */}
+        <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+          <div className="rounded-xl border border-border bg-background/50 p-3">
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-[11px] font-medium text-muted-foreground">Revenue Trend</p>
+              <span className="text-[10px] font-semibold text-success">+18%</span>
+            </div>
+            <AreaChart />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[9px] text-muted-foreground">Tuition Collection</p>
+                <p className="font-mono text-xs font-bold">92%</p>
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground">Outstanding</p>
+                <p className="font-mono text-xs font-bold">$48,200</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-background/50 p-3">
+            <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">Operations</p>
+            <ul className="space-y-2">
+              {ops.map((o) => (
+                <li key={o.label} className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    {o.icon}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
+                    {o.label}
+                  </span>
+                  <span className="font-mono text-[10px] font-semibold">{o.value}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Tiny area chart drawn with the brand violet. */
+function AreaChart() {
+  const id = useId();
+  const pts = [16, 12, 20, 15, 24, 19, 28, 22, 30, 26, 34, 30];
+  const w = 240;
+  const h = 40;
+  const step = w / (pts.length - 1);
+  const max = Math.max(...pts) + 6;
+  const coords: Array<[number, number]> = pts.map((p, i) => [i * step, h - (p / max) * h]);
+  const line = coords
+    .map(([x, y], i) => `${i ? 'L' : 'M'} ${x.toFixed(1)} ${y.toFixed(1)}`)
+    .join(' ');
+  const area = `${line} L ${w} ${h} L 0 ${h} Z`;
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      className="h-10 w-full"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" className="[stop-color:hsl(var(--primary))]" stopOpacity="0.35" />
+          <stop offset="100%" className="[stop-color:hsl(var(--primary))]" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${id})`} />
+      <path d={line} fill="none" className="stroke-primary" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+/* ───────────────────────── Shared inputs ───────────────────────── */
+
+function Field({ label, children }: { label: string; children: (id: string) => React.ReactNode }) {
+  const id = useId();
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-sm font-medium">
+        {label}
+      </label>
+      {children(id)}
+    </div>
+  );
+}
+
+function InputWithIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="relative rounded-xl border border-input bg-background/50 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40">
+      <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-muted-foreground">
+        {icon}
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/* ───────────────────────── Theme toggle ───────────────────────── */
+
 const THEME_KEY = 'munaxa.theme';
 type Theme = 'light' | 'dark';
 
-/**
- * Light/dark switch for the sign-in screen. Mirrors the shell's toggle: persists to localStorage
- * under the shared `munaxa.theme` key and flips the `.dark` class on <html> (the root layout reads
- * the same key before paint, so the choice carries into the app after sign-in). Icon renders only
- * after mount to avoid a hydration mismatch with the server's light default.
- */
 function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -155,113 +512,57 @@ function ThemeToggle() {
     setMounted(true);
   }, []);
 
-  function toggle() {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+  function set(next: Theme) {
     setTheme(next);
     localStorage.setItem(THEME_KEY, next);
     document.documentElement.classList.toggle('dark', next === 'dark');
   }
 
+  const active = mounted ? theme : 'light';
   return (
-    <button type="button" onClick={toggle} aria-label="Toggle theme" className="login-toggle">
-      {mounted && theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-    </button>
-  );
-}
-
-/**
- * Underline input with a floating label and a leading brand icon. The label rides on the baseline
- * as a placeholder and animates up + turns violet on focus or once a value is present — driven by
- * the input's :focus / :placeholder-shown state (see .login-input rules in globals.css). The input
- * is rendered before the label/icon so the CSS general-sibling selectors can target them.
- */
-function FloatingField({
-  label,
-  value,
-  onChange,
-  type,
-  autoComplete,
-  icon,
-  trailing,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type: string;
-  autoComplete: string;
-  icon: React.ReactNode;
-  trailing?: React.ReactNode;
-}) {
-  const id = useId();
-  return (
-    <div className="login-field">
-      <input
-        id={id}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required
-        autoComplete={autoComplete}
-        placeholder=" "
-        className="login-input"
-      />
-      <label htmlFor={id} className="login-field-label">
-        {label}
-      </label>
-      <span className="login-field-icon">{icon}</span>
-      {trailing}
+    <div className="absolute end-5 top-6 z-10 flex items-center gap-1 rounded-full border border-border bg-card/70 p-1 backdrop-blur lg:end-10">
+      <button
+        type="button"
+        onClick={() => set('light')}
+        aria-label="Light theme"
+        aria-pressed={active === 'light'}
+        className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+          active === 'light'
+            ? 'bg-primary/15 text-primary'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <SunIcon />
+      </button>
+      <button
+        type="button"
+        onClick={() => set('dark')}
+        aria-label="Dark theme"
+        aria-pressed={active === 'dark'}
+        className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+          active === 'dark'
+            ? 'bg-primary/15 text-primary'
+            : 'text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        <MoonIcon />
+      </button>
     </div>
   );
 }
 
-/** Three stacked, horizontally-flowing waves in the Munaxa gradient (aqua → violet). */
-function BrandWave() {
-  return (
-    <div className="login-wave" aria-hidden="true">
-      <WaveSvg className="w1" id="login-grad-1" mid={80} amp={30} />
-      <WaveSvg className="w2" id="login-grad-2" mid={68} amp={38} />
-      <WaveSvg className="w3" id="login-grad-3" mid={96} amp={26} />
-    </div>
-  );
-}
+/* ───────────────────────── Icons (currentColor) ───────────────────────── */
 
-function WaveSvg({
-  className,
-  id,
-  mid,
-  amp,
-}: {
-  className: string;
-  id: string;
-  mid: number;
-  amp: number;
-}) {
-  // A periodic wave 2880 units wide (6 humps of period 480). Translating the <svg> by -50%
-  // (one 1440-unit block of 3 humps) lands on an identical phase, so the loop is seamless.
-  // Stop colours are set per-wave in globals.css (keeps raw hex out of the JSX).
-  const width = 2880;
-  const period = 480;
-  let d = `M 0 ${mid}`;
-  for (let x = 0; x < width; x += period) {
-    d += ` Q ${x + period * 0.25} ${mid - amp} ${x + period * 0.5} ${mid}`;
-    d += ` Q ${x + period * 0.75} ${mid + amp} ${x + period} ${mid}`;
-  }
-  d += ` L ${width} 200 L 0 200 Z`;
+function Spinner() {
   return (
-    <svg className={className} viewBox="0 0 2880 200" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" />
-          <stop offset="50%" />
-          <stop offset="100%" />
-        </linearGradient>
-      </defs>
-      <path d={d} fill={`url(#${id})`} />
+    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
 
-function SunIcon() {
+function BuildingIcon() {
   return (
     <svg
       width="18"
@@ -274,16 +575,8 @@ function SunIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+      <path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16M13 9h5a1 1 0 0 1 1 1v11" />
+      <path d="M8 8h2M8 12h2M8 16h2M16 13h0M16 17h0" />
     </svg>
   );
 }
@@ -300,14 +593,6 @@ function LockIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M17 9V7a5 5 0 0 0-10 0v2a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3Zm-8-2a3 3 0 0 1 6 0v2H9V7Zm4 9.73V18a1 1 0 0 1-2 0v-1.27a2 2 0 1 1 2 0Z" />
-    </svg>
-  );
-}
-
-function SchoolIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2 1 8l11 6 9-4.91V17h2V8L12 2Zm0 13.5L5 11.7V14c0 2.21 3.13 4 7 4s7-1.79 7-4v-2.3l-7 3.8Z" />
     </svg>
   );
 }
@@ -347,6 +632,176 @@ function EyeOffIcon() {
       <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.44M6.6 6.6A13.3 13.3 0 0 0 2 11s3.5 7 10 7a9.1 9.1 0 0 0 5.4-1.6" />
       <path d="m2 2 20 20" />
       <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+    </svg>
+  );
+}
+
+function ShieldIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+}
+
+function CheckBadgeIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z" />
+      <path d="m8 12 2.5 2.5L16 9" />
+    </svg>
+  );
+}
+
+function CloudIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.1 9.5 4 4 0 0 0 6.5 19h11Z" />
+    </svg>
+  );
+}
+
+function InvoiceIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 2h9l3 3v15l-2.5-1.5L13 20l-2.5-1.5L8 20l-2-1.2V2Z" />
+      <path d="M9 7h6M9 11h6M9 15h4" />
+    </svg>
+  );
+}
+
+function BusIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 17V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v11M4 17h16M4 17v2M20 17v2M4 11h16" />
+      <circle cx="8" cy="17" r="1" />
+      <circle cx="16" cy="17" r="1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m5 12 5 5L20 7" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12Z" />
+    </svg>
+  );
+}
+
+/** Simplified Jordanian flag mark — colours via CSS classes keep raw hex out of the JSX. */
+function JordanFlag() {
+  return (
+    <svg width="20" height="14" viewBox="0 0 30 20" aria-hidden="true" className="rounded-[2px]">
+      <rect width="30" height="6.67" className="jo-black" />
+      <rect y="6.67" width="30" height="6.67" className="jo-white" />
+      <rect y="13.33" width="30" height="6.67" className="jo-green" />
+      <path d="M0 0 13 10 0 20Z" className="jo-red" />
     </svg>
   );
 }
