@@ -516,6 +516,8 @@
     "routes": "المسارات",
     "name": "الاسم",
     "description": "الوصف",
+    "academicYear": "العام الدراسي",
+    "noYear": "بدون عام",
     "noRoutes": "لا توجد مسارات بعد.",
     "buses": "الحافلات",
     "plateNumber": "رقم اللوحة",

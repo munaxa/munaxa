@@ -69,7 +69,7 @@ export class FeeConfigRepository extends TenantRepository {
   private async resolveRouteId(
     tx: TxClient,
     tenantId: string,
-    input: { routeId?: string | null; routeName?: string | null },
+    input: { routeId?: string | null; routeName?: string | null; academicYearId?: string | null },
   ): Promise<string | null> {
     if (input.routeId) {
       const route = await tx.busRoute.findFirst({
@@ -81,12 +81,20 @@ export class FeeConfigRepository extends TenantRepository {
     }
     const name = input.routeName?.trim();
     if (!name) return null;
+    // Reuse a route with the same name in the same academic year, else create one stamped with it.
     const existing = await tx.busRoute.findFirst({
-      where: { name: { equals: name, mode: 'insensitive' }, deletedAt: null },
+      where: {
+        name: { equals: name, mode: 'insensitive' },
+        academicYearId: input.academicYearId ?? null,
+        deletedAt: null,
+      },
       select: { id: true },
     });
     if (existing) return existing.id;
-    const created = await tx.busRoute.create({ data: { tenantId, name }, select: { id: true } });
+    const created = await tx.busRoute.create({
+      data: { tenantId, name, academicYearId: input.academicYearId ?? null },
+      select: { id: true },
+    });
     return created.id;
   }
 
@@ -151,7 +159,16 @@ export class FeeConfigRepository extends TenantRepository {
     return this.run(async (tx, tenantId) => {
       // Only re-resolve the route when the caller actually passed routeId/routeName.
       const reroute = data.routeId !== undefined || data.routeName !== undefined;
-      const routeId = reroute ? await this.resolveRouteId(tx, tenantId, data) : undefined;
+      let routeId: string | null | undefined;
+      if (reroute) {
+        // A new route created here must be stamped with the fare's academic year.
+        const academicYearId =
+          data.academicYearId ??
+          (await tx.transportFare.findUnique({ where: { id }, select: { academicYearId: true } }))
+            ?.academicYearId ??
+          null;
+        routeId = await this.resolveRouteId(tx, tenantId, { ...data, academicYearId });
+      }
       const row = await tx.transportFare.update({
         where: { id },
         data: {

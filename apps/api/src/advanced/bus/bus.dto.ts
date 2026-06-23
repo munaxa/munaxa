@@ -22,7 +22,14 @@ export class CreateBusRouteDto {
   @IsString()
   @MaxLength(500)
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Academic year this route belongs to.' })
+  @IsOptional()
+  @IsUUID()
+  academicYearId?: string;
 }
+
+export class UpdateBusRouteDto extends PartialType(CreateBusRouteDto) {}
 
 export class CreateBusDto {
   @ApiProperty({ example: '21-12345' })

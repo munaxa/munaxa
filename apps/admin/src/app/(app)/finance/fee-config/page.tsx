@@ -365,13 +365,14 @@ function TransportFares({ yearId }: { yearId: string }) {
   }, [yearId, toast]);
   useEffect(load, [load]);
 
-  // Suggest routes from the fleet so finance + transport stay aligned (shared BusRoute entity).
+  // Routes for the selected year, shared with the Fleet tab (same BusRoute entity).
   const loadRoutes = useCallback(() => {
+    if (!yearId) return setRoutes([]);
     busApi
-      .listRoutes()
+      .listRoutes(yearId)
       .then(setRoutes)
       .catch(() => setRoutes([]));
-  }, []);
+  }, [yearId]);
   useEffect(loadRoutes, [loadRoutes]);
 
   function startEdit(r: TransportFare) {

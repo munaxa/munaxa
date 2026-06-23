@@ -8,9 +8,20 @@ export class BusRepository extends TenantRepository {
     return this.run((tx, tenantId) => tx.busRoute.create({ data: { ...data, tenantId } }));
   }
 
-  listRoutes(): Promise<BusRoute[]> {
+  updateRoute(id: string, data: Prisma.BusRouteUpdateInput): Promise<BusRoute> {
+    return this.run((tx) => tx.busRoute.update({ where: { id }, data }));
+  }
+
+  findRoute(id: string): Promise<BusRoute | null> {
+    return this.run((tx) => tx.busRoute.findFirst({ where: { id, deletedAt: null } }));
+  }
+
+  listRoutes(academicYearId?: string): Promise<BusRoute[]> {
     return this.run((tx) =>
-      tx.busRoute.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } }),
+      tx.busRoute.findMany({
+        where: { deletedAt: null, ...(academicYearId ? { academicYearId } : {}) },
+        orderBy: { name: 'asc' },
+      }),
     );
   }
 

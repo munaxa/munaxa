@@ -8,6 +8,7 @@ import type {
   CreateBusStopDto,
   UpdateBusDto,
   UpdateBusLocationDto,
+  UpdateBusRouteDto,
 } from './bus.dto';
 
 @Injectable()
@@ -15,11 +16,29 @@ export class BusService {
   constructor(private readonly repo: BusRepository) {}
 
   createRoute(dto: CreateBusRouteDto): Promise<BusRoute> {
-    return this.repo.createRoute({ name: dto.name, description: dto.description ?? null });
+    return this.repo.createRoute({
+      name: dto.name,
+      description: dto.description ?? null,
+      academicYearId: dto.academicYearId ?? null,
+    });
   }
 
-  listRoutes(): Promise<BusRoute[]> {
-    return this.repo.listRoutes();
+  async updateRoute(id: string, dto: UpdateBusRouteDto): Promise<BusRoute> {
+    const route = await this.repo.findRoute(id);
+    if (!route) throw new NotFoundException('Route not found');
+    return this.repo.updateRoute(id, {
+      ...(dto.name !== undefined ? { name: dto.name } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.academicYearId !== undefined
+        ? dto.academicYearId
+          ? { academicYear: { connect: { id: dto.academicYearId } } }
+          : { academicYear: { disconnect: true } }
+        : {}),
+    });
+  }
+
+  listRoutes(academicYearId?: string): Promise<BusRoute[]> {
+    return this.repo.listRoutes(academicYearId);
   }
 
   async createBus(dto: CreateBusDto): Promise<Bus> {

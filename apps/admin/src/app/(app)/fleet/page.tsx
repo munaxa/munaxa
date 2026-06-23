@@ -21,6 +21,7 @@ import {
   type BusStop,
   type StudentBusAssignment,
 } from '@/lib/bus';
+import { schoolsApi, campusesApi, academicYearsApi, type AcademicYear } from '@/lib/structure';
 import {
   Badge,
   Button,
@@ -60,10 +61,16 @@ function Fleet() {
   const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [buses, setBuses] = useState<Bus[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [years, setYears] = useState<AcademicYear[]>([]);
   const [selectedRoute, setSelectedRoute] = useState('');
   const [stops, setStops] = useState<BusStop[]>([]);
   const [assignments, setAssignments] = useState<StudentBusAssignment[]>([]);
   const [unavailable, setUnavailable] = useState(false);
+
+  const yearName = useCallback(
+    (id: string | null) => (id ? (years.find((y) => y.id === id)?.name ?? id) : null),
+    [years],
+  );
 
   const studentName = useCallback(
     (id: string) => {
@@ -87,6 +94,22 @@ function Fleet() {
         .list()
         .then(setStudents)
         .catch(() => undefined);
+      // Academic years (across campuses) for grouping/assigning routes; optional.
+      void (async () => {
+        try {
+          const schools = await schoolsApi.list();
+          const campusLists = await Promise.all(
+            schools.map((s) => campusesApi.list(s.id).catch(() => [])),
+          );
+          const campuses = campusLists.flat();
+          const yearLists = await Promise.all(
+            campuses.map((c) => academicYearsApi.list(c.id).catch(() => [])),
+          );
+          setYears(yearLists.flat());
+        } catch {
+          /* years are optional for the fleet */
+        }
+      })();
     } catch {
       setUnavailable(true);
     }
@@ -149,10 +172,16 @@ function Fleet() {
       <div className="grid gap-6 lg:grid-cols-2">
         <RoutesCard
           routes={routes}
+          years={years}
+          yearName={yearName}
           canManage={canManage}
-          onCreated={(r) => {
-            setRoutes((prev) => [...prev, r]);
-            setSelectedRoute(r.id);
+          onSaved={(r, isNew) => {
+            setRoutes((prev) =>
+              prev.some((x) => x.id === r.id)
+                ? prev.map((x) => (x.id === r.id ? r : x))
+                : [...prev, r],
+            );
+            if (isNew) setSelectedRoute(r.id);
           }}
         />
         <BusesCard
@@ -219,37 +248,77 @@ function Fleet() {
 
 function RoutesCard({
   routes,
+  years,
+  yearName,
   canManage,
-  onCreated,
+  onSaved,
 }: {
   routes: BusRoute[];
+  years: AcademicYear[];
+  yearName: (id: string | null) => string | null;
   canManage: boolean;
-  onCreated: (r: BusRoute) => void;
+  onSaved: (r: BusRoute, isNew: boolean) => void;
 }) {
   const toast = useToast();
   const { t } = useI18n();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const EMPTY = { name: '', description: '', academicYearId: '' };
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function create() {
-    if (!name.trim()) return;
+  function reset() {
+    setEditingId(null);
+    setForm(EMPTY);
+  }
+  function startEdit(r: BusRoute) {
+    setEditingId(r.id);
+    setForm({
+      name: r.name,
+      description: r.description ?? '',
+      academicYearId: r.academicYearId ?? '',
+    });
+  }
+
+  async function save() {
+    if (!form.name.trim()) return;
     setBusy(true);
     try {
-      const r = await busApi.createRoute({
-        name: name.trim(),
-        ...(description.trim() ? { description: description.trim() } : {}),
-      });
-      onCreated(r);
-      setName('');
-      setDescription('');
-      toast.success('Route created');
+      const name = form.name.trim();
+      const description = form.description.trim();
+      const r = editingId
+        ? await busApi.updateRoute(editingId, {
+            name,
+            description,
+            academicYearId: form.academicYearId || null,
+          })
+        : await busApi.createRoute({
+            name,
+            ...(description ? { description } : {}),
+            ...(form.academicYearId ? { academicYearId: form.academicYearId } : {}),
+          });
+      onSaved(r, !editingId);
+      reset();
+      toast.success(editingId ? 'Route updated' : 'Route created');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to create route');
+      toast.error(e instanceof Error ? e.message : 'Failed to save route');
     } finally {
       setBusy(false);
     }
   }
+
+  // Group routes by academic year for display (most recent years first; "No year" last).
+  const groups = useMemo(() => {
+    const byYear = new Map<string, BusRoute[]>();
+    for (const r of routes) {
+      const key = r.academicYearId ?? '';
+      const list = byYear.get(key) ?? [];
+      list.push(r);
+      byYear.set(key, list);
+    }
+    return [...byYear.entries()]
+      .map(([yid, list]) => ({ yid, label: yearName(yid || null) ?? 'No academic year', list }))
+      .sort((a, b) => (a.yid === '' ? 1 : b.yid === '' ? -1 : b.label.localeCompare(a.label)));
+  }, [routes, yearName]);
 
   return (
     <Card>
@@ -261,35 +330,75 @@ function RoutesCard({
           <div className="flex flex-wrap items-end gap-2">
             <Field label={t('fleet.name')} className="flex-1">
               <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="North Amman"
               />
             </Field>
             <Field label={t('fleet.description')} className="flex-1">
-              <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+              <Input
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
             </Field>
-            <Button size="sm" onClick={() => void create()} disabled={busy || !name.trim()}>
-              {t('common.add')}
+            <Field label={t('fleet.academicYear')}>
+              <Select
+                value={form.academicYearId}
+                onChange={(e) => setForm({ ...form, academicYearId: e.target.value })}
+              >
+                <option value="">{t('fleet.noYear')}</option>
+                {years.map((y) => (
+                  <option key={y.id} value={y.id}>
+                    {y.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            {editingId ? (
+              <Button size="sm" variant="outline" onClick={reset} disabled={busy}>
+                {t('common.cancel')}
+              </Button>
+            ) : null}
+            <Button size="sm" onClick={() => void save()} disabled={busy || !form.name.trim()}>
+              {editingId ? t('common.save') : t('common.add')}
             </Button>
           </div>
         ) : null}
         {routes.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('fleet.noRoutes')}</p>
         ) : (
-          <ul className="space-y-1 text-sm">
-            {routes.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center justify-between border-b border-border pb-1 last:border-0"
-              >
-                <span className="font-medium">{r.name}</span>
-                {r.description ? (
-                  <span className="text-xs text-muted-foreground">{r.description}</span>
-                ) : null}
-              </li>
+          <div className="space-y-3">
+            {groups.map((g) => (
+              <div key={g.yid || 'none'}>
+                <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {g.label}
+                </h4>
+                <ul className="space-y-1 text-sm">
+                  {g.list.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-center gap-2 border-b border-border pb-1 last:border-0"
+                    >
+                      <span className="font-medium">{r.name}</span>
+                      {r.description ? (
+                        <span className="text-xs text-muted-foreground">{r.description}</span>
+                      ) : null}
+                      {canManage ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="ms-auto"
+                          onClick={() => startEdit(r)}
+                        >
+                          {t('common.edit')}
+                        </Button>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </CardContent>
     </Card>
