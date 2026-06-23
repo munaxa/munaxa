@@ -7,6 +7,8 @@ export interface BusRoute {
   name: string;
   description: string | null;
   academicYearId: string | null;
+  round1Time: string | null;
+  round2Time: string | null;
 }
 
 export interface BusStop {
@@ -38,6 +40,12 @@ export interface StudentBusAssignment {
   stopId: string | null;
 }
 
+export interface StudentTransport {
+  routeName: string;
+  busNumber: string | null;
+  busPlate: string | null;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
@@ -52,13 +60,25 @@ export const busApi = {
     authFetch(
       `/bus/routes${academicYearId ? `?academicYearId=${encodeURIComponent(academicYearId)}` : ''}`,
     ).then((r) => json<BusRoute[]>(r)),
-  createRoute: (data: { name: string; description?: string; academicYearId?: string }) =>
+  createRoute: (data: {
+    name: string;
+    description?: string;
+    academicYearId?: string;
+    round1Time?: string;
+    round2Time?: string;
+  }) =>
     authFetch('/bus/routes', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<BusRoute>(r),
     ),
   updateRoute: (
     id: string,
-    data: Partial<{ name: string; description: string; academicYearId: string | null }>,
+    data: Partial<{
+      name: string;
+      description: string;
+      academicYearId: string | null;
+      round1Time: string;
+      round2Time: string;
+    }>,
   ) =>
     authFetch(`/bus/routes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
       json<BusRoute>(r),
@@ -113,4 +133,6 @@ export const busApi = {
     authFetch('/bus/assignments', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<StudentBusAssignment>(r),
     ),
+  studentTransport: (studentId: string) =>
+    authFetch(`/bus/students/${studentId}/transport`).then((r) => json<StudentTransport | null>(r)),
 };

@@ -20,6 +20,8 @@ export class BusService {
       name: dto.name,
       description: dto.description ?? null,
       academicYearId: dto.academicYearId ?? null,
+      round1Time: dto.round1Time ?? null,
+      round2Time: dto.round2Time ?? null,
     });
   }
 
@@ -29,6 +31,8 @@ export class BusService {
     return this.repo.updateRoute(id, {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.round1Time !== undefined ? { round1Time: dto.round1Time || null } : {}),
+      ...(dto.round2Time !== undefined ? { round2Time: dto.round2Time || null } : {}),
       ...(dto.academicYearId !== undefined
         ? dto.academicYearId
           ? { academicYear: { connect: { id: dto.academicYearId } } }
@@ -122,5 +126,9 @@ export class BusService {
 
   listAssignments(routeId?: string): Promise<StudentBusAssignment[]> {
     return this.repo.listAssignments(routeId);
+  }
+
+  studentTransport(studentId: string) {
+    return this.repo.studentTransport(studentId);
   }
 }

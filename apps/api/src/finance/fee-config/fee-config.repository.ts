@@ -4,7 +4,9 @@ import { TenantRepository } from '../../common/tenant.repository';
 import type { TxClient } from '../../prisma/tenant.helpers';
 import { TenantContextStore } from '../../prisma/tenant-context';
 
-const ROUTE_INCLUDE = { route: { select: { id: true, name: true } } } as const;
+const ROUTE_INCLUDE = {
+  route: { select: { id: true, name: true, round1Time: true, round2Time: true } },
+} as const;
 export type TransportFareWithRoute = Prisma.TransportFareGetPayload<{
   include: typeof ROUTE_INCLUDE;
 }>;

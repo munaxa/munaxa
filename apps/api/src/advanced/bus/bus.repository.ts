@@ -111,4 +111,26 @@ export class BusRepository extends TenantRepository {
       }),
     );
   }
+
+  /** A student's current route + the bus serving it (for the student profile). */
+  studentTransport(
+    studentId: string,
+  ): Promise<{ routeName: string; busNumber: string | null; busPlate: string | null } | null> {
+    return this.run(async (tx) => {
+      const a = await tx.studentBusAssignment.findFirst({
+        where: { studentId },
+        include: { route: { select: { id: true, name: true } } },
+      });
+      if (!a?.route) return null;
+      const bus = await tx.bus.findFirst({
+        where: { routeId: a.route.id, deletedAt: null },
+        select: { plateNumber: true, label: true },
+      });
+      return {
+        routeName: a.route.name,
+        busNumber: bus?.label ?? null,
+        busPlate: bus?.plateNumber ?? null,
+      };
+    });
+  }
 }
