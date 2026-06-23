@@ -374,8 +374,13 @@ export interface TransportFare {
   id: string;
   academicYearId: string;
   routeId: string | null;
-  /** Resolved fleet route (source of truth for the route's name). */
-  route: { id: string; name: string } | null;
+  /** Resolved fleet route (source of truth for the route's name + round times). */
+  route: {
+    id: string;
+    name: string;
+    round1Time: string | null;
+    round2Time: string | null;
+  } | null;
   /** Two-way (round trip) annual total. */
   amount: string;
   /** One-way price as a percentage of the two-way total. */

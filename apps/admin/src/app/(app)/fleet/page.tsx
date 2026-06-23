@@ -254,7 +254,7 @@ function RoutesCard({
 }) {
   const toast = useToast();
   const { t } = useI18n();
-  const EMPTY = { name: '', description: '', academicYearId: '' };
+  const EMPTY = { name: '', description: '', academicYearId: '', round1Time: '', round2Time: '' };
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -269,6 +269,8 @@ function RoutesCard({
       name: r.name,
       description: r.description ?? '',
       academicYearId: r.academicYearId ?? '',
+      round1Time: r.round1Time ?? '',
+      round2Time: r.round2Time ?? '',
     });
   }
 
@@ -283,11 +285,15 @@ function RoutesCard({
             name,
             description,
             academicYearId: form.academicYearId || null,
+            round1Time: form.round1Time,
+            round2Time: form.round2Time,
           })
         : await busApi.createRoute({
             name,
             ...(description ? { description } : {}),
             ...(form.academicYearId ? { academicYearId: form.academicYearId } : {}),
+            ...(form.round1Time ? { round1Time: form.round1Time } : {}),
+            ...(form.round2Time ? { round2Time: form.round2Time } : {}),
           });
       onSaved(r, !editingId);
       reset();
@@ -347,6 +353,22 @@ function RoutesCard({
                 ))}
               </Select>
             </Field>
+            <Field label={t('fleet.round1')}>
+              <Input
+                type="time"
+                value={form.round1Time}
+                onChange={(e) => setForm({ ...form, round1Time: e.target.value })}
+                dir="ltr"
+              />
+            </Field>
+            <Field label={t('fleet.round2')}>
+              <Input
+                type="time"
+                value={form.round2Time}
+                onChange={(e) => setForm({ ...form, round2Time: e.target.value })}
+                dir="ltr"
+              />
+            </Field>
             {editingId ? (
               <Button size="sm" variant="outline" onClick={reset} disabled={busy}>
                 {t('common.cancel')}
@@ -375,6 +397,11 @@ function RoutesCard({
                       <span className="font-medium">{r.name}</span>
                       {r.description ? (
                         <span className="text-xs text-muted-foreground">{r.description}</span>
+                      ) : null}
+                      {r.round1Time || r.round2Time ? (
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {[r.round1Time, r.round2Time].filter(Boolean).join(' · ')}
+                        </span>
                       ) : null}
                       {canManage ? (
                         <Button

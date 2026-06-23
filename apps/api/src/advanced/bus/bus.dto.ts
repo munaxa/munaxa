@@ -27,6 +27,18 @@ export class CreateBusRouteDto {
   @IsOptional()
   @IsUUID()
   academicYearId?: string;
+
+  @ApiPropertyOptional({ example: '07:00', description: '1st round trip time (HH:MM).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  round1Time?: string;
+
+  @ApiPropertyOptional({ example: '13:30', description: '2nd round trip time (HH:MM).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  round2Time?: string;
 }
 
 export class UpdateBusRouteDto extends PartialType(CreateBusRouteDto) {}

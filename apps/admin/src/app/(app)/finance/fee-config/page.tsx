@@ -530,7 +530,14 @@ function TransportFares({ yearId }: { yearId: string }) {
           <TBody>
             {rows.map((r) => (
               <TR key={r.id} className={r.isActive ? undefined : 'opacity-60'}>
-                <TD>{r.route?.name || <span className="text-muted-foreground">—</span>}</TD>
+                <TD>
+                  {r.route?.name || <span className="text-muted-foreground">—</span>}
+                  {r.route?.round1Time || r.route?.round2Time ? (
+                    <span className="block font-mono text-xs text-muted-foreground">
+                      {[r.route?.round1Time, r.route?.round2Time].filter(Boolean).join(' · ')}
+                    </span>
+                  ) : null}
+                </TD>
                 <TD className="text-end font-mono">{jod(r.amount)}</TD>
                 <TD className="text-end font-mono">
                   {jod((Number(r.amount) * Number(r.oneWayPct)) / 100)}

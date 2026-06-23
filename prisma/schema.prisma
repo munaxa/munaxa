@@ -1718,6 +1718,8 @@ model BusRoute {
   academicYearId String?   @db.Uuid // groups routes by academic year (e.g. 2026/2027)
   name           String
   description    String?
+  round1Time     String? // 1st round trip time, "HH:MM"
+  round2Time     String? // 2nd round trip time, "HH:MM"
   createdAt      DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt      DateTime? @db.Timestamptz(6)
