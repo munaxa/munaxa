@@ -378,6 +378,7 @@ export interface TransportFare {
   route: {
     id: string;
     name: string;
+    description: string | null;
     round1Time: string | null;
     round2Time: string | null;
     disabledAt: string | null;

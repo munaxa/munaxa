@@ -173,7 +173,16 @@ export function StudentProfileDialog({
                   value={student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : null}
                   mono
                 />
-                <Detail label={t('fleet.route')} value={transport?.routeName ?? null} />
+                <Detail
+                  label={t('fleet.route')}
+                  value={
+                    transport?.routeName
+                      ? transport.tripRound
+                        ? `${transport.routeName} | ${transport.tripRound === 1 ? t('fleet.trip1') : t('fleet.trip2')}`
+                        : transport.routeName
+                      : null
+                  }
+                />
                 <Detail
                   label={t('fleet.busNumber')}
                   value={transport?.busNumber ?? transport?.busPlate ?? null}

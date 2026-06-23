@@ -6,7 +6,14 @@ import { TenantContextStore } from '../../prisma/tenant-context';
 
 const ROUTE_INCLUDE = {
   route: {
-    select: { id: true, name: true, round1Time: true, round2Time: true, disabledAt: true },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      round1Time: true,
+      round2Time: true,
+      disabledAt: true,
+    },
   },
 } as const;
 export type TransportFareWithRoute = Prisma.TransportFareGetPayload<{

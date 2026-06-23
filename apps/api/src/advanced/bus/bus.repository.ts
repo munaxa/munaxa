@@ -121,10 +121,13 @@ export class BusRepository extends TenantRepository {
     );
   }
 
-  /** A student's current route + the bus serving it (for the student profile). */
-  studentTransport(
-    studentId: string,
-  ): Promise<{ routeName: string; busNumber: string | null; busPlate: string | null } | null> {
+  /** A student's current route + trip + the bus serving it (for the student profile). */
+  studentTransport(studentId: string): Promise<{
+    routeName: string;
+    tripRound: number | null;
+    busNumber: string | null;
+    busPlate: string | null;
+  } | null> {
     return this.run(async (tx) => {
       const a = await tx.studentBusAssignment.findFirst({
         where: { studentId },
@@ -137,6 +140,7 @@ export class BusRepository extends TenantRepository {
       });
       return {
         routeName: a.route.name,
+        tripRound: a.tripRound,
         busNumber: bus?.label ?? null,
         busPlate: bus?.plateNumber ?? null,
       };
