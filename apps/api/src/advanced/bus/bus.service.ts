@@ -33,6 +33,7 @@ export class BusService {
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.round1Time !== undefined ? { round1Time: dto.round1Time || null } : {}),
       ...(dto.round2Time !== undefined ? { round2Time: dto.round2Time || null } : {}),
+      ...(dto.disabled !== undefined ? { disabledAt: dto.disabled ? new Date() : null } : {}),
       ...(dto.academicYearId !== undefined
         ? dto.academicYearId
           ? { academicYear: { connect: { id: dto.academicYearId } } }
@@ -54,6 +55,7 @@ export class BusService {
       routeId: dto.routeId ?? null,
       label: dto.label ?? null,
       capacity: dto.capacity ?? null,
+      tripRound: dto.tripRound ?? null,
       driverName: dto.driverName ?? null,
       driverPhone: dto.driverPhone ?? null,
     });
@@ -74,6 +76,7 @@ export class BusService {
         : {}),
       ...(dto.label !== undefined ? { label: dto.label } : {}),
       ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
+      ...(dto.tripRound !== undefined ? { tripRound: dto.tripRound } : {}),
       ...(dto.driverName !== undefined ? { driverName: dto.driverName } : {}),
       ...(dto.driverPhone !== undefined ? { driverPhone: dto.driverPhone } : {}),
     });
@@ -121,7 +124,14 @@ export class BusService {
       studentId: dto.studentId,
       routeId: dto.routeId,
       stopId: dto.stopId ?? null,
+      tripRound: dto.tripRound ?? null,
     });
+  }
+
+  async unassign(id: string): Promise<void> {
+    const assignment = await this.repo.findAssignment(id);
+    if (!assignment) throw new NotFoundException('Assignment not found');
+    await this.repo.deleteAssignment(id);
   }
 
   listAssignments(routeId?: string): Promise<StudentBusAssignment[]> {

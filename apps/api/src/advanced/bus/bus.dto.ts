@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
+  IsBoolean,
+  IsIn,
   IsInt,
   IsLatitude,
   IsLongitude,
@@ -41,7 +43,14 @@ export class CreateBusRouteDto {
   round2Time?: string;
 }
 
-export class UpdateBusRouteDto extends PartialType(CreateBusRouteDto) {}
+export class UpdateBusRouteDto extends PartialType(CreateBusRouteDto) {
+  @ApiPropertyOptional({
+    description: 'Disable (true) or re-enable (false) the route. Disabled routes stay listed.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  disabled?: boolean;
+}
 
 export class CreateBusDto {
   @ApiProperty({ example: '21-12345' })
@@ -66,6 +75,12 @@ export class CreateBusDto {
   @Min(1)
   @Max(100)
   capacity?: number;
+
+  @ApiPropertyOptional({ enum: [1, 2], description: 'Trip of the route this bus serves (1 or 2).' })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2])
+  tripRound?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -138,4 +153,13 @@ export class AssignStudentDto {
   @IsOptional()
   @IsUUID()
   stopId?: string;
+
+  @ApiPropertyOptional({
+    enum: [1, 2],
+    description: 'Trip of the route the student rides (1 or 2).',
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2])
+  tripRound?: number;
 }

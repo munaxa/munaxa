@@ -5,7 +5,9 @@ import type { TxClient } from '../../prisma/tenant.helpers';
 import { TenantContextStore } from '../../prisma/tenant-context';
 
 const ROUTE_INCLUDE = {
-  route: { select: { id: true, name: true, round1Time: true, round2Time: true } },
+  route: {
+    select: { id: true, name: true, round1Time: true, round2Time: true, disabledAt: true },
+  },
 } as const;
 export type TransportFareWithRoute = Prisma.TransportFareGetPayload<{
   include: typeof ROUTE_INCLUDE;
@@ -195,6 +197,18 @@ export class FeeConfigRepository extends TenantRepository {
         entityId: id,
       });
       return row;
+    });
+  }
+
+  // Hard-delete a fare. Only the fare row is removed — the shared fleet route is left intact.
+  deleteTransportFare(id: string): Promise<void> {
+    return this.run(async (tx, tenantId) => {
+      await tx.transportFare.delete({ where: { id } });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.feeconfig.transportFare.delete',
+        entityType: 'TransportFare',
+        entityId: id,
+      });
     });
   }
 

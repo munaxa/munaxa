@@ -33,6 +33,7 @@ import {
   TH,
   THead,
   TR,
+  Textarea,
 } from '@/components/ui';
 
 export default function FleetPage() {
@@ -203,12 +204,24 @@ function Fleet() {
               <Field label={t('fleet.route')}>
                 <Select value={selectedRoute} onChange={(e) => setSelectedRoute(e.target.value)}>
                   <option value="">{t('fleet.selectRoute')}</option>
-                  {routes.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
+                  {routes.map((r) => {
+                    const yr = yearName(r.academicYearId);
+                    return (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                        {yr ? ` — ${yr}` : ''}
+                        {r.disabledAt ? ` (${t('fleet.disabled')})` : ''}
+                      </option>
+                    );
+                  })}
                 </Select>
+                {selectedRoute ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t('fleet.academicYear')}:{' '}
+                    {yearName(routes.find((r) => r.id === selectedRoute)?.academicYearId ?? null) ??
+                      t('fleet.noYear')}
+                  </p>
+                ) : null}
               </Field>
             </div>
 
@@ -227,6 +240,7 @@ function Fleet() {
                         : [...prev, a],
                     )
                   }
+                  onUnassigned={(id) => setAssignments((prev) => prev.filter((x) => x.id !== id))}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">{t('fleet.selectRoute')}</p>
@@ -305,6 +319,16 @@ function RoutesCard({
     }
   }
 
+  async function toggleDisabled(r: BusRoute) {
+    try {
+      const updated = await busApi.updateRoute(r.id, { disabled: !r.disabledAt });
+      onSaved(updated, false);
+      toast.success(r.disabledAt ? 'Route enabled' : 'Route disabled');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update route');
+    }
+  }
+
   // Group routes by academic year for display (most recent years first; "No year" last).
   const groups = useMemo(() => {
     const byYear = new Map<string, BusRoute[]>();
@@ -334,10 +358,12 @@ function RoutesCard({
                 placeholder="North Amman"
               />
             </Field>
-            <Field label={t('fleet.description')} className="flex-1">
-              <Input
+            <Field label={t('fleet.description')} className="w-full">
+              <Textarea
+                rows={2}
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
+                placeholder="Optional notes about this route…"
               />
             </Field>
             <Field label={t('fleet.academicYear')}>
@@ -392,9 +418,12 @@ function RoutesCard({
                   {g.list.map((r) => (
                     <li
                       key={r.id}
-                      className="flex items-center gap-2 border-b border-border pb-1 last:border-0"
+                      className={`flex items-center gap-2 border-b border-border pb-1 last:border-0 ${
+                        r.disabledAt ? 'opacity-60' : ''
+                      }`}
                     >
                       <span className="font-medium">{r.name}</span>
+                      {r.disabledAt ? <Badge tone="muted">{t('fleet.disabled')}</Badge> : null}
                       {r.description ? (
                         <span className="text-xs text-muted-foreground">{r.description}</span>
                       ) : null}
@@ -404,14 +433,14 @@ function RoutesCard({
                         </span>
                       ) : null}
                       {canManage ? (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="ms-auto"
-                          onClick={() => startEdit(r)}
-                        >
-                          {t('common.edit')}
-                        </Button>
+                        <span className="ms-auto flex gap-1">
+                          <Button size="sm" variant="ghost" onClick={() => startEdit(r)}>
+                            {t('common.edit')}
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => void toggleDisabled(r)}>
+                            {r.disabledAt ? t('fleet.enable') : t('fleet.disable')}
+                          </Button>
+                        </span>
                       ) : null}
                     </li>
                   ))}
@@ -448,6 +477,7 @@ function BusesCard({
     plateNumber: '',
     busNumber: '',
     routeId: '',
+    tripRound: '',
     capacity: '',
     driverName: '',
     driverPhone: '',
@@ -497,6 +527,7 @@ function BusesCard({
       plateNumber: b.plateNumber,
       busNumber: b.label ?? '',
       routeId: b.routeId ?? '',
+      tripRound: b.tripRound != null ? String(b.tripRound) : '',
       capacity: b.capacity != null ? String(b.capacity) : '',
       driverName: b.driverName ?? '',
       driverPhone: b.driverPhone ?? '',
@@ -516,10 +547,13 @@ function BusesCard({
         plateNumber: form.plateNumber.trim(),
         ...(form.capacity ? { capacity: Number(form.capacity) } : {}),
       };
+      // Trip only applies when the bus is on a route.
+      const tripRound = form.routeId && form.tripRound ? Number(form.tripRound) : null;
       const b = editingId
         ? await busApi.updateBus(editingId, {
             ...payload,
             routeId: form.routeId || null,
+            tripRound,
             label: busNumber,
             driverName,
             driverPhone,
@@ -527,6 +561,7 @@ function BusesCard({
         : await busApi.createBus({
             ...payload,
             ...(form.routeId ? { routeId: form.routeId } : {}),
+            ...(tripRound ? { tripRound } : {}),
             ...(busNumber ? { label: busNumber } : {}),
             ...(driverName ? { driverName } : {}),
             ...(driverPhone ? { driverPhone } : {}),
@@ -566,7 +601,14 @@ function BusesCard({
             <Field label={t('fleet.route')}>
               <Select
                 value={form.routeId}
-                onChange={(e) => setForm({ ...form, routeId: e.target.value })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    routeId: e.target.value,
+                    // Clear the trip when the bus is taken off a route.
+                    tripRound: e.target.value ? form.tripRound : '',
+                  })
+                }
               >
                 <option value="">{t('fleet.unassigned')}</option>
                 {routeOptions.map((r) => (
@@ -574,6 +616,17 @@ function BusesCard({
                     {r.name}
                   </option>
                 ))}
+              </Select>
+            </Field>
+            <Field label={t('fleet.trip')}>
+              <Select
+                value={form.tripRound}
+                onChange={(e) => setForm({ ...form, tripRound: e.target.value })}
+                disabled={!form.routeId}
+              >
+                <option value="">{t('fleet.noTrip')}</option>
+                <option value="1">{t('fleet.trip1')}</option>
+                <option value="2">{t('fleet.trip2')}</option>
               </Select>
             </Field>
             <Field label={t('fleet.capacity')}>
@@ -664,6 +717,11 @@ function BusesCard({
                   </TD>
                   <TD className="text-xs text-muted-foreground">
                     {b.routeId ? routeName(b.routeId) : '—'}
+                    {b.routeId && b.tripRound ? (
+                      <span className="block">
+                        {b.tripRound === 1 ? t('fleet.trip1') : t('fleet.trip2')}
+                      </span>
+                    ) : null}
                   </TD>
                   <TD className="text-end font-mono text-xs">{b.capacity ?? '—'}</TD>
                   {canManage ? (
@@ -689,30 +747,52 @@ function AssignSection({
   canManage,
   studentName,
   onAssigned,
+  onUnassigned,
 }: {
   routeId: string;
   assignments: StudentBusAssignment[];
   canManage: boolean;
   studentName: (id: string) => string;
   onAssigned: (a: StudentBusAssignment) => void;
+  onUnassigned: (id: string) => void;
 }) {
   const toast = useToast();
   const { t } = useI18n();
   const [studentId, setStudentId] = useState('');
+  const [tripRound, setTripRound] = useState('');
   const [busy, setBusy] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   async function assign() {
     if (!studentId) return;
     setBusy(true);
     try {
-      const a = await busApi.assign({ studentId, routeId });
+      const a = await busApi.assign({
+        studentId,
+        routeId,
+        ...(tripRound ? { tripRound: Number(tripRound) } : {}),
+      });
       onAssigned(a);
       setStudentId('');
+      setTripRound('');
       toast.success('Student assigned to route');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to assign student');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function unassign(id: string) {
+    setRemovingId(id);
+    try {
+      await busApi.unassign(id);
+      onUnassigned(id);
+      toast.success('Student unassigned');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to unassign student');
+    } finally {
+      setRemovingId(null);
     }
   }
 
@@ -729,6 +809,13 @@ function AssignSection({
               placeholder={t('fleet.searchStudents')}
             />
           </Field>
+          <Field label={t('fleet.trip')}>
+            <Select value={tripRound} onChange={(e) => setTripRound(e.target.value)}>
+              <option value="">{t('fleet.noTrip')}</option>
+              <option value="1">{t('fleet.trip1')}</option>
+              <option value="2">{t('fleet.trip2')}</option>
+            </Select>
+          </Field>
           <Button size="sm" onClick={() => void assign()} disabled={busy || !studentId}>
             {t('fleet.assign')}
           </Button>
@@ -739,8 +826,27 @@ function AssignSection({
       ) : (
         <ul className="space-y-1 text-sm">
           {assignments.map((a) => (
-            <li key={a.id} className="border-b border-border pb-1 last:border-0">
-              {studentName(a.studentId)}
+            <li
+              key={a.id}
+              className="flex items-center gap-2 border-b border-border pb-1 last:border-0"
+            >
+              <span>{studentName(a.studentId)}</span>
+              {a.tripRound ? (
+                <span className="text-xs text-muted-foreground">
+                  {a.tripRound === 1 ? t('fleet.trip1') : t('fleet.trip2')}
+                </span>
+              ) : null}
+              {canManage ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="ms-auto"
+                  onClick={() => void unassign(a.id)}
+                  disabled={removingId === a.id}
+                >
+                  {t('fleet.unassign')}
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>

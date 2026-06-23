@@ -9,6 +9,8 @@ export interface BusRoute {
   academicYearId: string | null;
   round1Time: string | null;
   round2Time: string | null;
+  /** When set, the route is disabled (still listed; shown as disabled in fee config). */
+  disabledAt: string | null;
 }
 
 export interface BusStop {
@@ -27,6 +29,8 @@ export interface Bus {
   routeId: string | null;
   label: string | null;
   capacity: number | null;
+  /** Which trip of the route this bus serves: 1 (1st) or 2 (2nd). */
+  tripRound: number | null;
   driverName: string | null;
   driverPhone: string | null;
   lastLat?: number | null;
@@ -38,6 +42,8 @@ export interface StudentBusAssignment {
   studentId: string;
   routeId: string;
   stopId: string | null;
+  /** Which trip of the route the student rides: 1 (1st) or 2 (2nd). */
+  tripRound: number | null;
 }
 
 export interface StudentTransport {
@@ -78,6 +84,7 @@ export const busApi = {
       academicYearId: string | null;
       round1Time: string;
       round2Time: string;
+      disabled: boolean;
     }>,
   ) =>
     authFetch(`/bus/routes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
@@ -104,6 +111,7 @@ export const busApi = {
     routeId?: string;
     label?: string;
     capacity?: number;
+    tripRound?: number;
     driverName?: string;
     driverPhone?: string;
   }) =>
@@ -117,6 +125,7 @@ export const busApi = {
       routeId: string | null;
       label: string;
       capacity: number;
+      tripRound: number | null;
       driverName: string;
       driverPhone: string;
     }>,
@@ -129,10 +138,12 @@ export const busApi = {
     authFetch(`/bus/assignments${routeId ? `?routeId=${routeId}` : ''}`).then((r) =>
       json<StudentBusAssignment[]>(r),
     ),
-  assign: (data: { studentId: string; routeId: string; stopId?: string }) =>
+  assign: (data: { studentId: string; routeId: string; stopId?: string; tripRound?: number }) =>
     authFetch('/bus/assignments', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<StudentBusAssignment>(r),
     ),
+  unassign: (id: string) =>
+    authFetch(`/bus/assignments/${id}`, { method: 'DELETE' }).then(() => undefined),
   studentTransport: (studentId: string) =>
     authFetch(`/bus/students/${studentId}/transport`).then((r) => json<StudentTransport | null>(r)),
 };

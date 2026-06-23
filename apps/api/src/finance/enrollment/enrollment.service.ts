@@ -76,7 +76,7 @@ export class EnrollmentService {
     if (direction !== 'NONE') {
       const routeName = dto.transportRouteGroup?.trim();
       const fares = (await this.config.listTransportFares(dto.academicYearId)).filter(
-        (f) => f.isActive,
+        (f) => f.isActive && !f.route?.disabledAt,
       );
       const fare = routeName ? fares.find((f) => f.route?.name === routeName) : fares[0];
       if (!fare) {

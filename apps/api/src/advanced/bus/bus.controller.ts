@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import {
@@ -101,6 +112,14 @@ export class BusController {
   @ApiQuery({ name: 'routeId', required: false })
   listAssignments(@Query('routeId') routeId?: string) {
     return this.service.listAssignments(routeId);
+  }
+
+  @Delete('assignments/:id')
+  @HttpCode(204)
+  @RequireAnyPermission(Permission.BUS_ASSIGN, Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Unassign a student from their route' })
+  unassign(@Param('id') id: string) {
+    return this.service.unassign(id);
   }
 
   @Get('students/:studentId/transport')
