@@ -163,6 +163,9 @@ export class FeeConfigService {
       maxInstallments: dto.maxInstallments,
       fullPaymentDiscountPct: dto.fullPaymentDiscountPct,
       suspendTransportAfterOverdue: dto.suspendTransportAfterOverdue,
+      ...(dto.allowSelfFeeApproval !== undefined
+        ? { allowSelfFeeApproval: dto.allowSelfFeeApproval }
+        : {}),
     });
   }
 }

@@ -407,6 +407,7 @@ export interface BillingPolicy {
   maxInstallments: number;
   fullPaymentDiscountPct: string;
   suspendTransportAfterOverdue: number;
+  allowSelfFeeApproval: boolean;
 }
 
 export const feeConfigApi = {
@@ -515,6 +516,7 @@ export const feeConfigApi = {
     maxInstallments: number;
     fullPaymentDiscountPct: number;
     suspendTransportAfterOverdue: number;
+    allowSelfFeeApproval?: boolean;
   }) =>
     authFetch('/finance/fee-config/policy', {
       method: 'PUT',

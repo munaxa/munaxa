@@ -20,6 +20,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Checkbox,
   EmptyState,
   Field,
   Input,
@@ -781,6 +782,7 @@ function PolicyForm() {
     maxInstallments: '9',
     fullPaymentDiscountPct: '0',
     suspendTransportAfterOverdue: '2',
+    allowSelfFeeApproval: false,
   });
   const [busy, setBusy] = useState(false);
 
@@ -795,6 +797,7 @@ function PolicyForm() {
           maxInstallments: String(p.maxInstallments),
           fullPaymentDiscountPct: String(Number(p.fullPaymentDiscountPct)),
           suspendTransportAfterOverdue: String(p.suspendTransportAfterOverdue),
+          allowSelfFeeApproval: p.allowSelfFeeApproval,
         });
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Load failed'));
@@ -809,6 +812,7 @@ function PolicyForm() {
         maxInstallments: Number(form.maxInstallments) || 9,
         fullPaymentDiscountPct: Number(form.fullPaymentDiscountPct) || 0,
         suspendTransportAfterOverdue: Number(form.suspendTransportAfterOverdue) || 2,
+        allowSelfFeeApproval: form.allowSelfFeeApproval,
       });
       setPolicy(saved);
       toast.success('Policy saved');
@@ -859,6 +863,13 @@ function PolicyForm() {
               dir="ltr"
             />
           </Field>
+          <div className="sm:col-span-2">
+            <Checkbox
+              checked={form.allowSelfFeeApproval}
+              onChange={(e) => setForm({ ...form, allowSelfFeeApproval: e.target.checked })}
+              label="Allow self-approval of fee modifications (same user can register and approve). Leave off to require a different approver."
+            />
+          </div>
           <div className="sm:col-span-2">
             <Button type="submit" disabled={busy}>
               {busy ? 'Saving…' : policy ? 'Update policy' : 'Create policy'}

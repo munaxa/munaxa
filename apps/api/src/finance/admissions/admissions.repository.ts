@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import {
   ApprovalStatus,
   ChargeStatus,
@@ -541,6 +541,20 @@ export class AdmissionsRepository extends TenantRepository {
         include: { modification: true },
       });
       if (!approval) throw new BadRequestException('No pending approval for this modification');
+
+      // Separation of duties: by default the user who applied the fee modification cannot
+      // approve/reject it. Schools with a single finance person can opt out via the
+      // allowSelfFeeApproval billing-policy flag.
+      const actor = this.actor();
+      if (actor && approval.modification.modifiedById === actor) {
+        const policy = await tx.billingPolicy.findUnique({ where: { tenantId } });
+        if (!policy?.allowSelfFeeApproval) {
+          throw new ForbiddenException(
+            'You cannot approve a fee modification you created. A different user must decide it.',
+          );
+        }
+      }
+
       const status = approve ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
       const row = await tx.feeModificationApproval.update({
         where: { modificationId },
@@ -613,9 +627,5 @@ export class AdmissionsRepository extends TenantRepository {
       });
       return row;
     });
-  }
-
-  getPolicyFlags() {
-    return this.run((tx, tenantId) => tx.billingPolicy.findUnique({ where: { tenantId } }));
   }
 }

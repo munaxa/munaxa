@@ -2574,6 +2574,10 @@ model BillingPolicy {
   /// When true, registrar fee modifications need FinanceOfficer approval before the
   /// enrollment/billing/invoices can be activated (FeeModificationApproval workflow).
   requireFinanceApprovalForFeeChanges Boolean  @default(false)
+  /// When false (default), the user who applies a fee modification cannot approve it —
+  /// approval requires a different user (separation of duties). Set true for small teams
+  /// where the same person registers and approves.
+  allowSelfFeeApproval                Boolean  @default(false)
   suspendTransportAfterOverdue        Int      @default(2) // # overdue installments
   createdById                         String?  @db.Uuid
   updatedById                         String?  @db.Uuid
