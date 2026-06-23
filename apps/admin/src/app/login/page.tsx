@@ -13,25 +13,26 @@ const forgotPasswordHref = '/forgot-password' as never;
 
 const REMEMBER_KEY = 'munaxa.remember';
 const IDENTIFIER_KEY = 'munaxa.identifier';
+const SCHOOL_KEY = 'munaxa.school';
 
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useI18n();
+  const [schoolCode, setSchoolCode] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
-  const [tenantSlug, setTenantSlug] = useState('');
-  const [showSchool, setShowSchool] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Restore a remembered email so returning users only type their password.
+  // Restore a remembered school code + identifier so returning users only type their password.
   useEffect(() => {
     try {
       if (localStorage.getItem(REMEMBER_KEY) === '1') {
         setRemember(true);
         setIdentifier(localStorage.getItem(IDENTIFIER_KEY) ?? '');
+        setSchoolCode(localStorage.getItem(SCHOOL_KEY) ?? '');
       }
     } catch {
       /* ignore storage access errors */
@@ -46,15 +47,17 @@ export default function LoginPage() {
       const result = await login({
         identifier,
         password,
-        ...(tenantSlug ? { tenantSlug } : {}),
+        ...(schoolCode ? { tenantSlug: schoolCode } : {}),
       });
       try {
         if (remember) {
           localStorage.setItem(REMEMBER_KEY, '1');
           localStorage.setItem(IDENTIFIER_KEY, identifier);
+          localStorage.setItem(SCHOOL_KEY, schoolCode);
         } else {
           localStorage.removeItem(REMEMBER_KEY);
           localStorage.removeItem(IDENTIFIER_KEY);
+          localStorage.removeItem(SCHOOL_KEY);
         }
       } catch {
         /* ignore storage access errors */
@@ -68,13 +71,20 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="bg-grad-hero relative min-h-screen bg-background text-foreground">
-      {/* Ambient violet bloom on the right, echoing the reference's studio light. */}
-      <div className="login-glow pointer-events-none absolute end-0 top-1/4 h-[480px] w-[480px] opacity-60 blur-2xl" />
+    <main className="login-aurora relative min-h-screen overflow-hidden bg-background text-foreground">
+      {/* Abstract geometric accents — quiet, enterprise (not cyberpunk). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -end-24 top-10 h-72 w-72 rounded-full border border-border/60 opacity-40"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -start-32 bottom-0 h-96 w-96 rounded-full border border-border/40 opacity-30"
+      />
 
       <ThemeToggle />
 
-      <div className="relative mx-auto flex min-h-screen max-w-7xl flex-col px-5 py-6 lg:px-10">
+      <div className="relative mx-auto flex min-h-screen max-w-[1440px] flex-col px-5 py-6 lg:px-10">
         {/* Brand lockup. */}
         <header className="flex items-center gap-3">
           <Logo size={40} priority />
@@ -84,250 +94,347 @@ export default function LoginPage() {
           </div>
         </header>
 
-        <div className="grid flex-1 items-center gap-10 py-8 lg:grid-cols-2 lg:gap-16">
+        <div className="grid flex-1 items-center gap-10 py-10 md:grid-cols-[2fr_3fr] md:gap-12 lg:grid-cols-[45fr_55fr] lg:gap-16">
           <BrandPanel t={t} />
-
-          {/* Sign-in card. */}
-          <div className="mx-auto w-full max-w-md">
-            <div className="rounded-3xl border border-border bg-card p-7 shadow-card sm:p-9">
-              <h1 className="font-display text-3xl font-bold">{t('auth.welcomeBack')}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">{t('auth.signInContinue')}</p>
-
-              <form onSubmit={(e) => void onSubmit(e)} className="mt-7 space-y-5">
-                <Field label={t('auth.emailAddress')}>
-                  {(id) => (
-                    <InputWithIcon icon={<MailIcon />}>
-                      <input
-                        id={id}
-                        type="text"
-                        required
-                        value={identifier}
-                        onChange={(e) => setIdentifier(e.target.value)}
-                        autoComplete="username"
-                        placeholder={t('auth.emailPlaceholder')}
-                        className="w-full bg-transparent py-3 pe-3 ps-11 text-sm outline-none placeholder:text-muted-foreground/70"
-                      />
-                    </InputWithIcon>
-                  )}
-                </Field>
-
-                <Field label={t('auth.password')}>
-                  {(id) => (
-                    <InputWithIcon icon={<LockIcon />}>
-                      <input
-                        id={id}
-                        type={showPassword ? 'text' : 'password'}
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        autoComplete="current-password"
-                        placeholder="••••••••••"
-                        className="w-full bg-transparent py-3 pe-11 ps-11 text-sm outline-none placeholder:text-muted-foreground/70"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword((v) => !v)}
-                        aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
-                        aria-pressed={showPassword}
-                        className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                      </button>
-                    </InputWithIcon>
-                  )}
-                </Field>
-
-                {showSchool ? (
-                  <Field label={t('auth.school')}>
-                    {(id) => (
-                      <InputWithIcon icon={<SchoolIcon />}>
-                        <input
-                          id={id}
-                          value={tenantSlug}
-                          onChange={(e) => setTenantSlug(e.target.value)}
-                          autoComplete="organization"
-                          placeholder="green-valley"
-                          className="w-full bg-transparent py-3 pe-3 ps-11 text-sm outline-none placeholder:text-muted-foreground/70"
-                        />
-                      </InputWithIcon>
-                    )}
-                  </Field>
-                ) : null}
-
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex cursor-pointer items-center gap-2 text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                      className="h-4 w-4 rounded border-input accent-primary"
-                    />
-                    {t('auth.rememberMe')}
-                  </label>
-                  <Link
-                    href={forgotPasswordHref}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {t('auth.forgotPassword')}
-                  </Link>
-                </div>
-
-                {error ? (
-                  <p className="text-sm text-destructive" role="alert">
-                    {error}
-                  </p>
-                ) : null}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-grad-primary w-full rounded-xl py-3 font-display font-semibold text-white shadow-glow transition-[filter] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {loading ? t('common.loading') : t('auth.signIn')}
-                </button>
-              </form>
-
-              <p className="mt-7 text-center text-sm text-muted-foreground">
-                {t('auth.needHelp')}{' '}
-                {!showSchool ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowSchool(true)}
-                    className="font-medium text-primary hover:underline"
-                  >
-                    {t('auth.specificSchool')}
-                  </button>
-                ) : (
-                  <span className="font-medium text-primary">{t('auth.contactAdmin')}</span>
-                )}
-              </p>
-            </div>
-          </div>
+          <SignInCard
+            t={t}
+            schoolCode={schoolCode}
+            setSchoolCode={setSchoolCode}
+            identifier={identifier}
+            setIdentifier={setIdentifier}
+            password={password}
+            setPassword={setPassword}
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            remember={remember}
+            setRemember={setRemember}
+            error={error}
+            loading={loading}
+            onSubmit={(e) => void onSubmit(e)}
+          />
         </div>
 
-        <footer className="pb-2 pt-4 text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} Munaxa School OS. {t('auth.rightsReserved')}
+        <footer className="space-y-0.5 pb-2 pt-4 text-center text-xs text-muted-foreground">
+          <p>© {new Date().getFullYear()} Munaxa School OS</p>
+          <p className="tracking-wide">{t('auth.footerTagline')}</p>
         </footer>
       </div>
     </main>
   );
 }
 
-/** Left marketing column: headline, blurb, a dashboard preview, and compliance badges. */
-function BrandPanel({ t }: { t: (k: string) => string }) {
-  return (
-    <section className="hidden flex-col lg:flex">
-      <h2 className="font-display text-4xl font-bold leading-tight xl:text-5xl">
-        {t('auth.marketingTitle1')}
-        <br />
-        <span className="text-primary">{t('auth.marketingTitle2')}</span>
-      </h2>
-      <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
-        {t('auth.marketingSubtitle')}
-      </p>
+/* ───────────────────────── Sign-in card ───────────────────────── */
 
-      <DashboardPreview />
-
-      <div className="mt-6 grid grid-cols-3 gap-3">
-        <Badge icon={<ShieldIcon />} title="ISO 27001" sub={t('auth.badgeCertified')} />
-        <Badge icon={<CheckBadgeIcon />} title="GDPR" sub={t('auth.badgeReady')} />
-        <Badge icon={<JordanFlag />} title={t('auth.badgeEinvoice')} sub={t('auth.badgeReady')} />
-      </div>
-    </section>
-  );
+interface CardProps {
+  t: (k: string) => string;
+  schoolCode: string;
+  setSchoolCode: (v: string) => void;
+  identifier: string;
+  setIdentifier: (v: string) => void;
+  password: string;
+  setPassword: (v: string) => void;
+  showPassword: boolean;
+  setShowPassword: (f: (v: boolean) => boolean) => void;
+  remember: boolean;
+  setRemember: (v: boolean) => void;
+  error: string | null;
+  loading: boolean;
+  onSubmit: (e: React.FormEvent) => void;
 }
 
-/** A compact, non-interactive mock of the admin dashboard for marketing flavour. */
-function DashboardPreview() {
-  const nav = [
-    'Dashboard',
-    'Students',
-    'Teachers',
-    'Classes',
-    'Attendance',
-    'Exams',
-    'Finance',
-    'Library',
-    'Reports',
-    'Settings',
-  ];
-  const stats = [
-    { label: 'Students', value: '1,248', delta: '+12%' },
-    { label: 'Teachers', value: '96', delta: '+8%' },
-    { label: 'Attendance', value: '92.6%', delta: '+5%' },
-    { label: 'Revenue', value: '$24,860', delta: '+7%' },
-  ];
+function SignInCard(p: CardProps) {
+  const { t } = p;
   return (
-    <div className="relative mt-8 overflow-hidden rounded-2xl border border-border bg-card shadow-card">
-      {/* Violet wash suggesting the building photo in the reference. */}
-      <div className="login-glow pointer-events-none absolute -end-10 -top-10 h-56 w-56 opacity-40 blur-2xl" />
-      <div className="relative flex">
-        {/* Mini sidebar. */}
-        <aside className="hidden w-28 shrink-0 border-e border-border bg-background/40 p-2.5 sm:block">
-          <div className="mb-3 flex items-center gap-1.5 px-1">
-            <Logo size={14} />
-            <span className="font-display text-[10px] font-bold lowercase">munaxa</span>
-          </div>
-          <ul className="space-y-0.5">
-            {nav.map((item, i) => (
-              <li
-                key={item}
-                className={`rounded-md px-2 py-1 text-[9px] ${
-                  i === 0 ? 'bg-primary/15 font-medium text-primary' : 'text-muted-foreground'
-                }`}
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </aside>
+    <div className="mx-auto w-full max-w-[520px]">
+      <div className="rounded-3xl border border-border bg-card/70 p-7 shadow-card backdrop-blur-xl sm:p-10 lg:p-12">
+        <h1 className="font-display text-3xl font-bold">{t('auth.welcomeBack')}</h1>
+        <p className="mt-1.5 text-sm text-muted-foreground">{t('auth.signInContinue')}</p>
 
-        {/* Main panel. */}
-        <div className="flex-1 p-3">
-          <p className="mb-2 text-[11px] font-semibold">Dashboard</p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {stats.map((s) => (
-              <div key={s.label} className="rounded-lg border border-border bg-background/50 p-2">
-                <p className="text-[8px] text-muted-foreground">{s.label}</p>
-                <p className="text-[12px] font-bold leading-tight">{s.value}</p>
-                <p className="text-[8px] font-medium text-success">{s.delta} vs last month</p>
-              </div>
-            ))}
+        <form onSubmit={p.onSubmit} className="mt-8 space-y-5">
+          <Field label={t('auth.schoolCode')}>
+            {(id) => (
+              <InputWithIcon icon={<BuildingIcon />}>
+                <input
+                  id={id}
+                  type="text"
+                  value={p.schoolCode}
+                  onChange={(e) => p.setSchoolCode(e.target.value)}
+                  autoComplete="organization"
+                  placeholder={t('auth.schoolCodePlaceholder')}
+                  className="login-input-field"
+                />
+              </InputWithIcon>
+            )}
+          </Field>
+
+          <Field label={t('auth.usernameOrEmail')}>
+            {(id) => (
+              <InputWithIcon icon={<UserIcon />}>
+                <input
+                  id={id}
+                  type="text"
+                  required
+                  value={p.identifier}
+                  onChange={(e) => p.setIdentifier(e.target.value)}
+                  autoComplete="username"
+                  placeholder={t('auth.usernamePlaceholder')}
+                  className="login-input-field"
+                />
+              </InputWithIcon>
+            )}
+          </Field>
+
+          <Field label={t('auth.password')}>
+            {(id) => (
+              <InputWithIcon icon={<LockIcon />}>
+                <input
+                  id={id}
+                  type={p.showPassword ? 'text' : 'password'}
+                  required
+                  value={p.password}
+                  onChange={(e) => p.setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder={t('auth.passwordPlaceholder')}
+                  className="login-input-field !pe-11"
+                />
+                <button
+                  type="button"
+                  onClick={() => p.setShowPassword((v) => !v)}
+                  aria-label={p.showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                  aria-pressed={p.showPassword}
+                  className="absolute inset-y-0 end-0 flex items-center pe-3 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {p.showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                </button>
+              </InputWithIcon>
+            )}
+          </Field>
+
+          <div className="flex items-center justify-between text-sm">
+            <label className="flex cursor-pointer select-none items-center gap-2 text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={p.remember}
+                onChange={(e) => p.setRemember(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              {t('auth.rememberMe')}
+            </label>
+            <Link href={forgotPasswordHref} className="font-medium text-primary hover:underline">
+              {t('auth.forgotPassword')}
+            </Link>
           </div>
 
-          <div className="mt-2 rounded-lg border border-border bg-background/50 p-2.5">
-            <p className="mb-1 text-[9px] font-medium text-muted-foreground">Attendance Overview</p>
-            <AreaChart />
-          </div>
+          {p.error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {p.error}
+            </p>
+          ) : null}
 
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <MiniList
-              title="Recent Activities"
-              rows={['New student enrolled', 'Exam scheduled', 'Fee payment received']}
-            />
-            <MiniList
-              title="Calendar"
-              rows={['Staff Meeting', 'Parent Teacher Meeting', 'Midterm Exams Start']}
-            />
-          </div>
+          <button
+            type="submit"
+            disabled={p.loading}
+            className="bg-grad-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-display font-semibold text-white shadow-glow transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {p.loading ? (
+              <>
+                <Spinner />
+                {t('common.loading')}
+              </>
+            ) : (
+              t('auth.signIn')
+            )}
+          </button>
+        </form>
+
+        {/* Security notice. */}
+        <div className="mt-6 flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+          <span className="mt-0.5 shrink-0 text-success">
+            <ShieldIcon size={16} />
+          </span>
+          <p>{t('auth.securityNotice')}</p>
+        </div>
+
+        {/* In-card technology badges. */}
+        <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-6">
+          <TechBadge
+            icon={<InvoiceIcon />}
+            title={t('auth.jofotaraConnected')}
+            desc={t('auth.jofotaraConnectedDesc')}
+          />
+          <TechBadge
+            icon={<CloudIcon />}
+            title={t('auth.cloudService')}
+            desc={t('auth.cloudServiceDesc')}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function MiniList({ title, rows }: { title: string; rows: string[] }) {
+function TechBadge({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
-    <div className="rounded-lg border border-border bg-background/50 p-2">
-      <p className="mb-1 text-[9px] font-medium text-muted-foreground">{title}</p>
-      <ul className="space-y-1">
-        {rows.map((r) => (
-          <li key={r} className="flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" />
-            <span className="truncate text-[8px] text-foreground/80">{r}</span>
-          </li>
-        ))}
-      </ul>
+    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-background/40 px-3 py-2.5">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <div className="min-w-0 leading-tight">
+        <p className="flex items-center gap-1 text-xs font-semibold">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
+          {title}
+        </p>
+        <p className="text-[11px] leading-tight text-muted-foreground">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────────────────── Brand panel ───────────────────────── */
+
+function BrandPanel({ t }: { t: (k: string) => string }) {
+  return (
+    <section className="flex flex-col">
+      <h2 className="font-display text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl">
+        {t('auth.marketingTitle1')}
+        <br />
+        <span className="text-primary">{t('auth.marketingTitle2')}</span>
+      </h2>
+      <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground">
+        {t('auth.marketingSubtitle')}
+      </p>
+
+      <DashboardPreview t={t} />
+
+      <div className="mt-7 grid grid-cols-2 gap-3">
+        <ComplianceBadge
+          icon={<ShieldIcon />}
+          title="ISO 27001"
+          sub={t('auth.badgeInfoSecurity')}
+        />
+        <ComplianceBadge
+          icon={<CheckBadgeIcon />}
+          title={t('auth.gdprReady')}
+          sub={t('auth.badgeDataProtection')}
+        />
+        <ComplianceBadge
+          icon={<JordanFlag />}
+          title={t('auth.jordanCompliance')}
+          sub={t('auth.badgeJofotaraReady')}
+        />
+        <ComplianceBadge
+          icon={<CloudIcon />}
+          title={t('auth.cloudHosted')}
+          sub={t('auth.badgeHighlyAvailable')}
+        />
+      </div>
+    </section>
+  );
+}
+
+function ComplianceBadge({
+  icon,
+  title,
+  sub,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  sub: string;
+}) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card/60 px-3 py-2.5 backdrop-blur">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {icon}
+      </span>
+      <div className="min-w-0 leading-tight">
+        <p className="truncate text-xs font-semibold">{title}</p>
+        <p className="truncate text-[11px] text-muted-foreground">{sub}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Floating glass analytics panel — Academic, Financial and Operations metrics. */
+function DashboardPreview({ t }: { t: (k: string) => string }) {
+  void t;
+  const academic = [
+    { label: 'Total Students', value: '2,480' },
+    { label: 'Active Teachers', value: '142' },
+    { label: 'Attendance Rate', value: '96.2%' },
+    { label: 'Enrollment Growth', value: '+12%', good: true },
+  ];
+  const ops = [
+    { label: 'Transportation', value: 'On Route 18/20', icon: <BusIcon /> },
+    { label: 'Daily Attendance', value: '94%', icon: <CheckIcon /> },
+    { label: 'Parent Comms', value: '320 sent', icon: <ChatIcon /> },
+  ];
+  return (
+    <div className="relative mt-9 overflow-hidden rounded-2xl border border-border bg-card/70 p-4 shadow-card backdrop-blur-xl">
+      <div className="login-glow pointer-events-none absolute -end-12 -top-12 h-48 w-48 opacity-40 blur-2xl" />
+      <div className="relative">
+        {/* Header */}
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-success" />
+            <p className="text-sm font-semibold">School Overview</p>
+          </div>
+          <p className="font-mono text-[10px] text-muted-foreground">Live • Today</p>
+        </div>
+
+        {/* Academic metrics */}
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          {academic.map((s) => (
+            <div key={s.label} className="rounded-xl border border-border bg-background/50 p-2.5">
+              <p className="text-[10px] text-muted-foreground">{s.label}</p>
+              <p
+                className={`font-mono text-base font-bold leading-tight ${
+                  s.good ? 'text-success' : ''
+                }`}
+              >
+                {s.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* Financial + Operations */}
+        <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+          <div className="rounded-xl border border-border bg-background/50 p-3">
+            <div className="mb-1 flex items-center justify-between">
+              <p className="text-[11px] font-medium text-muted-foreground">Revenue Trend</p>
+              <span className="text-[10px] font-semibold text-success">+18%</span>
+            </div>
+            <AreaChart />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[9px] text-muted-foreground">Tuition Collection</p>
+                <p className="font-mono text-xs font-bold">92%</p>
+              </div>
+              <div>
+                <p className="text-[9px] text-muted-foreground">Outstanding</p>
+                <p className="font-mono text-xs font-bold">$48,200</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-background/50 p-3">
+            <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">Operations</p>
+            <ul className="space-y-2">
+              {ops.map((o) => (
+                <li key={o.label} className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    {o.icon}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
+                    {o.label}
+                  </span>
+                  <span className="font-mono text-[10px] font-semibold">{o.value}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -335,9 +442,9 @@ function MiniList({ title, rows }: { title: string; rows: string[] }) {
 /** Tiny area chart drawn with the brand violet. */
 function AreaChart() {
   const id = useId();
-  const pts = [18, 12, 22, 16, 26, 20, 30, 24, 34, 28, 38, 30];
+  const pts = [16, 12, 20, 15, 24, 19, 28, 22, 30, 26, 34, 30];
   const w = 240;
-  const h = 44;
+  const h = 40;
   const step = w / (pts.length - 1);
   const max = Math.max(...pts) + 6;
   const coords: Array<[number, number]> = pts.map((p, i) => [i * step, h - (p / max) * h]);
@@ -349,7 +456,7 @@ function AreaChart() {
     <svg
       viewBox={`0 0 ${w} ${h}`}
       preserveAspectRatio="none"
-      className="h-11 w-full"
+      className="h-10 w-full"
       aria-hidden="true"
     >
       <defs>
@@ -364,21 +471,8 @@ function AreaChart() {
   );
 }
 
-function Badge({ icon, title, sub }: { icon: React.ReactNode; title: string; sub: string }) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        {icon}
-      </span>
-      <div className="min-w-0 leading-tight">
-        <p className="truncate text-xs font-semibold">{title}</p>
-        <p className="truncate text-[11px] text-muted-foreground">{sub}</p>
-      </div>
-    </div>
-  );
-}
+/* ───────────────────────── Shared inputs ───────────────────────── */
 
-/** Label + input wrapper that supplies a stable id to its child render-prop. */
 function Field({ label, children }: { label: string; children: (id: string) => React.ReactNode }) {
   const id = useId();
   return (
@@ -393,7 +487,7 @@ function Field({ label, children }: { label: string; children: (id: string) => R
 
 function InputWithIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="relative rounded-xl border border-input bg-background/50 transition-colors focus-within:border-primary">
+    <div className="relative rounded-xl border border-input bg-background/50 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40">
       <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-muted-foreground">
         {icon}
       </span>
@@ -402,16 +496,13 @@ function InputWithIcon({ icon, children }: { icon: React.ReactNode; children: Re
   );
 }
 
+/* ───────────────────────── Theme toggle ───────────────────────── */
+
 const THEME_KEY = 'munaxa.theme';
 type Theme = 'light' | 'dark';
 
-/**
- * Segmented light/dark switch. Persists to the shared `munaxa.theme` key and toggles `.dark` on
- * <html> (the root layout reads the same key before paint, so the choice carries into the app).
- * Renders the active state only after mount to avoid a hydration mismatch with the light default.
- */
 function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>('light');
+  const [theme, setTheme] = useState<Theme>('dark');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -429,7 +520,7 @@ function ThemeToggle() {
 
   const active = mounted ? theme : 'light';
   return (
-    <div className="absolute end-5 top-6 z-10 flex items-center gap-1 rounded-full border border-border bg-card p-1 lg:end-10">
+    <div className="absolute end-5 top-6 z-10 flex items-center gap-1 rounded-full border border-border bg-card/70 p-1 backdrop-blur lg:end-10">
       <button
         type="button"
         onClick={() => set('light')}
@@ -460,9 +551,18 @@ function ThemeToggle() {
   );
 }
 
-/* ---- icons (currentColor, inherit size unless noted) ---- */
+/* ───────────────────────── Icons (currentColor) ───────────────────────── */
 
-function MailIcon() {
+function Spinner() {
+  return (
+    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function BuildingIcon() {
   return (
     <svg
       width="18"
@@ -475,8 +575,16 @@ function MailIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m3 7 9 6 9-6" />
+      <path d="M3 21h18M5 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16M13 9h5a1 1 0 0 1 1 1v11" />
+      <path d="M8 8h2M8 12h2M8 16h2M16 13h0M16 17h0" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.69-8 6v1a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-1c0-3.31-3.58-6-8-6Z" />
     </svg>
   );
 }
@@ -485,14 +593,6 @@ function LockIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M17 9V7a5 5 0 0 0-10 0v2a3 3 0 0 0-3 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-7a3 3 0 0 0-3-3Zm-8-2a3 3 0 0 1 6 0v2H9V7Zm4 9.73V18a1 1 0 0 1-2 0v-1.27a2 2 0 1 1 2 0Z" />
-    </svg>
-  );
-}
-
-function SchoolIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2 1 8l11 6 9-4.91V17h2V8L12 2Zm0 13.5L5 11.7V14c0 2.21 3.13 4 7 4s7-1.79 7-4v-2.3l-7 3.8Z" />
     </svg>
   );
 }
@@ -563,11 +663,11 @@ function MoonIcon() {
   );
 }
 
-function ShieldIcon() {
+function ShieldIcon({ size = 18 }: { size?: number }) {
   return (
     <svg
-      width="18"
-      height="18"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -597,6 +697,99 @@ function CheckBadgeIcon() {
     >
       <path d="M12 2 4 5v6c0 5 3.5 8 8 11 4.5-3 8-6 8-11V5l-8-3Z" />
       <path d="m8 12 2.5 2.5L16 9" />
+    </svg>
+  );
+}
+
+function CloudIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.1 9.5 4 4 0 0 0 6.5 19h11Z" />
+    </svg>
+  );
+}
+
+function InvoiceIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 2h9l3 3v15l-2.5-1.5L13 20l-2.5-1.5L8 20l-2-1.2V2Z" />
+      <path d="M9 7h6M9 11h6M9 15h4" />
+    </svg>
+  );
+}
+
+function BusIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 17V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v11M4 17h16M4 17v2M20 17v2M4 11h16" />
+      <circle cx="8" cy="17" r="1" />
+      <circle cx="16" cy="17" r="1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m5 12 5 5L20 7" />
+    </svg>
+  );
+}
+
+function ChatIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.5A8 8 0 1 1 21 12Z" />
     </svg>
   );
 }

@@ -91,6 +91,28 @@
   .login-glow {
     background: radial-gradient(circle at center, hsl(var(--primary) / 0.45) 0%, transparent 70%);
   }
+  /* Aurora ambient lighting for the auth backdrop — soft violet/secondary/accent blooms. Tuned
+   * for the dark "ink" backdrop; on light it reads as faint violet tints. */
+  .login-aurora {
+    background-image:
+      radial-gradient(40% 48% at 10% 15%, hsl(var(--primary) / 0.2), transparent 60%),
+      radial-gradient(46% 55% at 92% 22%, hsl(var(--primary) / 0.16), transparent 60%),
+      radial-gradient(55% 60% at 80% 95%, hsl(var(--accent) / 0.1), transparent 60%);
+  }
+  /* Shared sign-in text input (icon-padded, transparent over the field wrapper). */
+  .login-input-field {
+    width: 100%;
+    background: transparent;
+    padding-block: 0.75rem;
+    padding-inline: 2.75rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    outline: none;
+  }
+  .login-input-field::placeholder {
+    color: hsl(var(--muted-foreground) / 0.7);
+  }
+
   /* Jordanian flag mark — fixed national colours (kept here so the JSX stays free of raw hex). */
   .jo-black {
     fill: #000000;
