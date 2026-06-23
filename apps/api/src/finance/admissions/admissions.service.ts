@@ -48,10 +48,10 @@ export class AdmissionsService {
     return this.repo.getQuote(id);
   }
 
-  // Commit (new or returning)
-  async commit(dto: CommitDto) {
-    const policy = await this.repo.getPolicyFlags();
-    return this.repo.commit(dto, policy?.requireFinanceApprovalForFeeChanges ?? false);
+  // Commit (new or returning). A fee change always holds the enrollment in PENDING_APPROVAL
+  // (charges deferred) until finance approves or rejects — see AdmissionsRepository.commit.
+  commit(dto: CommitDto) {
+    return this.repo.commit(dto);
   }
 
   loadReturning(studentId: string) {

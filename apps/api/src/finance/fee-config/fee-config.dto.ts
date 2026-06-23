@@ -152,4 +152,13 @@ export class UpsertBillingPolicyDto {
   @Min(1)
   @Max(99)
   suspendTransportAfterOverdue!: number;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Allow the user who applied a fee modification to also approve it. When false (default), approval requires a different user.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowSelfFeeApproval?: boolean;
 }
