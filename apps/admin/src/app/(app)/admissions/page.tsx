@@ -190,11 +190,11 @@ export default function AdmissionsPage() {
       }));
   }
 
-  async function getQuote() {
+  async function getQuote(ovList?: ReturnType<typeof buildOverrides>) {
     if (!canQuote) return;
+    const ov = ovList ?? buildOverrides();
     setBusy(true);
     try {
-      const ov = buildOverrides();
       const q = await admissionsApi.quote({
         gradeId,
         academicYearId,
@@ -214,6 +214,12 @@ export default function AdmissionsPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // Clear all registrar overrides and recompute the quote at the original (catalog) amounts.
+  function resetOverrides() {
+    setOverrides({});
+    void getQuote([]);
   }
 
   // A new student needs their own details AND a mandatory guardian (name + primary mobile).
@@ -528,7 +534,14 @@ export default function AdmissionsPage() {
                         <span className="ms-2 text-xs text-warning">(overridden)</span>
                       ) : null}
                     </TD>
-                    <TD className="text-end font-mono">{jod(l.amount)}</TD>
+                    <TD className="text-end font-mono">
+                      {l.overridden && l.originalAmount ? (
+                        <span className="me-2 text-xs text-muted-foreground line-through">
+                          {jod(l.originalAmount)}
+                        </span>
+                      ) : null}
+                      {jod(l.amount)}
+                    </TD>
                     <TD className="text-center text-xs">{l.discountable ? 'Yes' : 'No'}</TD>
                   </TR>
                 ))}
@@ -572,9 +585,24 @@ export default function AdmissionsPage() {
                     />
                   </div>
                 ))}
-                <Button size="sm" variant="outline" onClick={() => void getQuote()} disabled={busy}>
-                  {busy ? 'Recomputing…' : 'Recompute with overrides'}
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void getQuote()}
+                    disabled={busy}
+                  >
+                    {busy ? 'Recomputing…' : 'Recompute with overrides'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={resetOverrides}
+                    disabled={busy || Object.keys(overrides).length === 0}
+                  >
+                    Reset
+                  </Button>
+                </div>
               </div>
             </details>
 
