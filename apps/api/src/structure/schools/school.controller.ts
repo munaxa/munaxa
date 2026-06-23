@@ -1,7 +1,10 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
-import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
+import {
+  RequirePermissions,
+  RequireAnyPermission,
+} from '../../auth/decorators/require-permissions.decorator';
 import { SchoolService } from './school.service';
 import { CreateSchoolDto, UpdateSchoolDto } from './school.dto';
 
@@ -18,15 +21,17 @@ export class SchoolController {
     return this.service.create(dto);
   }
 
+  // Reads are also needed by admissions roles (registrar/finance) to pick a school
+  // when building a quote — allow ENROLLMENT_MANAGE in addition to SCHOOL_MANAGE.
   @Get()
-  @RequirePermissions(Permission.SCHOOL_MANAGE)
+  @RequireAnyPermission(Permission.SCHOOL_MANAGE, Permission.ENROLLMENT_MANAGE)
   @ApiOperation({ summary: 'List schools in the current tenant' })
   list() {
     return this.service.list();
   }
 
   @Get(':id')
-  @RequirePermissions(Permission.SCHOOL_MANAGE)
+  @RequireAnyPermission(Permission.SCHOOL_MANAGE, Permission.ENROLLMENT_MANAGE)
   @ApiOperation({ summary: 'Get a school by id' })
   get(@Param('id') id: string) {
     return this.service.get(id);

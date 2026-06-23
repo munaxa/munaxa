@@ -1,7 +1,10 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
-import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
+import {
+  RequirePermissions,
+  RequireAnyPermission,
+} from '../../auth/decorators/require-permissions.decorator';
 import { CampusService } from './campus.service';
 import { CreateCampusDto, UpdateCampusDto } from './campus.dto';
 
@@ -18,8 +21,9 @@ export class CampusController {
     return this.service.create(dto);
   }
 
+  // Admissions roles (registrar/finance) need to list/read campuses to build a quote.
   @Get()
-  @RequirePermissions(Permission.CAMPUS_MANAGE)
+  @RequireAnyPermission(Permission.CAMPUS_MANAGE, Permission.ENROLLMENT_MANAGE)
   @ApiQuery({ name: 'schoolId', required: false })
   @ApiOperation({ summary: 'List campuses (optionally filtered by school)' })
   list(@Query('schoolId') schoolId?: string) {
@@ -27,7 +31,7 @@ export class CampusController {
   }
 
   @Get(':id')
-  @RequirePermissions(Permission.CAMPUS_MANAGE)
+  @RequireAnyPermission(Permission.CAMPUS_MANAGE, Permission.ENROLLMENT_MANAGE)
   get(@Param('id') id: string) {
     return this.service.get(id);
   }
