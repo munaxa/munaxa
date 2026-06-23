@@ -48,6 +48,8 @@ export interface StudentBusAssignment {
 
 export interface StudentTransport {
   routeName: string;
+  /** Which trip of the route the student rides: 1 (1st) or 2 (2nd). */
+  tripRound: number | null;
   busNumber: string | null;
   busPlate: string | null;
 }
