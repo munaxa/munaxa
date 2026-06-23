@@ -390,11 +390,13 @@ export class AdmissionsRepository extends TenantRepository {
             modifiedById: this.actor(),
           },
         });
-        if (requireApproval) {
-          await tx.feeModificationApproval.create({
-            data: { tenantId, modificationId: mod.id, status: ApprovalStatus.PENDING },
-          });
-        }
+        // Always record a PENDING approval so every fee change is visible and
+        // actionable in the finance approval inbox. The policy flag governs only
+        // whether the enrollment is *held* (PENDING_APPROVAL) until a decision —
+        // not whether the change is tracked for review.
+        await tx.feeModificationApproval.create({
+          data: { tenantId, modificationId: mod.id, status: ApprovalStatus.PENDING },
+        });
       }
 
       // 6) Permanent "Fee Modified" badge on the student's billing profile.
