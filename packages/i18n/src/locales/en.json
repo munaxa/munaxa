@@ -516,6 +516,8 @@
     "routes": "Routes",
     "name": "Name",
     "description": "Description",
+    "academicYear": "Academic year",
+    "noYear": "No year",
     "noRoutes": "No routes yet.",
     "buses": "Buses",
     "plateNumber": "Plate number",

@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsInt,
   IsLatitude,
@@ -22,7 +22,14 @@ export class CreateBusRouteDto {
   @IsString()
   @MaxLength(500)
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Academic year this route belongs to.' })
+  @IsOptional()
+  @IsUUID()
+  academicYearId?: string;
 }
+
+export class UpdateBusRouteDto extends PartialType(CreateBusRouteDto) {}
 
 export class CreateBusDto {
   @ApiProperty({ example: '21-12345' })
@@ -60,6 +67,8 @@ export class CreateBusDto {
   @MaxLength(30)
   driverPhone?: string;
 }
+
+export class UpdateBusDto extends PartialType(CreateBusDto) {}
 
 export class UpdateBusLocationDto {
   @ApiProperty({ example: 31.9539 })

@@ -8,14 +8,29 @@ export class BusRepository extends TenantRepository {
     return this.run((tx, tenantId) => tx.busRoute.create({ data: { ...data, tenantId } }));
   }
 
-  listRoutes(): Promise<BusRoute[]> {
+  updateRoute(id: string, data: Prisma.BusRouteUpdateInput): Promise<BusRoute> {
+    return this.run((tx) => tx.busRoute.update({ where: { id }, data }));
+  }
+
+  findRoute(id: string): Promise<BusRoute | null> {
+    return this.run((tx) => tx.busRoute.findFirst({ where: { id, deletedAt: null } }));
+  }
+
+  listRoutes(academicYearId?: string): Promise<BusRoute[]> {
     return this.run((tx) =>
-      tx.busRoute.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } }),
+      tx.busRoute.findMany({
+        where: { deletedAt: null, ...(academicYearId ? { academicYearId } : {}) },
+        orderBy: { name: 'asc' },
+      }),
     );
   }
 
   createBus(data: Omit<Prisma.BusUncheckedCreateInput, 'tenantId'>): Promise<Bus> {
     return this.run((tx, tenantId) => tx.bus.create({ data: { ...data, tenantId } }));
+  }
+
+  updateBus(id: string, data: Prisma.BusUpdateInput): Promise<Bus> {
+    return this.run((tx) => tx.bus.update({ where: { id }, data }));
   }
 
   listBuses(): Promise<Bus[]> {
@@ -47,6 +62,20 @@ export class BusRepository extends TenantRepository {
     );
   }
 
+  /** Whether another stop on the same route already uses this pickup time. */
+  pickupTimeTaken(routeId: string, pickupTime: string): Promise<boolean> {
+    return this.run(
+      async (tx) => (await tx.busStop.findFirst({ where: { routeId, pickupTime } })) !== null,
+    );
+  }
+
+  /** Whether the stop exists and belongs to the given route. */
+  stopBelongsToRoute(stopId: string, routeId: string): Promise<boolean> {
+    return this.run(
+      async (tx) => (await tx.busStop.findFirst({ where: { id: stopId, routeId } })) !== null,
+    );
+  }
+
   routeExists(routeId: string): Promise<boolean> {
     return this.run(
       async (tx) =>
@@ -60,13 +89,14 @@ export class BusRepository extends TenantRepository {
     stopId: string | null;
   }): Promise<StudentBusAssignment> {
     return this.run(async (tx, tenantId) => {
+      // One assignment per student: reassigning moves them (route + stop) rather than adding a row.
       const existing = await tx.studentBusAssignment.findFirst({
-        where: { studentId: data.studentId, routeId: data.routeId },
+        where: { studentId: data.studentId },
       });
       if (existing) {
         return tx.studentBusAssignment.update({
           where: { id: existing.id },
-          data: { stopId: data.stopId },
+          data: { routeId: data.routeId, stopId: data.stopId },
         });
       }
       return tx.studentBusAssignment.create({ data: { ...data, tenantId } });

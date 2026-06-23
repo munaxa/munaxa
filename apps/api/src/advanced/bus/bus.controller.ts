@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import {
@@ -13,7 +13,9 @@ import {
   CreateBusDto,
   CreateBusRouteDto,
   CreateBusStopDto,
+  UpdateBusDto,
   UpdateBusLocationDto,
+  UpdateBusRouteDto,
 } from './bus.dto';
 
 @ApiTags('bus-tracking')
@@ -33,8 +35,16 @@ export class BusController {
 
   @Get('routes')
   @RequirePermissions(Permission.BUS_READ)
-  listRoutes() {
-    return this.service.listRoutes();
+  @ApiQuery({ name: 'academicYearId', required: false })
+  listRoutes(@Query('academicYearId') academicYearId?: string) {
+    return this.service.listRoutes(academicYearId);
+  }
+
+  @Patch('routes/:id')
+  @RequirePermissions(Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Update a bus route' })
+  updateRoute(@Param('id') id: string, @Body() dto: UpdateBusRouteDto) {
+    return this.service.updateRoute(id, dto);
   }
 
   @Post('routes/stops')
@@ -62,6 +72,13 @@ export class BusController {
   @ApiOperation({ summary: 'List buses (with last known location)' })
   listBuses() {
     return this.service.listBuses();
+  }
+
+  @Patch('vehicles/:id')
+  @RequirePermissions(Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Update a bus (plate, route, capacity, driver)' })
+  updateBus(@Param('id') id: string, @Body() dto: UpdateBusDto) {
+    return this.service.updateBus(id, dto);
   }
 
   @Post('vehicles/:id/location')

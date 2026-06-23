@@ -351,8 +351,10 @@ function TransportFares({ yearId }: { yearId: string }) {
   const [routes, setRoutes] = useState<BusRoute[]>([]);
   const EMPTY = { routeName: '', amount: '', oneWayPct: '' };
   const [form, setForm] = useState(EMPTY);
+  const [addingRoute, setAddingRoute] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const NEW_ROUTE = '__new__';
 
   const load = useCallback(() => {
     if (!yearId) return setRows([]);
@@ -363,17 +365,19 @@ function TransportFares({ yearId }: { yearId: string }) {
   }, [yearId, toast]);
   useEffect(load, [load]);
 
-  // Suggest routes from the fleet so finance + transport stay aligned (shared BusRoute entity).
+  // Routes for the selected year, shared with the Fleet tab (same BusRoute entity).
   const loadRoutes = useCallback(() => {
+    if (!yearId) return setRoutes([]);
     busApi
-      .listRoutes()
+      .listRoutes(yearId)
       .then(setRoutes)
       .catch(() => setRoutes([]));
-  }, []);
+  }, [yearId]);
   useEffect(loadRoutes, [loadRoutes]);
 
   function startEdit(r: TransportFare) {
     setEditingId(r.id);
+    setAddingRoute(false);
     setForm({
       routeName: r.route?.name ?? '',
       amount: String(Number(r.amount)),
@@ -382,6 +386,7 @@ function TransportFares({ yearId }: { yearId: string }) {
   }
   function cancelEdit() {
     setEditingId(null);
+    setAddingRoute(false);
     setForm(EMPTY);
   }
 
@@ -451,17 +456,34 @@ function TransportFares({ yearId }: { yearId: string }) {
         </p>
         <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-4">
           <Field label="Route">
-            <Input
-              list="fleet-routes"
-              value={form.routeName}
-              onChange={(e) => setForm({ ...form, routeName: e.target.value })}
-              placeholder="e.g. A,B,C"
-            />
-            <datalist id="fleet-routes">
-              {routes.map((r) => (
-                <option key={r.id} value={r.name} />
-              ))}
-            </datalist>
+            {addingRoute ? (
+              <Input
+                value={form.routeName}
+                onChange={(e) => setForm({ ...form, routeName: e.target.value })}
+                placeholder="New route name, e.g. A,B,C"
+                autoFocus
+              />
+            ) : (
+              <Select
+                value={form.routeName}
+                onChange={(e) => {
+                  if (e.target.value === NEW_ROUTE) {
+                    setAddingRoute(true);
+                    setForm({ ...form, routeName: '' });
+                  } else {
+                    setForm({ ...form, routeName: e.target.value });
+                  }
+                }}
+              >
+                <option value="">No route</option>
+                {routes.map((r) => (
+                  <option key={r.id} value={r.name}>
+                    {r.name}
+                  </option>
+                ))}
+                <option value={NEW_ROUTE}>＋ New route…</option>
+              </Select>
+            )}
           </Field>
           <Field label="Two-way total (annual)">
             <Input

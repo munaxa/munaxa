@@ -504,6 +504,7 @@ model AcademicYear {
   gradeFeeItems    GradeFeeItem[]
   enrollmentQuotes EnrollmentQuote[]
   enrollments      Enrollment[]
+  busRoutes        BusRoute[]
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
@@ -1712,21 +1713,24 @@ model StudentGamification {
 
 // --- Bus tracking -----------------------------------------------------------
 model BusRoute {
-  id          String    @id @default(uuid()) @db.Uuid
-  tenantId    String    @db.Uuid
-  name        String
-  description String?
-  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
-  deletedAt   DateTime? @db.Timestamptz(6)
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @db.Uuid
+  academicYearId String?   @db.Uuid // groups routes by academic year (e.g. 2026/2027)
+  name           String
+  description    String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime? @db.Timestamptz(6)
 
   tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  academicYear   AcademicYear?          @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
   buses          Bus[]
   stops          BusStop[]
   assignments    StudentBusAssignment[]
   transportFares TransportFare[]
 
   @@index([tenantId])
+  @@index([tenantId, academicYearId])
 }
 
 model Bus {
@@ -1785,7 +1789,7 @@ model StudentBusAssignment {
   route   BusRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
   stop    BusStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
 
-  @@unique([studentId, routeId])
+  @@unique([tenantId, studentId])
   @@index([tenantId])
   @@index([tenantId, routeId])
 }
