@@ -102,4 +102,11 @@ export class BusController {
   listAssignments(@Query('routeId') routeId?: string) {
     return this.service.listAssignments(routeId);
   }
+
+  @Get('students/:studentId/transport')
+  @RequirePermissions(Permission.BUS_READ)
+  @ApiOperation({ summary: "A student's assigned route + bus" })
+  studentTransport(@Param('studentId') studentId: string) {
+    return this.service.studentTransport(studentId);
+  }
 }

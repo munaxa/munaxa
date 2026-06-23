@@ -38,6 +38,12 @@ export interface StudentBusAssignment {
   stopId: string | null;
 }
 
+export interface StudentTransport {
+  routeName: string;
+  busNumber: string | null;
+  busPlate: string | null;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
@@ -113,4 +119,6 @@ export const busApi = {
     authFetch('/bus/assignments', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<StudentBusAssignment>(r),
     ),
+  studentTransport: (studentId: string) =>
+    authFetch(`/bus/students/${studentId}/transport`).then((r) => json<StudentTransport | null>(r)),
 };

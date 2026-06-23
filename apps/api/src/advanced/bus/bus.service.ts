@@ -123,4 +123,8 @@ export class BusService {
   listAssignments(routeId?: string): Promise<StudentBusAssignment[]> {
     return this.repo.listAssignments(routeId);
   }
+
+  studentTransport(studentId: string) {
+    return this.repo.studentTransport(studentId);
+  }
 }

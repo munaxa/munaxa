@@ -16,6 +16,7 @@ import {
   type StudentVaccine,
 } from '@/lib/people';
 import { financeApi, type Statement } from '@/lib/finance';
+import { busApi, type StudentTransport } from '@/lib/bus';
 
 import {
   Badge,
@@ -69,6 +70,7 @@ export function StudentProfileDialog({
   const [vaccines, setVaccines] = useState<StudentVaccine[]>([]);
   const [parents, setParents] = useState<StudentParentLink[]>([]);
   const [editingParent, setEditingParent] = useState<Parent | null>(null);
+  const [transport, setTransport] = useState<StudentTransport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -86,12 +88,15 @@ export function StudentProfileDialog({
       financeApi.statement(student.id).catch(() => null),
       studentsApi.vaccines(student.id).catch(() => [] as StudentVaccine[]),
       studentsApi.parents(student.id).catch(() => [] as StudentParentLink[]),
+      // Transport is optional (bus module may be off / no permission).
+      busApi.studentTransport(student.id).catch(() => null),
     ])
-      .then(([s, v, p]) => {
+      .then(([s, v, p, tr]) => {
         if (!active) return;
         setStatement(s);
         setVaccines(v);
         setParents(p);
+        setTransport(tr);
       })
       .catch((e) => active && setError(e instanceof Error ? e.message : 'Failed to load'))
       .finally(() => active && setLoading(false));
@@ -167,6 +172,11 @@ export function StudentProfileDialog({
                   label="Enrolled"
                   value={student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : null}
                   mono
+                />
+                <Detail label={t('fleet.route')} value={transport?.routeName ?? null} />
+                <Detail
+                  label={t('fleet.busNumber')}
+                  value={transport?.busNumber ?? transport?.busPlate ?? null}
                 />
               </CardContent>
             </Card>
