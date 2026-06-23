@@ -532,7 +532,16 @@ function TransportFares({ yearId }: { yearId: string }) {
               return (
                 <TR key={r.id} className={routeDisabled ? 'opacity-60' : undefined}>
                   <TD>
-                    {r.route?.name || <span className="text-muted-foreground">—</span>}
+                    {r.route?.name ? (
+                      <span className="font-medium">{r.route.name}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                    {r.route?.description ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {r.route.description}
+                      </span>
+                    ) : null}
                     {r.route?.round1Time || r.route?.round2Time ? (
                       <span className="block font-mono text-xs text-muted-foreground">
                         {[r.route?.round1Time, r.route?.round2Time].filter(Boolean).join(' · ')}
