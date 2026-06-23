@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/shell';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
@@ -113,6 +113,17 @@ export default function FinancePage() {
     },
     [studentId, toast],
   );
+
+  // Deep link from Admissions: ?studentId=<id> opens that student's statement to collect fees.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('studentId');
+    if (id) {
+      setStudentId(id);
+      void load(id);
+    }
+    // Run once on mount; `load` is stable enough for this deep-link entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function run(fn: () => Promise<unknown>, ok: string) {
     try {
