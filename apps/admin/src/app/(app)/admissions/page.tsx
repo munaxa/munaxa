@@ -13,8 +13,8 @@ import {
   type ReturningStudent,
   type TransportDirection,
 } from '@/lib/admissions';
-import { schoolsApi, campusesApi, gradesApi, academicYearsApi } from '@/lib/structure';
-import type { AcademicYear, Campus, Grade } from '@/lib/structure';
+import { schoolsApi, campusesApi, gradesApi, academicYearsApi, sectionsApi } from '@/lib/structure';
+import type { AcademicYear, Campus, Grade, Section } from '@/lib/structure';
 import { feeConfigApi, type TransportFare } from '@/lib/finance';
 import {
   Badge,
@@ -56,10 +56,13 @@ export default function AdmissionsPage() {
   const [campusId, setCampusId] = useState('');
   const [years, setYears] = useState<AcademicYear[]>([]);
   const [grades, setGrades] = useState<Grade[]>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [academicYearId, setAcademicYearId] = useState('');
   const [gradeId, setGradeId] = useState('');
+  const [sectionId, setSectionId] = useState('');
   const [transportDirection, setTransportDirection] = useState<TransportDirection>('NONE');
   const [transportRouteGroup, setTransportRouteGroup] = useState('');
+  const [transportTrip, setTransportTrip] = useState('');
   const [fares, setFares] = useState<TransportFare[]>([]);
   const [paymentMode, setPaymentMode] = useState<QuotePaymentMode>('INSTALLMENTS');
   const [installments, setInstallments] = useState('1');
@@ -121,6 +124,26 @@ export default function AdmissionsPage() {
       .then(setFares)
       .catch(() => setFares([]));
   }, [academicYearId]);
+
+  // Sections belong to a grade; reload (and reset the choice) whenever the grade changes.
+  useEffect(() => {
+    setSectionId('');
+    if (!gradeId) return setSections([]);
+    sectionsApi
+      .list(gradeId)
+      .then(setSections)
+      .catch(() => setSections([]));
+  }, [gradeId]);
+
+  // The fare/route the quote is priced against (named route, else the first configured) — its
+  // fleet route id + chosen trip are what we assign the student to on commit.
+  const selectedFare = useMemo(() => {
+    if (transportDirection === 'NONE') return null;
+    const active = fares.filter((f) => f.isActive && f.route && !f.route.disabledAt);
+    return transportRouteGroup
+      ? (active.find((f) => f.route?.name === transportRouteGroup) ?? null)
+      : (active[0] ?? null);
+  }, [fares, transportDirection, transportRouteGroup]);
 
   // Routes that have a configured (active) fare for the year — direction is applied to the fare.
   const routeGroupOptions = useMemo(() => {
@@ -214,6 +237,14 @@ export default function AdmissionsPage() {
         quoteId: quote.quoteId,
         idempotencyKey: crypto.randomUUID(),
         ...(mode === 'RETURNING' ? { existingStudentId: returningId } : {}),
+        ...(sectionId ? { sectionId } : {}),
+        // Mirror the transport choice into the fleet (route + trip) when transport is selected.
+        ...(transportDirection !== 'NONE' && selectedFare?.route?.id
+          ? {
+              busRouteId: selectedFare.route.id,
+              ...(transportTrip ? { busTripRound: Number(transportTrip) } : {}),
+            }
+          : {}),
         ...(mode === 'NEW'
           ? {
               student: {
@@ -239,9 +270,10 @@ export default function AdmissionsPage() {
       toast.success(
         res.status === 'PENDING_APPROVAL'
           ? 'Registration committed — pending finance approval.'
-          : 'Registration committed. Take the down payment in Finance.',
+          : 'Registration committed. Collect the fees in Finance.',
       );
-      router.push('/finance');
+      // Open Finance on this very student to collect the fees.
+      router.push(`/finance?studentId=${encodeURIComponent(res.studentId)}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Commit failed');
     } finally {
@@ -352,6 +384,20 @@ export default function AdmissionsPage() {
               ))}
             </Select>
           </Field>
+          <Field label="Section" {...(gradeId ? {} : { hint: 'Pick a grade first' })}>
+            <Select
+              value={sectionId}
+              onChange={(e) => setSectionId(e.target.value)}
+              disabled={!gradeId || sections.length === 0}
+            >
+              <option value="">{sections.length ? '—' : 'No sections'}</option>
+              {sections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
           <Field label="Transportation">
             <Select
               value={transportDirection}
@@ -368,26 +414,35 @@ export default function AdmissionsPage() {
             </Select>
           </Field>
           {transportDirection !== 'NONE' ? (
-            <Field
-              label="Route"
-              hint={
-                routeGroupOptions.length
-                  ? 'Configured under Fee configuration → Transport fares'
-                  : 'No route fares configured for this direction yet'
-              }
-            >
-              <Select
-                value={transportRouteGroup}
-                onChange={(e) => setTransportRouteGroup(e.target.value)}
+            <>
+              <Field
+                label="Route"
+                hint={
+                  routeGroupOptions.length
+                    ? 'Configured under Fee configuration → Transport fares'
+                    : 'No route fares configured for this direction yet'
+                }
               >
-                <option value="">Default (first configured)</option>
-                {routeGroupOptions.map((g) => (
-                  <option key={g} value={g}>
-                    {g}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+                <Select
+                  value={transportRouteGroup}
+                  onChange={(e) => setTransportRouteGroup(e.target.value)}
+                >
+                  <option value="">Default (first configured)</option>
+                  {routeGroupOptions.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Trip">
+                <Select value={transportTrip} onChange={(e) => setTransportTrip(e.target.value)}>
+                  <option value="">No trip</option>
+                  <option value="1">1st trip</option>
+                  <option value="2">2nd trip</option>
+                </Select>
+              </Field>
+            </>
           ) : null}
         </CardContent>
       </Card>

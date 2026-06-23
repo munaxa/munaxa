@@ -406,6 +406,34 @@ export class AdmissionsRepository extends TenantRepository {
         });
       }
 
+      // 6b) Bus route + trip assignment (one per student): mirror the admission choice into the
+      //     fleet so it shows under Fleet → Route detail and on the student's profile.
+      if (dto.busRouteId) {
+        const route = await tx.busRoute.findFirst({
+          where: { id: dto.busRouteId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!route) throw new BadRequestException('Bus route not found in this tenant');
+        const existingAssignment = await tx.studentBusAssignment.findFirst({
+          where: { studentId },
+        });
+        if (existingAssignment) {
+          await tx.studentBusAssignment.update({
+            where: { id: existingAssignment.id },
+            data: { routeId: dto.busRouteId, stopId: null, tripRound: dto.busTripRound ?? null },
+          });
+        } else {
+          await tx.studentBusAssignment.create({
+            data: {
+              tenantId,
+              studentId,
+              routeId: dto.busRouteId,
+              tripRound: dto.busTripRound ?? null,
+            },
+          });
+        }
+      }
+
       // 7) Idempotent commitment record + audit.
       await tx.registrationCommitment.create({
         data: {

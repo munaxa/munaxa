@@ -11,6 +11,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -165,6 +166,20 @@ export class CommitDto {
   @IsOptional()
   @IsUUID()
   sectionId?: string;
+
+  @ApiPropertyOptional({ description: 'Fleet route to assign the student to (bus tracking).' })
+  @IsOptional()
+  @IsUUID()
+  busRouteId?: string;
+
+  @ApiPropertyOptional({
+    enum: [1, 2],
+    description: 'Trip of the route the student rides (1 or 2).',
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2])
+  busTripRound?: number;
 }
 
 // ── Approvals & arrangements ──
