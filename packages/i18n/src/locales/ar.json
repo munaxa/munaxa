@@ -72,7 +72,21 @@
     "resetSubmit": "إرسال كلمة مرور مؤقتة",
     "resetSent": "إذا كان الحساب موجودًا، فقد تم إرسال بريد إعادة تعيين كلمة المرور.",
     "resetSentHint": "تحقق من بريدك للحصول على كلمة مرور مؤقتة. تنتهي صلاحيتها خلال 24 ساعة وسيُطلب منك تعيين كلمة مرور جديدة عند تسجيل الدخول.",
-    "backToSignIn": "العودة لتسجيل الدخول"
+    "backToSignIn": "العودة لتسجيل الدخول",
+    "welcomeBack": "مرحبًا بعودتك",
+    "signInContinue": "سجّل الدخول للمتابعة إلى مُناقسة",
+    "emailAddress": "البريد الإلكتروني",
+    "emailPlaceholder": "youremail@school.com",
+    "rememberMe": "تذكّرني",
+    "needHelp": "تحتاج مساعدة؟",
+    "contactAdmin": "تواصل مع المسؤول",
+    "marketingTitle1": "مدارس أذكى،",
+    "marketingTitle2": "مستقبل أقوى.",
+    "marketingSubtitle": "نظام مُناقسة المدرسي حلٌّ متكامل لإدارة المدارس الحديثة.",
+    "rightsReserved": "جميع الحقوق محفوظة.",
+    "badgeCertified": "معتمد",
+    "badgeReady": "جاهز",
+    "badgeEinvoice": "الفوترة الإلكترونية للأردن"
   },
   "shell": {
     "schoolPlane": "نطاق المدرسة",
