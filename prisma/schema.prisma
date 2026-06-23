@@ -1785,7 +1785,7 @@ model StudentBusAssignment {
   route   BusRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
   stop    BusStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
 
-  @@unique([studentId, routeId])
+  @@unique([tenantId, studentId])
   @@index([tenantId])
   @@index([tenantId, routeId])
 }

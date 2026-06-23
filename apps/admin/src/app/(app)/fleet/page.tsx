@@ -6,7 +6,14 @@ import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
 import { loadStudentOptions } from '@/lib/pickers';
-import { studentsApi, fullNameEn, fullNameAr, type Student } from '@/lib/people';
+import {
+  studentsApi,
+  employeesApi,
+  fullNameEn,
+  fullNameAr,
+  type Student,
+  type Employee,
+} from '@/lib/people';
 import {
   busApi,
   type Bus,
@@ -153,7 +160,13 @@ function Fleet() {
           routes={routes}
           routeName={routeName}
           canManage={canManage}
-          onCreated={(b) => setBuses((prev) => [...prev, b])}
+          onSaved={(b) =>
+            setBuses((prev) =>
+              prev.some((x) => x.id === b.id)
+                ? prev.map((x) => (x.id === b.id ? b : x))
+                : [...prev, b],
+            )
+          }
         />
       </div>
 
@@ -188,7 +201,13 @@ function Fleet() {
                 assignments={assignments}
                 canManage={canAssign}
                 studentName={studentName}
-                onAssigned={(a) => setAssignments((prev) => [...prev, a])}
+                onAssigned={(a) =>
+                  setAssignments((prev) =>
+                    prev.some((x) => x.id === a.id)
+                      ? prev.map((x) => (x.id === a.id ? a : x))
+                      : [...prev, a],
+                  )
+                }
               />
             </>
           ) : null}
@@ -277,44 +296,91 @@ function RoutesCard({
   );
 }
 
+const MANUAL_DRIVER = '__manual__';
+
 function BusesCard({
   buses,
   routes,
   routeName,
   canManage,
-  onCreated,
+  onSaved,
 }: {
   buses: Bus[];
   routes: BusRoute[];
   routeName: (id: string) => string;
   canManage: boolean;
-  onCreated: (b: Bus) => void;
+  onSaved: (b: Bus) => void;
 }) {
   const toast = useToast();
   const { t } = useI18n();
-  const [plateNumber, setPlateNumber] = useState('');
-  const [routeId, setRouteId] = useState('');
-  const [capacity, setCapacity] = useState('');
-  const [driverName, setDriverName] = useState('');
+  const EMPTY = { plateNumber: '', routeId: '', capacity: '', driverName: '' };
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  // True when the driver is typed manually rather than picked from HR.
+  const [manualDriver, setManualDriver] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function create() {
-    if (!plateNumber.trim()) return;
+  // HR may be unavailable (module/permission); fall back to manual entry silently.
+  useEffect(() => {
+    employeesApi
+      .list()
+      .then(setEmployees)
+      .catch(() => setEmployees([]));
+  }, []);
+
+  const driverNames = useMemo(
+    () =>
+      employees
+        .filter((e) => e.status === 'ACTIVE')
+        .map((e) => `${e.firstNameEn} ${e.lastNameEn}`.trim())
+        .filter(Boolean),
+    [employees],
+  );
+  const hrAvailable = driverNames.length > 0;
+
+  function reset() {
+    setEditingId(null);
+    setForm(EMPTY);
+    setManualDriver(false);
+  }
+  function startEdit(b: Bus) {
+    setEditingId(b.id);
+    setForm({
+      plateNumber: b.plateNumber,
+      routeId: b.routeId ?? '',
+      capacity: b.capacity != null ? String(b.capacity) : '',
+      driverName: b.driverName ?? '',
+    });
+    // Show the manual field when the saved driver isn't one of the HR options.
+    setManualDriver(Boolean(b.driverName) && !driverNames.includes(b.driverName ?? ''));
+  }
+
+  async function save() {
+    if (!form.plateNumber.trim()) return;
     setBusy(true);
     try {
-      const b = await busApi.createBus({
-        plateNumber: plateNumber.trim(),
-        ...(routeId ? { routeId } : {}),
-        ...(capacity ? { capacity: Number(capacity) } : {}),
-        ...(driverName.trim() ? { driverName: driverName.trim() } : {}),
-      });
-      onCreated(b);
-      setPlateNumber('');
-      setCapacity('');
-      setDriverName('');
-      toast.success('Bus registered');
+      const driverName = form.driverName.trim();
+      const payload = {
+        plateNumber: form.plateNumber.trim(),
+        ...(form.capacity ? { capacity: Number(form.capacity) } : {}),
+      };
+      const b = editingId
+        ? await busApi.updateBus(editingId, {
+            ...payload,
+            routeId: form.routeId || null,
+            driverName,
+          })
+        : await busApi.createBus({
+            ...payload,
+            ...(form.routeId ? { routeId: form.routeId } : {}),
+            ...(driverName ? { driverName } : {}),
+          });
+      onSaved(b);
+      reset();
+      toast.success(editingId ? 'Bus updated' : 'Bus registered');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to register bus');
+      toast.error(e instanceof Error ? e.message : 'Failed to save bus');
     } finally {
       setBusy(false);
     }
@@ -330,13 +396,16 @@ function BusesCard({
           <div className="grid grid-cols-2 gap-2">
             <Field label={t('fleet.plateNumber')}>
               <Input
-                value={plateNumber}
-                onChange={(e) => setPlateNumber(e.target.value)}
+                value={form.plateNumber}
+                onChange={(e) => setForm({ ...form, plateNumber: e.target.value })}
                 placeholder="21-12345"
               />
             </Field>
             <Field label={t('fleet.route')}>
-              <Select value={routeId} onChange={(e) => setRouteId(e.target.value)}>
+              <Select
+                value={form.routeId}
+                onChange={(e) => setForm({ ...form, routeId: e.target.value })}
+              >
                 <option value="">{t('fleet.unassigned')}</option>
                 {routes.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -346,18 +415,53 @@ function BusesCard({
               </Select>
             </Field>
             <Field label={t('fleet.capacity')}>
-              <Input type="number" value={capacity} onChange={(e) => setCapacity(e.target.value)} />
+              <Input
+                type="number"
+                value={form.capacity}
+                onChange={(e) => setForm({ ...form, capacity: e.target.value })}
+              />
             </Field>
             <Field label={t('fleet.driver')}>
-              <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} />
+              {hrAvailable && !manualDriver ? (
+                <Select
+                  value={form.driverName}
+                  onChange={(e) => {
+                    if (e.target.value === MANUAL_DRIVER) {
+                      setManualDriver(true);
+                      setForm({ ...form, driverName: '' });
+                    } else {
+                      setForm({ ...form, driverName: e.target.value });
+                    }
+                  }}
+                >
+                  <option value="">{t('fleet.unassigned')}</option>
+                  {driverNames.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                  <option value={MANUAL_DRIVER}>＋ Enter manually…</option>
+                </Select>
+              ) : (
+                <Input
+                  value={form.driverName}
+                  onChange={(e) => setForm({ ...form, driverName: e.target.value })}
+                  placeholder="Driver name"
+                />
+              )}
             </Field>
-            <div className="col-span-2 flex justify-end">
+            <div className="col-span-2 flex justify-end gap-2">
+              {editingId ? (
+                <Button size="sm" variant="outline" onClick={reset} disabled={busy}>
+                  {t('common.cancel')}
+                </Button>
+              ) : null}
               <Button
                 size="sm"
-                onClick={() => void create()}
-                disabled={busy || !plateNumber.trim()}
+                onClick={() => void save()}
+                disabled={busy || !form.plateNumber.trim()}
               >
-                {t('fleet.registerBus')}
+                {editingId ? t('common.save') : t('fleet.registerBus')}
               </Button>
             </div>
           </div>
@@ -371,6 +475,7 @@ function BusesCard({
                 <TH>{t('fleet.plate')}</TH>
                 <TH>{t('fleet.route')}</TH>
                 <TH className="text-end">{t('fleet.capacity')}</TH>
+                {canManage ? <TH className="text-end">{t('common.actions')}</TH> : null}
               </TR>
             </THead>
             <TBody>
@@ -386,6 +491,13 @@ function BusesCard({
                     {b.routeId ? routeName(b.routeId) : '—'}
                   </TD>
                   <TD className="text-end font-mono text-xs">{b.capacity ?? '—'}</TD>
+                  {canManage ? (
+                    <TD className="text-end">
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(b)}>
+                        {t('common.edit')}
+                      </Button>
+                    </TD>
+                  ) : null}
                 </TR>
               ))}
             </TBody>

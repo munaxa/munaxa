@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
   IsInt,
   IsLatitude,
@@ -60,6 +60,8 @@ export class CreateBusDto {
   @MaxLength(30)
   driverPhone?: string;
 }
+
+export class UpdateBusDto extends PartialType(CreateBusDto) {}
 
 export class UpdateBusLocationDto {
   @ApiProperty({ example: 31.9539 })

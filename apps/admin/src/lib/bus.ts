@@ -79,6 +79,20 @@ export const busApi = {
     authFetch('/bus/vehicles', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<Bus>(r),
     ),
+  updateBus: (
+    id: string,
+    data: Partial<{
+      plateNumber: string;
+      routeId: string | null;
+      label: string;
+      capacity: number;
+      driverName: string;
+      driverPhone: string;
+    }>,
+  ) =>
+    authFetch(`/bus/vehicles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<Bus>(r),
+    ),
 
   listAssignments: (routeId?: string) =>
     authFetch(`/bus/assignments${routeId ? `?routeId=${routeId}` : ''}`).then((r) =>

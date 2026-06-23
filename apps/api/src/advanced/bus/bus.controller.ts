@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import {
@@ -13,6 +13,7 @@ import {
   CreateBusDto,
   CreateBusRouteDto,
   CreateBusStopDto,
+  UpdateBusDto,
   UpdateBusLocationDto,
 } from './bus.dto';
 
@@ -62,6 +63,13 @@ export class BusController {
   @ApiOperation({ summary: 'List buses (with last known location)' })
   listBuses() {
     return this.service.listBuses();
+  }
+
+  @Patch('vehicles/:id')
+  @RequirePermissions(Permission.BUS_MANAGE)
+  @ApiOperation({ summary: 'Update a bus (plate, route, capacity, driver)' })
+  updateBus(@Param('id') id: string, @Body() dto: UpdateBusDto) {
+    return this.service.updateBus(id, dto);
   }
 
   @Post('vehicles/:id/location')

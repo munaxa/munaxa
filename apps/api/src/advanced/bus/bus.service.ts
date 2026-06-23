@@ -6,6 +6,7 @@ import type {
   CreateBusDto,
   CreateBusRouteDto,
   CreateBusStopDto,
+  UpdateBusDto,
   UpdateBusLocationDto,
 } from './bus.dto';
 
@@ -35,6 +36,26 @@ export class BusService {
     });
   }
 
+  async updateBus(id: string, dto: UpdateBusDto): Promise<Bus> {
+    const bus = await this.repo.findBus(id);
+    if (!bus) throw new NotFoundException('Bus not found');
+    if (dto.routeId && !(await this.repo.routeExists(dto.routeId))) {
+      throw new BadRequestException('Route not found in this tenant');
+    }
+    return this.repo.updateBus(id, {
+      ...(dto.plateNumber !== undefined ? { plateNumber: dto.plateNumber } : {}),
+      ...(dto.routeId !== undefined
+        ? dto.routeId
+          ? { route: { connect: { id: dto.routeId } } }
+          : { route: { disconnect: true } }
+        : {}),
+      ...(dto.label !== undefined ? { label: dto.label } : {}),
+      ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
+      ...(dto.driverName !== undefined ? { driverName: dto.driverName } : {}),
+      ...(dto.driverPhone !== undefined ? { driverPhone: dto.driverPhone } : {}),
+    });
+  }
+
   listBuses(): Promise<Bus[]> {
     return this.repo.listBuses();
   }
@@ -48,6 +69,9 @@ export class BusService {
   async createStop(dto: CreateBusStopDto): Promise<BusStop> {
     if (!(await this.repo.routeExists(dto.routeId))) {
       throw new BadRequestException('Route not found in this tenant');
+    }
+    if (dto.pickupTime && (await this.repo.pickupTimeTaken(dto.routeId, dto.pickupTime))) {
+      throw new BadRequestException('Another stop on this route already uses that pickup time');
     }
     return this.repo.createStop({
       routeId: dto.routeId,
@@ -66,6 +90,9 @@ export class BusService {
   async assign(dto: AssignStudentDto): Promise<StudentBusAssignment> {
     if (!(await this.repo.routeExists(dto.routeId))) {
       throw new BadRequestException('Route not found in this tenant');
+    }
+    if (dto.stopId && !(await this.repo.stopBelongsToRoute(dto.stopId, dto.routeId))) {
+      throw new BadRequestException('Stop does not belong to this route');
     }
     return this.repo.assign({
       studentId: dto.studentId,
