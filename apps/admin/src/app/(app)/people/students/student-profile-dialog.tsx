@@ -178,7 +178,13 @@ export function StudentProfileDialog({
                   value={
                     transport?.routeName
                       ? transport.tripRound
-                        ? `${transport.routeName} | ${transport.tripRound === 1 ? t('fleet.trip1') : t('fleet.trip2')}`
+                        ? `${transport.routeName} | ${
+                            transport.tripRound === 1
+                              ? t('fleet.trip1')
+                              : transport.tripRound === 2
+                                ? t('fleet.trip2')
+                                : t('transport.trip.both')
+                          }`
                         : transport.routeName
                       : null
                   }
