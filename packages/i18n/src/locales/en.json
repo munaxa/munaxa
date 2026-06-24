@@ -48,7 +48,13 @@
     "firstNameEn": "First name (EN)",
     "lastNameEn": "Last name (EN)",
     "firstNameAr": "First name (AR)",
-    "lastNameAr": "Last name (AR)"
+    "lastNameAr": "Last name (AR)",
+    "export": "Export",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page",
+    "pagination": "Pagination",
+    "retry": "Retry"
   },
   "auth": {
     "signIn": "Sign in",
@@ -749,5 +755,134 @@
     "generic": "Something went wrong. Please try again.",
     "unauthorized": "You are not authorized to perform this action.",
     "notFound": "Not found."
+  },
+  "transport": {
+    "subtitle": "Plan transport geographically — by area, pickup point, route and trip.",
+    "loadError": "Couldn't load transport data.",
+    "assignTo": "Assign to route",
+    "tabs": {
+      "dashboard": "Dashboard",
+      "areas": "Area planning",
+      "unassigned": "Unassigned",
+      "import": "Bulk import",
+      "setup": "Setup"
+    },
+    "trip": {
+      "none": "No trip",
+      "first": "1st trip",
+      "second": "2nd trip",
+      "both": "Both trips"
+    },
+    "status": {
+      "normal": "Normal",
+      "near": "Near capacity",
+      "exceeded": "Exceeded",
+      "noCapacity": "No capacity set"
+    },
+    "capacity": {
+      "label": "Capacity",
+      "assigned": "Assigned",
+      "available": "Available",
+      "willExceed": "This will put the route at",
+      "allowedAnyway": "Assignment is allowed anyway."
+    },
+    "bulk": {
+      "selected": "selected",
+      "clear": "Clear",
+      "assign": "Assign",
+      "assigned": "Assigned",
+      "willBeAssigned": "students will be assigned.",
+      "move": "Move",
+      "moved": "Moved",
+      "changeTrip": "Change trip",
+      "changeTripIntro": "Change the trip for selected students:",
+      "tripChanged": "Trip changed",
+      "unassign": "Unassign",
+      "unassigned": "Unassigned",
+      "unassignConfirm": "Remove the selected students from their route? They'll return to the unassigned queue."
+    },
+    "suggest": {
+      "title": "Suggested assignments",
+      "apply": "Apply suggestions",
+      "intro": "Review proposed route and trip assignments before applying. (Automatic suggestions are coming soon.)",
+      "empty": "No suggestions yet. Automatic route suggestions will appear here.",
+      "cta": "Suggest assignments"
+    },
+    "table": {
+      "selectPage": "Select all on this page",
+      "student": "Student",
+      "studentId": "Student ID",
+      "grade": "Grade",
+      "area": "Area",
+      "pickup": "Pickup point",
+      "assignedTrip": "Assigned trip",
+      "assignedDate": "Assigned",
+      "requestedTrip": "Requested trip"
+    },
+    "dashboard": {
+      "searchRoutes": "Search routes…",
+      "status": "Status",
+      "sort": "Sort",
+      "noRoutes": "No routes match your filters.",
+      "noRoutesDesc": "Adjust the filters or add a route under Setup.",
+      "manageRoute": "Manage route"
+    },
+    "filter": {
+      "allAreas": "All areas",
+      "allStatuses": "All statuses",
+      "allTrips": "All trips",
+      "allGrades": "All grades",
+      "gender": "Gender",
+      "allGenders": "All genders"
+    },
+    "sort": {
+      "name": "Name",
+      "occupancy": "Occupancy",
+      "exceeded": "Most over capacity"
+    },
+    "stats": {
+      "routes": "Routes",
+      "seats": "Total seats",
+      "assigned": "Assigned riders",
+      "overCapacity": "Over capacity"
+    },
+    "area": {
+      "unzoned": "Unzoned",
+      "empty": "No areas yet.",
+      "emptyDesc": "Areas appear once routes exist. Add routes under Setup.",
+      "intro": "Pick an area to see the routes serving it and manage riders geographically.",
+      "studentsWord": "students",
+      "backToAreas": "All areas",
+      "noRoutes": "No routes serve this area yet.",
+      "assignNote": "To add riders to this area's routes, open a route and use Move, or assign from the Unassigned tab."
+    },
+    "unassigned": {
+      "needTransport": "students need a route",
+      "empty": "Everyone has a route 🎉",
+      "emptyDesc": "There are no active students without a route assignment."
+    },
+    "routeStudents": {
+      "title": "Route students",
+      "empty": "No students on this route yet."
+    },
+    "import": {
+      "title": "Bulk import",
+      "intro": "Assign many students at once. Download the template, fill it in, upload, review, then import.",
+      "downloadTemplate": "Download template",
+      "upload": "Upload CSV",
+      "preview": "Preview",
+      "valid": "valid",
+      "invalid": "with errors",
+      "statusCol": "Status",
+      "ok": "Ready",
+      "previewTruncated": "Showing the first 200 rows. All valid rows will be imported.",
+      "imported": "Imported",
+      "import": "Import",
+      "errMissingId": "Missing student ID",
+      "errUnknownStudent": "Student not found",
+      "errMissingRoute": "Missing route",
+      "errUnknownRoute": "Route not found",
+      "errBadTrip": "Unrecognised trip"
+    }
   }
 }

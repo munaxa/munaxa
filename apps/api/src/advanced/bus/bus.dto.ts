@@ -155,11 +155,11 @@ export class AssignStudentDto {
   stopId?: string;
 
   @ApiPropertyOptional({
-    enum: [1, 2],
-    description: 'Trip of the route the student rides (1 or 2).',
+    enum: [1, 2, 3],
+    description: 'Trip of the route the student rides: 1 (1st), 2 (2nd), or 3 (both).',
   })
   @IsOptional()
   @IsInt()
-  @IsIn([1, 2])
+  @IsIn([1, 2, 3])
   tripRound?: number;
 }

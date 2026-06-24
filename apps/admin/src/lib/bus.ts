@@ -42,8 +42,10 @@ export interface StudentBusAssignment {
   studentId: string;
   routeId: string;
   stopId: string | null;
-  /** Which trip of the route the student rides: 1 (1st) or 2 (2nd). */
+  /** Which trip of the route the student rides: 1 (1st), 2 (2nd), or 3 (both). */
   tripRound: number | null;
+  /** ISO timestamp the assignment was created (returned by the API). */
+  createdAt?: string | null;
 }
 
 export interface StudentTransport {
