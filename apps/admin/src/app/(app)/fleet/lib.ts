@@ -22,6 +22,7 @@ import {
   type AcademicYear,
   type Section,
 } from '@/lib/structure';
+import { areasApi, type Area } from '@/lib/areas';
 
 /** Debounce a fast-changing value (e.g. a search box) for cheaper filtering. */
 export function useDebouncedValue<T>(value: T, ms = 250): T {
@@ -190,19 +191,26 @@ export function capacityStatus(capacity: number, assigned: number): Capacity {
 }
 
 // ---------------------------------------------------------------------------
-// Areas — geographic buckets. Phase 1 derives the area from route / pickup‑point
-// naming; Phase 2 swaps in a real `Student.areaId`. See redesign doc §8/§9.
+// Areas — geographic buckets backed by REAL data: the Area master list +
+// Student.areaId (set at registration). A route's area is inferred from where its
+// assigned riders actually live (the most common areaId), not from its name.
 // ---------------------------------------------------------------------------
-export const AREA_PRESETS = ['Khalda', 'Dabouq', 'Abdoun', 'Shafa Badran', 'Tla Al Ali'] as const;
 export const UNZONED = 'Unzoned';
 
-/** Derive an area name from a route + its stops by matching the preset list. */
-export function deriveAreaFromText(...texts: Array<string | null | undefined>): string {
-  const hay = texts.filter(Boolean).join(' ').toLowerCase();
-  for (const area of AREA_PRESETS) {
-    if (hay.includes(area.toLowerCase())) return area;
+/** The most frequent value in a list (ties broken by first seen), or null when empty. */
+function mode<T>(values: T[]): T | null {
+  const counts = new Map<T, number>();
+  let best: T | null = null;
+  let bestN = 0;
+  for (const v of values) {
+    const n = (counts.get(v) ?? 0) + 1;
+    counts.set(v, n);
+    if (n > bestN) {
+      bestN = n;
+      best = v;
+    }
   }
-  return UNZONED;
+  return best;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,6 +233,9 @@ export interface StudentRow {
   nameAr: string;
   grade: string | null;
   area: string;
+  areaId: string | null;
+  /** Parent requested transport at registration (drives the Unassigned queue). */
+  transportRequested: boolean;
   pickup: string | null;
   assignment: StudentBusAssignment | null;
   routeName: string | null;
@@ -232,8 +243,12 @@ export interface StudentRow {
 }
 
 export interface AreaVM {
+  /** Area master id (null for the synthetic "Unzoned" bucket). */
+  id: string | null;
   name: string;
   routes: RouteVM[];
+  /** Students whose home area is this and who requested transport (assigned or not). */
+  needCount: number;
   assignedCount: number;
   capacity: number;
 }
@@ -248,6 +263,8 @@ export interface TransportData {
   students: Student[];
   years: AcademicYear[];
   sections: Section[];
+  /** Area master data (all non-deleted areas), used for naming + Setup management. */
+  areaMaster: Area[];
   stopsByRoute: Record<string, BusStop[]>;
   assignments: StudentBusAssignment[];
   routeVMs: RouteVM[];
@@ -259,6 +276,7 @@ export interface TransportData {
   removeAssignment: (id: string) => void;
   setRoutes: React.Dispatch<React.SetStateAction<BusRoute[]>>;
   setBuses: React.Dispatch<React.SetStateAction<Bus[]>>;
+  setAreaMaster: React.Dispatch<React.SetStateAction<Area[]>>;
 }
 
 export function useTransport(): TransportData {
@@ -272,6 +290,7 @@ export function useTransport(): TransportData {
   const [sections, setSections] = useState<Section[]>([]);
   const [assignments, setAssignments] = useState<StudentBusAssignment[]>([]);
   const [stopsByRoute, setStopsByRoute] = useState<Record<string, BusStop[]>>({});
+  const [areaMaster, setAreaMaster] = useState<Area[]>([]);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -288,6 +307,8 @@ export function useTransport(): TransportData {
       // Optional, permission‑gated extras — never fatal.
       studentsApi.list().then(setStudents).catch(() => undefined);
       sectionsApi.list().then(setSections).catch(() => undefined);
+      // Area master data (real geographic buckets). Best-effort; never fatal.
+      areasApi.list().then(setAreaMaster).catch(() => undefined);
       void (async () => {
         try {
           const schools = await schoolsApi.list();
@@ -356,14 +377,24 @@ export function useTransport(): TransportData {
     [sectionMap],
   );
 
-  const routeAreas = useMemo(() => {
+  // Real area lookups (from the Area master list + Student.areaId).
+  const areaNameById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const route of routes) {
-      const stopNames = (stopsByRoute[route.id] ?? []).map((s) => s.name).join(' ');
-      m.set(route.id, deriveAreaFromText(route.name, route.description, stopNames));
-    }
+    for (const a of areaMaster) m.set(a.id, a.name);
     return m;
-  }, [routes, stopsByRoute]);
+  }, [areaMaster]);
+
+  const studentAreaById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const s of students) m.set(s.id, s.areaId ?? null);
+    return m;
+  }, [students]);
+
+  const assignmentByStudent = useMemo(() => {
+    const m = new Map<string, StudentBusAssignment>();
+    for (const a of assignments) m.set(a.studentId, a);
+    return m;
+  }, [assignments]);
 
   const assignmentsByRoute = useMemo(() => {
     const m = new Map<string, StudentBusAssignment[]>();
@@ -374,6 +405,20 @@ export function useTransport(): TransportData {
     }
     return m;
   }, [assignments]);
+
+  // A route's area = where its assigned riders actually live (most common areaId).
+  // Real data — no more inferring from route names.
+  const routeAreaName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const route of routes) {
+      const areaIds = (assignmentsByRoute.get(route.id) ?? [])
+        .map((a) => studentAreaById.get(a.studentId) ?? null)
+        .filter((x): x is string => Boolean(x));
+      const dominant = mode(areaIds);
+      m.set(route.id, dominant ? (areaNameById.get(dominant) ?? UNZONED) : UNZONED);
+    }
+    return m;
+  }, [routes, assignmentsByRoute, studentAreaById, areaNameById]);
 
   const routeVMs = useMemo<RouteVM[]>(() => {
     return routes.map((route) => {
@@ -387,7 +432,7 @@ export function useTransport(): TransportData {
       const withDriver = routeBuses.find((b) => b.driverName);
       return {
         route,
-        area: routeAreas.get(route.id) ?? UNZONED,
+        area: routeAreaName.get(route.id) ?? UNZONED,
         buses: routeBuses,
         busLabel: withLabel?.label ?? withLabel?.plateNumber ?? null,
         driverName: withDriver?.driverName ?? null,
@@ -396,38 +441,55 @@ export function useTransport(): TransportData {
         trip2,
       };
     });
-  }, [routes, buses, assignmentsByRoute, routeAreas]);
+  }, [routes, buses, assignmentsByRoute, routeAreaName]);
 
   const areas = useMemo<AreaVM[]>(() => {
-    const byArea = new Map<string, RouteVM[]>();
+    const routesByArea = new Map<string, RouteVM[]>();
     for (const vm of routeVMs) {
-      const list = byArea.get(vm.area) ?? [];
+      const list = routesByArea.get(vm.area) ?? [];
       list.push(vm);
-      byArea.set(vm.area, list);
+      routesByArea.set(vm.area, list);
     }
-    const result: AreaVM[] = [...byArea.entries()].map(([name, vms]) => ({
-      name,
-      routes: vms,
-      assignedCount: vms.reduce((s, v) => s + v.capacity.assigned, 0),
-      capacity: vms.reduce((s, v) => s + v.capacity.capacity, 0),
-    }));
-    // Known presets first (stable order), then any extras, Unzoned last.
-    const order = (n: string) =>
-      n === UNZONED ? 999 : (AREA_PRESETS as readonly string[]).indexOf(n) + 1 || 500;
-    return result.sort((a, b) => order(a.name) - order(b.name) || a.name.localeCompare(b.name));
-  }, [routeVMs]);
+    const tally = (predicate: (s: Student) => boolean) => students.filter(predicate).length;
+
+    // One card per active area (real master data), ordered by name.
+    const result: AreaVM[] = [...areaMaster]
+      .filter((a) => a.active)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((a) => {
+        const rts = routesByArea.get(a.name) ?? [];
+        return {
+          id: a.id,
+          name: a.name,
+          routes: rts,
+          needCount: tally((s) => s.areaId === a.id && Boolean(s.transportRequested)),
+          assignedCount: tally((s) => s.areaId === a.id && assignmentByStudent.has(s.id)),
+          capacity: rts.reduce((s, v) => s + v.capacity.capacity, 0),
+        };
+      });
+
+    // Synthetic bucket for students/routes without a resolved area.
+    const unzonedRoutes = routesByArea.get(UNZONED) ?? [];
+    const unzNeed = tally((s) => !s.areaId && Boolean(s.transportRequested));
+    const unzAssigned = tally((s) => !s.areaId && assignmentByStudent.has(s.id));
+    if (unzonedRoutes.length || unzNeed || unzAssigned) {
+      result.push({
+        id: null,
+        name: UNZONED,
+        routes: unzonedRoutes,
+        needCount: unzNeed,
+        assignedCount: unzAssigned,
+        capacity: unzonedRoutes.reduce((s, v) => s + v.capacity.capacity, 0),
+      });
+    }
+    return result;
+  }, [routeVMs, areaMaster, students, assignmentByStudent]);
 
   const routeNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const r of routes) m.set(r.id, r.name);
     return m;
   }, [routes]);
-
-  const assignmentByStudent = useMemo(() => {
-    const m = new Map<string, StudentBusAssignment>();
-    for (const a of assignments) m.set(a.studentId, a);
-    return m;
-  }, [assignments]);
 
   const stopNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -441,7 +503,8 @@ export function useTransport(): TransportData {
     return students.map((student) => {
       const assignment = assignmentByStudent.get(student.id) ?? null;
       const routeName = assignment ? (routeNameById.get(assignment.routeId) ?? null) : null;
-      const area = assignment ? (routeAreas.get(assignment.routeId) ?? UNZONED) : UNZONED;
+      // Real geographic area: the student's own home area (set at registration).
+      const area = student.areaId ? (areaNameById.get(student.areaId) ?? UNZONED) : UNZONED;
       const pickup = assignment?.stopId ? (stopNameById.get(assignment.stopId) ?? null) : null;
       return {
         student,
@@ -449,13 +512,15 @@ export function useTransport(): TransportData {
         nameAr: fullNameAr(student),
         grade: gradeOf(student.sectionId),
         area,
+        areaId: student.areaId ?? null,
+        transportRequested: Boolean(student.transportRequested),
         pickup,
         assignment,
         routeName,
         assignedAt: assignment?.createdAt ?? null,
       };
     });
-  }, [students, assignmentByStudent, routeNameById, routeAreas, stopNameById, gradeOf]);
+  }, [students, assignmentByStudent, routeNameById, areaNameById, stopNameById, gradeOf]);
 
   return {
     loading,
@@ -466,6 +531,7 @@ export function useTransport(): TransportData {
     students,
     years,
     sections,
+    areaMaster,
     stopsByRoute,
     assignments,
     routeVMs,
@@ -476,5 +542,6 @@ export function useTransport(): TransportData {
     removeAssignment,
     setRoutes,
     setBuses,
+    setAreaMaster,
   };
 }

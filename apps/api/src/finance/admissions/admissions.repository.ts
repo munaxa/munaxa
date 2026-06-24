@@ -321,6 +321,12 @@ export class AdmissionsRepository extends TenantRepository {
             ...(s.dateOfBirth ? { dateOfBirth: new Date(s.dateOfBirth) } : {}),
             ...(s.nationalId ? { nationalId: s.nationalId } : {}),
             ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
+            // Transportation demand captured at registration (additive; Fleet stays the
+            // operational source of truth via the StudentBusAssignment created in step 6).
+            ...(dto.areaId ? { areaId: dto.areaId } : {}),
+            ...(dto.transportRequested !== undefined
+              ? { transportRequested: dto.transportRequested }
+              : {}),
             status: StudentStatus.ACTIVE,
             qrCode: generateStudentQrCode(),
           },
@@ -357,8 +363,19 @@ export class AdmissionsRepository extends TenantRepository {
             data: { tenantId, parentId: parent.id, studentId, relation, isPrimary: true },
           });
         }
-      } else if (dto.sectionId) {
-        await tx.student.update({ where: { id: studentId }, data: { sectionId: dto.sectionId } });
+      } else {
+        // Returning student: keep their profile but refresh placement + transport demand
+        // from this registration (all additive/optional).
+        const data: Prisma.StudentUpdateInput = {
+          ...(dto.sectionId ? { section: { connect: { id: dto.sectionId } } } : {}),
+          ...(dto.areaId ? { area: { connect: { id: dto.areaId } } } : {}),
+          ...(dto.transportRequested !== undefined
+            ? { transportRequested: dto.transportRequested }
+            : {}),
+        };
+        if (Object.keys(data).length > 0) {
+          await tx.student.update({ where: { id: studentId }, data });
+        }
       }
 
       // 3) Enrollment (one per student+year). A fee change only holds the enrollment in

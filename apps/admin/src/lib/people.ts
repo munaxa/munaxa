@@ -16,6 +16,10 @@ export interface Student {
   nationalId?: string | null;
   moeStudentNumber?: string | null;
   sectionId?: string | null;
+  /** Home area (geographic); set during registration. Drives Fleet's Area Planning. */
+  areaId?: string | null;
+  /** Whether the parent requested transportation. Feeds the Fleet Unassigned queue. */
+  transportRequested?: boolean;
   dateOfBirth?: string | null;
   gender?: string | null;
   enrollmentDate?: string | null;
@@ -74,6 +78,8 @@ export interface UpdateStudentInput {
   nationalId?: string;
   moeStudentNumber?: string;
   sectionId?: string;
+  areaId?: string;
+  transportRequested?: boolean;
   gender?: string;
   dateOfBirth?: string;
   status?: string;

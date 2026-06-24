@@ -400,6 +400,7 @@ model Tenant {
   buses                    Bus[]
   busStops                 BusStop[]
   busAssignments           StudentBusAssignment[]
+  areas                    Area[]
   libraryBooks             LibraryBook[]
   bookLoans                BookLoan[]
   inventoryItems           InventoryItem[]
@@ -626,6 +627,10 @@ model Student {
   sectionId        String?       @db.Uuid
   qrCode           String        @unique
   status           StudentStatus @default(ACTIVE)
+  // Transportation demand, set during registration (additive — Fleet remains the
+  // operational source of truth via StudentBusAssignment).
+  areaId             String?     @db.Uuid // home area (geographic), drives Area Planning
+  transportRequested Boolean     @default(false) // parent requested transport → Unassigned queue
   enrollmentDate   DateTime      @default(now()) @db.Timestamptz(6)
   createdAt        DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
@@ -634,6 +639,7 @@ model Student {
   tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                  User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   section               Section?               @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  area                  Area?                  @relation(fields: [areaId], references: [id], onDelete: SetNull)
   parentLinks           ParentStudent[]
   attendance            StudentAttendance[]
   behaviorLogs          BehaviorLog[]
@@ -667,6 +673,8 @@ model Student {
   @@index([tenantId])
   @@index([tenantId, sectionId])
   @@index([tenantId, status])
+  @@index([tenantId, areaId])
+  @@index([tenantId, transportRequested])
 }
 
 model Parent {
@@ -1712,6 +1720,28 @@ model StudentGamification {
 // ----------------------------------------------------------------------------
 
 // --- Bus tracking -----------------------------------------------------------
+/// Geographic area master data (e.g. Khalda, Dabouq). First-class home for the
+/// transportation demand captured at registration. Fleet remains the operational
+/// source of truth (routes/assignments); an Area only labels where a student lives.
+model Area {
+  id                      String    @id @default(uuid()) @db.Uuid
+  tenantId                String    @db.Uuid
+  name                    String
+  transportationAvailable Boolean   @default(true) // surfaced as a choice in registration
+  active                  Boolean   @default(true)
+  notes                   String?
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt               DateTime? @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  students Student[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, active])
+}
+
 model BusRoute {
   id             String    @id @default(uuid()) @db.Uuid
   tenantId       String    @db.Uuid

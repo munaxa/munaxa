@@ -5,6 +5,7 @@ import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
 import { employeesApi, type Employee } from '@/lib/people';
 import { busApi, type Bus, type BusRoute } from '@/lib/bus';
+import { areasApi, type Area } from '@/lib/areas';
 import { type AcademicYear } from '@/lib/structure';
 import {
   Badge,
@@ -13,6 +14,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Checkbox,
   Field,
   Input,
   Select,
@@ -37,31 +39,197 @@ export function Setup({ data, canManage }: { data: TransportData; canManage: boo
   const routeName = (id: string) => data.routes.find((r) => r.id === id)?.name ?? id;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <RoutesCard
-        routes={data.routes}
-        years={data.years}
-        yearName={yearName}
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <RoutesCard
+          routes={data.routes}
+          years={data.years}
+          yearName={yearName}
+          canManage={canManage}
+          onSaved={(r, isNew) =>
+            data.setRoutes((prev) =>
+              isNew ? [...prev, r] : prev.map((x) => (x.id === r.id ? r : x)),
+            )
+          }
+        />
+        <BusesCard
+          buses={data.buses}
+          routes={data.routes}
+          routeName={routeName}
+          currentYearIds={currentYearIds}
+          canManage={canManage}
+          onSaved={(b) =>
+            data.setBuses((prev) =>
+              prev.some((x) => x.id === b.id)
+                ? prev.map((x) => (x.id === b.id ? b : x))
+                : [...prev, b],
+            )
+          }
+        />
+      </div>
+      <AreasCard
+        areas={data.areaMaster}
         canManage={canManage}
-        onSaved={(r, isNew) =>
-          data.setRoutes((prev) =>
-            isNew ? [...prev, r] : prev.map((x) => (x.id === r.id ? r : x)),
-          )
-        }
-      />
-      <BusesCard
-        buses={data.buses}
-        routes={data.routes}
-        routeName={routeName}
-        currentYearIds={currentYearIds}
-        canManage={canManage}
-        onSaved={(b) =>
-          data.setBuses((prev) =>
-            prev.some((x) => x.id === b.id) ? prev.map((x) => (x.id === b.id ? b : x)) : [...prev, b],
+        onSaved={(a) =>
+          data.setAreaMaster((prev) =>
+            prev.some((x) => x.id === a.id) ? prev.map((x) => (x.id === a.id ? a : x)) : [...prev, a],
           )
         }
       />
     </div>
+  );
+}
+
+function AreasCard({
+  areas,
+  canManage,
+  onSaved,
+}: {
+  areas: Area[];
+  canManage: boolean;
+  onSaved: (a: Area) => void;
+}) {
+  const toast = useToast();
+  const { t } = useI18n();
+  const EMPTY = { name: '', notes: '', transportationAvailable: true, active: true };
+  const [form, setForm] = useState(EMPTY);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  function reset() {
+    setEditingId(null);
+    setForm(EMPTY);
+  }
+  function startEdit(a: Area) {
+    setEditingId(a.id);
+    setForm({
+      name: a.name,
+      notes: a.notes ?? '',
+      transportationAvailable: a.transportationAvailable,
+      active: a.active,
+    });
+  }
+
+  async function save() {
+    if (!form.name.trim()) return;
+    setBusy(true);
+    try {
+      const name = form.name.trim();
+      const notes = form.notes.trim();
+      const a = editingId
+        ? await areasApi.update(editingId, {
+            name,
+            notes,
+            transportationAvailable: form.transportationAvailable,
+            active: form.active,
+          })
+        : await areasApi.create({
+            name,
+            transportationAvailable: form.transportationAvailable,
+            active: form.active,
+            ...(notes ? { notes } : {}),
+          });
+      onSaved(a);
+      reset();
+      toast.success(editingId ? 'Area updated' : 'Area created');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save area');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('transport.area.master')}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">{t('transport.area.masterDesc')}</p>
+        {canManage ? (
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label={t('fleet.name')} className="flex-1 min-w-40">
+              <Input
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="Khalda"
+              />
+            </Field>
+            <Field label={t('fleet.description')} className="flex-1 min-w-40">
+              <Input
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              />
+            </Field>
+            <Checkbox
+              label={t('transport.area.transportAvailable')}
+              checked={form.transportationAvailable}
+              onChange={(e) => setForm({ ...form, transportationAvailable: e.target.checked })}
+            />
+            <Checkbox
+              label={t('transport.area.activeLabel')}
+              checked={form.active}
+              onChange={(e) => setForm({ ...form, active: e.target.checked })}
+            />
+            {editingId ? (
+              <Button size="sm" variant="outline" onClick={reset} disabled={busy}>
+                {t('common.cancel')}
+              </Button>
+            ) : null}
+            <Button size="sm" onClick={() => void save()} disabled={busy || !form.name.trim()}>
+              {editingId ? t('common.save') : t('common.add')}
+            </Button>
+          </div>
+        ) : null}
+        {areas.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('transport.area.noneYet')}</p>
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>{t('fleet.name')}</TH>
+                <TH>{t('transport.area.transportAvailable')}</TH>
+                <TH>{t('transport.area.activeLabel')}</TH>
+                {canManage ? <TH className="text-end">{t('common.actions')}</TH> : null}
+              </TR>
+            </THead>
+            <TBody>
+              {areas.map((a) => (
+                <TR key={a.id} className={a.active ? undefined : 'opacity-60'}>
+                  <TD>
+                    <span className="font-medium">{a.name}</span>
+                    {a.notes ? (
+                      <span className="block text-xs text-muted-foreground">{a.notes}</span>
+                    ) : null}
+                  </TD>
+                  <TD>
+                    {a.transportationAvailable ? (
+                      <Badge tone="success">{t('common.yes')}</Badge>
+                    ) : (
+                      <Badge tone="muted">{t('common.no')}</Badge>
+                    )}
+                  </TD>
+                  <TD>
+                    {a.active ? (
+                      <Badge tone="success">{t('common.yes')}</Badge>
+                    ) : (
+                      <Badge tone="muted">{t('common.no')}</Badge>
+                    )}
+                  </TD>
+                  {canManage ? (
+                    <TD className="text-end">
+                      <Button size="sm" variant="ghost" onClick={() => startEdit(a)}>
+                        {t('common.edit')}
+                      </Button>
+                    </TD>
+                  ) : null}
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

@@ -14,6 +14,7 @@ import {
   type UpsertVaccineInput,
 } from '@/lib/people';
 import { sectionsApi, type Section } from '@/lib/structure';
+import { areasApi, type Area } from '@/lib/areas';
 import { StudentProfileDialog } from './student-profile-dialog';
 import {
   Badge,
@@ -108,6 +109,7 @@ export default function StudentsPage() {
   const [viewing, setViewing] = useState<Student | null>(null);
   const [search, setSearch] = useState('');
   const [sections, setSections] = useState<Section[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
 
   const load = useCallback(async (query?: string) => {
     try {
@@ -124,6 +126,11 @@ export default function StudentsPage() {
     sectionsApi
       .list()
       .then(setSections)
+      .catch(() => undefined);
+    // Areas label/edit a student's home area (transportation). Best-effort.
+    areasApi
+      .list()
+      .then(setAreas)
       .catch(() => undefined);
   }, []);
 
@@ -297,6 +304,7 @@ export default function StudentsPage() {
         <StudentEditor
           student={editing}
           sections={sections}
+          areas={areas}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             setEditing(null);
@@ -456,11 +464,13 @@ function ImportStudents({
 function StudentEditor({
   student,
   sections,
+  areas,
   onClose,
   onSaved,
 }: {
   student: Student;
   sections: Section[];
+  areas: Area[];
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -480,6 +490,8 @@ function StudentEditor({
     moeStudentNumber: student.moeStudentNumber ?? '',
     gender: student.gender ?? '',
     sectionId: student.sectionId ?? '',
+    areaId: student.areaId ?? '',
+    transportRequested: student.transportRequested ?? false,
     status: student.status,
   });
   const [saving, setSaving] = useState(false);
@@ -488,10 +500,11 @@ function StudentEditor({
     e.preventDefault();
     setSaving(true);
     try {
-      // Drop empty enum/uuid fields — the API rejects "" for gender/section.
+      // Drop empty enum/uuid fields — the API rejects "" for gender/section/area.
       const payload: UpdateStudentInput = { ...form };
       if (!payload.gender) delete payload.gender;
       if (!payload.sectionId) delete payload.sectionId;
+      if (!payload.areaId) delete payload.areaId;
       await studentsApi.update(student.id, payload);
       toast.success(t('people.studentUpdated'));
       await onSaved();
@@ -589,6 +602,28 @@ function StudentEditor({
               ))}
             </Select>
           </Field>
+
+          {/* Transportation demand — mirrors the registration fields. Feeds Fleet's
+              Area Planning (areaId) and Unassigned queue (transportRequested). */}
+          <Field label={t('transport.table.area')}>
+            <Select value={form.areaId ?? ''} onChange={(e) => set({ areaId: e.target.value })}>
+              <option value="">—</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                  {a.active ? '' : ` (${t('transport.area.inactive')})`}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label=" ">
+            <Checkbox
+              label={t('transport.editStudent.transportRequested')}
+              checked={form.transportRequested ?? false}
+              onChange={(e) => set({ transportRequested: e.target.checked })}
+            />
+          </Field>
+
           <div className="col-span-full flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               {t('common.cancel')}

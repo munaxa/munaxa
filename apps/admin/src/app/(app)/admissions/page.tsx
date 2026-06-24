@@ -16,6 +16,7 @@ import {
 import { schoolsApi, campusesApi, gradesApi, academicYearsApi, sectionsApi } from '@/lib/structure';
 import type { AcademicYear, Campus, Grade, Section } from '@/lib/structure';
 import { feeConfigApi, type TransportFare } from '@/lib/finance';
+import { areasApi, type Area } from '@/lib/areas';
 import {
   Badge,
   Button,
@@ -63,7 +64,9 @@ export default function AdmissionsPage() {
   const [transportDirection, setTransportDirection] = useState<TransportDirection>('NONE');
   const [transportRouteGroup, setTransportRouteGroup] = useState('');
   const [transportTrip, setTransportTrip] = useState('');
+  const [transportAreaId, setTransportAreaId] = useState('');
   const [fares, setFares] = useState<TransportFare[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
   const [paymentMode, setPaymentMode] = useState<QuotePaymentMode>('INSTALLMENTS');
   const [installments, setInstallments] = useState('1');
   const [firstDueDate, setFirstDueDate] = useState(new Date().toISOString().slice(0, 10));
@@ -115,6 +118,14 @@ export default function AdmissionsPage() {
       })
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Failed to load structure'));
   }, [campusId, toast]);
+
+  // Active, transport-enabled areas registrars can offer (master data shared with Fleet).
+  useEffect(() => {
+    areasApi
+      .list({ active: true, transportAvailable: true })
+      .then(setAreas)
+      .catch(() => setAreas([]));
+  }, []);
 
   // Transport fares for the year drive the available route groups (only configured fares are priced).
   useEffect(() => {
@@ -244,6 +255,11 @@ export default function AdmissionsPage() {
         idempotencyKey: crypto.randomUUID(),
         ...(mode === 'RETURNING' ? { existingStudentId: returningId } : {}),
         ...(sectionId ? { sectionId } : {}),
+        // Transportation demand: "Yes" = any direction other than NONE. This records the
+        // request + home area on the student so Fleet's Unassigned queue and Area Planning
+        // use real data; it does not change billing (charges still come from TransportFare).
+        transportRequested: transportDirection !== 'NONE',
+        ...(transportDirection !== 'NONE' && transportAreaId ? { areaId: transportAreaId } : {}),
         // Mirror the transport choice into the fleet (route + trip) when transport is selected.
         ...(transportDirection !== 'NONE' && selectedFare?.route?.id
           ? {
@@ -410,6 +426,7 @@ export default function AdmissionsPage() {
               onChange={(e) => {
                 setTransportDirection(e.target.value as TransportDirection);
                 setTransportRouteGroup('');
+                if (e.target.value === 'NONE') setTransportAreaId('');
               }}
             >
               {DIRECTIONS.map((dirn) => (
@@ -446,6 +463,26 @@ export default function AdmissionsPage() {
                   <option value="">No trip</option>
                   <option value="1">1st trip</option>
                   <option value="2">2nd trip</option>
+                </Select>
+              </Field>
+              <Field
+                label="Area"
+                hint={
+                  areas.length
+                    ? 'Where the student lives — drives Fleet Area Planning'
+                    : 'No active areas configured yet (add them under Fleet → Setup)'
+                }
+              >
+                <Select
+                  value={transportAreaId}
+                  onChange={(e) => setTransportAreaId(e.target.value)}
+                >
+                  <option value="">—</option>
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
                 </Select>
               </Field>
             </>

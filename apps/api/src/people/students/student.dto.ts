@@ -93,7 +93,17 @@ export class CreateStudentDto {
   status?: StudentStatus;
 }
 
-export class UpdateStudentDto extends PartialType(CreateStudentDto) {}
+export class UpdateStudentDto extends PartialType(CreateStudentDto) {
+  @ApiPropertyOptional({ description: "Home area (geographic); drives Fleet's Area Planning." })
+  @IsOptional()
+  @IsUUID()
+  areaId?: string;
+
+  @ApiPropertyOptional({ description: 'Whether the parent requested transportation.' })
+  @IsOptional()
+  @IsBoolean()
+  transportRequested?: boolean;
+}
 
 export class LinkParentDto {
   @ApiProperty({ format: 'uuid' })
