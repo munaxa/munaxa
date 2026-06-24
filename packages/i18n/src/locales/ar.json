@@ -863,7 +863,8 @@
       "masterDesc": "المناطق الجغرافية المعروضة أثناء التسجيل. تظهر للمسجّلين المناطق النشطة المتاحة للنقل فقط.",
       "transportAvailable": "النقل متاح",
       "activeLabel": "نشط",
-      "noneYet": "لا توجد مناطق بعد — أضف واحدة أعلاه."
+      "noneYet": "لا توجد مناطق بعد — أضف واحدة أعلاه.",
+      "inactive": "غير نشط"
     },
     "unassigned": {
       "needTransport": "طالب بحاجة إلى مسار",
@@ -892,6 +893,9 @@
       "errMissingRoute": "المسار مفقود",
       "errUnknownRoute": "المسار غير موجود",
       "errBadTrip": "رحلة غير معروفة"
+    },
+    "editStudent": {
+      "transportRequested": "تم طلب النقل"
     }
   }
 }

@@ -863,7 +863,8 @@
       "masterDesc": "Geographic areas offered during registration. Only active, transport-enabled areas are shown to registrars.",
       "transportAvailable": "Transport available",
       "activeLabel": "Active",
-      "noneYet": "No areas yet — add one above."
+      "noneYet": "No areas yet — add one above.",
+      "inactive": "inactive"
     },
     "unassigned": {
       "needTransport": "students need a route",
@@ -892,6 +893,9 @@
       "errMissingRoute": "Missing route",
       "errUnknownRoute": "Route not found",
       "errBadTrip": "Unrecognised trip"
+    },
+    "editStudent": {
+      "transportRequested": "Transportation requested"
     }
   }
 }

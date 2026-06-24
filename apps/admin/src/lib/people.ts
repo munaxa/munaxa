@@ -78,6 +78,8 @@ export interface UpdateStudentInput {
   nationalId?: string;
   moeStudentNumber?: string;
   sectionId?: string;
+  areaId?: string;
+  transportRequested?: boolean;
   gender?: string;
   dateOfBirth?: string;
   status?: string;
