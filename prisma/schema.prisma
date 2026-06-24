@@ -506,6 +506,7 @@ model AcademicYear {
   enrollmentQuotes EnrollmentQuote[]
   enrollments      Enrollment[]
   busRoutes        BusRoute[]
+  serviceAreas     Area[]
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
@@ -1720,13 +1721,18 @@ model StudentGamification {
 // ----------------------------------------------------------------------------
 
 // --- Bus tracking -----------------------------------------------------------
-/// Geographic area master data (e.g. Khalda, Dabouq). First-class home for the
-/// transportation demand captured at registration. Fleet remains the operational
-/// source of truth (routes/assignments); an Area only labels where a student lives.
+/// Geographic area master data (e.g. Khalda, Dabouq). The transportation department
+/// maps each area to the route that serves it (Area → Route) so registration can resolve
+/// the route automatically. Fleet remains the operational source of truth (routes/
+/// assignments); billing still flows through TransportFare — transportFee is an optional
+/// per-area override only.
 model Area {
   id                      String    @id @default(uuid()) @db.Uuid
   tenantId                String    @db.Uuid
   name                    String
+  routeId                 String?   @db.Uuid // the route that serves this area (Area → Route)
+  academicYearId          String?   @db.Uuid // which year this route mapping reflects (optional)
+  transportFee            Decimal?  @db.Decimal(12, 3) // optional fee override; default is the route's TransportFare
   transportationAvailable Boolean   @default(true) // surfaced as a choice in registration
   active                  Boolean   @default(true)
   notes                   String?
@@ -1734,12 +1740,15 @@ model Area {
   updatedAt               DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt               DateTime? @db.Timestamptz(6)
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  students Student[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  route        BusRoute?     @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  students     Student[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
   @@index([tenantId, active])
+  @@index([routeId])
 }
 
 model BusRoute {
@@ -1761,6 +1770,7 @@ model BusRoute {
   stops          BusStop[]
   assignments    StudentBusAssignment[]
   transportFares TransportFare[]
+  serviceAreas   Area[]
 
   @@index([tenantId])
   @@index([tenantId, academicYearId])

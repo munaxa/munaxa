@@ -864,7 +864,16 @@
       "transportAvailable": "النقل متاح",
       "activeLabel": "نشط",
       "noneYet": "لا توجد مناطق بعد — أضف واحدة أعلاه.",
-      "inactive": "غير نشط"
+      "inactive": "غير نشط",
+      "route": "المسار",
+      "noRouteMapped": "لا يوجد مسار",
+      "feeOverride": "تجاوز الرسوم (د.أ)",
+      "feeDefault": "رسوم المسار",
+      "studentsCount": "الطلاب",
+      "fee": "الرسوم",
+      "notOffered": "غير متاح",
+      "archive": "أرشفة",
+      "restore": "استعادة"
     },
     "unassigned": {
       "needTransport": "طالب بحاجة إلى مسار",
@@ -895,7 +904,9 @@
       "errBadTrip": "رحلة غير معروفة"
     },
     "editStudent": {
-      "transportRequested": "تم طلب النقل"
+      "transportRequested": "تم طلب النقل",
+      "areaChanged": "تخدم هذه المنطقة",
+      "reassignHint": "لا يتم نقل الطالب تلقائياً — أعد الإسناد من النقل ← طلاب المسار."
     }
   }
 }

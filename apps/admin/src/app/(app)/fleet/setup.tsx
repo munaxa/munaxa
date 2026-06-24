@@ -69,6 +69,7 @@ export function Setup({ data, canManage }: { data: TransportData; canManage: boo
       </div>
       <AreasCard
         areas={data.areaMaster}
+        routes={data.routes}
         canManage={canManage}
         onSaved={(a) =>
           data.setAreaMaster((prev) =>
@@ -82,19 +83,31 @@ export function Setup({ data, canManage }: { data: TransportData; canManage: boo
 
 function AreasCard({
   areas,
+  routes,
   canManage,
   onSaved,
 }: {
   areas: Area[];
+  routes: BusRoute[];
   canManage: boolean;
   onSaved: (a: Area) => void;
 }) {
   const toast = useToast();
   const { t } = useI18n();
-  const EMPTY = { name: '', notes: '', transportationAvailable: true, active: true };
+  const EMPTY = {
+    name: '',
+    notes: '',
+    routeId: '',
+    transportFee: '',
+    transportationAvailable: true,
+    active: true,
+  };
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const routeNameById = (id: string | null) =>
+    id ? (routes.find((r) => r.id === id)?.name ?? id) : null;
 
   function reset() {
     setEditingId(null);
@@ -105,6 +118,8 @@ function AreasCard({
     setForm({
       name: a.name,
       notes: a.notes ?? '',
+      routeId: a.routeId ?? '',
+      transportFee: a.transportFee ?? '',
       transportationAvailable: a.transportationAvailable,
       active: a.active,
     });
@@ -116,10 +131,13 @@ function AreasCard({
     try {
       const name = form.name.trim();
       const notes = form.notes.trim();
+      const fee = form.transportFee.trim();
       const a = editingId
         ? await areasApi.update(editingId, {
             name,
             notes,
+            routeId: form.routeId,
+            ...(fee ? { transportFee: Number(fee) } : {}),
             transportationAvailable: form.transportationAvailable,
             active: form.active,
           })
@@ -127,6 +145,8 @@ function AreasCard({
             name,
             transportationAvailable: form.transportationAvailable,
             active: form.active,
+            ...(form.routeId ? { routeId: form.routeId } : {}),
+            ...(fee ? { transportFee: Number(fee) } : {}),
             ...(notes ? { notes } : {}),
           });
       onSaved(a);
@@ -139,6 +159,17 @@ function AreasCard({
     }
   }
 
+  // Archive = soft-disable (active=false). Areas are never hard-deleted (students reference them).
+  async function archive(a: Area) {
+    try {
+      const updated = await areasApi.update(a.id, { active: !a.active });
+      onSaved(updated);
+      toast.success(a.active ? 'Area archived' : 'Area restored');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to update area');
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -148,17 +179,36 @@ function AreasCard({
         <p className="text-sm text-muted-foreground">{t('transport.area.masterDesc')}</p>
         {canManage ? (
           <div className="flex flex-wrap items-end gap-3">
-            <Field label={t('fleet.name')} className="flex-1 min-w-40">
+            <Field label={t('fleet.name')} className="flex-1 min-w-36">
               <Input
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="Khalda"
               />
             </Field>
-            <Field label={t('fleet.description')} className="flex-1 min-w-40">
+            <Field label={t('transport.area.route')} className="min-w-40">
+              <Select
+                value={form.routeId}
+                onChange={(e) => setForm({ ...form, routeId: e.target.value })}
+              >
+                <option value="">{t('transport.area.noRouteMapped')}</option>
+                {routes
+                  .filter((r) => !r.disabledAt || r.id === form.routeId)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+              </Select>
+            </Field>
+            <Field label={t('transport.area.feeOverride')}>
               <Input
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                type="number"
+                step="0.001"
+                dir="ltr"
+                value={form.transportFee}
+                onChange={(e) => setForm({ ...form, transportFee: e.target.value })}
+                placeholder={t('transport.area.feeDefault')}
               />
             </Field>
             <Checkbox
@@ -188,7 +238,9 @@ function AreasCard({
             <THead>
               <TR>
                 <TH>{t('fleet.name')}</TH>
-                <TH>{t('transport.area.transportAvailable')}</TH>
+                <TH>{t('transport.area.route')}</TH>
+                <TH className="text-end">{t('transport.area.studentsCount')}</TH>
+                <TH className="text-end">{t('transport.area.fee')}</TH>
                 <TH>{t('transport.area.activeLabel')}</TH>
                 {canManage ? <TH className="text-end">{t('common.actions')}</TH> : null}
               </TR>
@@ -198,16 +250,23 @@ function AreasCard({
                 <TR key={a.id} className={a.active ? undefined : 'opacity-60'}>
                   <TD>
                     <span className="font-medium">{a.name}</span>
+                    {!a.transportationAvailable ? (
+                      <Badge tone="muted" className="ms-2">
+                        {t('transport.area.notOffered')}
+                      </Badge>
+                    ) : null}
                     {a.notes ? (
                       <span className="block text-xs text-muted-foreground">{a.notes}</span>
                     ) : null}
                   </TD>
-                  <TD>
-                    {a.transportationAvailable ? (
-                      <Badge tone="success">{t('common.yes')}</Badge>
-                    ) : (
-                      <Badge tone="muted">{t('common.no')}</Badge>
+                  <TD className="text-sm">
+                    {a.route?.name ?? routeNameById(a.routeId) ?? (
+                      <span className="text-warning">{t('transport.area.noRouteMapped')}</span>
                     )}
+                  </TD>
+                  <TD className="text-end font-mono text-xs">{a.studentCount ?? 0}</TD>
+                  <TD className="text-end font-mono text-xs">
+                    {a.transportFee != null ? a.transportFee : '—'}
                   </TD>
                   <TD>
                     {a.active ? (
@@ -220,6 +279,9 @@ function AreasCard({
                     <TD className="text-end">
                       <Button size="sm" variant="ghost" onClick={() => startEdit(a)}>
                         {t('common.edit')}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => void archive(a)}>
+                        {a.active ? t('transport.area.archive') : t('transport.area.restore')}
                       </Button>
                     </TD>
                   ) : null}

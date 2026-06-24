@@ -864,7 +864,16 @@
       "transportAvailable": "Transport available",
       "activeLabel": "Active",
       "noneYet": "No areas yet — add one above.",
-      "inactive": "inactive"
+      "inactive": "inactive",
+      "route": "Route",
+      "noRouteMapped": "No route mapped",
+      "feeOverride": "Fee override (JOD)",
+      "feeDefault": "Route fare",
+      "studentsCount": "Students",
+      "fee": "Fee",
+      "notOffered": "not offered",
+      "archive": "Archive",
+      "restore": "Restore"
     },
     "unassigned": {
       "needTransport": "students need a route",
@@ -895,7 +904,9 @@
       "errBadTrip": "Unrecognised trip"
     },
     "editStudent": {
-      "transportRequested": "Transportation requested"
+      "transportRequested": "Transportation requested",
+      "areaChanged": "This area is served by",
+      "reassignHint": "The student isn't moved automatically — reassign under Fleet → Route Students."
     }
   }
 }

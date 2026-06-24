@@ -62,7 +62,6 @@ export default function AdmissionsPage() {
   const [gradeId, setGradeId] = useState('');
   const [sectionId, setSectionId] = useState('');
   const [transportDirection, setTransportDirection] = useState<TransportDirection>('NONE');
-  const [transportRouteGroup, setTransportRouteGroup] = useState('');
   const [transportTrip, setTransportTrip] = useState('');
   const [transportAreaId, setTransportAreaId] = useState('');
   const [fares, setFares] = useState<TransportFare[]>([]);
@@ -146,22 +145,24 @@ export default function AdmissionsPage() {
       .catch(() => setSections([]));
   }, [gradeId]);
 
-  // The fare/route the quote is priced against (named route, else the first configured) — its
-  // fleet route id + chosen trip are what we assign the student to on commit.
-  const selectedFare = useMemo(() => {
-    if (transportDirection === 'NONE') return null;
-    const active = fares.filter((f) => f.isActive && f.route && !f.route.disabledAt);
-    return transportRouteGroup
-      ? (active.find((f) => f.route?.name === transportRouteGroup) ?? null)
-      : (active[0] ?? null);
-  }, [fares, transportDirection, transportRouteGroup]);
+  // The registrar picks the AREA; the route is resolved from the Area → Route mapping.
+  const selectedArea = useMemo(
+    () => areas.find((a) => a.id === transportAreaId) ?? null,
+    [areas, transportAreaId],
+  );
+  const resolvedRouteId = selectedArea?.routeId ?? null;
+  const resolvedRouteName = selectedArea?.route?.name ?? null;
 
-  // Routes that have a configured (active) fare for the year — direction is applied to the fare.
-  const routeGroupOptions = useMemo(() => {
-    if (transportDirection === 'NONE') return [] as string[];
-    const names = fares.filter((f) => f.isActive && f.route).map((f) => f.route!.name);
-    return Array.from(new Set(names));
-  }, [fares, transportDirection]);
+  // The fare the quote is priced against = the active fare for the resolved route (by name,
+  // within the selected year). Pricing still flows through TransportFare (billing unchanged).
+  const selectedFare = useMemo(() => {
+    if (transportDirection === 'NONE' || !resolvedRouteName) return null;
+    return (
+      fares.find(
+        (f) => f.isActive && f.route && !f.route.disabledAt && f.route.name === resolvedRouteName,
+      ) ?? null
+    );
+  }, [fares, transportDirection, resolvedRouteName]);
 
   useEffect(
     () => setQuote(null),
@@ -169,7 +170,7 @@ export default function AdmissionsPage() {
       gradeId,
       academicYearId,
       transportDirection,
-      transportRouteGroup,
+      transportAreaId,
       paymentMode,
       installments,
       firstDueDate,
@@ -211,7 +212,9 @@ export default function AdmissionsPage() {
         academicYearId,
         ...(mode === 'RETURNING' && returningId ? { studentId: returningId } : {}),
         transportDirection,
-        ...(transportDirection !== 'NONE' && transportRouteGroup ? { transportRouteGroup } : {}),
+        ...(transportDirection !== 'NONE' && resolvedRouteName
+          ? { transportRouteGroup: resolvedRouteName }
+          : {}),
         paymentMode,
         installments: Number(installments) || 1,
         firstDueDate,
@@ -260,10 +263,12 @@ export default function AdmissionsPage() {
         // use real data; it does not change billing (charges still come from TransportFare).
         transportRequested: transportDirection !== 'NONE',
         ...(transportDirection !== 'NONE' && transportAreaId ? { areaId: transportAreaId } : {}),
-        // Mirror the transport choice into the fleet (route + trip) when transport is selected.
-        ...(transportDirection !== 'NONE' && selectedFare?.route?.id
+        // Route is resolved from the Area → Route mapping (no manual selection). When the area
+        // has no mapped route, no assignment is created and the student lands in the Unassigned
+        // queue for the coordinator. Trip stays a per-student choice. Billing unchanged.
+        ...(transportDirection !== 'NONE' && resolvedRouteId
           ? {
-              busRouteId: selectedFare.route.id,
+              busRouteId: resolvedRouteId,
               ...(transportTrip ? { busTripRound: Number(transportTrip) } : {}),
             }
           : {}),
@@ -425,7 +430,6 @@ export default function AdmissionsPage() {
               value={transportDirection}
               onChange={(e) => {
                 setTransportDirection(e.target.value as TransportDirection);
-                setTransportRouteGroup('');
                 if (e.target.value === 'NONE') setTransportAreaId('');
               }}
             >
@@ -439,21 +443,18 @@ export default function AdmissionsPage() {
           {transportDirection !== 'NONE' ? (
             <>
               <Field
-                label="Route"
+                label="Area"
                 hint={
-                  routeGroupOptions.length
-                    ? 'Configured under Fee configuration → Transport fares'
-                    : 'No route fares configured for this direction yet'
+                  areas.length
+                    ? 'The route is resolved automatically from the area'
+                    : 'No active areas configured yet (add them under Fleet → Setup)'
                 }
               >
-                <Select
-                  value={transportRouteGroup}
-                  onChange={(e) => setTransportRouteGroup(e.target.value)}
-                >
-                  <option value="">Default (first configured)</option>
-                  {routeGroupOptions.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
+                <Select value={transportAreaId} onChange={(e) => setTransportAreaId(e.target.value)}>
+                  <option value="">—</option>
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
                     </option>
                   ))}
                 </Select>
@@ -465,26 +466,33 @@ export default function AdmissionsPage() {
                   <option value="2">2nd trip</option>
                 </Select>
               </Field>
-              <Field
-                label="Area"
-                hint={
-                  areas.length
-                    ? 'Where the student lives — drives Fleet Area Planning'
-                    : 'No active areas configured yet (add them under Fleet → Setup)'
-                }
-              >
-                <Select
-                  value={transportAreaId}
-                  onChange={(e) => setTransportAreaId(e.target.value)}
-                >
-                  <option value="">—</option>
-                  {areas.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              {/* Route is resolved from the Area → Route mapping — not chosen manually. */}
+              <div className="sm:col-span-2 rounded-lg border border-border bg-secondary/30 p-3 text-sm">
+                {!transportAreaId ? (
+                  <span className="text-muted-foreground">Select an area to resolve the route.</span>
+                ) : resolvedRouteName ? (
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+                    <span>
+                      Route: <span className="font-medium">{resolvedRouteName}</span>
+                    </span>
+                    <span>
+                      Fee:{' '}
+                      <span className="font-medium">
+                        {selectedArea?.transportFee != null
+                          ? jod(selectedArea.transportFee)
+                          : selectedFare
+                            ? jod(selectedFare.amount)
+                            : 'set under Transport fares'}
+                      </span>
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-warning">
+                    No route is mapped to this area yet — the student will be added to the
+                    Unassigned queue in Fleet. Map the area to a route under Fleet → Setup.
+                  </span>
+                )}
+              </div>
             </>
           ) : null}
         </CardContent>

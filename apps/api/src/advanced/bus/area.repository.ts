@@ -2,9 +2,15 @@ import { Injectable } from '@nestjs/common';
 import type { Area, Prisma } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 
+/** Area enriched with its mapped route + how many students live there (Fleet config view). */
+export interface AreaWithStats extends Area {
+  route: { id: string; name: string; disabledAt: Date | null } | null;
+  studentCount: number;
+}
+
 @Injectable()
 export class AreaRepository extends TenantRepository {
-  list(filter: { active?: boolean; transportationAvailable?: boolean }): Promise<Area[]> {
+  list(filter: { active?: boolean; transportationAvailable?: boolean }): Promise<AreaWithStats[]> {
     return this.run((tx) =>
       tx.area.findMany({
         where: {
@@ -15,7 +21,13 @@ export class AreaRepository extends TenantRepository {
             : {}),
         },
         orderBy: { name: 'asc' },
+        include: {
+          route: { select: { id: true, name: true, disabledAt: true } },
+          _count: { select: { students: true } },
+        },
       }),
+    ).then((rows) =>
+      rows.map(({ _count, ...a }) => ({ ...a, studentCount: _count.students }) as AreaWithStats),
     );
   }
 
@@ -27,17 +39,15 @@ export class AreaRepository extends TenantRepository {
     return this.run((tx) => tx.area.findFirst({ where: { id, deletedAt: null } }));
   }
 
-  update(id: string, data: Prisma.AreaUpdateInput): Promise<Area> {
+  update(id: string, data: Prisma.AreaUncheckedUpdateInput): Promise<Area> {
     return this.run((tx) => tx.area.update({ where: { id }, data }));
   }
 
-  /** Whether an active, transport-enabled area exists in this tenant (used to validate registration). */
-  isTransportArea(id: string): Promise<boolean> {
+  /** Whether a (non-deleted) route exists in this tenant — RLS scopes the lookup. */
+  routeExists(routeId: string): Promise<boolean> {
     return this.run(
       async (tx) =>
-        (await tx.area.findFirst({
-          where: { id, deletedAt: null, active: true, transportationAvailable: true },
-        })) !== null,
+        (await tx.busRoute.findFirst({ where: { id: routeId, deletedAt: null } })) !== null,
     );
   }
 }

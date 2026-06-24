@@ -406,11 +406,28 @@ export function useTransport(): TransportData {
     return m;
   }, [assignments]);
 
-  // A route's area = where its assigned riders actually live (most common areaId).
-  // Real data — no more inferring from route names.
+  // Explicit Area → Route mapping (the transport dept configures it once).
+  const areasByRouteId = useMemo(() => {
+    const m = new Map<string, Area[]>();
+    for (const a of areaMaster) {
+      if (!a.routeId) continue;
+      const list = m.get(a.routeId) ?? [];
+      list.push(a);
+      m.set(a.routeId, list);
+    }
+    return m;
+  }, [areaMaster]);
+
+  // A route's area label = the area(s) it's mapped to serve. Falls back to the dominant
+  // home-area of its current riders when no mapping exists yet.
   const routeAreaName = useMemo(() => {
     const m = new Map<string, string>();
     for (const route of routes) {
+      const mapped = areasByRouteId.get(route.id) ?? [];
+      if (mapped.length > 0) {
+        m.set(route.id, mapped.map((a) => a.name).join(', '));
+        continue;
+      }
       const areaIds = (assignmentsByRoute.get(route.id) ?? [])
         .map((a) => studentAreaById.get(a.studentId) ?? null)
         .filter((x): x is string => Boolean(x));
@@ -418,7 +435,7 @@ export function useTransport(): TransportData {
       m.set(route.id, dominant ? (areaNameById.get(dominant) ?? UNZONED) : UNZONED);
     }
     return m;
-  }, [routes, assignmentsByRoute, studentAreaById, areaNameById]);
+  }, [routes, areasByRouteId, assignmentsByRoute, studentAreaById, areaNameById]);
 
   const routeVMs = useMemo<RouteVM[]>(() => {
     return routes.map((route) => {
@@ -444,20 +461,16 @@ export function useTransport(): TransportData {
   }, [routes, buses, assignmentsByRoute, routeAreaName]);
 
   const areas = useMemo<AreaVM[]>(() => {
-    const routesByArea = new Map<string, RouteVM[]>();
-    for (const vm of routeVMs) {
-      const list = routesByArea.get(vm.area) ?? [];
-      list.push(vm);
-      routesByArea.set(vm.area, list);
-    }
+    const vmById = new Map(routeVMs.map((vm) => [vm.route.id, vm]));
     const tally = (predicate: (s: Student) => boolean) => students.filter(predicate).length;
 
-    // One card per active area (real master data), ordered by name.
+    // One card per active area. Its route is the explicit Area → Route mapping.
     const result: AreaVM[] = [...areaMaster]
       .filter((a) => a.active)
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((a) => {
-        const rts = routesByArea.get(a.name) ?? [];
+        const vm = a.routeId ? vmById.get(a.routeId) : undefined;
+        const rts = vm ? [vm] : [];
         return {
           id: a.id,
           name: a.name,
@@ -468,8 +481,11 @@ export function useTransport(): TransportData {
         };
       });
 
-    // Synthetic bucket for students/routes without a resolved area.
-    const unzonedRoutes = routesByArea.get(UNZONED) ?? [];
+    // Synthetic bucket: routes mapped to no active area + students with no home area.
+    const mappedRouteIds = new Set(
+      areaMaster.filter((a) => a.active && a.routeId).map((a) => a.routeId as string),
+    );
+    const unzonedRoutes = routeVMs.filter((vm) => !mappedRouteIds.has(vm.route.id));
     const unzNeed = tally((s) => !s.areaId && Boolean(s.transportRequested));
     const unzAssigned = tally((s) => !s.areaId && assignmentByStudent.has(s.id));
     if (unzonedRoutes.length || unzNeed || unzAssigned) {

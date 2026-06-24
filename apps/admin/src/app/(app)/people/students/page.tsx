@@ -517,6 +517,13 @@ function StudentEditor({
 
   const set = (patch: Partial<UpdateStudentInput>) => setForm((f) => ({ ...f, ...patch }));
 
+  // When the registrar picks a different area that maps to a route, surface it — but the
+  // student is NOT moved automatically (the update only persists areaId). Reassign in Fleet.
+  const originalAreaId = student.areaId ?? '';
+  const pickedArea = areas.find((a) => a.id === form.areaId);
+  const areaChangedRoute =
+    form.areaId && form.areaId !== originalAreaId ? (pickedArea?.route?.name ?? null) : null;
+
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
       <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
@@ -623,6 +630,13 @@ function StudentEditor({
               onChange={(e) => set({ transportRequested: e.target.checked })}
             />
           </Field>
+          {/* Area changed → surface the new route but never silently move the student. */}
+          {areaChangedRoute ? (
+            <p className="col-span-full rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+              {t('transport.editStudent.areaChanged')} {areaChangedRoute}.{' '}
+              {t('transport.editStudent.reassignHint')}
+            </p>
+          ) : null}
 
           <div className="col-span-full flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>

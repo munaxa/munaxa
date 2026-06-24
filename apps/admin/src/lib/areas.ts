@@ -2,13 +2,21 @@
 
 import { authFetch } from './auth';
 
-/** Geographic area master data (home area for transportation demand). */
+/** Geographic area master data (home area + Area → Route mapping). */
 export interface Area {
   id: string;
   name: string;
+  /** The route that serves this area (Area → Route). Null until the dept maps it. */
+  routeId: string | null;
+  academicYearId: string | null;
+  /** Optional fee override (JOD as string); null means use the route's TransportFare. */
+  transportFee: string | null;
   transportationAvailable: boolean;
   active: boolean;
   notes: string | null;
+  /** Enriched by the list endpoint. */
+  route?: { id: string; name: string; disabledAt: string | null } | null;
+  studentCount?: number;
 }
 
 async function json<T>(res: Response): Promise<T> {
@@ -32,6 +40,9 @@ export const areasApi = {
   },
   create: (data: {
     name: string;
+    routeId?: string;
+    academicYearId?: string;
+    transportFee?: number;
     transportationAvailable?: boolean;
     active?: boolean;
     notes?: string;
@@ -41,6 +52,9 @@ export const areasApi = {
     id: string,
     data: Partial<{
       name: string;
+      routeId: string;
+      academicYearId: string;
+      transportFee: number;
       transportationAvailable: boolean;
       active: boolean;
       notes: string;
