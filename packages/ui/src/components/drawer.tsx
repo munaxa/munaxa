@@ -76,7 +76,7 @@ export function Drawer({
             {title}
           </h2>
         </div>
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">{children}</div>
         {footer ? (
           <div className="flex items-center justify-end gap-2 border-t border-border p-6">
             {footer}
