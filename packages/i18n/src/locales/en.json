@@ -54,7 +54,9 @@
     "next": "Next",
     "page": "Page",
     "pagination": "Pagination",
-    "retry": "Retry"
+    "retry": "Retry",
+    "yes": "Yes",
+    "no": "No"
   },
   "auth": {
     "signIn": "Sign in",
@@ -854,7 +856,14 @@
       "studentsWord": "students",
       "backToAreas": "All areas",
       "noRoutes": "No routes serve this area yet.",
-      "assignNote": "To add riders to this area's routes, open a route and use Move, or assign from the Unassigned tab."
+      "assignNote": "To add riders to this area's routes, open a route and use Move, or assign from the Unassigned tab.",
+      "needTransport": "need transport",
+      "assignedWord": "Assigned:",
+      "master": "Areas",
+      "masterDesc": "Geographic areas offered during registration. Only active, transport-enabled areas are shown to registrars.",
+      "transportAvailable": "Transport available",
+      "activeLabel": "Active",
+      "noneYet": "No areas yet — add one above."
     },
     "unassigned": {
       "needTransport": "students need a route",

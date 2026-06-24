@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { BusController } from './bus/bus.controller';
 import { BusService } from './bus/bus.service';
 import { BusRepository } from './bus/bus.repository';
+import { AreaController } from './bus/area.controller';
+import { AreaService } from './bus/area.service';
+import { AreaRepository } from './bus/area.repository';
 import { LibraryController } from './library/library.controller';
 import { LibraryService } from './library/library.service';
 import { LibraryRepository } from './library/library.repository';
@@ -19,10 +22,18 @@ import { ClinicRepository } from './clinic/clinic.repository';
  * `/feature-flags`.
  */
 @Module({
-  controllers: [BusController, LibraryController, InventoryController, ClinicController],
+  controllers: [
+    BusController,
+    AreaController,
+    LibraryController,
+    InventoryController,
+    ClinicController,
+  ],
   providers: [
     BusService,
     BusRepository,
+    AreaService,
+    AreaRepository,
     LibraryService,
     LibraryRepository,
     InventoryService,

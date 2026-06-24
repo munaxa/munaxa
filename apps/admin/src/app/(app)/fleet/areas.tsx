@@ -71,18 +71,16 @@ export function AreaPlanning({
               {a.name === UNZONED ? t('transport.area.unzoned') : a.name}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {a.assignedCount} {t('transport.area.studentsWord')} · {a.routes.length}{' '}
+              {a.needCount} {t('transport.area.needTransport')} · {a.routes.length}{' '}
               {t('fleet.routesSuffix')}
             </p>
             <div className="mt-3 flex flex-wrap gap-1">
               {a.routes.some((r) => r.capacity.state === 'exceeded') ? (
                 <Badge tone="danger">{t('transport.status.exceeded')}</Badge>
               ) : null}
-              {a.capacity > 0 ? (
-                <Badge tone="muted">
-                  {a.assignedCount}/{a.capacity}
-                </Badge>
-              ) : null}
+              <Badge tone="muted">
+                {t('transport.area.assignedWord')} {a.assignedCount}
+              </Badge>
             </div>
           </button>
         ))}
@@ -120,7 +118,10 @@ function AreaDetail({
           {area.name === UNZONED ? t('transport.area.unzoned') : area.name}
         </h2>
         <Badge tone="muted">
-          {area.assignedCount} {t('transport.area.studentsWord')}
+          {area.needCount} {t('transport.area.needTransport')}
+        </Badge>
+        <Badge tone="muted">
+          {t('transport.area.assignedWord')} {area.assignedCount}
         </Badge>
         <span className="ms-auto flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setSuggestOpen(true)}>

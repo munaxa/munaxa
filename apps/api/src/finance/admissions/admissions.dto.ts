@@ -180,6 +180,18 @@ export class CommitDto {
   @IsInt()
   @IsIn([1, 2])
   busTripRound?: number;
+
+  @ApiPropertyOptional({ description: "Geographic area the student lives in (drives Fleet's Area Planning)." })
+  @IsOptional()
+  @IsUUID()
+  areaId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether the parent requested transportation (feeds the Unassigned queue).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  transportRequested?: boolean;
 }
 
 // ── Approvals & arrangements ──

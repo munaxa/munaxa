@@ -99,6 +99,10 @@ export interface CommitRequest {
   busRouteId?: string;
   /** Trip of the route the student rides: 1 (1st) or 2 (2nd). */
   busTripRound?: number;
+  /** Home area the student lives in (drives Fleet's Area Planning). */
+  areaId?: string;
+  /** Whether the parent requested transportation (feeds the Unassigned queue). */
+  transportRequested?: boolean;
 }
 
 export interface EnrollmentRow {

@@ -38,8 +38,10 @@ export function UnassignedStudents({
   const [suggestOpen, setSuggestOpen] = useState(false);
   const search = useDebouncedValue(query);
 
+  // The queue is now driven by real demand captured at registration: students whose
+  // parent requested transport but who have no route yet. (Replaces "active + unassigned".)
   const unassignedRows = useMemo(
-    () => data.rows.filter((r) => r.assignment === null && r.student.status === 'ACTIVE'),
+    () => data.rows.filter((r) => r.transportRequested && r.assignment === null),
     [data.rows],
   );
 
