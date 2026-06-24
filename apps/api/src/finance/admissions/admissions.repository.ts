@@ -361,9 +361,19 @@ export class AdmissionsRepository extends TenantRepository {
         await tx.student.update({ where: { id: studentId }, data: { sectionId: dto.sectionId } });
       }
 
-      // 3) Enrollment (one per student+year). Any fee change holds the enrollment in
-      //    PENDING_APPROVAL until finance decides — nothing is committed (charges) before then.
-      const held = quote.feeModified;
+      // 3) Enrollment (one per student+year). A fee change only holds the enrollment in
+      //    PENDING_APPROVAL when the tenant has opted into the finance-approval workflow
+      //    (BillingPolicy.requireFinanceApprovalForFeeChanges). By default that flag is false:
+      //    the person admitting the student — typically the finance officer, who already holds
+      //    fee authority (FEE_OVERRIDE) — commits in a single step with no pending state. The
+      //    modification is still recorded and auto-approved for the audit trail (step 5). Schools
+      //    that want separation of duties flip the toggle on to require a separate approval.
+      const policy = await tx.billingPolicy.findUnique({
+        where: { tenantId },
+        select: { requireFinanceApprovalForFeeChanges: true },
+      });
+      const requireApproval = policy?.requireFinanceApprovalForFeeChanges ?? false;
+      const held = quote.feeModified && requireApproval;
       const planId = quote.paymentMode === QuotePaymentMode.INSTALLMENTS ? randomUUID() : null;
       const enrollment = await tx.enrollment.create({
         data: {
@@ -389,8 +399,11 @@ export class AdmissionsRepository extends TenantRepository {
         await this.createEnrollmentCharges(tx, tenantId, studentId, planId, quote);
       }
 
-      // 5) Fee-modification tracking. Every change records a PENDING approval (step 3 holds
-      //    the enrollment) so it surfaces in the finance approval inbox.
+      // 5) Fee-modification tracking. Every change is recorded for the audit trail. When the
+      //    enrollment is held (step 3) the approval is PENDING so it surfaces in the finance
+      //    approval inbox; otherwise it is auto-approved (decided now by the committing actor)
+      //    so there is no pending item but the who/original/new history is preserved.
+      const decidedNow = new Date();
       for (const item of quote.items) {
         if (!item.overridden || item.originalAmount === null) continue;
         const diff = item.amount.minus(item.originalAmount);
@@ -408,7 +421,16 @@ export class AdmissionsRepository extends TenantRepository {
           },
         });
         await tx.feeModificationApproval.create({
-          data: { tenantId, modificationId: mod.id, status: ApprovalStatus.PENDING },
+          data: held
+            ? { tenantId, modificationId: mod.id, status: ApprovalStatus.PENDING }
+            : {
+                tenantId,
+                modificationId: mod.id,
+                status: ApprovalStatus.APPROVED,
+                approverId: this.actor(),
+                decidedAt: decidedNow,
+                note: 'Auto-approved: tenant does not require finance approval for fee changes',
+              },
         });
       }
 
