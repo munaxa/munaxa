@@ -11,6 +11,14 @@ export interface Transaction {
   chargeId?: string | null;
   /** ISO timestamp when the parent was emailed about this settled payment (null = not sent). */
   parentNotifiedAt?: string | null;
+  /** ISO timestamp the payment was recorded (the receipt/payment date). */
+  createdAt?: string | null;
+  /** Gapless official receipt number, allocated when the payment was verified (null until then). */
+  receiptNo?: number | null;
+  /** Display name of the cashier who recorded the payment. */
+  recordedByName?: string | null;
+  /** Linked JoFotara e-invoice document, if one was issued. */
+  einvoice?: { invoiceNumber: string; status: string; docType: string } | null;
 }
 
 export interface Charge {

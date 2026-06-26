@@ -411,6 +411,7 @@ model Tenant {
   einvoiceSettings         EInvoiceSettings?
   einvoiceCredentials      EInvoiceCredential[]
   einvoiceCounter          EInvoiceCounter?
+  financeReceiptCounter    FinanceReceiptCounter?
   einvoiceDocuments        EInvoiceDocument[]
   einvoiceLogs             EInvoiceLog[]
   feeAdjustments           FeeAdjustment[]
@@ -1292,6 +1293,9 @@ model Transaction {
   method       PaymentMethod
   reference    String? // e.g. CliQ reference
   receiptKey   String? // S3 object key for an uploaded receipt
+  // Gapless, per-tenant official receipt number — allocated when the payment is VERIFIED (a
+  // receipt represents confirmed money, so rejected/pending payments never burn a number).
+  receiptNo    Int?
   status       TransactionStatus @default(PENDING)
   note         String?
   recordedById String?           @db.Uuid
@@ -1308,8 +1312,19 @@ model Transaction {
   einvoiceDocuments EInvoiceDocument[]
   allocations       PaymentAllocation[]
 
+  @@unique([tenantId, receiptNo])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
+}
+
+/// Row-locked, per-tenant counter that hands out gapless receipt numbers for verified payments
+/// (same pattern as EInvoiceCounter / the JoFotara ICV). Created lazily on first use.
+model FinanceReceiptCounter {
+  id            String @id @default(uuid()) @db.Uuid
+  tenantId      String @unique @db.Uuid
+  nextReceiptNo Int    @default(1)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 // ----------------------------------------------------------------------------

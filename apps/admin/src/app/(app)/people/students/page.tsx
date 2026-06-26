@@ -2,26 +2,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { useToast } from '@/components/toast';
-import { useConfirm, useAlert } from '@/components/confirm';
-import {
-  studentsApi,
-  type ImportResult,
-  type Student,
-  type StudentVaccine,
-  type UpdateStudentInput,
-  type UpsertVaccineInput,
-} from '@/lib/people';
+import { useConfirm } from '@/components/confirm';
+import { studentsApi, type ImportResult, type Student } from '@/lib/people';
 import { sectionsApi, type Section } from '@/lib/structure';
 import { areasApi, type Area } from '@/lib/areas';
-import { StudentProfileDialog } from './student-profile-dialog';
+import { StudentEditor, STUDENT_STATUSES, GENDERS } from './student-editor';
 import {
   Badge,
   Button,
   Card,
-  Checkbox,
   CardContent,
   Dialog,
   EmptyState,
@@ -38,66 +31,6 @@ import {
   cn,
 } from '@/components/ui';
 
-const STUDENT_STATUSES = ['ACTIVE', 'INACTIVE', 'GRADUATED', 'WITHDRAWN'];
-const GENDERS = ['MALE', 'FEMALE'];
-
-/** Grade + section selectors. Grades are derived from the sections list; picking a grade filters
- *  the sections. Emits the chosen section id (the API stores section, not grade). */
-function GradeSectionFields({
-  sections,
-  sectionId,
-  onChange,
-}: {
-  sections: Section[];
-  sectionId: string;
-  onChange: (sectionId: string) => void;
-}) {
-  const { t } = useI18n();
-  const grades = [
-    ...new Map(
-      sections
-        .filter((s) => s.grade)
-        .map((s) => [
-          s.grade!.id,
-          { id: s.grade!.id, name: s.grade!.nameEn, level: s.grade!.level },
-        ]),
-    ).values(),
-  ].sort((a, b) => a.level - b.level);
-  const [gradeId, setGradeId] = useState(sections.find((s) => s.id === sectionId)?.grade?.id ?? '');
-  const sectionsForGrade = sections.filter((s) => s.grade?.id === gradeId);
-
-  return (
-    <>
-      <Field label={t('structure.grade')}>
-        <Select
-          value={gradeId}
-          onChange={(e) => {
-            setGradeId(e.target.value);
-            onChange('');
-          }}
-        >
-          <option value="">—</option>
-          {grades.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <Field label={t('structure.section')}>
-        <Select value={sectionId} onChange={(e) => onChange(e.target.value)} disabled={!gradeId}>
-          <option value="">—</option>
-          {sectionsForGrade.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
-    </>
-  );
-}
-
 const STATUS_TONE: Record<string, 'success' | 'muted' | 'warning' | 'danger'> = {
   ACTIVE: 'success',
   INACTIVE: 'muted',
@@ -109,13 +42,19 @@ export default function StudentsPage() {
   const { t } = useI18n();
   const toast = useToast();
   const confirm = useConfirm();
+  const router = useRouter();
   const [students, setStudents] = useState<Student[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Student | null>(null);
-  const [viewing, setViewing] = useState<Student | null>(null);
+
+  // Opening a student no longer pops a modal — it routes to the full-page Student Profile.
+  const openProfile = useCallback(
+    (s: Student) => router.push(`/people/students/${s.id}`),
+    [router],
+  );
   const [search, setSearch] = useState('');
   const [sections, setSections] = useState<Section[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -154,16 +93,6 @@ export default function StudentsPage() {
     const id = setTimeout(() => void load(search.trim() || undefined), 300);
     return () => clearTimeout(id);
   }, [search, load]);
-
-  const sectionLabel = useCallback(
-    (sectionId?: string | null): string | undefined => {
-      if (!sectionId) return undefined;
-      const sec = sections.find((s) => s.id === sectionId);
-      if (!sec) return undefined;
-      return sec.grade ? `${sec.grade.nameEn} · ${sec.name}` : sec.name;
-    },
-    [sections],
-  );
 
   const gradeName = useCallback(
     (sectionId?: string | null): string =>
@@ -432,7 +361,7 @@ export default function StudentsPage() {
                           <button
                             type="button"
                             className="block truncate text-start font-medium text-foreground hover:text-primary hover:underline"
-                            onClick={() => setViewing(s)}
+                            onClick={() => openProfile(s)}
                           >
                             {s.firstNameEn} {s.lastNameEn}
                           </button>
@@ -452,7 +381,7 @@ export default function StudentsPage() {
                     </TD>
                     <TD>
                       <div className="flex items-center justify-end gap-1">
-                        <IconButton label={t('people.view')} onClick={() => setViewing(s)}>
+                        <IconButton label={t('people.view')} onClick={() => openProfile(s)}>
                           <EyeIcon />
                         </IconButton>
                         <IconButton label={t('people.edit')} onClick={() => setEditing(s)}>
@@ -503,18 +432,6 @@ export default function StudentsPage() {
           </CardContent>
         </Card>
       </div>
-
-      {viewing ? (
-        <StudentProfileDialog
-          student={viewing}
-          sectionLabel={sectionLabel(viewing.sectionId)}
-          onClose={() => setViewing(null)}
-          onEdit={() => {
-            setEditing(viewing);
-            setViewing(null);
-          }}
-        />
-      ) : null}
 
       {editing ? (
         <StudentEditor
@@ -721,320 +638,5 @@ function ImportStudents({
         {t('people.importCsv')}
       </Button>
     </form>
-  );
-}
-
-// --------------------------------------------------------------------------- Student editor (modal)
-
-function StudentEditor({
-  student,
-  sections,
-  areas,
-  onClose,
-  onSaved,
-}: {
-  student: Student;
-  sections: Section[];
-  areas: Area[];
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const { t } = useI18n();
-  const toast = useToast();
-  const alert = useAlert();
-  const [form, setForm] = useState<UpdateStudentInput>({
-    firstNameEn: student.firstNameEn,
-    lastNameEn: student.lastNameEn,
-    firstNameAr: student.firstNameAr,
-    lastNameAr: student.lastNameAr,
-    fatherNameEn: student.fatherNameEn ?? '',
-    fatherNameAr: student.fatherNameAr ?? '',
-    thirdNameEn: student.thirdNameEn ?? '',
-    thirdNameAr: student.thirdNameAr ?? '',
-    nationalId: student.nationalId ?? '',
-    moeStudentNumber: student.moeStudentNumber ?? '',
-    gender: student.gender ?? '',
-    sectionId: student.sectionId ?? '',
-    areaId: student.areaId ?? '',
-    transportRequested: student.transportRequested ?? false,
-    status: student.status,
-  });
-  const [saving, setSaving] = useState(false);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      // Drop empty enum/uuid fields — the API rejects "" for gender/section/area.
-      const payload: UpdateStudentInput = { ...form };
-      if (!payload.gender) delete payload.gender;
-      if (!payload.sectionId) delete payload.sectionId;
-      if (!payload.areaId) delete payload.areaId;
-      await studentsApi.update(student.id, payload);
-      toast.success(t('people.studentUpdated'));
-      await onSaved();
-    } catch (err) {
-      await alert({ description: err instanceof Error ? err.message : 'Save failed' });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const set = (patch: Partial<UpdateStudentInput>) => setForm((f) => ({ ...f, ...patch }));
-
-  // When the registrar picks a different area that maps to a route, surface it — but the
-  // student is NOT moved automatically (the update only persists areaId). Reassign in Fleet.
-  const originalAreaId = student.areaId ?? '';
-  const pickedArea = areas.find((a) => a.id === form.areaId);
-  const areaChangedRoute =
-    form.areaId && form.areaId !== originalAreaId ? (pickedArea?.route?.name ?? null) : null;
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
-      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
-      <div
-        className="relative my-8 w-full max-w-2xl rounded-xl border border-border bg-card p-5 shadow-card"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">{t('people.editStudent')}</h2>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.cancel')}>
-            ✕
-          </Button>
-        </div>
-
-        <form onSubmit={(e) => void save(e)} className="grid gap-3 sm:grid-cols-2">
-          <Field label={t('common.firstNameEn')}>
-            <Input
-              value={form.firstNameEn ?? ''}
-              onChange={(e) => set({ firstNameEn: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label={t('common.lastNameEn')}>
-            <Input
-              value={form.lastNameEn ?? ''}
-              onChange={(e) => set({ lastNameEn: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label="الاسم (AR)">
-            <Input
-              dir="rtl"
-              value={form.firstNameAr ?? ''}
-              onChange={(e) => set({ firstNameAr: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label="العائلة (AR)">
-            <Input
-              dir="rtl"
-              value={form.lastNameAr ?? ''}
-              onChange={(e) => set({ lastNameAr: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label={t('people.nationalId')}>
-            <Input
-              value={form.nationalId ?? ''}
-              onChange={(e) => set({ nationalId: e.target.value })}
-            />
-          </Field>
-          <Field label={t('people.moeNumber')}>
-            <Input
-              value={form.moeStudentNumber ?? ''}
-              onChange={(e) => set({ moeStudentNumber: e.target.value })}
-            />
-          </Field>
-          <Field label={t('people.gender')}>
-            <Select value={form.gender ?? ''} onChange={(e) => set({ gender: e.target.value })}>
-              <option value="">—</option>
-              {GENDERS.map((g) => (
-                <option key={g} value={g}>
-                  {t(`people.${g.toLowerCase()}`)}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <GradeSectionFields
-            sections={sections}
-            sectionId={form.sectionId ?? ''}
-            onChange={(sectionId) => set({ sectionId })}
-          />
-          <Field label={t('common.status')}>
-            <Select
-              value={form.status ?? 'ACTIVE'}
-              onChange={(e) => set({ status: e.target.value })}
-            >
-              {STUDENT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Select>
-          </Field>
-
-          {/* Transportation demand — mirrors the registration fields. Feeds Fleet's
-              Area Planning (areaId) and Unassigned queue (transportRequested). */}
-          <Field label={t('transport.table.area')}>
-            <Select value={form.areaId ?? ''} onChange={(e) => set({ areaId: e.target.value })}>
-              <option value="">—</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                  {a.active ? '' : ` (${t('transport.area.inactive')})`}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label=" ">
-            <Checkbox
-              label={t('transport.editStudent.transportRequested')}
-              checked={form.transportRequested ?? false}
-              onChange={(e) => set({ transportRequested: e.target.checked })}
-            />
-          </Field>
-          {/* Area changed → surface the new route but never silently move the student. */}
-          {areaChangedRoute ? (
-            <p className="col-span-full rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-              {t('transport.editStudent.areaChanged')} {areaChangedRoute}.{' '}
-              {t('transport.editStudent.reassignHint')}
-            </p>
-          ) : null}
-
-          <div className="col-span-full flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? t('common.saving') : t('common.saveChanges')}
-            </Button>
-          </div>
-        </form>
-
-        <div className="mt-6 border-t border-border pt-4">
-          <Vaccines studentId={student.id} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// --------------------------------------------------------------------------- Vaccines
-
-const EMPTY_VACCINE: UpsertVaccineInput = { name: '', grade: '', received: true };
-
-function Vaccines({ studentId }: { studentId: string }) {
-  const { t } = useI18n();
-  const toast = useToast();
-  const confirm = useConfirm();
-  const [rows, setRows] = useState<StudentVaccine[]>([]);
-  const [form, setForm] = useState<UpsertVaccineInput>(EMPTY_VACCINE);
-
-  const load = useCallback(async () => {
-    try {
-      setRows(await studentsApi.vaccines(studentId));
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load vaccines');
-    }
-  }, [studentId, toast]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function add(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name.trim()) return;
-    try {
-      const payload: UpsertVaccineInput = { name: form.name, received: form.received ?? true };
-      if (form.grade) payload.grade = form.grade;
-      await studentsApi.addVaccine(studentId, payload);
-      setForm(EMPTY_VACCINE);
-      await load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to add vaccine');
-    }
-  }
-
-  async function toggleReceived(v: StudentVaccine) {
-    try {
-      await studentsApi.updateVaccine(studentId, v.id, { received: !v.received });
-      await load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Update failed');
-    }
-  }
-
-  async function remove(v: StudentVaccine) {
-    if (!(await confirm())) return;
-    try {
-      await studentsApi.removeVaccine(studentId, v.id);
-      await load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Delete failed');
-    }
-  }
-
-  return (
-    <div className="space-y-3">
-      <h3 className="font-display text-sm font-semibold">{t('people.vaccines')}</h3>
-
-      <ul className="divide-y divide-border text-sm">
-        {rows.map((v) => (
-          <li key={v.id} className="flex items-center justify-between gap-2 py-1.5">
-            <div className="min-w-0">
-              <span className="font-medium">{v.name}</span>
-              {v.grade ? <span className="text-muted-foreground"> · {v.grade}</span> : null}
-            </div>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => void toggleReceived(v)}>
-                <Badge tone={v.received ? 'success' : 'muted'}>
-                  {v.received ? t('people.received') : t('people.notReceived')}
-                </Badge>
-              </button>
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-destructive"
-                onClick={() => void remove(v)}
-                aria-label={`${t('common.delete')} ${v.name}`}
-              >
-                ✕
-              </button>
-            </div>
-          </li>
-        ))}
-        {rows.length === 0 ? (
-          <li className="py-1.5 text-muted-foreground">{t('people.noVaccines')}</li>
-        ) : null}
-      </ul>
-
-      <form onSubmit={(e) => void add(e)} className="flex flex-wrap items-end gap-2">
-        <Input
-          className="h-9 flex-1"
-          placeholder={t('people.vaccineName')}
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
-        <Input
-          className="h-9 w-32"
-          placeholder={t('people.vaccineGrade')}
-          value={form.grade ?? ''}
-          onChange={(e) => setForm({ ...form, grade: e.target.value })}
-        />
-        <label className="flex items-center gap-1.5 pb-2 text-sm text-muted-foreground">
-          <Checkbox
-            checked={form.received ?? true}
-            onChange={(e) => setForm({ ...form, received: e.target.checked })}
-          />
-          {t('people.received')}
-        </label>
-        <Button type="submit" size="sm">
-          {t('people.addVaccine')}
-        </Button>
-      </form>
-    </div>
   );
 }
