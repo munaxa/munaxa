@@ -99,6 +99,8 @@ export const studentsApi = {
     authFetch(`/students${search ? `?search=${encodeURIComponent(search)}` : ''}`).then((r) =>
       json<Student[]>(r),
     ),
+  /** Load a single student by id — backs the full-page Student Profile header. */
+  get: (id: string) => authFetch(`/students/${id}`).then((r) => json<Student>(r)),
   bySection: (sectionId: string) =>
     authFetch(`/students?sectionId=${sectionId}`).then((r) => json<Student[]>(r)),
   create: (data: {

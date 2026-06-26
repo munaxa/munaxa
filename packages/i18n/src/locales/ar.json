@@ -388,7 +388,10 @@
     "refunds": "المبالغ المستردة",
     "creditLabel": "رصيد دائن",
     "refundAmountJod": "مبلغ الاسترداد (دينار)",
-    "requestRefund": "طلب استرداد"
+    "requestRefund": "طلب استرداد",
+    "date": "التاريخ",
+    "debit": "مدين",
+    "runningBalance": "الرصيد الجاري"
   },
   "feePlans": {
     "create": "إنشاء خطة رسوم",
@@ -1003,5 +1006,46 @@
       "areaChanged": "تخدم هذه المنطقة",
       "reassignHint": "لا يتم نقل الطالب تلقائياً — أعد الإسناد من النقل ← طلاب المسار."
     }
+  },
+  "studentProfile": {
+    "backToStudents": "العودة إلى الطلاب",
+    "printCard": "طباعة بطاقة الطالب",
+    "moreActions": "إجراءات أخرى",
+    "openInFinance": "فتح في المالية",
+    "manageInFleet": "الإدارة في النقل",
+    "tabOverview": "نظرة عامة",
+    "tabAcademics": "الشؤون الأكاديمية",
+    "tabMedical": "الطبية",
+    "tabDocuments": "المستندات",
+    "tabTimeline": "السجل الزمني",
+    "tabAudit": "سجل التدقيق",
+    "tabComingSoon": "ستظهر هذه المعلومات هنا عند توفرها.",
+    "totalFees": "إجمالي الرسوم",
+    "nextInstallment": "القسط القادم",
+    "oldestOverdue": "أقدم متأخر",
+    "feeCategories": "فئات الرسوم",
+    "category": "الفئة",
+    "originalAmount": "المبلغ الأصلي",
+    "amountPaid": "المبلغ المدفوع",
+    "progress": "التقدم",
+    "total": "الإجمالي",
+    "feePlan": "خطة الرسوم",
+    "planName": "الخطة",
+    "oneTime": "دفعة واحدة",
+    "installments": "الأقساط",
+    "aging": "أعمار الديون",
+    "current": "الحالي",
+    "installmentSchedule": "جدول الأقساط",
+    "daysOverdue": "أيام التأخير",
+    "paymentHistory": "سجل المدفوعات",
+    "receiptNo": "الإيصال / المرجع",
+    "printReceipt": "طباعة",
+    "printStatement": "طباعة كشف الحساب",
+    "statementOfAccount": "كشف الحساب",
+    "documents": "المستندات",
+    "documentsHint": "ستظهر هنا الفواتير والإيصالات وإشعارات الدائن وكشوف الحساب.",
+    "allocateToCharge": "تخصيص لرسم",
+    "unallocated": "غير مخصص (دفعة مقدمة)",
+    "noTransport": "لا يوجد تخصيص نقل."
   }
 }

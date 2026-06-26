@@ -388,7 +388,10 @@
     "refunds": "Refunds",
     "creditLabel": "credit",
     "refundAmountJod": "Refund amount (JOD)",
-    "requestRefund": "Request refund"
+    "requestRefund": "Request refund",
+    "date": "Date",
+    "debit": "Debit",
+    "runningBalance": "Running balance"
   },
   "feePlans": {
     "create": "Create a fee plan",
@@ -1003,5 +1006,46 @@
       "areaChanged": "This area is served by",
       "reassignHint": "The student isn't moved automatically — reassign under Fleet → Route Students."
     }
+  },
+  "studentProfile": {
+    "backToStudents": "Back to Students",
+    "printCard": "Print Student Card",
+    "moreActions": "More actions",
+    "openInFinance": "Open in Finance",
+    "manageInFleet": "Manage in Fleet",
+    "tabOverview": "Overview",
+    "tabAcademics": "Academics",
+    "tabMedical": "Medical",
+    "tabDocuments": "Documents",
+    "tabTimeline": "Timeline",
+    "tabAudit": "Audit log",
+    "tabComingSoon": "This information will appear here once available.",
+    "totalFees": "Total fees",
+    "nextInstallment": "Next installment",
+    "oldestOverdue": "Oldest overdue",
+    "feeCategories": "Fee categories",
+    "category": "Category",
+    "originalAmount": "Original amount",
+    "amountPaid": "Amount paid",
+    "progress": "Progress",
+    "total": "Total",
+    "feePlan": "Fee plan",
+    "planName": "Plan",
+    "oneTime": "One-time",
+    "installments": "Installments",
+    "aging": "Aging",
+    "current": "Current",
+    "installmentSchedule": "Installment schedule",
+    "daysOverdue": "Days overdue",
+    "paymentHistory": "Payment history",
+    "receiptNo": "Receipt / reference",
+    "printReceipt": "Print",
+    "printStatement": "Print statement",
+    "statementOfAccount": "Statement of account",
+    "documents": "Documents",
+    "documentsHint": "Invoices, receipts, credit notes and statements will appear here.",
+    "allocateToCharge": "Allocate to charge",
+    "unallocated": "Unallocated (down payment)",
+    "noTransport": "No transport assignment."
   }
 }
