@@ -388,7 +388,8 @@
     "refunds": "المبالغ المستردة",
     "creditLabel": "رصيد دائن",
     "refundAmountJod": "مبلغ الاسترداد (دينار)",
-    "requestRefund": "طلب استرداد"
+    "requestRefund": "طلب استرداد",
+    "viewProfile": "عرض الملف"
   },
   "feePlans": {
     "create": "إنشاء خطة رسوم",
