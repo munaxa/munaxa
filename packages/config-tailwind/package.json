@@ -7,6 +7,9 @@
   "files": [
     "preset.ts"
   ],
+  "dependencies": {
+    "@munaxa/design-tokens": "workspace:*"
+  },
   "peerDependencies": {
     "tailwindcss": "^3.4.0"
   },

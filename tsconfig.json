@@ -7,6 +7,9 @@
     { "path": "packages/domain" },
     { "path": "packages/contracts" },
     { "path": "packages/utils" },
-    { "path": "packages/i18n" }
+    { "path": "packages/i18n" },
+    { "path": "packages/design-tokens" },
+    { "path": "packages/icons" },
+    { "path": "packages/ui" }
   ]
 }
