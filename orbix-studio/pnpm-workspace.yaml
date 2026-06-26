@@ -3,3 +3,5 @@
 # design-system showcase fully standalone.
 onlyBuiltDependencies:
   - esbuild
+  - sharp
+  - workerd
