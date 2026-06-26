@@ -41,11 +41,14 @@ const DIRECTIONS: TransportDirection[] = ['NONE', 'ONE_WAY', 'TWO_WAY'];
 const jod = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
 type Mode = 'NEW' | 'RETURNING';
 
+// Quotation comes BEFORE the student/guardian details: the parent sees the fees first and may
+// decline, so we don't collect personal information until they've agreed to the quote.
 const STEPS = [
-  { key: 'student', label: 'Student information' },
-  { key: 'guardian', label: 'Parent / guardian' },
   { key: 'enrollment', label: 'Enrollment' },
   { key: 'transport', label: 'Transport' },
+  { key: 'quote', label: 'Quotation' },
+  { key: 'student', label: 'Student information' },
+  { key: 'guardian', label: 'Parent / guardian' },
   { key: 'review', label: 'Review & confirm' },
 ] as const;
 
@@ -54,9 +57,10 @@ const STEPS = [
  * planning (full vs installments), and an atomic commit. New students are NOT created until the
  * parent agrees and the registrar commits. Returning students reuse their existing profile.
  *
- * The form is presented as a guided, step-by-step flow with a live registration summary, but the
- * underlying logic is unchanged: nothing is persisted until the registrar reaches Review & confirm,
- * computes a quotation, and commits.
+ * The form is presented as a guided, step-by-step flow with a live registration summary. The order
+ * is deliberately fees-first — placement → transport → quotation → details — so the parent reviews
+ * the fees before any personal information is collected. The underlying logic is unchanged: nothing
+ * is persisted until the registrar reaches Review & confirm and commits.
  */
 export default function AdmissionsPage() {
   const toast = useToast();
@@ -329,13 +333,22 @@ export default function AdmissionsPage() {
   );
 
   // Step-completion signals — derived from existing state, purely for the progress summary.
+  // Order matches STEPS: enrollment, transport, quotation, student, guardian, review.
+  const enrollmentDone = Boolean(gradeId && academicYearId);
+  const transportDone = transportDirection === 'NONE' ? true : Boolean(transportAreaId);
+  const quoteDone = Boolean(quote);
   const studentDone = mode === 'NEW' ? Boolean(sFirstEn && sLastEn) : Boolean(returningId);
   const guardianDone =
     mode === 'NEW' ? Boolean(pFirstEn && pLastEn && pPhone.trim()) : Boolean(returningId);
-  const enrollmentDone = Boolean(gradeId && academicYearId);
-  const transportDone = transportDirection === 'NONE' ? true : Boolean(transportAreaId);
-  const reviewDone = Boolean(quote);
-  const stepComplete = [studentDone, guardianDone, enrollmentDone, transportDone, reviewDone];
+  const confirmDone = Boolean(quote && newStudentReady);
+  const stepComplete = [
+    enrollmentDone,
+    transportDone,
+    quoteDone,
+    studentDone,
+    guardianDone,
+    confirmDone,
+  ];
 
   const studentName =
     mode === 'RETURNING' && returning
@@ -343,6 +356,12 @@ export default function AdmissionsPage() {
       : [sFirstEn, sLastEn].filter(Boolean).join(' ');
 
   const isLast = step === STEPS.length - 1;
+  // Gate "Next": can't price without placement, and can't collect details before a quote exists.
+  const nextDisabled =
+    (step === 0 && !canQuote) ||
+    (step === 2 && !quote) ||
+    (step === 3 && !studentDone) ||
+    (step === 4 && !guardianDone);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
@@ -352,7 +371,7 @@ export default function AdmissionsPage() {
             {mode === 'NEW' ? 'Register new student' : 'Re-enrollment'}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Capture the student profile and enrollment, then quote and confirm — for new and
+            Price the enrollment first, then capture the student profile and confirm — for new and
             returning students.
           </p>
         </div>
@@ -370,12 +389,12 @@ export default function AdmissionsPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="space-y-6">
           {/* ---------------------------------------------------------------- */}
-          {/* Step 1 — Student information (+ registration type) */}
+          {/* Step 1 — Enrollment (registration type + placement + payment) */}
           {/* ---------------------------------------------------------------- */}
           {step === 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Student information</CardTitle>
+                <CardTitle>Enrollment</CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div className="flex flex-wrap gap-2">
@@ -426,142 +445,7 @@ export default function AdmissionsPage() {
                   </div>
                 ) : null}
 
-                {mode === 'NEW' ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Field label="First name (EN)">
-                      <Input value={sFirstEn} onChange={(e) => setSFirstEn(e.target.value)} />
-                    </Field>
-                    <Field label="Last name (EN)">
-                      <Input value={sLastEn} onChange={(e) => setSLastEn(e.target.value)} />
-                    </Field>
-                    <Field label="First name (AR)">
-                      <Input
-                        value={sFirstAr}
-                        onChange={(e) => setSFirstAr(e.target.value)}
-                        dir="rtl"
-                      />
-                    </Field>
-                    <Field label="Last name (AR)">
-                      <Input
-                        value={sLastAr}
-                        onChange={(e) => setSLastAr(e.target.value)}
-                        dir="rtl"
-                      />
-                    </Field>
-                    <Field label="Gender">
-                      <Select value={sGender} onChange={(e) => setSGender(e.target.value)}>
-                        <option value="">—</option>
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                      </Select>
-                    </Field>
-                    <Field label="Date of birth">
-                      <Input
-                        type="date"
-                        value={sDob}
-                        onChange={(e) => setSDob(e.target.value)}
-                        dir="ltr"
-                      />
-                    </Field>
-                    <Field label="National ID" className="sm:col-span-2">
-                      <Input value={sNationalId} onChange={(e) => setSNationalId(e.target.value)} />
-                    </Field>
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {/* ---------------------------------------------------------------- */}
-          {/* Step 2 — Parent / guardian */}
-          {/* ---------------------------------------------------------------- */}
-          {step === 1 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Parent / guardian</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {mode === 'RETURNING' ? (
-                  <p className="text-sm text-muted-foreground">
-                    The student’s existing parent / guardian on file is retained. Manage guardians
-                    from the student’s profile.
-                  </p>
-                ) : (
-                  <>
-                    <p className="text-xs text-muted-foreground">
-                      A parent / guardian with a primary mobile number is required for every new
-                      student.
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Relation to student *" className="sm:col-span-2">
-                        <Select
-                          value={pRelation}
-                          onChange={(e) =>
-                            setPRelation(
-                              e.target.value as 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER',
-                            )
-                          }
-                        >
-                          <option value="FATHER">Father</option>
-                          <option value="MOTHER">Mother</option>
-                          <option value="GUARDIAN">Guardian</option>
-                          <option value="OTHER">Other</option>
-                        </Select>
-                      </Field>
-                      <Field label="Parent / guardian first name (EN) *">
-                        <Input
-                          value={pFirstEn}
-                          onChange={(e) => setPFirstEn(e.target.value)}
-                          required
-                        />
-                      </Field>
-                      <Field label="Parent / guardian last name (EN) *">
-                        <Input
-                          value={pLastEn}
-                          onChange={(e) => setPLastEn(e.target.value)}
-                          required
-                        />
-                      </Field>
-                      <Field label="Mobile *">
-                        <Input
-                          value={pPhone}
-                          onChange={(e) => setPPhone(e.target.value)}
-                          dir="ltr"
-                          required
-                        />
-                      </Field>
-                      <Field label="Alternate mobile">
-                        <Input
-                          value={pPhoneAlt}
-                          onChange={(e) => setPPhoneAlt(e.target.value)}
-                          dir="ltr"
-                        />
-                      </Field>
-                      <Field label="Email" className="sm:col-span-2">
-                        <Input
-                          type="email"
-                          value={pEmail}
-                          onChange={(e) => setPEmail(e.target.value)}
-                          dir="ltr"
-                        />
-                      </Field>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-
-          {/* ---------------------------------------------------------------- */}
-          {/* Step 3 — Enrollment (placement + payment plan) */}
-          {/* ---------------------------------------------------------------- */}
-          {step === 2 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Enrollment</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
                   <Field label="Campus">
                     <Select value={campusId} onChange={(e) => setCampusId(e.target.value)}>
                       {campuses.map((c) => (
@@ -661,9 +545,9 @@ export default function AdmissionsPage() {
           ) : null}
 
           {/* ---------------------------------------------------------------- */}
-          {/* Step 4 — Transport */}
+          {/* Step 2 — Transport */}
           {/* ---------------------------------------------------------------- */}
-          {step === 3 ? (
+          {step === 1 ? (
             <Card>
               <CardHeader>
                 <CardTitle>Transport</CardTitle>
@@ -756,68 +640,26 @@ export default function AdmissionsPage() {
           ) : null}
 
           {/* ---------------------------------------------------------------- */}
-          {/* Step 5 — Review & confirm (quotation + commit) */}
+          {/* Step 3 — Quotation (price the enrollment before collecting details) */}
           {/* ---------------------------------------------------------------- */}
-          {step === 4 ? (
+          {step === 2 ? (
             <>
               <Card>
                 <CardHeader>
-                  <CardTitle>Review &amp; confirm</CardTitle>
+                  <CardTitle>Quotation</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-                    <Recap label="Student" value={studentName || '—'} />
-                    <Recap
-                      label="Registration"
-                      value={mode === 'NEW' ? 'New student' : 'Returning student'}
-                    />
-                    <Recap
-                      label="Grade"
-                      value={grades.find((g) => g.id === gradeId)?.nameEn ?? '—'}
-                    />
-                    <Recap
-                      label="Academic year"
-                      value={years.find((y) => y.id === academicYearId)?.name ?? '—'}
-                    />
-                    <Recap
-                      label="Section"
-                      value={sections.find((s) => s.id === sectionId)?.name ?? '—'}
-                    />
-                    <Recap
-                      label="Transport"
-                      value={
-                        transportDirection === 'NONE'
-                          ? 'None'
-                          : `${transportDirection.replace('_', ' ')}${
-                              resolvedRouteName ? ` · ${resolvedRouteName}` : ''
-                            }`
-                      }
-                    />
-                    {mode === 'NEW' ? (
-                      <Recap
-                        label="Guardian"
-                        value={
-                          [pFirstEn, pLastEn].filter(Boolean).join(' ')
-                            ? `${[pFirstEn, pLastEn].filter(Boolean).join(' ')}${
-                                pPhone ? ` · ${pPhone}` : ''
-                              }`
-                            : '—'
-                        }
-                      />
-                    ) : null}
-                    <Recap
-                      label="Payment"
-                      value={
-                        paymentMode === 'FULL' ? 'Full payment' : `${installments} installment(s)`
-                      }
-                    />
-                  </dl>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Compute the fees and review them with the parent. The student record is only
+                    created later, on commit — so you can stop here if they decline.
+                  </p>
                   <Button onClick={() => void getQuote()} disabled={!canQuote || busy}>
                     {busy ? 'Computing…' : quote ? 'Recompute quotation' : 'Compute quotation'}
                   </Button>
                   {!canQuote ? (
                     <p className="text-xs text-muted-foreground">
-                      Choose a grade and academic year (Enrollment step) to compute a quotation.
+                      Choose a grade and academic year on the Enrollment step to compute a
+                      quotation.
                     </p>
                   ) : null}
                 </CardContent>
@@ -827,7 +669,7 @@ export default function AdmissionsPage() {
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between gap-2">
-                      <CardTitle>Quotation</CardTitle>
+                      <CardTitle>Fees</CardTitle>
                       {quote.feeModified ? <Badge tone="warning">Fee Modified</Badge> : null}
                     </div>
                   </CardHeader>
@@ -979,6 +821,223 @@ export default function AdmissionsPage() {
             </>
           ) : null}
 
+          {/* ---------------------------------------------------------------- */}
+          {/* Step 4 — Student information (only after the parent agrees) */}
+          {/* ---------------------------------------------------------------- */}
+          {step === 3 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Student information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {mode === 'RETURNING' ? (
+                  <p className="text-sm text-muted-foreground">
+                    Returning student — the existing profile on file is reused. No changes needed
+                    here.
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Field label="First name (EN)">
+                      <Input value={sFirstEn} onChange={(e) => setSFirstEn(e.target.value)} />
+                    </Field>
+                    <Field label="Last name (EN)">
+                      <Input value={sLastEn} onChange={(e) => setSLastEn(e.target.value)} />
+                    </Field>
+                    <Field label="First name (AR)">
+                      <Input
+                        value={sFirstAr}
+                        onChange={(e) => setSFirstAr(e.target.value)}
+                        dir="rtl"
+                      />
+                    </Field>
+                    <Field label="Last name (AR)">
+                      <Input
+                        value={sLastAr}
+                        onChange={(e) => setSLastAr(e.target.value)}
+                        dir="rtl"
+                      />
+                    </Field>
+                    <Field label="Gender">
+                      <Select value={sGender} onChange={(e) => setSGender(e.target.value)}>
+                        <option value="">—</option>
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                      </Select>
+                    </Field>
+                    <Field label="Date of birth">
+                      <Input
+                        type="date"
+                        value={sDob}
+                        onChange={(e) => setSDob(e.target.value)}
+                        dir="ltr"
+                      />
+                    </Field>
+                    <Field label="National ID" className="sm:col-span-2">
+                      <Input value={sNationalId} onChange={(e) => setSNationalId(e.target.value)} />
+                    </Field>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {/* ---------------------------------------------------------------- */}
+          {/* Step 5 — Parent / guardian */}
+          {/* ---------------------------------------------------------------- */}
+          {step === 4 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Parent / guardian</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {mode === 'RETURNING' ? (
+                  <p className="text-sm text-muted-foreground">
+                    The student’s existing parent / guardian on file is retained. Manage guardians
+                    from the student’s profile.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-xs text-muted-foreground">
+                      A parent / guardian with a primary mobile number is required for every new
+                      student.
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Relation to student *" className="sm:col-span-2">
+                        <Select
+                          value={pRelation}
+                          onChange={(e) =>
+                            setPRelation(
+                              e.target.value as 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER',
+                            )
+                          }
+                        >
+                          <option value="FATHER">Father</option>
+                          <option value="MOTHER">Mother</option>
+                          <option value="GUARDIAN">Guardian</option>
+                          <option value="OTHER">Other</option>
+                        </Select>
+                      </Field>
+                      <Field label="Parent / guardian first name (EN) *">
+                        <Input
+                          value={pFirstEn}
+                          onChange={(e) => setPFirstEn(e.target.value)}
+                          required
+                        />
+                      </Field>
+                      <Field label="Parent / guardian last name (EN) *">
+                        <Input
+                          value={pLastEn}
+                          onChange={(e) => setPLastEn(e.target.value)}
+                          required
+                        />
+                      </Field>
+                      <Field label="Mobile *">
+                        <Input
+                          value={pPhone}
+                          onChange={(e) => setPPhone(e.target.value)}
+                          dir="ltr"
+                          required
+                        />
+                      </Field>
+                      <Field label="Alternate mobile">
+                        <Input
+                          value={pPhoneAlt}
+                          onChange={(e) => setPPhoneAlt(e.target.value)}
+                          dir="ltr"
+                        />
+                      </Field>
+                      <Field label="Email" className="sm:col-span-2">
+                        <Input
+                          type="email"
+                          value={pEmail}
+                          onChange={(e) => setPEmail(e.target.value)}
+                          dir="ltr"
+                        />
+                      </Field>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {/* ---------------------------------------------------------------- */}
+          {/* Step 6 — Review & confirm */}
+          {/* ---------------------------------------------------------------- */}
+          {step === 5 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Review &amp; confirm</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                  <Recap label="Student" value={studentName || '—'} />
+                  <Recap
+                    label="Registration"
+                    value={mode === 'NEW' ? 'New student' : 'Returning student'}
+                  />
+                  <Recap
+                    label="Grade"
+                    value={grades.find((g) => g.id === gradeId)?.nameEn ?? '—'}
+                  />
+                  <Recap
+                    label="Academic year"
+                    value={years.find((y) => y.id === academicYearId)?.name ?? '—'}
+                  />
+                  <Recap
+                    label="Section"
+                    value={sections.find((s) => s.id === sectionId)?.name ?? '—'}
+                  />
+                  <Recap
+                    label="Transport"
+                    value={
+                      transportDirection === 'NONE'
+                        ? 'None'
+                        : `${transportDirection.replace('_', ' ')}${
+                            resolvedRouteName ? ` · ${resolvedRouteName}` : ''
+                          }`
+                    }
+                  />
+                  {mode === 'NEW' ? (
+                    <Recap
+                      label="Guardian"
+                      value={
+                        [pFirstEn, pLastEn].filter(Boolean).join(' ')
+                          ? `${[pFirstEn, pLastEn].filter(Boolean).join(' ')}${
+                              pPhone ? ` · ${pPhone}` : ''
+                            }`
+                          : '—'
+                      }
+                    />
+                  ) : null}
+                  <Recap
+                    label="Payment"
+                    value={
+                      paymentMode === 'FULL' ? 'Full payment' : `${installments} installment(s)`
+                    }
+                  />
+                </dl>
+                {quote ? (
+                  <div className="flex items-center justify-between border-t border-border pt-3">
+                    <span className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Grand total
+                    </span>
+                    <span className="font-display text-lg font-semibold">
+                      {jod(quote.grandTotal)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-sm text-warning">
+                    No quotation yet — go back to the Quotation step and compute the fees.
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  The student record is created only when you commit.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {/* Step navigation */}
           <div className="flex items-center justify-between gap-3">
             <Button
@@ -993,7 +1052,10 @@ export default function AdmissionsPage() {
                 {busy ? 'Committing…' : 'Commit registration'}
               </Button>
             ) : (
-              <Button onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}>
+              <Button
+                onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+                disabled={nextDisabled}
+              >
                 Next step
               </Button>
             )}
@@ -1023,6 +1085,15 @@ export default function AdmissionsPage() {
                   </p>
                 </div>
               </div>
+
+              {quote ? (
+                <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/30 p-3">
+                  <span className="text-xs text-muted-foreground">Grand total</span>
+                  <span className="font-display text-base font-semibold tabular-nums">
+                    {jod(quote.grandTotal)}
+                  </span>
+                </div>
+              ) : null}
 
               <ProgressMeter steps={stepComplete} />
 
