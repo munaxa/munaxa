@@ -248,7 +248,10 @@
       "feeCollection": "Fee collection",
       "createInvoice": "Create invoice",
       "examinations": "Examinations",
-      "timetable": "Timetable"
+      "timetable": "Timetable",
+      "newAdmission": "New admission",
+      "sendMessage": "Send message",
+      "generateReport": "Generate report"
     },
     "noAttendanceToday": "No attendance has been marked yet today.",
     "greetingMorning": "Good morning",
@@ -284,7 +287,23 @@
     "customizeTitle": "Customize dashboard",
     "customizeDesc": "Choose which widgets appear on your dashboard.",
     "resetLayout": "Reset to default",
-    "kpisLabel": "Key metrics"
+    "kpisLabel": "Key metrics",
+    "totalStudents": "Total students",
+    "activeStudents": "Active students",
+    "newAdmissions": "New admissions",
+    "collectedFees": "Collected fees",
+    "fromLastMonth": "from last month",
+    "feeCollectionOverview": "Fee collection overview",
+    "totalCollected": "Total collected",
+    "monthlyTrendUnavailable": "Monthly trend isn't available yet.",
+    "studentProfilePreview": "Student profile (preview)",
+    "selectStudentPreview": "Select a student to preview their profile.",
+    "viewFullProfile": "View full profile",
+    "activityTimeline": "Activity timeline",
+    "admissionDate": "Admission date",
+    "showingRange": "Showing {from}–{to} of {total}",
+    "perPage": "per page",
+    "searchStudents": "Search students…"
   },
   "reports": {
     "subtitle": "Summaries across attendance, academics, finance, and behavior — view or export.",
