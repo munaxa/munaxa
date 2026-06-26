@@ -255,8 +255,9 @@ The rule going forward, enforced by convention and the public barrel: **apps imp
 |---|---|
 | **Admin** | ✅ **Yes, today.** Admin → `config-tailwind` preset → `@munaxa/design-tokens`. |
 | **`@munaxa/ui`** | ✅ Yes — consumes the preset's classes + can import tokens directly. |
-| **Landing / Demo** | ⏳ **After §9 step.** They still vendor inlined token copies; once their `tailwind.config.ts` imports the preset (or they join the workspace), they inherit it automatically. |
-| **Design-system website** | ⏳ **After §9 step.** Same: replace its local `tokens/*` with `@munaxa/design-tokens`. |
+| **Landing** | ✅ **Yes, as of Phase 2 (§10).** Edit `@munaxa/design-tokens` → `pnpm sync:tokens` → Landing's generated tokens update; CI fails if they drift. |
+| **Demo** | ⏳ Next: apply the same generator target (§10 is built to extend to it). |
+| **Design-system website** | ⏳ **After §9 step.** Replace its local `tokens/*` with `@munaxa/design-tokens`. |
 
 ### 8.3 "Change `Button.tsx` → every app updates" — current truth
 
@@ -270,9 +271,9 @@ landing/demo/website as each is migrated off its local copy in §9.
 Ordered, each independently shippable and verifiable. **Nothing here deletes code until its
 replacement is proven in that app.**
 
-1. **Landing → packages.** Add `munaxalanding` to consume `@munaxa/ui`, `@munaxa/config-tailwind`,
-   `@munaxa/design-tokens`, `@munaxa/icons` (workspace membership or published packages); replace
-   the 7 local `ui/*`, the inlined `tailwind.config.ts` tokens, and `lib/cn.ts`; verify build; delete copies.
+1. **Landing → packages.** _Tokens: ✅ done in Phase 2 (§10)._ Remaining: consume `@munaxa/ui`,
+   `@munaxa/icons`, `@munaxa/config-tailwind` to delete the 7 local `ui/*` and `lib/cn.ts` — this
+   step needs the **component-distribution decision** (§10.3: join workspace vs publish packages).
 2. **Demo → packages.** Same procedure for `munaxademo` (7 local `ui/*` + inlined tokens + `lib/cn.ts`).
 3. **Design-system website → consumer-only.** Bridge `munaxadesignsystem` (Vite/Tailwind v4) to
    `@munaxa/ui` + `@munaxa/design-tokens`; replace its 53 local `ui/*` and `tokens/*`; rebuild every
@@ -290,3 +291,57 @@ The workspace `node` CI job already runs `pnpm lint`, `pnpm typecheck`, `pnpm te
 `@munaxa/icons`, and `@munaxa/ui` are now gated on every PR automatically. Standalone
 `landing` / `demo` / `designsystem` jobs continue to gate those apps. As each app joins the
 workspace in §9, it is covered by the same workspace gates.
+
+---
+
+## 10. Phase 2 — Landing token consolidation (shipped)
+
+**Goal:** make `@munaxa/design-tokens` the source of truth for Landing's tokens **without**
+changing Landing's standalone deploy model and with **zero visual change**.
+
+### 10.1 Why not just add Landing to the workspace?
+
+Investigated and ruled out for this phase (documented so the decision is auditable):
+
+- `munaxalanding` is an **independent pnpm root** (its own `pnpm-workspace.yaml`, `pnpm-lock.yaml`,
+  `.npmrc`). Both its `Dockerfile` and its **Cloudflare deploy** (`opennextjs-cloudflare build`,
+  `wrangler.jsonc`) run `pnpm install --frozen-lockfile` **from inside `munaxalanding`** as a
+  standalone root.
+- The Cloudflare build/install command lives in an **external dashboard** (the repo's own CI
+  comments confirm "Deployed to Cloudflare via the dashboard Git integration"), which this repo
+  cannot edit or verify.
+- Therefore, removing Landing's standalone lockfile to join the workspace would break the Docker
+  self-host build **and** risk breaking a Cloudflare deploy that can't be fixed from here.
+- Landing's Tailwind config is also a **customized variant** (different radius/shadow/gradient,
+  extra `arabic` font + container-queries), not byte-identical to the shared preset — so it can't
+  simply adopt the preset wholesale without visual changes.
+
+### 10.2 What shipped (zero new runtime dep, zero visual change)
+
+| Change | File |
+|---|---|
+| Token generator (reads the built `@munaxa/design-tokens`, writes a committed, dependency-free module per app) | `scripts/sync-design-tokens.mjs` |
+| `pnpm sync:tokens` / `pnpm sync:tokens:check` scripts | root `package.json` |
+| Generated, committed token module Landing imports | `munaxalanding/src/design-tokens.generated.ts` |
+| Tailwind config now imports `brand`/`ink` from the generated module (values identical) | `munaxalanding/tailwind.config.ts` |
+| CI gate: fail if any app's generated tokens drift from the source | `.github/workflows/ci.yml` (`Design-token sync check`) |
+| Generator output excluded from Prettier (formatting owned by the generator) | `.prettierignore` |
+
+**Verification (this environment):** Landing `typecheck` ✅, `build` ✅ (identical route output to
+the pre-change baseline), `lint` ✅; `pnpm sync:tokens:check` ✅ (no drift). Generated brand/ink
+values are literally identical to the previously hardcoded ones — no CSS diff.
+
+### 10.3 What still needs a decision (component distribution)
+
+Deleting Landing's **7 local `ui/*` components** and `lib/cn.ts` in favor of `@munaxa/ui`
+requires a way for a standalone app to consume a **private** package. The generator pattern works
+for *tokens* (plain values) but not for *React components*. Two viable paths — owner's call:
+
+- **(A) Join the workspace** — true live imports (`edit Button.tsx → Landing updates`), but
+  requires reworking the Docker build and the external Cloudflare build command.
+- **(B) Publish `@munaxa/*`** to a private registry (e.g. GitHub Packages) — Landing stays a
+  standalone root and depends on versioned releases; needs release/versioning infrastructure.
+
+Until that decision, Landing's local components remain (inventoried in §1.1); **nothing was
+deleted**. The same generator already supports adding `munaxademo` as a second target (one line
+in `scripts/sync-design-tokens.mjs`).

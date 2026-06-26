@@ -1,12 +1,16 @@
 import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 import containerQueries from '@tailwindcss/container-queries';
+import { brand, ink } from './src/design-tokens.generated';
 
 /**
- * Munaxa munaxadesignsystem tokens (inlined so this app is fully standalone). Palette: violet
- * primary, theme-aware coral/aqua accents, on deep dark or light surfaces. Radius scale
- * (sm/DEFAULT/lg/2xl/3xl = 8/14/12/22/32px) and fonts (display/body/mono/arabic) mirror munaxadesignsystem.
- * Supports RTL/LTR via logical properties + the `font-arabic` (Cairo) family.
+ * Munaxa design tokens. The static brand/surface swatches below are sourced from
+ * `@munaxa/design-tokens` via the committed `src/design-tokens.generated.ts` (run
+ * `pnpm sync:tokens` from the monorepo root to refresh) — so this app stays a standalone
+ * pnpm root with no new runtime dependency, yet shares one source of truth for token values.
+ * Theme-aware coral/aqua/primary come from CSS variables in globals.css (light + dark). Radius
+ * scale (sm/DEFAULT/lg/2xl/3xl = 8/14/12/22/32px) and fonts (display/body/mono/arabic) mirror
+ * the design system. Supports RTL/LTR via logical properties + the `font-arabic` (Cairo) family.
  */
 const config: Config = {
   darkMode: ['class'],
@@ -14,21 +18,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand
+        // Brand — from @munaxa/design-tokens (see src/design-tokens.generated.ts).
         violet: {
-          DEFAULT: '#7A3FFF',
-          light: '#B97BFF',
+          DEFAULT: brand.DEFAULT,
+          light: brand.light,
         },
         // Theme-aware (CSS vars in globals.css): full-brightness on dark, darker on light so the
         // accents stay legible in both themes. Alpha modifiers (e.g. text-coral/40) supported.
         coral: 'hsl(var(--coral) / <alpha-value>)',
         aqua: 'hsl(var(--aqua) / <alpha-value>)',
-        // Surfaces (dark)
+        // Surfaces (dark) — from @munaxa/design-tokens.
         ink: {
-          900: '#0B0518',
-          800: '#140A2E',
-          700: '#1A0F38',
-          600: '#221547',
+          900: ink[900],
+          800: ink[800],
+          700: ink[700],
+          600: ink[600],
         },
         // shadcn token bridge (CSS variables defined in globals.css)
         border: 'hsl(var(--border))',

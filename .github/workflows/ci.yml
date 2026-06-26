@@ -87,7 +87,12 @@ jobs:
         run: pnpm prisma:generate
 
       - name: Build internal packages
-        run: pnpm turbo run build --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils
+        run: pnpm turbo run build --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils --filter=@munaxa/design-tokens
+
+      - name: Design-token sync check
+        # Fails if a standalone app's generated tokens have drifted from @munaxa/design-tokens
+        # (the single source of truth). Fix with `pnpm sync:tokens` and commit.
+        run: pnpm sync:tokens:check
 
       - name: Apply database migrations
         run: pnpm --filter @munaxa/api prisma:deploy
