@@ -30,6 +30,7 @@ jobs:
       mobile: ${{ steps.filter.outputs.mobile }}
       landing: ${{ steps.filter.outputs.landing }}
       demo: ${{ steps.filter.outputs.demo }}
+      designsystem: ${{ steps.filter.outputs.designsystem }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -42,6 +43,8 @@ jobs:
               - 'munaxalanding/**'
             demo:
               - 'munaxademo/**'
+            designsystem:
+              - 'munaxadesignsystem/**'
 
   node:
     name: Lint · Typecheck · Test · Build (JS/TS)
@@ -197,6 +200,36 @@ jobs:
         run: pnpm typecheck
       - name: Build
         run: pnpm build
+
+  designsystem:
+    name: Typecheck · Build (Design System)
+    runs-on: ubuntu-latest
+    # Standalone Cloudflare app (own pnpm root + lockfile, not in the workspace).
+    # Deployed to Cloudflare via the dashboard Git integration; this job only
+    # validates the static (Cloudflare) build. Only run when its code changes.
+    needs: changes
+    if: needs.changes.outputs.designsystem == 'true'
+    defaults:
+      run:
+        working-directory: munaxadesignsystem
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: munaxadesignsystem/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      # NOTE: the design system has no ESLint setup (only `check`/`format`), so
+      # lint is omitted. Typecheck + the Cloudflare static build gate it.
+      - name: Typecheck
+        run: pnpm check
+      - name: Build (Cloudflare static)
+        run: pnpm cf:build
 
   security:
     name: Security scans
