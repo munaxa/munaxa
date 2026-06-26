@@ -10,8 +10,6 @@ import { useConfirm } from '@/components/confirm';
 import { ChargeStatusBadge, TransactionStatusBadge } from '@/components/domain';
 import { FeeModifiedBadge } from '@/components/fee-modified-badge';
 import { loadStudentOptions } from '@/lib/pickers';
-import { studentsApi, type Student } from '@/lib/people';
-import { StudentProfileDialog } from '../people/students/student-profile-dialog';
 import {
   financeApi,
   type CollectionsProfile,
@@ -68,9 +66,6 @@ export default function FinancePage() {
   const { t } = useI18n();
   const confirm = useConfirm();
   const [studentId, setStudentId] = useState('');
-  // Student profile shown in a modal when a student name (or "View profile") is clicked.
-  const [profileStudent, setProfileStudent] = useState<Student | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
   const [statement, setStatement] = useState<Statement | null>(null);
   const [collections, setCollections] = useState<CollectionsProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -121,21 +116,12 @@ export default function FinancePage() {
     [studentId, toast],
   );
 
-  // Open the full student profile (same dialog as the Students directory). The finance page only
-  // holds the id/name, so fetch the complete record first.
+  // Open the full-page Student Profile (shared across modules) for this student.
   const openProfile = useCallback(
-    async (id: string) => {
-      if (!id) return;
-      setProfileLoading(true);
-      try {
-        setProfileStudent(await studentsApi.get(id));
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Failed to load profile');
-      } finally {
-        setProfileLoading(false);
-      }
+    (id: string) => {
+      if (id) router.push(`/people/students/${id}`);
     },
-    [toast],
+    [router],
   );
 
   // Deep link from Admissions: ?studentId=<id> opens that student's statement to collect fees.
@@ -268,10 +254,9 @@ export default function FinancePage() {
               variant="outline"
               size="sm"
               className="ms-auto"
-              disabled={profileLoading}
-              onClick={() => void openProfile(studentId)}
+              onClick={() => openProfile(studentId)}
             >
-              {profileLoading ? t('common.loading') : t('finance.viewProfile')}
+              {t('finance.viewProfile')}
             </Button>
           ) : null}
         </div>
@@ -831,7 +816,7 @@ export default function FinancePage() {
                             <button
                               type="button"
                               className="text-start font-medium text-foreground hover:text-primary hover:underline"
-                              onClick={() => void openProfile(m.studentId)}
+                              onClick={() => openProfile(m.studentId)}
                             >
                               {m.firstNameEn} {m.lastNameEn}
                             </button>
@@ -1066,16 +1051,6 @@ export default function FinancePage() {
         ) : null}
       </div>
 
-      {profileStudent ? (
-        <StudentProfileDialog
-          student={profileStudent}
-          onClose={() => setProfileStudent(null)}
-          onEdit={() => {
-            setProfileStudent(null);
-            router.push('/people/students');
-          }}
-        />
-      ) : null}
     </Shell>
   );
 }
