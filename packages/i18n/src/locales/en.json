@@ -388,7 +388,8 @@
     "refunds": "Refunds",
     "creditLabel": "credit",
     "refundAmountJod": "Refund amount (JOD)",
-    "requestRefund": "Request refund"
+    "requestRefund": "Request refund",
+    "viewProfile": "View profile"
   },
   "feePlans": {
     "create": "Create a fee plan",

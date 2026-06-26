@@ -101,6 +101,7 @@ export const studentsApi = {
     ),
   bySection: (sectionId: string) =>
     authFetch(`/students?sectionId=${sectionId}`).then((r) => json<Student[]>(r)),
+  get: (id: string) => authFetch(`/students/${id}`).then((r) => json<Student>(r)),
   create: (data: {
     firstNameEn: string;
     lastNameEn: string;
