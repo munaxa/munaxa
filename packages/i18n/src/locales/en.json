@@ -538,6 +538,8 @@
     "title": "Roles & permissions",
     "subtitle": "Customize what each role can do, or create roles tailored to your school.",
     "newRole": "New role",
+    "clone": "Clone",
+    "cloning": "Cloning…",
     "selectToEdit": "Select a role to edit.",
     "loadingRoles": "Loading roles…",
     "nameEn": "Name (English)",

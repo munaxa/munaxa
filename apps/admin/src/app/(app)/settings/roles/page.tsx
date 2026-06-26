@@ -18,6 +18,7 @@ import {
   CardTitle,
   Field,
   Input,
+  Tooltip,
 } from '@/components/ui';
 
 export default function RolesPage() {
@@ -167,6 +168,7 @@ function RoleEditor({
   const [selected, setSelected] = useState<Set<string>>(new Set(role.permissions));
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [cloning, setCloning] = useState(false);
 
   const grouped = useMemo(() => {
     const m = new Map<string, PermissionCatalogEntry[]>();
@@ -221,6 +223,23 @@ function RoleEditor({
     }
   }
 
+  async function cloneRole() {
+    setCloning(true);
+    try {
+      const cloned = await rolesApi.create({
+        nameEn: `${role.nameEn || role.key} (Copy)`,
+        ...(role.nameAr ? { nameAr: `${role.nameAr} (نسخة)` } : {}),
+        permissions: role.permissions,
+      });
+      onSaved(cloned);
+      toast.success('Role cloned — edit its permissions below');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to clone role');
+    } finally {
+      setCloning(false);
+    }
+  }
+
   async function remove() {
     if (!(await confirm({ description: `Delete the “${nameEn}” role? This cannot be undone.` })))
       return;
@@ -257,6 +276,9 @@ function RoleEditor({
             </CardDescription>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => void cloneRole()} disabled={cloning}>
+              {cloning ? t('roles.cloning') : t('roles.clone')}
+            </Button>
             {!role.isSystem ? (
               <Button variant="outline" size="sm" onClick={() => void remove()} disabled={deleting}>
                 {t('common.delete')}
@@ -310,14 +332,13 @@ function RoleEditor({
                         checked={selected.has(p.key)}
                         onChange={() => toggle(p.key)}
                       />
-                      <span>
+                      {p.description ? (
+                        <Tooltip content={p.description} className="w-56 whitespace-normal text-start">
+                          <span className="font-mono text-xs">{p.key}</span>
+                        </Tooltip>
+                      ) : (
                         <span className="font-mono text-xs">{p.key}</span>
-                        {p.description ? (
-                          <span className="block text-xs text-muted-foreground">
-                            {p.description}
-                          </span>
-                        ) : null}
-                      </span>
+                      )}
                     </label>
                   ))}
                 </div>
