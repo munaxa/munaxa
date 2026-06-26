@@ -248,7 +248,10 @@
       "feeCollection": "تحصيل الرسوم",
       "createInvoice": "إنشاء فاتورة",
       "examinations": "الامتحانات",
-      "timetable": "الجدول الدراسي"
+      "timetable": "الجدول الدراسي",
+      "newAdmission": "قبول جديد",
+      "sendMessage": "إرسال رسالة",
+      "generateReport": "إنشاء تقرير"
     },
     "noAttendanceToday": "لم يُسجَّل أي حضور بعد اليوم.",
     "greetingMorning": "صباح الخير",
@@ -284,7 +287,23 @@
     "customizeTitle": "تخصيص لوحة المعلومات",
     "customizeDesc": "اختر العناصر التي تظهر في لوحة المعلومات.",
     "resetLayout": "إعادة التعيين الافتراضي",
-    "kpisLabel": "المؤشرات الرئيسية"
+    "kpisLabel": "المؤشرات الرئيسية",
+    "totalStudents": "إجمالي الطلاب",
+    "activeStudents": "الطلاب النشطون",
+    "newAdmissions": "تسجيلات جديدة",
+    "collectedFees": "الرسوم المُحصّلة",
+    "fromLastMonth": "عن الشهر الماضي",
+    "feeCollectionOverview": "نظرة عامة على تحصيل الرسوم",
+    "totalCollected": "إجمالي المُحصّل",
+    "monthlyTrendUnavailable": "الاتجاه الشهري غير متاح بعد.",
+    "studentProfilePreview": "ملف الطالب (معاينة)",
+    "selectStudentPreview": "اختر طالبًا لمعاينة ملفه.",
+    "viewFullProfile": "عرض الملف الكامل",
+    "activityTimeline": "سجل النشاط",
+    "admissionDate": "تاريخ القبول",
+    "showingRange": "عرض {from}–{to} من {total}",
+    "perPage": "لكل صفحة",
+    "searchStudents": "ابحث عن الطلاب…"
   },
   "reports": {
     "subtitle": "ملخّصات للحضور والشؤون الأكاديمية والمالية والسلوك — للعرض أو التصدير.",

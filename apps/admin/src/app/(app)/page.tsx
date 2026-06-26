@@ -5,9 +5,28 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Shell, usePrincipal } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
+import { studentsApi, type Student } from '@/lib/people';
+import { sectionsApi, type Section } from '@/lib/structure';
+import { StudentProfileDialog } from './people/students/student-profile-dialog';
 import { NavIcon, type NavIconKey } from '@/components/nav-icons';
 import type { Locale } from '@/lib/i18n';
-import { Badge, Button, Card, CardContent, Dialog, EmptyState, Switch, cn } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  EmptyState,
+  Field,
+  Input,
+  Select,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+  cn,
+} from '@/components/ui';
 
 type Translate = (k: string) => string;
 
@@ -28,29 +47,28 @@ const chipTone: Record<Tone, string> = {
   coral: 'bg-coral/10 text-coral',
   danger: 'bg-destructive/10 text-destructive',
 };
-
 const dotTone: Record<Tone, string> = {
   primary: 'bg-primary',
   aqua: 'bg-aqua',
   coral: 'bg-coral',
   danger: 'bg-destructive',
 };
-
 const strokeTone: Record<Tone, string> = {
   primary: 'stroke-primary',
   aqua: 'stroke-aqua',
   coral: 'stroke-coral',
   danger: 'stroke-destructive',
 };
+const GRADE_TONES: Tone[] = ['primary', 'aqua', 'coral', 'danger'];
 
-const fillTone: Record<Tone, string> = {
-  primary: 'fill-primary/10',
-  aqua: 'fill-aqua/10',
-  coral: 'fill-coral/10',
-  danger: 'fill-destructive/10',
+const STATUS_TONE: Record<string, 'success' | 'muted' | 'warning' | 'danger'> = {
+  ACTIVE: 'success',
+  INACTIVE: 'muted',
+  GRADUATED: 'warning',
+  WITHDRAWN: 'danger',
+  PENDING: 'warning',
 };
 
-/** Quick actions, ordered by everyday frequency (mirrors the mockup). Permission-filtered. */
 const QUICK_ACTIONS: Array<{
   href: string;
   labelKey: string;
@@ -66,18 +84,18 @@ const QUICK_ACTIONS: Array<{
     perm: 'student:manage',
   },
   {
+    href: '/admissions',
+    labelKey: 'dashboard.action.newAdmission',
+    icon: 'enrollment',
+    tone: 'aqua',
+    perm: 'enrollment:manage',
+  },
+  {
     href: '/attendance',
-    labelKey: 'dashboard.action.takeAttendance',
+    labelKey: 'dashboard.action.markAttendance',
     icon: 'attendance',
     tone: 'primary',
     perm: 'attendance:read',
-  },
-  {
-    href: '/finance/collections',
-    labelKey: 'dashboard.action.feeCollection',
-    icon: 'collections',
-    tone: 'aqua',
-    perm: 'finance:read',
   },
   {
     href: '/finance',
@@ -87,106 +105,50 @@ const QUICK_ACTIONS: Array<{
     perm: 'finance:read',
   },
   {
-    href: '/people/teachers',
-    labelKey: 'dashboard.action.addTeacher',
-    icon: 'teachers',
-    tone: 'primary',
-    perm: 'teacher:manage',
-  },
-  {
-    href: '/academics',
-    labelKey: 'dashboard.action.examinations',
-    icon: 'academics',
-    tone: 'primary',
-    perm: 'grade:read',
-  },
-  {
     href: '/communication',
-    labelKey: 'dashboard.action.sendNotice',
+    labelKey: 'dashboard.action.sendMessage',
     icon: 'communication',
     tone: 'primary',
     perm: 'announcement:manage',
   },
   {
     href: '/reports',
-    labelKey: 'dashboard.action.reports',
+    labelKey: 'dashboard.action.generateReport',
     icon: 'reports',
     tone: 'primary',
     perm: 'report:read',
   },
-  {
-    href: '/timetable',
-    labelKey: 'dashboard.action.timetable',
-    icon: 'timetable',
-    tone: 'coral',
-    perm: 'timetable:read',
-  },
 ];
 
-// ---------------------------------------------------------------------------
-// Widget visibility (persisted client-side preference — purely presentational)
-// ---------------------------------------------------------------------------
-const WIDGETS = [
-  { id: 'kpis', labelKey: 'dashboard.kpisLabel' },
-  { id: 'attendance', labelKey: 'dashboard.attendanceToday' },
-  { id: 'trend', labelKey: 'dashboard.attendanceTrend' },
-  { id: 'activity', labelKey: 'dashboard.recentActivity' },
-  { id: 'grade', labelKey: 'dashboard.studentsByGrade' },
-  { id: 'fees', labelKey: 'dashboard.feeCollection' },
-  { id: 'quickActions', labelKey: 'dashboard.quickActions' },
-  { id: 'aiInsight', labelKey: 'dashboard.aiInsight' },
-] as const;
-
-type WidgetId = (typeof WIDGETS)[number]['id'];
-type WidgetPrefs = Record<WidgetId, boolean>;
-
-const PREFS_KEY = 'munaxa.dashboard.widgets';
-const DEFAULT_PREFS = Object.fromEntries(WIDGETS.map((w) => [w.id, true])) as WidgetPrefs;
-
-function useWidgetPrefs() {
-  const [prefs, setPrefs] = useState<WidgetPrefs>(DEFAULT_PREFS);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(PREFS_KEY);
-      if (raw) setPrefs({ ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<WidgetPrefs>) });
-    } catch {
-      /* ignore malformed storage */
-    }
-  }, []);
-
-  const persist = useCallback((next: WidgetPrefs) => {
-    setPrefs(next);
-    try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore quota / privacy-mode errors */
-    }
-  }, []);
-
-  const toggle = useCallback(
-    (id: WidgetId) => persist({ ...prefs, [id]: !prefs[id] }),
-    [persist, prefs],
-  );
-  const reset = useCallback(() => persist(DEFAULT_PREFS), [persist]);
-
-  return { prefs, toggle, reset };
-}
+const PAGE_SIZE = 10;
 
 function Dashboard() {
   const principal = usePrincipal();
   const { t, locale } = useI18n();
   const held = useMemo(() => new Set(principal.permissions), [principal.permissions]);
-  const actions = QUICK_ACTIONS.filter((a) => !a.perm || held.has(a.perm) || principal.isPlatform);
-  const canSeeKpis = held.has('report:read') || held.has('*') || principal.isPlatform;
-
-  const { prefs, toggle, reset } = useWidgetPrefs();
-  const [customizing, setCustomizing] = useState(false);
+  const can = (perm?: string) => !perm || held.has(perm) || held.has('*') || principal.isPlatform;
+  const actions = QUICK_ACTIONS.filter((a) => can(a.perm));
+  const canSeeKpis = can('report:read');
+  const canSeeStudents = can('student:manage');
 
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState(false);
+  const [students, setStudents] = useState<Student[] | null>(null);
+  const [sections, setSections] = useState<Section[]>([]);
 
-  const load = useCallback(async () => {
+  // Directory state
+  const [search, setSearch] = useState('');
+  const [fGrade, setFGrade] = useState('');
+  const [fSection, setFSection] = useState('');
+  const [fStatus, setFStatus] = useState('');
+  const [fGender, setFGender] = useState('');
+  const [page, setPage] = useState(1);
+
+  // Selected student → profile preview / full dialog
+  const [selected, setSelected] = useState<Student | null>(null);
+  const [profileOpen, setProfileOpen] = useState<Student | null>(null);
+
+  const loadOverview = useCallback(async () => {
     try {
       setError(false);
       setData(await dashboardApi.overview());
@@ -196,13 +158,95 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (canSeeKpis) void load();
-  }, [canSeeKpis, load]);
+    if (canSeeKpis) void loadOverview();
+  }, [canSeeKpis, loadOverview]);
+
+  useEffect(() => {
+    if (!canSeeStudents) return;
+    studentsApi
+      .list()
+      .then((rows) => {
+        setStudents(rows);
+        setSelected((cur) => cur ?? rows[0] ?? null);
+      })
+      .catch(() => setStudents([]));
+    sectionsApi
+      .list()
+      .then(setSections)
+      .catch(() => undefined);
+  }, [canSeeStudents]);
+
+  const gradeName = useCallback(
+    (id?: string | null) => sections.find((s) => s.id === id)?.grade?.nameEn ?? '—',
+    [sections],
+  );
+  const sectionName = useCallback(
+    (id?: string | null) => sections.find((s) => s.id === id)?.name ?? '—',
+    [sections],
+  );
+  const sectionLabel = useCallback(
+    (id?: string | null) => {
+      const sec = sections.find((s) => s.id === id);
+      if (!sec) return undefined;
+      return sec.grade ? `${sec.grade.nameEn} · ${sec.name}` : sec.name;
+    },
+    [sections],
+  );
+
+  const grades = useMemo(
+    () =>
+      [
+        ...new Map(
+          sections
+            .filter((s) => s.grade)
+            .map((s) => [
+              s.grade!.id,
+              { id: s.grade!.id, name: s.grade!.nameEn, level: s.grade!.level },
+            ]),
+        ).values(),
+      ].sort((a, b) => a.level - b.level),
+    [sections],
+  );
+  const sectionsForGrade = useMemo(
+    () => (fGrade ? sections.filter((s) => s.grade?.id === fGrade) : sections),
+    [sections, fGrade],
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (students ?? []).filter(
+      (s) =>
+        (!q ||
+          `${s.firstNameEn} ${s.lastNameEn}`.toLowerCase().includes(q) ||
+          (s.moeStudentNumber ?? '').toLowerCase().includes(q) ||
+          (s.nationalId ?? '').toLowerCase().includes(q)) &&
+        (!fGrade || sections.find((x) => x.id === s.sectionId)?.grade?.id === fGrade) &&
+        (!fSection || s.sectionId === fSection) &&
+        (!fStatus || s.status === fStatus) &&
+        (!fGender || s.gender === fGender),
+    );
+  }, [students, sections, search, fGrade, fSection, fStatus, fGender]);
+
+  // Keep the page within bounds when filters shrink the list.
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  useEffect(() => setPage(1), [search, fGrade, fSection, fStatus, fGender]);
+
+  const activeCount = students ? students.filter((s) => s.status === 'ACTIVE').length : null;
+  const att = data?.attendanceToday;
+  const rate =
+    att && att.total > 0 ? Math.round(((att.present + att.late) / att.total) * 100) : null;
+  const markedRates = (data?.attendanceTrend ?? [])
+    .map((d) => d.rate)
+    .filter((r): r is number => r !== null);
+  const [prevRate, lastRate] = markedRates.slice(-2);
+  const attendanceDelta =
+    prevRate !== undefined && lastRate !== undefined ? lastRate - prevRate : null;
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6">
-      <DashboardHeader locale={locale} t={t} onCustomize={() => setCustomizing(true)} />
-
+      {/* KPI row */}
       {canSeeKpis ? (
         error && !data ? (
           <Card>
@@ -210,7 +254,7 @@ function Dashboard() {
               <EmptyState
                 title={t('dashboard.overviewUnavailable')}
                 action={
-                  <Button variant="outline" size="sm" onClick={() => void load()}>
+                  <Button variant="outline" size="sm" onClick={() => void loadOverview()}>
                     {t('common.retry')}
                   </Button>
                 }
@@ -218,185 +262,115 @@ function Dashboard() {
             </CardContent>
           </Card>
         ) : data ? (
-          <DashboardContent data={data} actions={actions} prefs={prefs} locale={locale} t={t} />
+          <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            <Kpi
+              icon="students"
+              label={t('dashboard.totalStudents')}
+              value={formatNumber(data.students, locale)}
+              delta={{ value: data.deltas.studentsThisMonth, suffix: t('dashboard.fromLastMonth') }}
+              spark={data.sparklines.students}
+            />
+            <Kpi
+              icon="students"
+              tone="aqua"
+              label={t('dashboard.activeStudents')}
+              value={activeCount !== null ? formatNumber(activeCount, locale) : '—'}
+              sparkTone="aqua"
+            />
+            <Kpi
+              icon="enrollment"
+              tone="coral"
+              label={t('dashboard.newAdmissions')}
+              value={formatNumber(data.deltas.studentsThisMonth, locale)}
+            />
+            <Kpi
+              icon="finance"
+              tone="aqua"
+              label={t('dashboard.collectedFees')}
+              value={formatMoneyCompact(data.finance.collectedThisMonth, locale)}
+            />
+            <Kpi
+              icon="attendance"
+              label={t('dashboard.attendanceToday')}
+              value={rate !== null ? `${rate}%` : '—'}
+              delta={
+                attendanceDelta !== null
+                  ? { value: attendanceDelta, suffix: t('dashboard.vsYesterday'), unit: '%' }
+                  : undefined
+              }
+              spark={markedRates}
+            />
+          </section>
         ) : (
-          <DashboardSkeleton />
+          <KpiSkeleton />
         )
-      ) : prefs.quickActions ? (
-        <QuickActionsCard actions={actions} t={t} />
       ) : null}
 
-      <CustomizeDialog
-        open={customizing}
-        onClose={() => setCustomizing(false)}
-        prefs={prefs}
-        toggle={toggle}
-        reset={reset}
-        t={t}
-      />
+      {/* Main: directory + right rail */}
+      <section className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <StudentDirectoryCard
+            t={t}
+            locale={locale}
+            canSeeStudents={canSeeStudents}
+            students={students}
+            rows={pageRows}
+            total={filtered.length}
+            page={safePage}
+            pageCount={pageCount}
+            onPage={setPage}
+            search={search}
+            onSearch={setSearch}
+            grades={grades}
+            sectionsForGrade={sectionsForGrade}
+            fGrade={fGrade}
+            fSection={fSection}
+            fStatus={fStatus}
+            fGender={fGender}
+            setFGrade={setFGrade}
+            setFSection={setFSection}
+            setFStatus={setFStatus}
+            setFGender={setFGender}
+            gradeName={gradeName}
+            sectionName={sectionName}
+            selectedId={selected?.id}
+            onSelect={setSelected}
+            onOpenProfile={setProfileOpen}
+            canRegister={can('enrollment:manage')}
+          />
+        </div>
+        <div className="space-y-6">
+          <ProfilePreviewCard
+            t={t}
+            student={selected}
+            gradeSection={sectionLabel(selected?.sectionId)}
+            onOpenProfile={() => selected && setProfileOpen(selected)}
+          />
+          <ActivityTimelineCard t={t} locale={locale} activity={data?.recentActivity ?? []} />
+        </div>
+      </section>
+
+      {/* Bottom: fee overview · grade donut · quick actions */}
+      <section className="grid gap-6 lg:grid-cols-3">
+        <FeeCollectionCard t={t} locale={locale} finance={data?.finance} />
+        <StudentsByGradeCard t={t} locale={locale} data={data?.studentsByGrade ?? []} />
+        <QuickActionsCard t={t} actions={actions} />
+      </section>
+
+      {profileOpen ? (
+        <StudentProfileDialog
+          student={profileOpen}
+          sectionLabel={sectionLabel(profileOpen.sectionId)}
+          onClose={() => setProfileOpen(null)}
+          onEdit={() => setProfileOpen(null)}
+        />
+      ) : null}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Header
-// ---------------------------------------------------------------------------
-function DashboardHeader({
-  locale,
-  t,
-  onCustomize,
-}: {
-  locale: Locale;
-  t: Translate;
-  onCustomize: () => void;
-}) {
-  const now = new Date();
-  const intlLocale = locale === 'ar' ? 'ar-JO' : 'en-US';
-  const hour = now.getHours();
-  const greetingKey =
-    hour < 12
-      ? 'dashboard.greetingMorning'
-      : hour < 18
-        ? 'dashboard.greetingAfternoon'
-        : 'dashboard.greetingEvening';
-  const date = new Intl.DateTimeFormat(intlLocale, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(now);
-  const weekday = new Intl.DateTimeFormat(intlLocale, { weekday: 'short' }).format(now);
-
-  return (
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <div className="space-y-1">
-        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold">
-          {t(greetingKey)}
-          <span aria-hidden="true">👋</span>
-        </h1>
-        <p className="text-sm text-muted-foreground">{t('dashboard.welcomeLine')}</p>
-      </div>
-      <div className="flex items-center gap-3">
-        <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium">
-          <CalendarIcon />
-          {date} ({weekday})
-        </span>
-        <Button onClick={onCustomize}>
-          <SlidersIcon />
-          {t('dashboard.customize')}
-        </Button>
-      </div>
-    </header>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Content
-// ---------------------------------------------------------------------------
-function DashboardContent({
-  data,
-  actions,
-  prefs,
-  locale,
-  t,
-}: {
-  data: DashboardOverview;
-  actions: typeof QUICK_ACTIONS;
-  prefs: WidgetPrefs;
-  locale: Locale;
-  t: Translate;
-}) {
-  const att = data.attendanceToday;
-  const rate = att.total > 0 ? Math.round(((att.present + att.late) / att.total) * 100) : null;
-
-  // Attendance delta from the last two days that were actually marked.
-  const markedRates = data.attendanceTrend
-    .map((d) => d.rate)
-    .filter((r): r is number => r !== null);
-  const [prevRate, lastRate] = markedRates.slice(-2);
-  const attendanceDelta =
-    prevRate !== undefined && lastRate !== undefined ? lastRate - prevRate : null;
-
-  const cards: Array<{ id: WidgetId; node: React.ReactNode }> = [
-    { id: 'attendance', node: <AttendanceCard att={att} rate={rate} locale={locale} t={t} /> },
-    {
-      id: 'trend',
-      node: <AttendanceTrendCard trend={data.attendanceTrend} locale={locale} t={t} />,
-    },
-    { id: 'activity', node: <ActivityCard activity={data.recentActivity} locale={locale} t={t} /> },
-    {
-      id: 'grade',
-      node: <StudentsByGradeCard data={data.studentsByGrade} locale={locale} t={t} />,
-    },
-    { id: 'fees', node: <FeeCollectionCard finance={data.finance} locale={locale} t={t} /> },
-    { id: 'quickActions', node: <QuickActionsCard actions={actions} t={t} /> },
-  ];
-  const visibleCards = cards.filter((c) => prefs[c.id]);
-
-  return (
-    <>
-      {prefs.kpis ? (
-        <section
-          aria-label={t('dashboard.title')}
-          className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
-        >
-          <Kpi
-            icon="students"
-            label={t('dashboard.students')}
-            value={formatNumber(data.students, locale)}
-            delta={{ value: data.deltas.studentsThisMonth, suffix: t('dashboard.thisMonthShort') }}
-            spark={data.sparklines.students}
-          />
-          <Kpi
-            icon="teachers"
-            label={t('dashboard.teachers')}
-            value={formatNumber(data.staff, locale)}
-            delta={{ value: data.deltas.staffThisMonth, suffix: t('dashboard.thisMonthShort') }}
-            spark={data.sparklines.staff}
-          />
-          <Kpi
-            icon="attendance"
-            tone="aqua"
-            label={t('dashboard.attendanceToday')}
-            value={rate !== null ? `${rate}%` : '—'}
-            delta={
-              attendanceDelta !== null
-                ? { value: attendanceDelta, suffix: t('dashboard.vsYesterday'), unit: '%' }
-                : undefined
-            }
-            spark={markedRates}
-            sparkTone="aqua"
-          />
-          <Kpi
-            icon="collections"
-            tone="coral"
-            label={t('dashboard.outstanding')}
-            value={formatMoney(data.finance.outstanding, locale)}
-          />
-          <Kpi
-            icon="feePlans"
-            label={t('dashboard.invoicePending')}
-            value={formatNumber(data.einvoice.pending, locale)}
-          />
-        </section>
-      ) : null}
-
-      {visibleCards.length > 0 ? (
-        <section className="grid gap-4 lg:grid-cols-3">
-          {visibleCards.map((c) => (
-            <div key={c.id} className="flex">
-              {c.node}
-            </div>
-          ))}
-        </section>
-      ) : null}
-
-      {prefs.aiInsight ? <AiInsightBanner data={data} rate={rate} t={t} /> : null}
-    </>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// KPI card
+// KPI
 // ---------------------------------------------------------------------------
 function Kpi({
   icon,
@@ -418,24 +392,24 @@ function Kpi({
   return (
     <Card className="h-full w-full">
       <CardContent className="flex h-full flex-col gap-3 p-5">
-        <span
-          aria-hidden="true"
-          className={cn('flex h-11 w-11 items-center justify-center rounded-xl', chipTone[tone])}
-        >
-          <NavIcon name={icon} />
-        </span>
+        <div className="flex items-center justify-between">
+          <span
+            aria-hidden="true"
+            className={cn('flex h-10 w-10 items-center justify-center rounded-xl', chipTone[tone])}
+          >
+            <NavIcon name={icon} />
+          </span>
+          {spark && spark.length >= 2 ? <Sparkline values={spark} tone={sparkTone} /> : null}
+        </div>
         <div>
           <p className="truncate text-sm text-muted-foreground">{label}</p>
           <p className="mt-0.5 font-display text-2xl font-semibold tabular-nums">{value}</p>
         </div>
-        <div className="mt-auto flex items-end justify-between gap-2">
-          {delta ? (
-            <DeltaChip value={delta.value} suffix={delta.suffix} unit={delta.unit} />
-          ) : (
-            <span />
-          )}
-          {spark && spark.length >= 2 ? <Sparkline values={spark} tone={sparkTone} /> : null}
-        </div>
+        {delta ? (
+          <DeltaChip value={delta.value} suffix={delta.suffix} unit={delta.unit} />
+        ) : (
+          <span className="h-4" />
+        )}
       </CardContent>
     </Card>
   );
@@ -466,9 +440,6 @@ function DeltaChip({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Sparkline
-// ---------------------------------------------------------------------------
 function Sparkline({ values, tone = 'primary' }: { values: number[]; tone?: Tone }) {
   const w = 72;
   const h = 28;
@@ -496,32 +467,541 @@ function Sparkline({ values, tone = 'primary' }: { values: number[]; tone?: Tone
   );
 }
 
-// ---------------------------------------------------------------------------
-// Section card header (title + optional badge / action)
-// ---------------------------------------------------------------------------
-function SectionHeader({
-  title,
-  badge,
-  action,
-}: {
-  title: string;
-  badge?: string;
-  action?: React.ReactNode;
-}) {
+function KpiSkeleton() {
   return (
-    <div className="flex items-center justify-between gap-2 p-6 pb-3">
-      <h3 className="font-display text-lg font-semibold leading-none">{title}</h3>
-      {action ?? (badge ? <Badge tone="muted">{badge}</Badge> : null)}
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5" aria-hidden>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="h-[124px] animate-pulse rounded-xl bg-secondary/60" />
+      ))}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Donut chart
+// Section header
 // ---------------------------------------------------------------------------
+function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-2 p-6 pb-3">
+      <h3 className="font-display text-lg font-semibold leading-none">{title}</h3>
+      {action}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Student directory (table + filters + pagination)
+// ---------------------------------------------------------------------------
+function StudentDirectoryCard({
+  t,
+  locale,
+  canSeeStudents,
+  students,
+  rows,
+  total,
+  page,
+  pageCount,
+  onPage,
+  search,
+  onSearch,
+  grades,
+  sectionsForGrade,
+  fGrade,
+  fSection,
+  fStatus,
+  fGender,
+  setFGrade,
+  setFSection,
+  setFStatus,
+  setFGender,
+  gradeName,
+  sectionName,
+  selectedId,
+  onSelect,
+  onOpenProfile,
+  canRegister,
+}: {
+  t: Translate;
+  locale: Locale;
+  canSeeStudents: boolean;
+  students: Student[] | null;
+  rows: Student[];
+  total: number;
+  page: number;
+  pageCount: number;
+  onPage: (p: number) => void;
+  search: string;
+  onSearch: (v: string) => void;
+  grades: Array<{ id: string; name: string; level: number }>;
+  sectionsForGrade: Section[];
+  fGrade: string;
+  fSection: string;
+  fStatus: string;
+  fGender: string;
+  setFGrade: (v: string) => void;
+  setFSection: (v: string) => void;
+  setFStatus: (v: string) => void;
+  setFGender: (v: string) => void;
+  gradeName: (id?: string | null) => string;
+  sectionName: (id?: string | null) => string;
+  selectedId?: string | undefined;
+  onSelect: (s: Student) => void;
+  onOpenProfile: (s: Student) => void;
+  canRegister: boolean;
+}) {
+  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+
+  return (
+    <Card className="flex h-full flex-col">
+      <SectionHeader
+        title={t('nav.people')}
+        action={
+          canRegister ? (
+            <Link href="/admissions">
+              <Button size="sm">
+                <span aria-hidden="true">+</span>
+                {t('people.newRegistration')}
+              </Button>
+            </Link>
+          ) : null
+        }
+      />
+      <CardContent className="flex flex-1 flex-col gap-4">
+        {/* Filters */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label={t('common.search')} className="lg:col-span-2">
+            <Input
+              value={search}
+              placeholder={t('dashboard.searchStudents')}
+              onChange={(e) => onSearch(e.target.value)}
+            />
+          </Field>
+          <Field label={t('structure.grade')}>
+            <Select
+              value={fGrade}
+              onChange={(e) => {
+                setFGrade(e.target.value);
+                setFSection('');
+              }}
+            >
+              <option value="">{t('people.allGrades')}</option>
+              {grades.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t('structure.section')}>
+            <Select value={fSection} onChange={(e) => setFSection(e.target.value)}>
+              <option value="">{t('people.allSections')}</option>
+              {sectionsForGrade.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.grade ? `${s.grade.nameEn} · ${s.name}` : s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t('common.status')}>
+            <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+              <option value="">{t('people.allStatuses')}</option>
+              {['ACTIVE', 'INACTIVE', 'GRADUATED', 'WITHDRAWN'].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t('people.gender')}>
+            <Select value={fGender} onChange={(e) => setFGender(e.target.value)}>
+              <option value="">{t('people.allGenders')}</option>
+              <option value="MALE">{t('people.male')}</option>
+              <option value="FEMALE">{t('people.female')}</option>
+            </Select>
+          </Field>
+        </div>
+
+        {!canSeeStudents ? (
+          <EmptyState title={t('people.noStudents')} />
+        ) : students === null ? (
+          <div className="space-y-2" aria-hidden>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-12 animate-pulse rounded-md bg-secondary/60" />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>{t('people.studentNo')}</TH>
+                    <TH>{t('common.name')}</TH>
+                    <TH>{t('structure.grade')}</TH>
+                    <TH>{t('structure.section')}</TH>
+                    <TH>{t('common.status')}</TH>
+                    <TH className="text-end">{t('common.actions')}</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {rows.map((s) => (
+                    <TR
+                      key={s.id}
+                      className={cn('cursor-pointer', selectedId === s.id ? 'bg-primary/5' : '')}
+                    >
+                      <TD className="font-mono text-xs text-muted-foreground">
+                        {s.moeStudentNumber || '—'}
+                      </TD>
+                      <TD>
+                        <button
+                          type="button"
+                          className="flex items-center gap-3 text-start"
+                          onClick={() => onSelect(s)}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
+                          >
+                            {(s.firstNameEn.trim()[0] ?? '?').toUpperCase()}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate font-medium text-foreground">
+                              {s.firstNameEn} {s.lastNameEn}
+                            </span>
+                            <span
+                              className="block truncate text-xs text-muted-foreground"
+                              dir="rtl"
+                            >
+                              {s.firstNameAr} {s.lastNameAr}
+                            </span>
+                          </span>
+                        </button>
+                      </TD>
+                      <TD>{gradeName(s.sectionId)}</TD>
+                      <TD>{sectionName(s.sectionId)}</TD>
+                      <TD>
+                        <Badge tone={STATUS_TONE[s.status] ?? 'muted'}>{s.status}</Badge>
+                      </TD>
+                      <TD>
+                        <div className="flex items-center justify-end gap-1">
+                          <IconButton label={t('people.view')} onClick={() => onSelect(s)}>
+                            <EyeIcon />
+                          </IconButton>
+                          <IconButton
+                            label={t('dashboard.viewFullProfile')}
+                            onClick={() => onOpenProfile(s)}
+                          >
+                            <ExpandIcon />
+                          </IconButton>
+                        </div>
+                      </TD>
+                    </TR>
+                  ))}
+                  {rows.length === 0 ? (
+                    <TR>
+                      <TD colSpan={6}>
+                        <EmptyState title={t('people.noStudentsMatch')} />
+                      </TD>
+                    </TR>
+                  ) : null}
+                </TBody>
+              </Table>
+            </div>
+
+            {/* Pagination */}
+            <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2 text-sm">
+              <span className="text-muted-foreground">
+                {t('dashboard.showingRange')
+                  .replace('{from}', formatNumber(from, locale))
+                  .replace('{to}', formatNumber(to, locale))
+                  .replace('{total}', formatNumber(total, locale))}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPage(page - 1)}
+                  disabled={page <= 1}
+                  aria-label={t('common.previous')}
+                >
+                  ‹
+                </Button>
+                <span className="px-2 font-mono text-xs tabular-nums">
+                  {page} / {pageCount}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPage(page + 1)}
+                  disabled={page >= pageCount}
+                  aria-label={t('common.next')}
+                >
+                  ›
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Profile preview
+// ---------------------------------------------------------------------------
+function ProfilePreviewCard({
+  t,
+  student,
+  gradeSection,
+  onOpenProfile,
+}: {
+  t: Translate;
+  student: Student | null;
+  gradeSection?: string | undefined;
+  onOpenProfile: () => void;
+}) {
+  return (
+    <Card>
+      <SectionHeader title={t('dashboard.studentProfilePreview')} />
+      <CardContent>
+        {!student ? (
+          <EmptyState
+            icon={<NavIcon name="students" className="h-6 w-6" />}
+            title={t('dashboard.selectStudentPreview')}
+          />
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <span
+                aria-hidden="true"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 font-display text-lg font-semibold text-primary"
+              >
+                {(student.firstNameEn.trim()[0] ?? '?').toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-display font-semibold">
+                    {student.firstNameEn} {student.lastNameEn}
+                  </p>
+                  <Badge tone={STATUS_TONE[student.status] ?? 'muted'}>{student.status}</Badge>
+                </div>
+                <p className="truncate font-mono text-xs text-muted-foreground">
+                  {student.moeStudentNumber || '—'}
+                  {gradeSection ? ` · ${gradeSection}` : ''}
+                </p>
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-4">
+              <Detail label={t('dashboard.admissionDate')}>
+                {student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : '—'}
+              </Detail>
+              <Detail label={t('people.nationalId')}>{student.nationalId || '—'}</Detail>
+              <Detail label={t('structure.grade')}>{gradeSection ?? '—'}</Detail>
+              <Detail label={t('people.gender')}>
+                {student.gender ? t(`people.${student.gender.toLowerCase()}`) : '—'}
+              </Detail>
+            </dl>
+
+            <Button variant="outline" className="w-full" onClick={onOpenProfile}>
+              {t('dashboard.viewFullProfile')}
+              <span aria-hidden="true">→</span>
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Detail({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="truncate text-sm">{children}</dd>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Activity timeline
+// ---------------------------------------------------------------------------
+function ActivityTimelineCard({
+  t,
+  locale,
+  activity,
+}: {
+  t: Translate;
+  locale: Locale;
+  activity: DashboardOverview['recentActivity'];
+}) {
+  const fmt = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    [locale],
+  );
+  const items = activity.slice(0, 5);
+  return (
+    <Card>
+      <SectionHeader
+        title={t('dashboard.activityTimeline')}
+        action={
+          <Link href="/reports" className="text-xs font-medium text-primary hover:underline">
+            {t('dashboard.viewAll')}
+          </Link>
+        }
+      />
+      <CardContent>
+        {items.length === 0 ? (
+          <EmptyState
+            icon={<NavIcon name="reports" className="h-6 w-6" />}
+            title={t('dashboard.noRecentActivity')}
+          />
+        ) : (
+          <ul className="space-y-3">
+            {items.map((a, i) => {
+              const who = a.actorName ?? a.actorUsername ?? t('dashboard.systemActor');
+              return (
+                <li key={i} className="flex items-start gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">
+                      <span className="font-medium">{a.action}</span>
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {who} · {fmt.format(new Date(a.at))}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fee collection overview (real figures; monthly trend needs history)
+// ---------------------------------------------------------------------------
+function FeeCollectionCard({
+  t,
+  locale,
+  finance,
+}: {
+  t: Translate;
+  locale: Locale;
+  finance?: DashboardOverview['finance'] | undefined;
+}) {
+  return (
+    <Card className="flex flex-col">
+      <SectionHeader title={t('dashboard.feeCollectionOverview')} />
+      <CardContent className="flex flex-1 flex-col gap-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-xs text-muted-foreground">{t('dashboard.totalCollected')}</p>
+            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-aqua">
+              {finance ? formatMoney(finance.collectedThisMonth, locale) : '—'}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border p-4">
+            <p className="text-xs text-muted-foreground">{t('dashboard.pending')}</p>
+            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-coral">
+              {finance ? formatMoney(finance.outstanding, locale) : '—'}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border py-8">
+          <p className="text-xs text-muted-foreground">{t('dashboard.monthlyTrendUnavailable')}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Students by grade donut
+// ---------------------------------------------------------------------------
+function StudentsByGradeCard({
+  t,
+  locale,
+  data,
+}: {
+  t: Translate;
+  locale: Locale;
+  data: DashboardOverview['studentsByGrade'];
+}) {
+  const total = data.reduce((s, d) => s + d.students, 0);
+  const gradeLabel = (level: number) => (level === 0 ? 'KG' : formatNumber(level, locale));
+  return (
+    <Card className="flex flex-col">
+      <SectionHeader title={t('dashboard.studentsByGrade')} />
+      <CardContent className="flex flex-1 flex-col">
+        {total > 0 ? (
+          <div className="flex flex-col items-center gap-6 sm:flex-row">
+            <DonutChart
+              segments={data.map((d, i) => ({
+                value: (d.students / total) * 100,
+                tone: GRADE_TONES[i % GRADE_TONES.length]!,
+              }))}
+              center={
+                <div>
+                  <p className="font-display text-2xl font-semibold tabular-nums">
+                    {formatNumber(total, locale)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.students')}</p>
+                </div>
+              }
+            />
+            <ul className="flex-1 space-y-2">
+              {data.map((d, i) => (
+                <li key={d.level} className="flex items-center gap-2.5 text-sm">
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'h-2.5 w-2.5 shrink-0 rounded-full',
+                      dotTone[GRADE_TONES[i % GRADE_TONES.length]!],
+                    )}
+                  />
+                  <span className="flex-1 text-muted-foreground">{gradeLabel(d.level)}</span>
+                  <span className="font-medium tabular-nums">
+                    {formatNumber(d.students, locale)}
+                  </span>
+                  <span className="w-10 text-end font-mono text-xs text-muted-foreground tabular-nums">
+                    {total > 0 ? `${Math.round((d.students / total) * 100)}%` : '0%'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <EmptyState
+            className="flex-1 justify-center"
+            icon={<NavIcon name="academics" className="h-6 w-6" />}
+            title={t('dashboard.noGradeData')}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function DonutChart({
   segments,
-  size = 168,
+  size = 160,
   thickness = 16,
   center,
 }: {
@@ -579,446 +1059,16 @@ function DonutChart({
   );
 }
 
-function Legend({
-  items,
-}: {
-  items: Array<{ tone: Tone; label: string; value: string; pct: string }>;
-}) {
-  return (
-    <ul className="flex-1 space-y-3">
-      {items.map((it, i) => (
-        <li key={i} className="flex items-center gap-2.5 text-sm">
-          <span
-            aria-hidden="true"
-            className={cn('h-2.5 w-2.5 shrink-0 rounded-full', dotTone[it.tone])}
-          />
-          <span className="flex-1 text-muted-foreground">{it.label}</span>
-          <span className="font-medium tabular-nums">{it.value}</span>
-          <span className="w-12 text-end font-mono text-xs text-muted-foreground tabular-nums">
-            {it.pct}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Attendance breakdown
-// ---------------------------------------------------------------------------
-function AttendanceCard({
-  att,
-  rate,
-  locale,
-  t,
-}: {
-  att: DashboardOverview['attendanceToday'];
-  rate: number | null;
-  locale: Locale;
-  t: Translate;
-}) {
-  const pct = (n: number) => (att.total > 0 ? `${Math.round((n / att.total) * 100)}%` : '0%');
-  return (
-    <Card className="flex w-full flex-col">
-      <SectionHeader title={t('dashboard.attendanceToday')} badge={t('dashboard.today')} />
-      <CardContent className="flex flex-1 flex-col">
-        {att.total > 0 ? (
-          <div className="flex flex-col items-center gap-6 sm:flex-row">
-            <DonutChart
-              segments={[
-                { value: (att.present / att.total) * 100, tone: 'aqua' },
-                { value: (att.late / att.total) * 100, tone: 'coral' },
-                { value: (att.absent / att.total) * 100, tone: 'danger' },
-                { value: (att.excused / att.total) * 100, tone: 'primary' },
-              ]}
-              center={
-                <div>
-                  <p className="text-xs text-muted-foreground">{t('dashboard.present')}</p>
-                  <p className="font-display text-2xl font-semibold tabular-nums">
-                    {formatNumber(att.present, locale)}
-                  </p>
-                  <p className="text-xs font-medium text-aqua tabular-nums">
-                    {rate !== null ? `${rate}%` : '—'}
-                  </p>
-                </div>
-              }
-            />
-            <Legend
-              items={[
-                {
-                  tone: 'aqua',
-                  label: t('dashboard.present'),
-                  value: formatNumber(att.present, locale),
-                  pct: pct(att.present),
-                },
-                {
-                  tone: 'coral',
-                  label: t('dashboard.late'),
-                  value: formatNumber(att.late, locale),
-                  pct: pct(att.late),
-                },
-                {
-                  tone: 'danger',
-                  label: t('dashboard.absent'),
-                  value: formatNumber(att.absent, locale),
-                  pct: pct(att.absent),
-                },
-                {
-                  tone: 'primary',
-                  label: t('dashboard.excused'),
-                  value: formatNumber(att.excused, locale),
-                  pct: pct(att.excused),
-                },
-              ]}
-            />
-          </div>
-        ) : (
-          <EmptyState
-            className="flex-1 justify-center"
-            icon={<NavIcon name="attendance" className="h-6 w-6" />}
-            title={t('dashboard.noAttendanceToday')}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Attendance trend (line chart)
-// ---------------------------------------------------------------------------
-function AttendanceTrendCard({
-  trend,
-  locale,
-  t,
-}: {
-  trend: DashboardOverview['attendanceTrend'];
-  locale: Locale;
-  t: Translate;
-}) {
-  const intlLocale = locale === 'ar' ? 'ar-JO' : 'en-US';
-  const dayFmt = useMemo(
-    () => new Intl.DateTimeFormat(intlLocale, { weekday: 'short' }),
-    [intlLocale],
-  );
-  const points = trend.map((d, i) => ({
-    x: trend.length > 1 ? (i / (trend.length - 1)) * 100 : 50,
-    rate: d.rate,
-    label: dayFmt.format(new Date(`${d.date}T00:00:00Z`)),
-  }));
-  const valid = points.filter(
-    (p): p is { x: number; rate: number; label: string } => p.rate !== null,
-  );
-  const avg = valid.length
-    ? Math.round(valid.reduce((s, p) => s + p.rate, 0) / valid.length)
-    : null;
-  const first = valid[0];
-  const last = valid[valid.length - 1];
-  const linePoints = valid.map((p) => `${p.x},${100 - p.rate}`).join(' ');
-
-  return (
-    <Card className="flex w-full flex-col">
-      <SectionHeader title={t('dashboard.attendanceTrend')} badge={t('dashboard.thisWeek')} />
-      <CardContent className="flex flex-1 flex-col">
-        {valid.length >= 2 && first && last ? (
-          <>
-            <div className="relative h-40 w-full">
-              <svg
-                className="absolute inset-0 h-full w-full"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                {[0, 50, 100].map((y) => (
-                  <line
-                    key={y}
-                    x1="0"
-                    x2="100"
-                    y1={y}
-                    y2={y}
-                    className="stroke-border"
-                    strokeWidth="1"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                ))}
-                <polygon
-                  className={fillTone.primary}
-                  points={`${first.x},100 ${linePoints} ${last.x},100`}
-                />
-                <polyline
-                  points={linePoints}
-                  className="stroke-primary"
-                  fill="none"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-              {last ? (
-                <span
-                  className="absolute -translate-x-1/2 -translate-y-1/2 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground tabular-nums"
-                  style={{ left: `${last.x}%`, top: `${100 - last.rate}%` }}
-                >
-                  {last.rate}%
-                </span>
-              ) : null}
-            </div>
-            <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
-              {points.map((p, i) => (
-                <span key={i}>{p.label}</span>
-              ))}
-            </div>
-            <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-sm">
-              <span className="text-muted-foreground">
-                {t('dashboard.averageThisWeek')}{' '}
-                <span className="font-semibold text-foreground tabular-nums">{avg}%</span>
-              </span>
-              <Link href="/reports" className="font-medium text-primary hover:underline">
-                {t('dashboard.viewFullReport')} →
-              </Link>
-            </div>
-          </>
-        ) : (
-          <EmptyState
-            className="flex-1 justify-center"
-            icon={<NavIcon name="reports" className="h-6 w-6" />}
-            title={t('dashboard.noTrendData')}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Recent activity
-// ---------------------------------------------------------------------------
-const ACTIVITY_LIMIT = 6;
-
-function ActivityCard({
-  activity,
-  locale,
-  t,
-}: {
-  activity: DashboardOverview['recentActivity'];
-  locale: Locale;
-  t: Translate;
-}) {
-  const items = activity.slice(0, ACTIVITY_LIMIT);
-  const fmt = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }),
-    [locale],
-  );
-
-  return (
-    <Card className="flex w-full flex-col">
-      <SectionHeader
-        title={t('dashboard.recentActivity')}
-        action={
-          <Link href="/reports" className="text-xs font-medium text-primary hover:underline">
-            {t('dashboard.viewAll')}
-          </Link>
-        }
-      />
-      <CardContent className="flex-1">
-        {items.length === 0 ? (
-          <EmptyState
-            className="justify-center"
-            icon={<NavIcon name="reports" className="h-6 w-6" />}
-            title={t('dashboard.noRecentActivity')}
-          />
-        ) : (
-          <ul className="divide-y divide-border/60">
-            {items.map((a, i) => {
-              const who = a.actorName ?? a.actorUsername ?? t('dashboard.systemActor');
-              const detail = [
-                a.action,
-                a.entityType + (a.entityId ? ` #${a.entityId.slice(0, 8)}` : ''),
-                a.ip ?? undefined,
-              ]
-                .filter(Boolean)
-                .join(' · ');
-              return (
-                <li key={i} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
-                  <span
-                    aria-hidden="true"
-                    className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm">
-                      <span className="font-medium">{who}</span>
-                      {a.actorName && a.actorUsername ? (
-                        <span className="text-muted-foreground"> @{a.actorUsername}</span>
-                      ) : null}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">{detail}</p>
-                  </div>
-                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
-                    {fmt.format(new Date(a.at))}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Students by grade (bar chart)
-// ---------------------------------------------------------------------------
-function StudentsByGradeCard({
-  data,
-  locale,
-  t,
-}: {
-  data: DashboardOverview['studentsByGrade'];
-  locale: Locale;
-  t: Translate;
-}) {
-  const max = data.reduce((m, d) => Math.max(m, d.students), 0);
-  const total = data.reduce((s, d) => s + d.students, 0);
-  const gradeLabel = (level: number) => (level === 0 ? 'KG' : formatNumber(level, locale));
-
-  return (
-    <Card className="flex w-full flex-col">
-      <SectionHeader title={t('dashboard.studentsByGrade')} badge={t('dashboard.thisSession')} />
-      <CardContent className="flex flex-1 flex-col">
-        {total > 0 ? (
-          <div className="flex h-44 items-end gap-1.5">
-            {data.map((d) => (
-              <div
-                key={d.level}
-                className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
-              >
-                <div className="flex w-full flex-1 items-end">
-                  <div
-                    className="w-full rounded-t bg-primary/80 transition-colors hover:bg-primary"
-                    style={{ height: `${max > 0 ? Math.max((d.students / max) * 100, 2) : 0}%` }}
-                    title={`${d.nameEn}: ${formatNumber(d.students, locale)}`}
-                  />
-                </div>
-                <span className="text-[10px] text-muted-foreground">{gradeLabel(d.level)}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            className="flex-1 justify-center"
-            icon={<NavIcon name="academics" className="h-6 w-6" />}
-            title={t('dashboard.noGradeData')}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Fee collection (3-way donut)
-// ---------------------------------------------------------------------------
-function FeeCollectionCard({
-  finance,
-  locale,
-  t,
-}: {
-  finance: DashboardOverview['finance'];
-  locale: Locale;
-  t: Translate;
-}) {
-  const paid = Number(finance.paid);
-  const outstanding = Number(finance.outstanding);
-  const overdue = Number(finance.overdue);
-  const pending = Math.max(outstanding - overdue, 0);
-  const total = paid + outstanding;
-  const pct = (n: number) => (total > 0 ? `${Math.round((n / total) * 100)}%` : '0%');
-  const collectedPct = total > 0 ? Math.round((paid / total) * 100) : 0;
-
-  return (
-    <Card className="flex w-full flex-col">
-      <SectionHeader title={t('dashboard.feeCollection')} badge={t('dashboard.thisMonth')} />
-      <CardContent className="flex flex-1 flex-col">
-        {total > 0 ? (
-          <>
-            <div className="flex flex-col items-center gap-6 sm:flex-row">
-              <DonutChart
-                segments={[
-                  { value: total > 0 ? (paid / total) * 100 : 0, tone: 'aqua' },
-                  { value: total > 0 ? (pending / total) * 100 : 0, tone: 'coral' },
-                  { value: total > 0 ? (overdue / total) * 100 : 0, tone: 'danger' },
-                ]}
-                center={
-                  <div>
-                    <p className="font-display text-2xl font-semibold tabular-nums">
-                      {collectedPct}%
-                    </p>
-                    <p className="text-xs text-muted-foreground tabular-nums">
-                      {formatMoney(finance.paid, locale)}
-                    </p>
-                  </div>
-                }
-              />
-              <Legend
-                items={[
-                  {
-                    tone: 'aqua',
-                    label: t('dashboard.collectedShort'),
-                    value: formatMoney(finance.paid, locale),
-                    pct: pct(paid),
-                  },
-                  {
-                    tone: 'coral',
-                    label: t('dashboard.pending'),
-                    value: formatMoney(String(pending), locale),
-                    pct: pct(pending),
-                  },
-                  {
-                    tone: 'danger',
-                    label: t('dashboard.overdue'),
-                    value: formatMoney(finance.overdue, locale),
-                    pct: pct(overdue),
-                  },
-                ]}
-              />
-            </div>
-            <Link
-              href="/finance"
-              className="mt-4 inline-flex items-center justify-center gap-1 text-sm font-medium text-primary hover:underline"
-            >
-              {t('dashboard.viewFinancialReport')}
-              <span aria-hidden="true">→</span>
-            </Link>
-          </>
-        ) : (
-          <EmptyState
-            className="flex-1 justify-center"
-            icon={<NavIcon name="finance" className="h-6 w-6" />}
-            title={t('dashboard.noRecentActivity')}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Quick actions
 // ---------------------------------------------------------------------------
-function QuickActionsCard({ actions, t }: { actions: typeof QUICK_ACTIONS; t: Translate }) {
+function QuickActionsCard({ t, actions }: { t: Translate; actions: typeof QUICK_ACTIONS }) {
   if (actions.length === 0) return null;
   return (
-    <Card className="flex w-full flex-col">
+    <Card className="flex flex-col">
       <SectionHeader title={t('dashboard.quickActions')} />
       <CardContent className="flex-1">
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {actions.map((a) => (
             <Link
               key={a.href}
@@ -1044,160 +1094,31 @@ function QuickActionsCard({ actions, t }: { actions: typeof QUICK_ACTIONS; t: Tr
 }
 
 // ---------------------------------------------------------------------------
-// AI insight banner (computed from real data)
+// Icons
 // ---------------------------------------------------------------------------
-function AiInsightBanner({
-  data,
-  rate,
-  t,
+function IconButton({
+  label,
+  onClick,
+  children,
 }: {
-  data: DashboardOverview;
-  rate: number | null;
-  t: Translate;
-}) {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-
-  const message =
-    rate !== null
-      ? t('dashboard.aiInsightAttendance').replace('{rate}', String(rate))
-      : Number(data.finance.outstanding) > 0
-        ? t('dashboard.aiInsightOutstanding')
-        : t('dashboard.aiInsightAllClear');
-
-  return (
-    <Card className="border-primary/20 bg-primary/5">
-      <CardContent className="flex flex-wrap items-center gap-3 p-4">
-        <span
-          aria-hidden="true"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary"
-        >
-          <SparkleIcon />
-        </span>
-        <p className="min-w-0 flex-1 text-sm">
-          <span className="font-semibold text-primary">{t('dashboard.aiInsight')}</span>
-          <span className="text-muted-foreground"> — {message}</span>
-        </p>
-        <div className="flex items-center gap-1">
-          <Link href="/reports">
-            <Button variant="outline" size="sm">
-              {t('dashboard.viewInsights')}
-            </Button>
-          </Link>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label={t('common.dismiss')}
-            onClick={() => setDismissed(true)}
-          >
-            <span aria-hidden="true">✕</span>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Customize dialog
-// ---------------------------------------------------------------------------
-function CustomizeDialog({
-  open,
-  onClose,
-  prefs,
-  toggle,
-  reset,
-  t,
-}: {
-  open: boolean;
-  onClose: () => void;
-  prefs: WidgetPrefs;
-  toggle: (id: WidgetId) => void;
-  reset: () => void;
-  t: Translate;
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title={t('dashboard.customizeTitle')}
-      description={t('dashboard.customizeDesc')}
-      footer={
-        <div className="flex w-full items-center justify-between">
-          <Button variant="ghost" size="sm" onClick={reset}>
-            {t('dashboard.resetLayout')}
-          </Button>
-          <Button size="sm" onClick={onClose}>
-            {t('common.ok')}
-          </Button>
-        </div>
-      }
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
     >
-      <ul className="divide-y divide-border">
-        {WIDGETS.map((w) => (
-          <li key={w.id} className="flex items-center justify-between gap-4 py-2.5">
-            <label htmlFor={`widget-${w.id}`} className="text-sm font-medium">
-              {t(w.labelKey)}
-            </label>
-            <Switch
-              id={`widget-${w.id}`}
-              checked={prefs[w.id]}
-              onCheckedChange={() => toggle(w.id)}
-              aria-label={t(w.labelKey)}
-            />
-          </li>
-        ))}
-      </ul>
-    </Dialog>
+      {children}
+    </button>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Loading skeleton (mirrors the content layout to avoid layout shift)
-// ---------------------------------------------------------------------------
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6" aria-hidden>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-[124px] animate-pulse rounded-xl bg-secondary/60" />
-        ))}
-      </div>
-      {Array.from({ length: 2 }).map((_, row) => (
-        <div key={row} className="grid gap-4 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-72 animate-pulse rounded-xl bg-secondary/60" />
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Inline glyphs (decorative; same hand-rolled SVG convention as nav-icons)
-// ---------------------------------------------------------------------------
-function CalendarIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.75"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="text-muted-foreground"
-    >
-      <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
-      <path d="M3.5 9h17M8 3v3M16 3v3" />
-    </svg>
-  );
-}
-
-function SlidersIcon() {
+function EyeIcon() {
   return (
     <svg
       width="16"
@@ -1210,25 +1131,32 @@ function SlidersIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0" />
-      <circle cx="16" cy="6" r="2" />
-      <circle cx="8" cy="12" r="2" />
-      <circle cx="16" cy="18" r="2" />
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }
 
-function SparkleIcon() {
+function ExpandIcon() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 2.5l1.6 4.9a3 3 0 0 0 1.9 1.9l4.9 1.6-4.9 1.6a3 3 0 0 0-1.9 1.9L12 19.3l-1.6-4.9a3 3 0 0 0-1.9-1.9L3.6 10.9l4.9-1.6a3 3 0 0 0 1.9-1.9L12 2.5z" />
-      <path d="M19 3l.7 2 2 .7-2 .7L19 8.4l-.7-2-2-.7 2-.7L19 3z" opacity="0.7" />
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 5H5v4M15 5h4v4M9 19H5v-4M15 19h4v-4" />
     </svg>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Formatting helpers (display-only; mirrors @munaxa/utils money formatting)
+// Formatting helpers
 // ---------------------------------------------------------------------------
 function formatNumber(n: number, locale: Locale): string {
   return new Intl.NumberFormat(locale === 'ar' ? 'ar-JO' : 'en-US').format(n);
@@ -1242,5 +1170,15 @@ function formatMoney(value: string, locale: Locale): string {
     currency: 'JOD',
     minimumFractionDigits: 3,
     maximumFractionDigits: 3,
+  }).format(n);
+}
+
+function formatMoneyCompact(value: string, locale: Locale): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return new Intl.NumberFormat(locale === 'ar' ? 'ar-JO' : 'en-JO', {
+    style: 'currency',
+    currency: 'JOD',
+    maximumFractionDigits: 0,
   }).format(n);
 }
