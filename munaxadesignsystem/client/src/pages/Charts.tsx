@@ -124,11 +124,11 @@ export default function Charts() {
             
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               {[
-                { name: "Chart 1", color: "#BE9AFF" },
-                { name: "Chart 2", color: "#A370FF" },
-                { name: "Chart 3", color: "#8A4FFF" },
-                { name: "Chart 4", color: "#7A3FFF" },
-                { name: "Chart 5", color: "#652ED8" },
+                { name: "Chart 1", color: "#9EDCF3" },
+                { name: "Chart 2", color: "#66B8D4" },
+                { name: "Chart 3", color: "#3093B2" },
+                { name: "Chart 4", color: "#007595" },
+                { name: "Chart 5", color: "#00607B" },
               ].map((item) => (
                 <Card key={item.name} className="p-6 text-center">
                   <div

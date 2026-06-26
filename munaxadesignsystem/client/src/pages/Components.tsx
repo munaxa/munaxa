@@ -48,8 +48,8 @@ export default function Components() {
                   <Button>Primary Button</Button>
                   <Button disabled>Disabled</Button>
                   <p className="text-sm text-foreground/60 mt-4">
-                    Brand violet #7A3FFF (primary resolves to #5B1FD6 on light,
-                    #B97BFF on dark) | Radius: 14px
+                    Brand teal #007595 (primary resolves to #007595 on light,
+                    #00B8DB on dark) | Radius: 14px
                   </p>
                 </div>
               </div>

@@ -1,16 +1,16 @@
 import Layout from "@/components/Layout";
 
 const primaryColors = [
-  { name: "primary-50", value: "#F5F0FF" },
-  { name: "primary-100", value: "#E9DDFF" },
-  { name: "primary-200", value: "#D5BEFF" },
-  { name: "primary-300", value: "#BE9AFF" },
-  { name: "primary-400", value: "#A370FF" },
-  { name: "primary-500", value: "#8A4FFF" },
-  { name: "primary-600", value: "#7A3FFF" },
-  { name: "primary-700", value: "#652ED8" },
-  { name: "primary-800", value: "#5426B1" },
-  { name: "primary-900", value: "#441F8D" },
+  { name: "primary-50", value: "#EEFBFF" },
+  { name: "primary-100", value: "#DEF7FF" },
+  { name: "primary-200", value: "#C1ECFD" },
+  { name: "primary-300", value: "#9EDCF3" },
+  { name: "primary-400", value: "#66B8D4" },
+  { name: "primary-500", value: "#3093B2" },
+  { name: "primary-600", value: "#007595" },
+  { name: "primary-700", value: "#00607B" },
+  { name: "primary-800", value: "#004B61" },
+  { name: "primary-900", value: "#003444" },
 ];
 
 const grayColors = [
@@ -78,8 +78,8 @@ export default function Tokens() {
           <div className="max-w-6xl mx-auto">
             <h2 className="text-2xl font-bold mb-8">Primary Color Palette</h2>
             <p className="text-foreground/70 mb-6">
-              The primary brand color is <strong>#7A3FFF</strong> (Deep Purple).
-              Use this for primary actions, highlights, and key information.
+              The primary brand color is <strong>#007595</strong> (Teal). Use
+              this for primary actions, highlights, and key information.
             </p>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

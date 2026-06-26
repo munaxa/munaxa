@@ -22,7 +22,7 @@
   --color-aqua: var(--aqua);
   --shadow-card:
     0 24px 50px -30px rgb(30 11 77 / 0.25), 0 0 0 1px var(--border) inset;
-  --shadow-glow: 0 14px 40px -16px rgb(122 63 255 / 0.55);
+  --shadow-glow: 0 14px 40px -16px rgb(0 117 149 / 0.55);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -63,8 +63,9 @@
 
 :root {
   /* ── Munaxa Design System — Light theme (website default) ───────────────
-     Brand violet #7A3FFF (light tint #B97BFF). On light surfaces the semantic
-     primary darkens to #5B1FD6 so it stays legible; accents are coral + aqua. */
+     Brand updated to the Orbix Studio palette (shadcn preset b7BFbeatk): a cool
+     teal/cyan primary (oklch(0.52 0.105 223.128) ≈ #007595) with cool-gray
+     neutrals. Coral + aqua remain as theme-aware accents. */
 
   /* Type families */
   --font-display: "Sora", system-ui, sans-serif;
@@ -75,47 +76,47 @@
   /* Radius — 14px base */
   --radius: 0.875rem;
 
-  /* Primary / brand */
-  --primary: #5b1fd6;
-  --primary-foreground: #ffffff;
-  --sidebar-primary: #5b1fd6;
-  --sidebar-primary-foreground: #ffffff;
+  /* Primary / brand — Orbix teal */
+  --primary: oklch(0.52 0.105 223.128);
+  --primary-foreground: oklch(0.984 0.019 200.873);
+  --sidebar-primary: oklch(0.609 0.126 221.723);
+  --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
 
   /* Accents (theme-aware) */
   --coral: #d9534f;
   --aqua: #0d9488;
 
-  /* Chart palette — brand violets + accents */
-  --chart-1: #7a3fff;
-  --chart-2: #b97bff;
-  --chart-3: #0d9488;
-  --chart-4: #d9534f;
-  --chart-5: #5b1fd6;
+  /* Chart palette */
+  --chart-1: oklch(0.872 0.007 219.6);
+  --chart-2: oklch(0.56 0.021 213.5);
+  --chart-3: oklch(0.45 0.017 213.2);
+  --chart-4: oklch(0.378 0.015 216);
+  --chart-5: oklch(0.275 0.011 216.9);
 
   /* Surfaces & text */
-  --background: #f7f5ff;
-  --foreground: #1e0b4d;
-  --card: #ffffff;
-  --card-foreground: #1e0b4d;
-  --popover: #ffffff;
-  --popover-foreground: #1e0b4d;
-  --secondary: #f0ecfa;
-  --secondary-foreground: #1e0b4d;
-  --muted: #f0ecfa;
-  --muted-foreground: #5a4d7a;
-  --accent: #d9534f;
-  --accent-foreground: #ffffff;
-  --destructive: #d9534f;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.148 0.004 228.8);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.148 0.004 228.8);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.148 0.004 228.8);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.963 0.002 197.1);
+  --muted-foreground: oklch(0.56 0.021 213.5);
+  --accent: oklch(0.963 0.002 197.1);
+  --accent-foreground: oklch(0.218 0.008 223.9);
+  --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: #ffffff;
-  --border: #e3dfef;
-  --input: #c8c0dc;
-  --ring: #5b1fd6;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1e0b4d;
-  --sidebar-accent: #f0ecfa;
-  --sidebar-accent-foreground: #5b1fd6;
-  --sidebar-border: #e3dfef;
-  --sidebar-ring: #5b1fd6;
+  --border: oklch(0.925 0.005 214.3);
+  --input: oklch(0.925 0.005 214.3);
+  --ring: oklch(0.723 0.014 214.4);
+  --sidebar: oklch(0.987 0.002 197.1);
+  --sidebar-foreground: oklch(0.148 0.004 228.8);
+  --sidebar-accent: oklch(0.963 0.002 197.1);
+  --sidebar-accent-foreground: oklch(0.218 0.008 223.9);
+  --sidebar-border: oklch(0.925 0.005 214.3);
+  --sidebar-ring: oklch(0.723 0.014 214.4);
 
   /* Semantic */
   --success: #0d9488;
@@ -123,56 +124,56 @@
   --error: #d9534f;
   --info: #3b82f6;
 
-  /* Hero gradient backdrop (light) */
+  /* Hero gradient backdrop (light) — teal */
   --grad-hero: radial-gradient(
     ellipse 90% 60% at 50% -10%,
-    rgb(122 63 255 / 0.08),
+    rgb(0 117 149 / 0.08),
     transparent 60%
   );
 }
 
 .dark {
-  /* ── Munaxa Design System — Dark "ink" theme ──────────────────────────── */
-  --primary: #b97bff;
-  --primary-foreground: #0b0518;
-  --sidebar-primary: #b97bff;
-  --sidebar-primary-foreground: #0b0518;
+  /* ── Munaxa Design System — Dark theme (Orbix teal) ─────────────────────── */
+  --primary: oklch(0.45 0.085 224.283);
+  --primary-foreground: oklch(0.984 0.019 200.873);
+  --sidebar-primary: oklch(0.715 0.143 215.221);
+  --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
 
   /* Accents brighten on ink surfaces */
   --coral: #ff8e6e;
   --aqua: #4df4e1;
 
   /* Chart palette */
-  --chart-1: #b97bff;
-  --chart-2: #7a3fff;
-  --chart-3: #4df4e1;
-  --chart-4: #ff8e6e;
-  --chart-5: #5b1fd6;
+  --chart-1: oklch(0.872 0.007 219.6);
+  --chart-2: oklch(0.56 0.021 213.5);
+  --chart-3: oklch(0.45 0.017 213.2);
+  --chart-4: oklch(0.378 0.015 216);
+  --chart-5: oklch(0.275 0.011 216.9);
 
-  /* Ink surfaces & text */
-  --background: #0b0518;
-  --foreground: #f4f0ff;
-  --card: #1a0f38;
-  --card-foreground: #f4f0ff;
-  --popover: #1a0f38;
-  --popover-foreground: #f4f0ff;
-  --secondary: #221547;
-  --secondary-foreground: #f4f0ff;
-  --muted: #221547;
-  --muted-foreground: #afa9c6;
-  --accent: #ff8e6e;
-  --accent-foreground: #0b0518;
-  --destructive: #ff5c7a;
+  /* Surfaces & text */
+  --background: oklch(0.148 0.004 228.8);
+  --foreground: oklch(0.987 0.002 197.1);
+  --card: oklch(0.218 0.008 223.9);
+  --card-foreground: oklch(0.987 0.002 197.1);
+  --popover: oklch(0.218 0.008 223.9);
+  --popover-foreground: oklch(0.987 0.002 197.1);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.275 0.011 216.9);
+  --muted-foreground: oklch(0.723 0.014 214.4);
+  --accent: oklch(0.275 0.011 216.9);
+  --accent-foreground: oklch(0.987 0.002 197.1);
+  --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: #ffffff;
-  --border: #2f224f;
-  --input: #2f224f;
-  --ring: #b97bff;
-  --sidebar: #140a2e;
-  --sidebar-foreground: #f4f0ff;
-  --sidebar-accent: #221547;
-  --sidebar-accent-foreground: #b97bff;
-  --sidebar-border: #2f224f;
-  --sidebar-ring: #b97bff;
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.56 0.021 213.5);
+  --sidebar: oklch(0.218 0.008 223.9);
+  --sidebar-foreground: oklch(0.987 0.002 197.1);
+  --sidebar-accent: oklch(0.275 0.011 216.9);
+  --sidebar-accent-foreground: oklch(0.987 0.002 197.1);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.56 0.021 213.5);
 
   /* Semantic — dark */
   --success: #4df4e1;
@@ -180,10 +181,10 @@
   --error: #ff5c7a;
   --info: #60a5fa;
 
-  /* Hero gradient backdrop (dark) */
+  /* Hero gradient backdrop (dark) — teal */
   --grad-hero: radial-gradient(
     ellipse 90% 60% at 50% -10%,
-    rgb(122 63 255 / 0.18),
+    rgb(0 184 219 / 0.18),
     transparent 60%
   );
 }
