@@ -8,7 +8,7 @@
  * Run: `pnpm --filter @munaxa/api db:seed` (DATABASE_URL must be set).
  */
 import { PrismaClient } from '@prisma/client';
-import { ALL_PERMISSIONS } from '@munaxa/domain';
+import { ALL_PERMISSIONS, PERMISSION_DESCRIPTIONS } from '@munaxa/domain';
 
 const prisma = new PrismaClient();
 
@@ -20,10 +20,11 @@ async function main(): Promise<void> {
     await tx.$executeRaw`SELECT set_config('app.is_platform', 'on', true)`;
     for (const key of ALL_PERMISSIONS) {
       const category = key.split(':')[0] ?? 'general';
+      const description = PERMISSION_DESCRIPTIONS[key] ?? null;
       await tx.permission.upsert({
         where: { key },
-        update: { category },
-        create: { key, category },
+        update: { category, description },
+        create: { key, category, description },
       });
       count += 1;
     }

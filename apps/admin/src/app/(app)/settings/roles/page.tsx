@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { cn } from '@munaxa/ui';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
@@ -16,10 +24,17 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Dialog,
   Field,
   Input,
   Tooltip,
 } from '@/components/ui';
+
+/** Imperative handle the parent uses to ask the editor about — and act on — unsaved changes. */
+interface RoleEditorHandle {
+  isDirty: () => boolean;
+  save: () => Promise<boolean>;
+}
 
 export default function RolesPage() {
   return (
@@ -36,6 +51,10 @@ function RolesAdmin() {
   const [catalog, setCatalog] = useState<PermissionCatalogEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const editorRef = useRef<RoleEditorHandle>(null);
+  const [unsavedOpen, setUnsavedOpen] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const pendingActionRef = useRef<(() => void) | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -77,6 +96,39 @@ function RolesAdmin() {
     }
   }
 
+  /** Run `action` immediately, unless the open editor has unsaved changes — then prompt first. */
+  function withUnsavedGuard(action: () => void) {
+    if (editorRef.current?.isDirty()) {
+      pendingActionRef.current = action;
+      setUnsavedOpen(true);
+    } else {
+      action();
+    }
+  }
+
+  function closeUnsavedDialog() {
+    setUnsavedOpen(false);
+    pendingActionRef.current = null;
+  }
+
+  function discardAndContinue() {
+    const action = pendingActionRef.current;
+    closeUnsavedDialog();
+    action?.();
+  }
+
+  async function saveAndContinue() {
+    setSwitching(true);
+    try {
+      const ok = await editorRef.current?.save();
+      const action = pendingActionRef.current;
+      closeUnsavedDialog();
+      if (ok) action?.();
+    } finally {
+      setSwitching(false);
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-muted-foreground">{t('roles.loadingRoles')}</p>;
   }
@@ -88,7 +140,9 @@ function RolesAdmin() {
           <h1 className="font-display text-2xl font-semibold">{t('roles.title')}</h1>
           <p className="text-sm text-muted-foreground">{t('roles.subtitle')}</p>
         </div>
-        <Button onClick={() => void createRole()}>{t('roles.newRole')}</Button>
+        <Button onClick={() => withUnsavedGuard(() => void createRole())}>
+          {t('roles.newRole')}
+        </Button>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
@@ -99,7 +153,7 @@ function RolesAdmin() {
                 <li key={r.id}>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(r.id)}
+                    onClick={() => withUnsavedGuard(() => setSelectedId(r.id))}
                     className={cn(
                       'flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-start text-sm transition',
                       r.id === selectedId
@@ -124,6 +178,7 @@ function RolesAdmin() {
 
         {selected ? (
           <RoleEditor
+            ref={editorRef}
             key={selected.id}
             role={selected}
             catalog={catalog}
@@ -141,6 +196,26 @@ function RolesAdmin() {
           </Card>
         )}
       </div>
+
+      <Dialog
+        open={unsavedOpen}
+        onClose={closeUnsavedDialog}
+        title={t('roles.unsavedTitle')}
+        description={t('roles.unsavedBody')}
+        footer={
+          <>
+            <Button variant="outline" size="sm" onClick={closeUnsavedDialog}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="outline" size="sm" onClick={discardAndContinue}>
+              {t('roles.discard')}
+            </Button>
+            <Button size="sm" onClick={() => void saveAndContinue()} disabled={switching}>
+              {switching ? t('common.saving') : t('common.saveChanges')}
+            </Button>
+          </>
+        }
+      />
     </div>
   );
 }
@@ -149,17 +224,12 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function RoleEditor({
-  role,
-  catalog,
-  onSaved,
-  onDeleted,
-}: {
+const RoleEditor = forwardRef<RoleEditorHandle, {
   role: RoleSummary;
   catalog: PermissionCatalogEntry[];
   onSaved: (r: RoleSummary) => void;
   onDeleted: (id: string) => void;
-}) {
+}>(function RoleEditor({ role, catalog, onSaved, onDeleted }, ref) {
   const toast = useToast();
   const { t } = useI18n();
   const confirm = useConfirm();
@@ -206,7 +276,7 @@ function RoleEditor({
     });
   }
 
-  async function save() {
+  async function save(): Promise<boolean> {
     setSaving(true);
     try {
       const updated = await rolesApi.update(role.id, {
@@ -216,12 +286,19 @@ function RoleEditor({
       });
       onSaved(updated);
       toast.success('Role saved');
+      return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to save');
+      return false;
     } finally {
       setSaving(false);
     }
   }
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => dirty,
+    save,
+  }));
 
   async function cloneRole() {
     setCloning(true);
@@ -349,4 +426,4 @@ function RoleEditor({
       </CardContent>
     </Card>
   );
-}
+});
