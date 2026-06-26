@@ -1046,6 +1046,9 @@
     "documentsHint": "Invoices, receipts, credit notes and statements will appear here.",
     "allocateToCharge": "Allocate to charge",
     "unallocated": "Unallocated (down payment)",
-    "noTransport": "No transport assignment."
+    "noTransport": "No transport assignment.",
+    "lastPayment": "Last payment",
+    "cashier": "Cashier",
+    "jofotara": "JoFotara"
   }
 }

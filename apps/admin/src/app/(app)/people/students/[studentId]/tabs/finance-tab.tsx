@@ -36,6 +36,8 @@ const PAYMENT_METHODS = ['CASH', 'CLIQ', 'EWALLET', 'BANK_TRANSFER'] as const;
 
 const num = (v: string | number) => Number(v).toFixed(3);
 const dateStr = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : '—');
+/** Official receipt number → padded display form (e.g. 156 → RCPT-000156). */
+const receiptLabel = (n: number) => `RCPT-${String(n).padStart(6, '0')}`;
 
 /** Whole days `due` is in the past relative to today (0 if not yet due). */
 function daysOverdue(due?: string | null): number {
@@ -115,6 +117,14 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     void load();
   }, [load]);
 
+  // Most recent verified payment date for the KPI strip (transactions come newest-first).
+  const lastPaymentDate = useMemo(() => {
+    const last = (statement?.transactions ?? []).find(
+      (tx) => tx.status === 'VERIFIED' && tx.createdAt,
+    );
+    return last?.createdAt ?? null;
+  }, [statement]);
+
   // Next upcoming installment (earliest unpaid by due date) for the KPI strip.
   const nextInstallment = useMemo(() => {
     const open = (plan?.charges ?? [])
@@ -139,8 +149,10 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     for (const tx of statement.transactions) {
       if (tx.status === 'REJECTED') continue;
       entries.push({
-        date: null,
-        description: `${t('finance.payments')} · ${tx.method}`,
+        date: tx.createdAt ?? null,
+        description: `${t('finance.payments')} · ${tx.method}${
+          tx.receiptNo != null ? ` · ${receiptLabel(tx.receiptNo)}` : ''
+        }`,
         debit: 0,
         credit: Number(tx.amount),
       });
@@ -396,14 +408,14 @@ export function FinanceTab({ studentId }: { studentId: string }) {
           }
         />
         <Kpi
-          label={t('studentProfile.oldestOverdue')}
-          value={
-            collections && collections.snapshot.oldestOverdueDays > 0
-              ? `${collections.snapshot.oldestOverdueDays}d`
-              : '—'
-          }
-          tone={
-            collections && collections.snapshot.oldestOverdueDays > 0 ? 'text-coral' : undefined
+          label={t('studentProfile.lastPayment')}
+          value={lastPaymentDate ? dateStr(lastPaymentDate) : '—'}
+          sub={
+            collections && collections.snapshot.oldestOverdueDays > 0 ? (
+              <span className="text-coral">
+                {t('studentProfile.oldestOverdue')} {collections.snapshot.oldestOverdueDays}d
+              </span>
+            ) : null
           }
         />
       </div>
@@ -631,9 +643,12 @@ export function FinanceTab({ studentId }: { studentId: string }) {
           <Table>
             <THead>
               <TR>
+                <TH>{t('studentProfile.receiptNo')}</TH>
+                <TH>{t('finance.date')}</TH>
                 <TH className="text-end">{t('finance.amount')}</TH>
                 <TH>{t('finance.method')}</TH>
-                <TH>{t('studentProfile.receiptNo')}</TH>
+                <TH>{t('studentProfile.cashier')}</TH>
+                <TH>{t('studentProfile.jofotara')}</TH>
                 <TH>{t('common.status')}</TH>
                 <TH className="text-end">{t('common.actions')}</TH>
               </TR>
@@ -641,14 +656,38 @@ export function FinanceTab({ studentId }: { studentId: string }) {
             <TBody>
               {statement.transactions.map((tx) => (
                 <TR key={tx.id}>
+                  <TD className="whitespace-nowrap font-mono text-xs">
+                    {tx.receiptNo != null ? receiptLabel(tx.receiptNo) : '—'}
+                    {tx.reference ? (
+                      <span className="block text-[10px] text-muted-foreground">{tx.reference}</span>
+                    ) : null}
+                  </TD>
+                  <TD className="whitespace-nowrap font-mono text-xs">{dateStr(tx.createdAt)}</TD>
                   <TD className="text-end font-mono">{num(tx.amount)}</TD>
                   <TD>{tx.method}</TD>
-                  <TD className="font-mono text-xs text-muted-foreground">{tx.reference ?? '—'}</TD>
+                  <TD className="text-muted-foreground">{tx.recordedByName ?? '—'}</TD>
+                  <TD className="font-mono text-xs">
+                    {tx.einvoice ? (
+                      <span className="inline-flex items-center gap-1">
+                        {tx.einvoice.invoiceNumber}
+                        <Badge tone={tx.einvoice.status === 'ACCEPTED' ? 'success' : 'muted'}>
+                          {tx.einvoice.status}
+                        </Badge>
+                      </span>
+                    ) : (
+                      '—'
+                    )}
+                  </TD>
                   <TD>
                     <TransactionStatusBadge status={tx.status} />
                   </TD>
                   <TD className="text-end">
-                    <Button size="sm" variant="ghost" onClick={() => window.print()}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={tx.receiptNo == null}
+                      onClick={() => window.print()}
+                    >
                       {t('studentProfile.printReceipt')}
                     </Button>
                   </TD>
@@ -656,7 +695,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
               ))}
               {statement.transactions.length === 0 ? (
                 <TR>
-                  <TD colSpan={5}>
+                  <TD colSpan={8}>
                     <EmptyState title={t('finance.noPayments')} />
                   </TD>
                 </TR>

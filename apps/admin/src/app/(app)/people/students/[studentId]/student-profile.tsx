@@ -110,7 +110,8 @@ export function StudentProfile() {
     (key: string) => {
       const qs = new URLSearchParams(searchParams.toString());
       qs.set('tab', key);
-      router.push(`${pathname}?${qs.toString()}`);
+      // Template-literal path isn't statically a typed Route; cast as elsewhere in the app.
+      router.push(`${pathname}?${qs.toString()}` as never);
     },
     [router, pathname, searchParams],
   );

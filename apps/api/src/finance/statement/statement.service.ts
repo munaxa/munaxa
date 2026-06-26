@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import type { Charge, FeeAdjustment, Refund, Transaction } from '@prisma/client';
+import type { Charge, FeeAdjustment, Refund } from '@prisma/client';
 import { ChargeRepository } from '../charges/charge.repository';
-import { TransactionRepository } from '../transactions/transaction.repository';
+import {
+  TransactionRepository,
+  type DetailedTransaction,
+} from '../transactions/transaction.repository';
 import { BillingRepository, type ChargeBalance } from '../ledger/billing.repository';
 
 export interface StudentStatement {
   studentId: string;
   charges: Charge[];
-  transactions: Transaction[];
+  /** Payments enriched with receipt no., cashier name and linked JoFotara document. */
+  transactions: DetailedTransaction[];
   adjustments: FeeAdjustment[];
   refunds: Refund[];
   /** Per-charge gross/discount/net/allocated/balance. */
@@ -66,7 +70,7 @@ export class StatementService {
   async forStudent(studentId: string): Promise<StudentStatement> {
     const [chargeList, txList, adjustments, refunds, chargeBalances, summary] = await Promise.all([
       this.charges.findByStudent(studentId),
-      this.transactions.findByStudent(studentId),
+      this.transactions.findDetailedByStudent(studentId),
       this.billing.listAdjustments(studentId),
       this.billing.listRefunds(studentId),
       this.billing.chargeBalances(studentId),
