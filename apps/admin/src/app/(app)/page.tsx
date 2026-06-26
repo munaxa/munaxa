@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Shell, usePrincipal } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
 import { studentsApi, type Student } from '@/lib/people';
 import { sectionsApi, type Section } from '@/lib/structure';
-import { StudentProfileDialog } from './people/students/student-profile-dialog';
 import { NavIcon, type NavIconKey } from '@/components/nav-icons';
 import type { Locale } from '@/lib/i18n';
 import {
@@ -124,6 +124,7 @@ const PAGE_SIZE = 10;
 
 function Dashboard() {
   const principal = usePrincipal();
+  const router = useRouter();
   const { t, locale } = useI18n();
   const held = useMemo(() => new Set(principal.permissions), [principal.permissions]);
   const can = (perm?: string) => !perm || held.has(perm) || held.has('*') || principal.isPlatform;
@@ -144,9 +145,12 @@ function Dashboard() {
   const [fGender, setFGender] = useState('');
   const [page, setPage] = useState(1);
 
-  // Selected student → profile preview / full dialog
+  // Selected student → fills the preview; opening the full profile routes to its page.
   const [selected, setSelected] = useState<Student | null>(null);
-  const [profileOpen, setProfileOpen] = useState<Student | null>(null);
+  const openProfile = useCallback(
+    (s: Student) => router.push(`/people/students/${s.id}`),
+    [router],
+  );
 
   const loadOverview = useCallback(async () => {
     try {
@@ -335,7 +339,7 @@ function Dashboard() {
             sectionName={sectionName}
             selectedId={selected?.id}
             onSelect={setSelected}
-            onOpenProfile={setProfileOpen}
+            onOpenProfile={openProfile}
             canRegister={can('enrollment:manage')}
           />
         </div>
@@ -344,7 +348,7 @@ function Dashboard() {
             t={t}
             student={selected}
             gradeSection={sectionLabel(selected?.sectionId)}
-            onOpenProfile={() => selected && setProfileOpen(selected)}
+            onOpenProfile={() => selected && openProfile(selected)}
           />
           <ActivityTimelineCard t={t} locale={locale} activity={data?.recentActivity ?? []} />
         </div>
@@ -356,15 +360,6 @@ function Dashboard() {
         <StudentsByGradeCard t={t} locale={locale} data={data?.studentsByGrade ?? []} />
         <QuickActionsCard t={t} actions={actions} />
       </section>
-
-      {profileOpen ? (
-        <StudentProfileDialog
-          student={profileOpen}
-          sectionLabel={sectionLabel(profileOpen.sectionId)}
-          onClose={() => setProfileOpen(null)}
-          onEdit={() => setProfileOpen(null)}
-        />
-      ) : null}
     </div>
   );
 }
