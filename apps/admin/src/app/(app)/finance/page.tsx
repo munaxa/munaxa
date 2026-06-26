@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/shell';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
@@ -9,6 +10,8 @@ import { useConfirm } from '@/components/confirm';
 import { ChargeStatusBadge, TransactionStatusBadge } from '@/components/domain';
 import { FeeModifiedBadge } from '@/components/fee-modified-badge';
 import { loadStudentOptions } from '@/lib/pickers';
+import { studentsApi, type Student } from '@/lib/people';
+import { StudentProfileDialog } from '../people/students/student-profile-dialog';
 import {
   financeApi,
   type CollectionsProfile,
@@ -61,9 +64,13 @@ const COLLECTIONS: {
 
 export default function FinancePage() {
   const toast = useToast();
+  const router = useRouter();
   const { t } = useI18n();
   const confirm = useConfirm();
   const [studentId, setStudentId] = useState('');
+  // Student profile shown in a modal when a student name (or "View profile") is clicked.
+  const [profileStudent, setProfileStudent] = useState<Student | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [statement, setStatement] = useState<Statement | null>(null);
   const [collections, setCollections] = useState<CollectionsProfile | null>(null);
   const [loading, setLoading] = useState(false);
@@ -112,6 +119,23 @@ export default function FinancePage() {
       }
     },
     [studentId, toast],
+  );
+
+  // Open the full student profile (same dialog as the Students directory). The finance page only
+  // holds the id/name, so fetch the complete record first.
+  const openProfile = useCallback(
+    async (id: string) => {
+      if (!id) return;
+      setProfileLoading(true);
+      try {
+        setProfileStudent(await studentsApi.get(id));
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Failed to load profile');
+      } finally {
+        setProfileLoading(false);
+      }
+    },
+    [toast],
   );
 
   // Deep link from Admissions: ?studentId=<id> opens that student's statement to collect fees.
@@ -238,6 +262,17 @@ export default function FinancePage() {
               feeModified={collections.feeModified}
               customArrangement={collections.customArrangement}
             />
+          ) : null}
+          {studentId ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ms-auto"
+              disabled={profileLoading}
+              onClick={() => void openProfile(studentId)}
+            >
+              {profileLoading ? t('common.loading') : t('finance.viewProfile')}
+            </Button>
           ) : null}
         </div>
 
@@ -796,10 +831,7 @@ export default function FinancePage() {
                             <button
                               type="button"
                               className="text-start font-medium text-foreground hover:text-primary hover:underline"
-                              onClick={() => {
-                                setStudentId(m.studentId);
-                                void load(m.studentId);
-                              }}
+                              onClick={() => void openProfile(m.studentId)}
                             >
                               {m.firstNameEn} {m.lastNameEn}
                             </button>
@@ -1033,6 +1065,17 @@ export default function FinancePage() {
           </>
         ) : null}
       </div>
+
+      {profileStudent ? (
+        <StudentProfileDialog
+          student={profileStudent}
+          onClose={() => setProfileStudent(null)}
+          onEdit={() => {
+            setProfileStudent(null);
+            router.push('/people/students');
+          }}
+        />
+      ) : null}
     </Shell>
   );
 }

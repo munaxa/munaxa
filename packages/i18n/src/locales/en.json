@@ -391,7 +391,8 @@
     "requestRefund": "Request refund",
     "date": "Date",
     "debit": "Debit",
-    "runningBalance": "Running balance"
+    "runningBalance": "Running balance",
+    "viewProfile": "View profile"
   },
   "feePlans": {
     "create": "Create a fee plan",

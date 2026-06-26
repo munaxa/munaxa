@@ -391,7 +391,8 @@
     "requestRefund": "طلب استرداد",
     "date": "التاريخ",
     "debit": "مدين",
-    "runningBalance": "الرصيد الجاري"
+    "runningBalance": "الرصيد الجاري",
+    "viewProfile": "عرض الملف"
   },
   "feePlans": {
     "create": "إنشاء خطة رسوم",
