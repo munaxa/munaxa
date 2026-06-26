@@ -7,19 +7,9 @@ import { useI18n } from '@/components/i18n-provider';
 import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
 import { NavIcon, type NavIconKey } from '@/components/nav-icons';
 import type { Locale } from '@/lib/i18n';
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  EmptyState,
-  Timeline,
-  TimelineItem,
-  cn,
-} from '@/components/ui';
+import { Badge, Button, Card, CardContent, Dialog, EmptyState, Switch, cn } from '@/components/ui';
+
+type Translate = (k: string) => string;
 
 export default function Home() {
   return (
@@ -29,7 +19,7 @@ export default function Home() {
   );
 }
 
-/** Accent tone shared by KPI icon chips and insight markers — all sourced from DS tokens. */
+/** Accent tone — all sourced from existing DS tokens. */
 type Tone = 'primary' | 'aqua' | 'coral' | 'danger';
 
 const chipTone: Record<Tone, string> = {
@@ -39,59 +29,149 @@ const chipTone: Record<Tone, string> = {
   danger: 'bg-destructive/10 text-destructive',
 };
 
-const valueTone: Record<Tone, string> = {
-  primary: 'text-foreground',
-  aqua: 'text-aqua',
-  coral: 'text-coral',
-  danger: 'text-destructive',
+const dotTone: Record<Tone, string> = {
+  primary: 'bg-primary',
+  aqua: 'bg-aqua',
+  coral: 'bg-coral',
+  danger: 'bg-destructive',
 };
 
-/** Quick actions, ordered by everyday frequency. Permission-filtered like the sidebar. */
-const QUICK_ACTIONS: Array<{ href: string; labelKey: string; icon: NavIconKey; perm?: string }> = [
+const strokeTone: Record<Tone, string> = {
+  primary: 'stroke-primary',
+  aqua: 'stroke-aqua',
+  coral: 'stroke-coral',
+  danger: 'stroke-destructive',
+};
+
+const fillTone: Record<Tone, string> = {
+  primary: 'fill-primary/10',
+  aqua: 'fill-aqua/10',
+  coral: 'fill-coral/10',
+  danger: 'fill-destructive/10',
+};
+
+/** Quick actions, ordered by everyday frequency (mirrors the mockup). Permission-filtered. */
+const QUICK_ACTIONS: Array<{
+  href: string;
+  labelKey: string;
+  icon: NavIconKey;
+  tone: Tone;
+  perm?: string;
+}> = [
+  {
+    href: '/people/students',
+    labelKey: 'dashboard.action.addStudent',
+    icon: 'students',
+    tone: 'primary',
+    perm: 'student:manage',
+  },
   {
     href: '/attendance',
-    labelKey: 'dashboard.action.markAttendance',
+    labelKey: 'dashboard.action.takeAttendance',
     icon: 'attendance',
+    tone: 'primary',
     perm: 'attendance:read',
   },
   {
     href: '/finance/collections',
-    labelKey: 'dashboard.action.collectPayment',
+    labelKey: 'dashboard.action.feeCollection',
     icon: 'collections',
+    tone: 'aqua',
     perm: 'finance:read',
   },
   {
-    href: '/admissions',
-    labelKey: 'dashboard.action.registerStudent',
-    icon: 'enrollment',
-    perm: 'enrollment:manage',
-  },
-  {
-    href: '/people/students',
-    labelKey: 'dashboard.action.students',
-    icon: 'students',
-    perm: 'student:manage',
+    href: '/finance',
+    labelKey: 'dashboard.action.createInvoice',
+    icon: 'finance',
+    tone: 'coral',
+    perm: 'finance:read',
   },
   {
     href: '/people/teachers',
     labelKey: 'dashboard.action.addTeacher',
     icon: 'teachers',
+    tone: 'primary',
     perm: 'teacher:manage',
+  },
+  {
+    href: '/academics',
+    labelKey: 'dashboard.action.examinations',
+    icon: 'academics',
+    tone: 'primary',
+    perm: 'grade:read',
   },
   {
     href: '/communication',
     labelKey: 'dashboard.action.sendNotice',
     icon: 'communication',
+    tone: 'primary',
     perm: 'announcement:manage',
   },
   {
-    href: '/people/cards',
-    labelKey: 'dashboard.action.manageCards',
-    icon: 'cards',
-    perm: 'card:read',
+    href: '/reports',
+    labelKey: 'dashboard.action.reports',
+    icon: 'reports',
+    tone: 'primary',
+    perm: 'report:read',
   },
-  { href: '/reports', labelKey: 'dashboard.action.reports', icon: 'reports', perm: 'report:read' },
+  {
+    href: '/timetable',
+    labelKey: 'dashboard.action.timetable',
+    icon: 'timetable',
+    tone: 'coral',
+    perm: 'timetable:read',
+  },
 ];
+
+// ---------------------------------------------------------------------------
+// Widget visibility (persisted client-side preference — purely presentational)
+// ---------------------------------------------------------------------------
+const WIDGETS = [
+  { id: 'kpis', labelKey: 'dashboard.kpisLabel' },
+  { id: 'attendance', labelKey: 'dashboard.attendanceToday' },
+  { id: 'trend', labelKey: 'dashboard.attendanceTrend' },
+  { id: 'activity', labelKey: 'dashboard.recentActivity' },
+  { id: 'grade', labelKey: 'dashboard.studentsByGrade' },
+  { id: 'fees', labelKey: 'dashboard.feeCollection' },
+  { id: 'quickActions', labelKey: 'dashboard.quickActions' },
+  { id: 'aiInsight', labelKey: 'dashboard.aiInsight' },
+] as const;
+
+type WidgetId = (typeof WIDGETS)[number]['id'];
+type WidgetPrefs = Record<WidgetId, boolean>;
+
+const PREFS_KEY = 'munaxa.dashboard.widgets';
+const DEFAULT_PREFS = Object.fromEntries(WIDGETS.map((w) => [w.id, true])) as WidgetPrefs;
+
+function useWidgetPrefs() {
+  const [prefs, setPrefs] = useState<WidgetPrefs>(DEFAULT_PREFS);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      if (raw) setPrefs({ ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<WidgetPrefs>) });
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, []);
+
+  const persist = useCallback((next: WidgetPrefs) => {
+    setPrefs(next);
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore quota / privacy-mode errors */
+    }
+  }, []);
+
+  const toggle = useCallback(
+    (id: WidgetId) => persist({ ...prefs, [id]: !prefs[id] }),
+    [persist, prefs],
+  );
+  const reset = useCallback(() => persist(DEFAULT_PREFS), [persist]);
+
+  return { prefs, toggle, reset };
+}
 
 function Dashboard() {
   const principal = usePrincipal();
@@ -99,6 +179,9 @@ function Dashboard() {
   const held = useMemo(() => new Set(principal.permissions), [principal.permissions]);
   const actions = QUICK_ACTIONS.filter((a) => !a.perm || held.has(a.perm) || principal.isPlatform);
   const canSeeKpis = held.has('report:read') || held.has('*') || principal.isPlatform;
+
+  const { prefs, toggle, reset } = useWidgetPrefs();
+  const [customizing, setCustomizing] = useState(false);
 
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState(false);
@@ -117,8 +200,8 @@ function Dashboard() {
   }, [canSeeKpis, load]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8">
-      <DashboardHeader locale={locale} t={t} />
+    <div className="mx-auto w-full max-w-[1600px] space-y-6">
+      <DashboardHeader locale={locale} t={t} onCustomize={() => setCustomizing(true)} />
 
       {canSeeKpis ? (
         error && !data ? (
@@ -135,13 +218,22 @@ function Dashboard() {
             </CardContent>
           </Card>
         ) : data ? (
-          <DashboardContent data={data} locale={locale} t={t} />
+          <DashboardContent data={data} actions={actions} prefs={prefs} locale={locale} t={t} />
         ) : (
           <DashboardSkeleton />
         )
+      ) : prefs.quickActions ? (
+        <QuickActionsCard actions={actions} t={t} />
       ) : null}
 
-      <QuickActions actions={actions} t={t} />
+      <CustomizeDialog
+        open={customizing}
+        onClose={() => setCustomizing(false)}
+        prefs={prefs}
+        toggle={toggle}
+        reset={reset}
+        t={t}
+      />
     </div>
   );
 }
@@ -149,102 +241,156 @@ function Dashboard() {
 // ---------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------
-function DashboardHeader({ locale, t }: { locale: Locale; t: (k: string) => string }) {
-  const today = new Date();
-  const formattedDate = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-GB', {
-    weekday: 'long',
+function DashboardHeader({
+  locale,
+  t,
+  onCustomize,
+}: {
+  locale: Locale;
+  t: Translate;
+  onCustomize: () => void;
+}) {
+  const now = new Date();
+  const intlLocale = locale === 'ar' ? 'ar-JO' : 'en-US';
+  const hour = now.getHours();
+  const greetingKey =
+    hour < 12
+      ? 'dashboard.greetingMorning'
+      : hour < 18
+        ? 'dashboard.greetingAfternoon'
+        : 'dashboard.greetingEvening';
+  const date = new Intl.DateTimeFormat(intlLocale, {
+    month: 'short',
     day: 'numeric',
-    month: 'long',
     year: 'numeric',
-  }).format(today);
-  // School year rolls over in autumn (month index 7 = August).
-  const y = today.getFullYear();
-  const academicYear = today.getMonth() >= 7 ? `${y}/${y + 1}` : `${y - 1}/${y}`;
+  }).format(now);
+  const weekday = new Intl.DateTimeFormat(intlLocale, { weekday: 'short' }).format(now);
 
   return (
-    <header className="flex flex-wrap items-end justify-between gap-4">
+    <header className="flex flex-wrap items-center justify-between gap-4">
       <div className="space-y-1">
-        <h1 className="font-display text-3xl font-semibold">{t('dashboard.welcome')}</h1>
-        <p className="text-sm text-muted-foreground">{t('dashboard.subtitle')}</p>
+        <h1 className="flex items-center gap-2 font-display text-2xl font-semibold">
+          {t(greetingKey)}
+          <span aria-hidden="true">👋</span>
+        </h1>
+        <p className="text-sm text-muted-foreground">{t('dashboard.welcomeLine')}</p>
       </div>
-      <div className="flex flex-col items-start gap-1.5 sm:items-end">
-        <span className="text-sm font-medium text-foreground">{formattedDate}</span>
-        <Badge tone="muted">
-          {t('dashboard.academicYear')} · {academicYear}
-        </Badge>
+      <div className="flex items-center gap-3">
+        <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium">
+          <CalendarIcon />
+          {date} ({weekday})
+        </span>
+        <Button onClick={onCustomize}>
+          <SlidersIcon />
+          {t('dashboard.customize')}
+        </Button>
       </div>
     </header>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Content (KPIs + operational + activity + insights)
+// Content
 // ---------------------------------------------------------------------------
 function DashboardContent({
   data,
+  actions,
+  prefs,
   locale,
   t,
 }: {
   data: DashboardOverview;
+  actions: typeof QUICK_ACTIONS;
+  prefs: WidgetPrefs;
   locale: Locale;
-  t: (k: string) => string;
+  t: Translate;
 }) {
   const att = data.attendanceToday;
   const rate = att.total > 0 ? Math.round(((att.present + att.late) / att.total) * 100) : null;
 
+  // Attendance delta from the last two days that were actually marked.
+  const markedRates = data.attendanceTrend
+    .map((d) => d.rate)
+    .filter((r): r is number => r !== null);
+  const [prevRate, lastRate] = markedRates.slice(-2);
+  const attendanceDelta =
+    prevRate !== undefined && lastRate !== undefined ? lastRate - prevRate : null;
+
+  const cards: Array<{ id: WidgetId; node: React.ReactNode }> = [
+    { id: 'attendance', node: <AttendanceCard att={att} rate={rate} locale={locale} t={t} /> },
+    {
+      id: 'trend',
+      node: <AttendanceTrendCard trend={data.attendanceTrend} locale={locale} t={t} />,
+    },
+    { id: 'activity', node: <ActivityCard activity={data.recentActivity} locale={locale} t={t} /> },
+    {
+      id: 'grade',
+      node: <StudentsByGradeCard data={data.studentsByGrade} locale={locale} t={t} />,
+    },
+    { id: 'fees', node: <FeeCollectionCard finance={data.finance} locale={locale} t={t} /> },
+    { id: 'quickActions', node: <QuickActionsCard actions={actions} t={t} /> },
+  ];
+  const visibleCards = cards.filter((c) => prefs[c.id]);
+
   return (
     <>
-      {/* KPI row — six identical cards. */}
-      <section
-        aria-label={t('dashboard.title')}
-        className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6"
-      >
-        <Kpi
-          icon="students"
-          label={t('dashboard.students')}
-          value={formatNumber(data.students, locale)}
-        />
-        <Kpi
-          icon="employees"
-          label={t('dashboard.staff')}
-          value={formatNumber(data.staff, locale)}
-        />
-        <Kpi
-          icon="attendance"
-          tone="aqua"
-          label={t('dashboard.attendanceToday')}
-          value={rate !== null ? `${rate}%` : '—'}
-        />
-        <Kpi
-          icon="collections"
-          tone="coral"
-          label={t('dashboard.outstanding')}
-          value={formatMoney(data.finance.outstanding, locale)}
-        />
-        <Kpi
-          icon="finance"
-          tone="aqua"
-          label={t('dashboard.collectedMonth')}
-          value={formatMoney(data.finance.collectedThisMonth, locale)}
-        />
-        <Kpi
-          icon="integrations"
-          label={t('dashboard.einvoicePending')}
-          value={formatNumber(data.einvoice.pending, locale)}
-        />
-      </section>
+      {prefs.kpis ? (
+        <section
+          aria-label={t('dashboard.title')}
+          className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
+        >
+          <Kpi
+            icon="students"
+            label={t('dashboard.students')}
+            value={formatNumber(data.students, locale)}
+            delta={{ value: data.deltas.studentsThisMonth, suffix: t('dashboard.thisMonthShort') }}
+            spark={data.sparklines.students}
+          />
+          <Kpi
+            icon="teachers"
+            label={t('dashboard.teachers')}
+            value={formatNumber(data.staff, locale)}
+            delta={{ value: data.deltas.staffThisMonth, suffix: t('dashboard.thisMonthShort') }}
+            spark={data.sparklines.staff}
+          />
+          <Kpi
+            icon="attendance"
+            tone="aqua"
+            label={t('dashboard.attendanceToday')}
+            value={rate !== null ? `${rate}%` : '—'}
+            delta={
+              attendanceDelta !== null
+                ? { value: attendanceDelta, suffix: t('dashboard.vsYesterday'), unit: '%' }
+                : undefined
+            }
+            spark={markedRates}
+            sparkTone="aqua"
+          />
+          <Kpi
+            icon="collections"
+            tone="coral"
+            label={t('dashboard.outstanding')}
+            value={formatMoney(data.finance.outstanding, locale)}
+          />
+          <Kpi
+            icon="feePlans"
+            label={t('dashboard.invoicePending')}
+            value={formatNumber(data.einvoice.pending, locale)}
+          />
+        </section>
+      ) : null}
 
-      {/* Operational insights — attendance breakdown beside the financial overview. */}
-      <section className="grid gap-4 lg:grid-cols-3" aria-label={t('dashboard.todayOverview')}>
-        <AttendanceCard att={att} rate={rate} t={t} />
-        <FinancialOverview data={data} locale={locale} t={t} />
-      </section>
+      {visibleCards.length > 0 ? (
+        <section className="grid gap-4 lg:grid-cols-3">
+          {visibleCards.map((c) => (
+            <div key={c.id} className="flex">
+              {c.node}
+            </div>
+          ))}
+        </section>
+      ) : null}
 
-      {/* Activity + what needs attention. */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <ActivityCard activity={data.recentActivity} locale={locale} t={t} />
-        <InsightsCard data={data} rate={rate} t={t} />
-      </section>
+      {prefs.aiInsight ? <AiInsightBanner data={data} rate={rate} t={t} /> : null}
     </>
   );
 }
@@ -257,39 +403,203 @@ function Kpi({
   label,
   value,
   tone = 'primary',
+  delta,
+  spark,
+  sparkTone = 'primary',
 }: {
   icon: NavIconKey;
   label: string;
   value: string;
   tone?: Tone;
+  delta?: { value: number; suffix: string; unit?: string | undefined } | undefined;
+  spark?: number[] | undefined;
+  sparkTone?: Tone;
 }) {
   return (
-    <Card className="h-full">
-      <CardContent className="flex h-full flex-col gap-4 p-5">
-        <div className="flex items-start justify-between gap-2">
-          <span className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-            {label}
-          </span>
-          <span
-            aria-hidden="true"
-            className={cn(
-              'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
-              chipTone[tone],
-            )}
-          >
-            <NavIcon name={icon} className="h-[18px] w-[18px]" />
-          </span>
-        </div>
-        <div
-          className={cn(
-            'mt-auto font-display text-2xl font-semibold tabular-nums',
-            valueTone[tone],
-          )}
+    <Card className="h-full w-full">
+      <CardContent className="flex h-full flex-col gap-3 p-5">
+        <span
+          aria-hidden="true"
+          className={cn('flex h-11 w-11 items-center justify-center rounded-xl', chipTone[tone])}
         >
-          {value}
+          <NavIcon name={icon} />
+        </span>
+        <div>
+          <p className="truncate text-sm text-muted-foreground">{label}</p>
+          <p className="mt-0.5 font-display text-2xl font-semibold tabular-nums">{value}</p>
+        </div>
+        <div className="mt-auto flex items-end justify-between gap-2">
+          {delta ? (
+            <DeltaChip value={delta.value} suffix={delta.suffix} unit={delta.unit} />
+          ) : (
+            <span />
+          )}
+          {spark && spark.length >= 2 ? <Sparkline values={spark} tone={sparkTone} /> : null}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DeltaChip({
+  value,
+  suffix,
+  unit,
+}: {
+  value: number;
+  suffix: string;
+  unit?: string | undefined;
+}) {
+  const up = value >= 0;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 text-xs font-medium tabular-nums',
+        up ? 'text-aqua' : 'text-coral',
+      )}
+    >
+      <span aria-hidden="true">{up ? '↑' : '↓'}</span>
+      {Math.abs(value)}
+      {unit ?? ''}
+      <span className="font-normal text-muted-foreground">{suffix}</span>
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sparkline
+// ---------------------------------------------------------------------------
+function Sparkline({ values, tone = 'primary' }: { values: number[]; tone?: Tone }) {
+  const w = 72;
+  const h = 28;
+  const pad = 2;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const points = values
+    .map((v, i) => {
+      const x = pad + (i / (values.length - 1)) * (w - 2 * pad);
+      const y = h - pad - ((v - min) / range) * (h - 2 * pad);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" aria-hidden="true">
+      <polyline
+        points={points}
+        className={strokeTone[tone]}
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Section card header (title + optional badge / action)
+// ---------------------------------------------------------------------------
+function SectionHeader({
+  title,
+  badge,
+  action,
+}: {
+  title: string;
+  badge?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 p-6 pb-3">
+      <h3 className="font-display text-lg font-semibold leading-none">{title}</h3>
+      {action ?? (badge ? <Badge tone="muted">{badge}</Badge> : null)}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Donut chart
+// ---------------------------------------------------------------------------
+function DonutChart({
+  segments,
+  size = 168,
+  thickness = 16,
+  center,
+}: {
+  segments: Array<{ value: number; tone: Tone }>;
+  size?: number;
+  thickness?: number;
+  center?: React.ReactNode;
+}) {
+  const r = (size - thickness) / 2;
+  let acc = 0;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+        role="img"
+        aria-hidden="true"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          strokeWidth={thickness}
+          className="stroke-secondary"
+          pathLength={100}
+        />
+        {segments
+          .filter((s) => s.value > 0)
+          .map((s, i) => {
+            const el = (
+              <circle
+                key={i}
+                cx={size / 2}
+                cy={size / 2}
+                r={r}
+                fill="none"
+                strokeWidth={thickness}
+                className={strokeTone[s.tone]}
+                pathLength={100}
+                strokeDasharray={`${s.value} ${100 - s.value}`}
+                strokeDashoffset={-acc}
+              />
+            );
+            acc += s.value;
+            return el;
+          })}
+      </svg>
+      {center ? (
+        <div className="absolute inset-0 grid place-items-center text-center">{center}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function Legend({
+  items,
+}: {
+  items: Array<{ tone: Tone; label: string; value: string; pct: string }>;
+}) {
+  return (
+    <ul className="flex-1 space-y-3">
+      {items.map((it, i) => (
+        <li key={i} className="flex items-center gap-2.5 text-sm">
+          <span
+            aria-hidden="true"
+            className={cn('h-2.5 w-2.5 shrink-0 rounded-full', dotTone[it.tone])}
+          />
+          <span className="flex-1 text-muted-foreground">{it.label}</span>
+          <span className="font-medium tabular-nums">{it.value}</span>
+          <span className="w-12 text-end font-mono text-xs text-muted-foreground tabular-nums">
+            {it.pct}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -299,59 +609,72 @@ function Kpi({
 function AttendanceCard({
   att,
   rate,
+  locale,
   t,
 }: {
   att: DashboardOverview['attendanceToday'];
   rate: number | null;
-  t: (k: string) => string;
+  locale: Locale;
+  t: Translate;
 }) {
+  const pct = (n: number) => (att.total > 0 ? `${Math.round((n / att.total) * 100)}%` : '0%');
   return (
-    <Card className="flex flex-col lg:col-span-1">
-      <CardHeader>
-        <CardTitle>{t('dashboard.attendanceToday')}</CardTitle>
-        <CardDescription>
-          {t('dashboard.ofMarked').replace('{n}', String(att.total))}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-4">
+    <Card className="flex w-full flex-col">
+      <SectionHeader title={t('dashboard.attendanceToday')} badge={t('dashboard.today')} />
+      <CardContent className="flex flex-1 flex-col">
         {att.total > 0 ? (
-          <>
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-4xl font-semibold tabular-nums text-aqua">
-                {rate}%
-              </span>
-              <span className="text-xs text-muted-foreground">{t('dashboard.attendanceRate')}</span>
-            </div>
-            <div className="space-y-2.5">
-              <Bar
-                label={t('dashboard.present')}
-                n={att.present}
-                total={att.total}
-                className="bg-aqua"
-              />
-              <Bar
-                label={t('dashboard.late')}
-                n={att.late}
-                total={att.total}
-                className="bg-coral"
-              />
-              <Bar
-                label={t('dashboard.absent')}
-                n={att.absent}
-                total={att.total}
-                className="bg-destructive"
-              />
-              <Bar
-                label={t('dashboard.excused')}
-                n={att.excused}
-                total={att.total}
-                className="bg-primary"
-              />
-            </div>
-          </>
+          <div className="flex flex-col items-center gap-6 sm:flex-row">
+            <DonutChart
+              segments={[
+                { value: (att.present / att.total) * 100, tone: 'aqua' },
+                { value: (att.late / att.total) * 100, tone: 'coral' },
+                { value: (att.absent / att.total) * 100, tone: 'danger' },
+                { value: (att.excused / att.total) * 100, tone: 'primary' },
+              ]}
+              center={
+                <div>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.present')}</p>
+                  <p className="font-display text-2xl font-semibold tabular-nums">
+                    {formatNumber(att.present, locale)}
+                  </p>
+                  <p className="text-xs font-medium text-aqua tabular-nums">
+                    {rate !== null ? `${rate}%` : '—'}
+                  </p>
+                </div>
+              }
+            />
+            <Legend
+              items={[
+                {
+                  tone: 'aqua',
+                  label: t('dashboard.present'),
+                  value: formatNumber(att.present, locale),
+                  pct: pct(att.present),
+                },
+                {
+                  tone: 'coral',
+                  label: t('dashboard.late'),
+                  value: formatNumber(att.late, locale),
+                  pct: pct(att.late),
+                },
+                {
+                  tone: 'danger',
+                  label: t('dashboard.absent'),
+                  value: formatNumber(att.absent, locale),
+                  pct: pct(att.absent),
+                },
+                {
+                  tone: 'primary',
+                  label: t('dashboard.excused'),
+                  value: formatNumber(att.excused, locale),
+                  pct: pct(att.excused),
+                },
+              ]}
+            />
+          </div>
         ) : (
           <EmptyState
-            className="flex-1 justify-center py-6"
+            className="flex-1 justify-center"
             icon={<NavIcon name="attendance" className="h-6 w-6" />}
             title={t('dashboard.noAttendanceToday')}
           />
@@ -361,102 +684,117 @@ function AttendanceCard({
   );
 }
 
-function Bar({
-  label,
-  n,
-  total,
-  className,
-}: {
-  label: string;
-  n: number;
-  total: number;
-  className: string;
-}) {
-  const pct = total > 0 ? Math.round((n / total) * 100) : 0;
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-mono tabular-nums">{n}</span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-secondary">
-        <div className={cn('h-full rounded-full', className)} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
-// Financial overview
+// Attendance trend (line chart)
 // ---------------------------------------------------------------------------
-function FinancialOverview({
-  data,
+function AttendanceTrendCard({
+  trend,
   locale,
   t,
 }: {
-  data: DashboardOverview;
+  trend: DashboardOverview['attendanceTrend'];
   locale: Locale;
-  t: (k: string) => string;
+  t: Translate;
 }) {
-  const { finance, einvoice } = data;
+  const intlLocale = locale === 'ar' ? 'ar-JO' : 'en-US';
+  const dayFmt = useMemo(
+    () => new Intl.DateTimeFormat(intlLocale, { weekday: 'short' }),
+    [intlLocale],
+  );
+  const points = trend.map((d, i) => ({
+    x: trend.length > 1 ? (i / (trend.length - 1)) * 100 : 50,
+    rate: d.rate,
+    label: dayFmt.format(new Date(`${d.date}T00:00:00Z`)),
+  }));
+  const valid = points.filter(
+    (p): p is { x: number; rate: number; label: string } => p.rate !== null,
+  );
+  const avg = valid.length
+    ? Math.round(valid.reduce((s, p) => s + p.rate, 0) / valid.length)
+    : null;
+  const first = valid[0];
+  const last = valid[valid.length - 1];
+  const linePoints = valid.map((p) => `${p.x},${100 - p.rate}`).join(' ');
+
   return (
-    <Card className="flex flex-col lg:col-span-2">
-      <CardHeader>
-        <CardTitle>{t('dashboard.financialOverview')}</CardTitle>
-        <CardDescription>{t('dashboard.financeDesc')}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-5">
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-          <Stat
-            label={t('dashboard.collected')}
-            value={formatMoney(finance.collectedThisMonth, locale)}
-            tone="aqua"
+    <Card className="flex w-full flex-col">
+      <SectionHeader title={t('dashboard.attendanceTrend')} badge={t('dashboard.thisWeek')} />
+      <CardContent className="flex flex-1 flex-col">
+        {valid.length >= 2 && first && last ? (
+          <>
+            <div className="relative h-40 w-full">
+              <svg
+                className="absolute inset-0 h-full w-full"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                {[0, 50, 100].map((y) => (
+                  <line
+                    key={y}
+                    x1="0"
+                    x2="100"
+                    y1={y}
+                    y2={y}
+                    className="stroke-border"
+                    strokeWidth="1"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+                <polygon
+                  className={fillTone.primary}
+                  points={`${first.x},100 ${linePoints} ${last.x},100`}
+                />
+                <polyline
+                  points={linePoints}
+                  className="stroke-primary"
+                  fill="none"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+              {last ? (
+                <span
+                  className="absolute -translate-x-1/2 -translate-y-1/2 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground tabular-nums"
+                  style={{ left: `${last.x}%`, top: `${100 - last.rate}%` }}
+                >
+                  {last.rate}%
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+              {points.map((p, i) => (
+                <span key={i}>{p.label}</span>
+              ))}
+            </div>
+            <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-sm">
+              <span className="text-muted-foreground">
+                {t('dashboard.averageThisWeek')}{' '}
+                <span className="font-semibold text-foreground tabular-nums">{avg}%</span>
+              </span>
+              <Link href="/reports" className="font-medium text-primary hover:underline">
+                {t('dashboard.viewFullReport')} →
+              </Link>
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            className="flex-1 justify-center"
+            icon={<NavIcon name="reports" className="h-6 w-6" />}
+            title={t('dashboard.noTrendData')}
           />
-          <Stat
-            label={t('dashboard.outstandingBalance')}
-            value={formatMoney(finance.outstanding, locale)}
-            tone="coral"
-          />
-          <Stat label={t('dashboard.billed')} value={formatMoney(finance.billed, locale)} />
-          <Stat label={t('dashboard.paid')} value={formatMoney(finance.paid, locale)} />
-          <Stat label={t('dashboard.discounts')} value={formatMoney(finance.discounts, locale)} />
-        </dl>
-        <div className="mt-auto border-t border-border pt-4">
-          <p className="mb-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-            {t('dashboard.einvoicing')}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Badge tone="success">
-              {t('dashboard.accepted')} · {formatNumber(einvoice.accepted, locale)}
-            </Badge>
-            <Badge tone="warning">
-              {t('dashboard.pending')} · {formatNumber(einvoice.pending, locale)}
-            </Badge>
-            <Badge tone="danger">
-              {t('dashboard.rejected')} · {formatNumber(einvoice.rejected, locale)}
-            </Badge>
-          </div>
-        </div>
+        )}
       </CardContent>
     </Card>
-  );
-}
-
-function Stat({ label, value, tone = 'primary' }: { label: string; value: string; tone?: Tone }) {
-  return (
-    <div className="space-y-1">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className={cn('font-display text-lg font-semibold tabular-nums', valueTone[tone])}>
-        {value}
-      </dd>
-    </div>
   );
 }
 
 // ---------------------------------------------------------------------------
 // Recent activity
 // ---------------------------------------------------------------------------
-const ACTIVITY_LIMIT = 8;
+const ACTIVITY_LIMIT = 6;
 
 function ActivityCard({
   activity,
@@ -465,61 +803,69 @@ function ActivityCard({
 }: {
   activity: DashboardOverview['recentActivity'];
   locale: Locale;
-  t: (k: string) => string;
+  t: Translate;
 }) {
   const items = activity.slice(0, ACTIVITY_LIMIT);
   const fmt = useMemo(
     () =>
-      new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-GB', {
-        month: 'short',
-        day: 'numeric',
+      new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-US', {
         hour: '2-digit',
         minute: '2-digit',
+        second: '2-digit',
       }),
     [locale],
   );
 
   return (
-    <Card className="lg:col-span-2">
-      <CardHeader>
-        <CardTitle>{t('dashboard.recentActivity')}</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <Card className="flex w-full flex-col">
+      <SectionHeader
+        title={t('dashboard.recentActivity')}
+        action={
+          <Link href="/reports" className="text-xs font-medium text-primary hover:underline">
+            {t('dashboard.viewAll')}
+          </Link>
+        }
+      />
+      <CardContent className="flex-1">
         {items.length === 0 ? (
           <EmptyState
+            className="justify-center"
             icon={<NavIcon name="reports" className="h-6 w-6" />}
             title={t('dashboard.noRecentActivity')}
           />
         ) : (
-          <Timeline>
+          <ul className="divide-y divide-border/60">
             {items.map((a, i) => {
               const who = a.actorName ?? a.actorUsername ?? t('dashboard.systemActor');
+              const detail = [
+                a.action,
+                a.entityType + (a.entityId ? ` #${a.entityId.slice(0, 8)}` : ''),
+                a.ip ?? undefined,
+              ]
+                .filter(Boolean)
+                .join(' · ');
               return (
-                <TimelineItem
-                  key={i}
-                  title={
-                    <>
-                      <span className="font-semibold">{who}</span>
+                <li key={i} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <span
+                    aria-hidden="true"
+                    className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm">
+                      <span className="font-medium">{who}</span>
                       {a.actorName && a.actorUsername ? (
                         <span className="text-muted-foreground"> @{a.actorUsername}</span>
                       ) : null}
-                      <span className="text-muted-foreground"> — {a.action}</span>
-                    </>
-                  }
-                  meta={
-                    <span className="inline-flex items-center gap-1.5">
-                      <Badge tone="muted" className="font-mono text-[10px]">
-                        {a.entityType}
-                        {a.entityId ? ` #${a.entityId.slice(0, 8)}` : ''}
-                      </Badge>
-                      {a.actorRole ? <span>{a.actorRole}</span> : null}
-                    </span>
-                  }
-                  timestamp={fmt.format(new Date(a.at))}
-                />
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">{detail}</p>
+                  </div>
+                  <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+                    {fmt.format(new Date(a.at))}
+                  </span>
+                </li>
               );
             })}
-          </Timeline>
+          </ul>
         )}
       </CardContent>
     </Card>
@@ -527,89 +873,136 @@ function ActivityCard({
 }
 
 // ---------------------------------------------------------------------------
-// Needs attention / insights
+// Students by grade (bar chart)
 // ---------------------------------------------------------------------------
-const ATTENDANCE_TARGET = 90;
-
-function InsightsCard({
+function StudentsByGradeCard({
   data,
-  rate,
+  locale,
   t,
 }: {
-  data: DashboardOverview;
-  rate: number | null;
-  t: (k: string) => string;
+  data: DashboardOverview['studentsByGrade'];
+  locale: Locale;
+  t: Translate;
 }) {
-  const insights: Array<{ icon: NavIconKey; tone: Tone; href: string; text: string }> = [];
-
-  if (rate !== null && rate < ATTENDANCE_TARGET) {
-    insights.push({
-      icon: 'attendance',
-      tone: 'coral',
-      href: '/attendance',
-      text: `${t('dashboard.insightLowAttendance')} · ${rate}%`,
-    });
-  }
-  if (Number(data.finance.outstanding) > 0) {
-    insights.push({
-      icon: 'collections',
-      tone: 'coral',
-      href: '/finance',
-      text: t('dashboard.insightOutstanding'),
-    });
-  }
-  if (data.einvoice.rejected > 0) {
-    insights.push({
-      icon: 'integrations',
-      tone: 'danger',
-      href: '/finance',
-      text: `${t('dashboard.insightRejectedInvoices')} · ${data.einvoice.rejected}`,
-    });
-  }
-  if (data.einvoice.pending > 0) {
-    insights.push({
-      icon: 'integrations',
-      tone: 'primary',
-      href: '/finance',
-      text: `${t('dashboard.insightPendingInvoices')} · ${data.einvoice.pending}`,
-    });
-  }
+  const max = data.reduce((m, d) => Math.max(m, d.students), 0);
+  const total = data.reduce((s, d) => s + d.students, 0);
+  const gradeLabel = (level: number) => (level === 0 ? 'KG' : formatNumber(level, locale));
 
   return (
-    <Card className="lg:col-span-1">
-      <CardHeader>
-        <CardTitle>{t('dashboard.needsAttention')}</CardTitle>
-        <CardDescription>{t('dashboard.needsAttentionDesc')}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {insights.length === 0 ? (
-          <EmptyState
-            icon={<NavIcon name="roles" className="h-6 w-6" />}
-            title={t('dashboard.allClear')}
-            description={t('dashboard.allClearDesc')}
-          />
-        ) : (
-          <ul className="space-y-2">
-            {insights.map((ins, i) => (
-              <li key={i}>
-                <Link
-                  href={ins.href as never}
-                  className="group flex items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent"
-                >
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                      chipTone[ins.tone],
-                    )}
-                  >
-                    <NavIcon name={ins.icon} className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0 text-sm text-foreground">{ins.text}</span>
-                </Link>
-              </li>
+    <Card className="flex w-full flex-col">
+      <SectionHeader title={t('dashboard.studentsByGrade')} badge={t('dashboard.thisSession')} />
+      <CardContent className="flex flex-1 flex-col">
+        {total > 0 ? (
+          <div className="flex h-44 items-end gap-1.5">
+            {data.map((d) => (
+              <div
+                key={d.level}
+                className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
+              >
+                <div className="flex w-full flex-1 items-end">
+                  <div
+                    className="w-full rounded-t bg-primary/80 transition-colors hover:bg-primary"
+                    style={{ height: `${max > 0 ? Math.max((d.students / max) * 100, 2) : 0}%` }}
+                    title={`${d.nameEn}: ${formatNumber(d.students, locale)}`}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground">{gradeLabel(d.level)}</span>
+              </div>
             ))}
-          </ul>
+          </div>
+        ) : (
+          <EmptyState
+            className="flex-1 justify-center"
+            icon={<NavIcon name="academics" className="h-6 w-6" />}
+            title={t('dashboard.noGradeData')}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fee collection (3-way donut)
+// ---------------------------------------------------------------------------
+function FeeCollectionCard({
+  finance,
+  locale,
+  t,
+}: {
+  finance: DashboardOverview['finance'];
+  locale: Locale;
+  t: Translate;
+}) {
+  const paid = Number(finance.paid);
+  const outstanding = Number(finance.outstanding);
+  const overdue = Number(finance.overdue);
+  const pending = Math.max(outstanding - overdue, 0);
+  const total = paid + outstanding;
+  const pct = (n: number) => (total > 0 ? `${Math.round((n / total) * 100)}%` : '0%');
+  const collectedPct = total > 0 ? Math.round((paid / total) * 100) : 0;
+
+  return (
+    <Card className="flex w-full flex-col">
+      <SectionHeader title={t('dashboard.feeCollection')} badge={t('dashboard.thisMonth')} />
+      <CardContent className="flex flex-1 flex-col">
+        {total > 0 ? (
+          <>
+            <div className="flex flex-col items-center gap-6 sm:flex-row">
+              <DonutChart
+                segments={[
+                  { value: total > 0 ? (paid / total) * 100 : 0, tone: 'aqua' },
+                  { value: total > 0 ? (pending / total) * 100 : 0, tone: 'coral' },
+                  { value: total > 0 ? (overdue / total) * 100 : 0, tone: 'danger' },
+                ]}
+                center={
+                  <div>
+                    <p className="font-display text-2xl font-semibold tabular-nums">
+                      {collectedPct}%
+                    </p>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {formatMoney(finance.paid, locale)}
+                    </p>
+                  </div>
+                }
+              />
+              <Legend
+                items={[
+                  {
+                    tone: 'aqua',
+                    label: t('dashboard.collectedShort'),
+                    value: formatMoney(finance.paid, locale),
+                    pct: pct(paid),
+                  },
+                  {
+                    tone: 'coral',
+                    label: t('dashboard.pending'),
+                    value: formatMoney(String(pending), locale),
+                    pct: pct(pending),
+                  },
+                  {
+                    tone: 'danger',
+                    label: t('dashboard.overdue'),
+                    value: formatMoney(finance.overdue, locale),
+                    pct: pct(overdue),
+                  },
+                ]}
+              />
+            </div>
+            <Link
+              href="/finance"
+              className="mt-4 inline-flex items-center justify-center gap-1 text-sm font-medium text-primary hover:underline"
+            >
+              {t('dashboard.viewFinancialReport')}
+              <span aria-hidden="true">→</span>
+            </Link>
+          </>
+        ) : (
+          <EmptyState
+            className="flex-1 justify-center"
+            icon={<NavIcon name="finance" className="h-6 w-6" />}
+            title={t('dashboard.noRecentActivity')}
+          />
         )}
       </CardContent>
     </Card>
@@ -619,32 +1012,143 @@ function InsightsCard({
 // ---------------------------------------------------------------------------
 // Quick actions
 // ---------------------------------------------------------------------------
-function QuickActions({ actions, t }: { actions: typeof QUICK_ACTIONS; t: (k: string) => string }) {
+function QuickActionsCard({ actions, t }: { actions: typeof QUICK_ACTIONS; t: Translate }) {
   if (actions.length === 0) return null;
   return (
-    <section aria-label={t('dashboard.quickActions')} className="space-y-3">
-      <div className="space-y-0.5">
-        <h2 className="font-display text-lg font-semibold">{t('dashboard.quickActions')}</h2>
-        <p className="text-sm text-muted-foreground">{t('dashboard.quickActionsDesc')}</p>
-      </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {actions.map((a) => (
-          <Link key={a.href} href={a.href as never} className="group">
-            <Card className="h-full transition-colors group-hover:border-primary/40 group-hover:bg-accent">
-              <CardContent className="flex items-center gap-3 p-4">
-                <span
-                  aria-hidden="true"
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
-                >
-                  <NavIcon name={a.icon} />
-                </span>
-                <span className="text-sm font-medium">{t(a.labelKey)}</span>
-              </CardContent>
-            </Card>
+    <Card className="flex w-full flex-col">
+      <SectionHeader title={t('dashboard.quickActions')} />
+      <CardContent className="flex-1">
+        <div className="grid grid-cols-3 gap-3">
+          {actions.map((a) => (
+            <Link
+              key={a.href}
+              href={a.href as never}
+              className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-border p-4 text-center transition-colors hover:border-primary/40 hover:bg-accent"
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  'flex h-10 w-10 items-center justify-center rounded-lg',
+                  chipTone[a.tone],
+                )}
+              >
+                <NavIcon name={a.icon} />
+              </span>
+              <span className="text-xs font-medium leading-tight">{t(a.labelKey)}</span>
+            </Link>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AI insight banner (computed from real data)
+// ---------------------------------------------------------------------------
+function AiInsightBanner({
+  data,
+  rate,
+  t,
+}: {
+  data: DashboardOverview;
+  rate: number | null;
+  t: Translate;
+}) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  const message =
+    rate !== null
+      ? t('dashboard.aiInsightAttendance').replace('{rate}', String(rate))
+      : Number(data.finance.outstanding) > 0
+        ? t('dashboard.aiInsightOutstanding')
+        : t('dashboard.aiInsightAllClear');
+
+  return (
+    <Card className="border-primary/20 bg-primary/5">
+      <CardContent className="flex flex-wrap items-center gap-3 p-4">
+        <span
+          aria-hidden="true"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary"
+        >
+          <SparkleIcon />
+        </span>
+        <p className="min-w-0 flex-1 text-sm">
+          <span className="font-semibold text-primary">{t('dashboard.aiInsight')}</span>
+          <span className="text-muted-foreground"> — {message}</span>
+        </p>
+        <div className="flex items-center gap-1">
+          <Link href="/reports">
+            <Button variant="outline" size="sm">
+              {t('dashboard.viewInsights')}
+            </Button>
           </Link>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={t('common.dismiss')}
+            onClick={() => setDismissed(true)}
+          >
+            <span aria-hidden="true">✕</span>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Customize dialog
+// ---------------------------------------------------------------------------
+function CustomizeDialog({
+  open,
+  onClose,
+  prefs,
+  toggle,
+  reset,
+  t,
+}: {
+  open: boolean;
+  onClose: () => void;
+  prefs: WidgetPrefs;
+  toggle: (id: WidgetId) => void;
+  reset: () => void;
+  t: Translate;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t('dashboard.customizeTitle')}
+      description={t('dashboard.customizeDesc')}
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={reset}>
+            {t('dashboard.resetLayout')}
+          </Button>
+          <Button size="sm" onClick={onClose}>
+            {t('common.ok')}
+          </Button>
+        </div>
+      }
+    >
+      <ul className="divide-y divide-border">
+        {WIDGETS.map((w) => (
+          <li key={w.id} className="flex items-center justify-between gap-4 py-2.5">
+            <label htmlFor={`widget-${w.id}`} className="text-sm font-medium">
+              {t(w.labelKey)}
+            </label>
+            <Switch
+              id={`widget-${w.id}`}
+              checked={prefs[w.id]}
+              onCheckedChange={() => toggle(w.id)}
+              aria-label={t(w.labelKey)}
+            />
+          </li>
         ))}
-      </div>
-    </section>
+      </ul>
+    </Dialog>
   );
 }
 
@@ -653,21 +1157,73 @@ function QuickActions({ actions, t }: { actions: typeof QUICK_ACTIONS; t: (k: st
 // ---------------------------------------------------------------------------
 function DashboardSkeleton() {
   return (
-    <div className="space-y-8" aria-hidden>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="h-[104px] animate-pulse rounded-xl bg-secondary/60" />
+    <div className="space-y-6" aria-hidden>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-[124px] animate-pulse rounded-xl bg-secondary/60" />
         ))}
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="h-64 animate-pulse rounded-xl bg-secondary/60 lg:col-span-1" />
-        <div className="h-64 animate-pulse rounded-xl bg-secondary/60 lg:col-span-2" />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="h-72 animate-pulse rounded-xl bg-secondary/60 lg:col-span-2" />
-        <div className="h-72 animate-pulse rounded-xl bg-secondary/60 lg:col-span-1" />
-      </div>
+      {Array.from({ length: 2 }).map((_, row) => (
+        <div key={row} className="grid gap-4 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-72 animate-pulse rounded-xl bg-secondary/60" />
+          ))}
+        </div>
+      ))}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inline glyphs (decorative; same hand-rolled SVG convention as nav-icons)
+// ---------------------------------------------------------------------------
+function CalendarIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="text-muted-foreground"
+    >
+      <rect x="3.5" y="4.5" width="17" height="16" rx="2" />
+      <path d="M3.5 9h17M8 3v3M16 3v3" />
+    </svg>
+  );
+}
+
+function SlidersIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0" />
+      <circle cx="16" cy="6" r="2" />
+      <circle cx="8" cy="12" r="2" />
+      <circle cx="16" cy="18" r="2" />
+    </svg>
+  );
+}
+
+function SparkleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2.5l1.6 4.9a3 3 0 0 0 1.9 1.9l4.9 1.6-4.9 1.6a3 3 0 0 0-1.9 1.9L12 19.3l-1.6-4.9a3 3 0 0 0-1.9-1.9L3.6 10.9l4.9-1.6a3 3 0 0 0 1.9-1.9L12 2.5z" />
+      <path d="M19 3l.7 2 2 .7-2 .7L19 8.4l-.7-2-2-.7 2-.7L19 3z" opacity="0.7" />
+    </svg>
   );
 }
 
