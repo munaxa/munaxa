@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from 'react';
 import { cn } from '../../lib/cn.js';
 
-type Tone = 'default' | 'success' | 'warning' | 'danger' | 'muted';
+export type Tone = 'default' | 'success' | 'warning' | 'danger' | 'muted';
 
 const toneClass: Record<Tone, string> = {
   default: 'border-primary/30 bg-primary/15 text-primary',

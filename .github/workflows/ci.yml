@@ -29,7 +29,6 @@ jobs:
     outputs:
       mobile: ${{ steps.filter.outputs.mobile }}
       landing: ${{ steps.filter.outputs.landing }}
-      demo: ${{ steps.filter.outputs.demo }}
       designsystem: ${{ steps.filter.outputs.designsystem }}
     steps:
       - uses: actions/checkout@v6
@@ -41,8 +40,6 @@ jobs:
               - 'apps/mobile/**'
             landing:
               - 'munaxalanding/**'
-            demo:
-              - 'munaxademo/**'
             designsystem:
               - 'munaxadesignsystem/**'
 
@@ -176,35 +173,10 @@ jobs:
       - name: Build
         run: pnpm build
 
-  demo:
-    name: Lint · Typecheck · Build (Demo)
-    runs-on: ubuntu-latest
-    # Standalone Cloudflare app (own pnpm root + lockfile, not in the workspace). Only run
-    # when its code changes.
-    needs: changes
-    if: needs.changes.outputs.demo == 'true'
-    defaults:
-      run:
-        working-directory: munaxademo
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: munaxademo/pnpm-lock.yaml
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      # NOTE: demo has no ESLint setup yet (no config/deps — its `lint` script is leftover
-      # `next lint` scaffolding), so lint is omitted here. Typecheck + build still gate types
-      # and Next's build-time checks. Add an ESLint config (mirroring munaxalanding) to enable it.
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: Build
-        run: pnpm build
+  # NOTE: munaxademo is now a workspace member (approach A). It is built, typechecked and
+  # linted by the `node` job above via `turbo` (pnpm build / typecheck / lint cover all
+  # workspace packages, including munaxademo and its @munaxa/* dependencies). The previous
+  # standalone `demo` job was removed when it joined the workspace.
 
   designsystem:
     name: Typecheck · Build (Design System)

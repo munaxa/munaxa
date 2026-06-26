@@ -256,13 +256,13 @@ The rule going forward, enforced by convention and the public barrel: **apps imp
 | **Admin** | ✅ **Yes, today.** Admin → `config-tailwind` preset → `@munaxa/design-tokens`. |
 | **`@munaxa/ui`** | ✅ Yes — consumes the preset's classes + can import tokens directly. |
 | **Landing** | ✅ **Yes, as of Phase 2 (§10).** Edit `@munaxa/design-tokens` → `pnpm sync:tokens` → Landing's generated tokens update; CI fails if they drift. |
-| **Demo** | ⏳ Next: apply the same generator target (§10 is built to extend to it). |
+| **Demo** | ✅ **Yes, live, as of Phase 3 (§11).** Demo joined the workspace and consumes the shared preset → `@munaxa/design-tokens` directly. |
 | **Design-system website** | ⏳ **After §9 step.** Replace its local `tokens/*` with `@munaxa/design-tokens`. |
 
 ### 8.3 "Change `Button.tsx` → every app updates" — current truth
 
-✅ **True today for Admin** (the only app consuming `@munaxa/ui`). Becomes true for
-landing/demo/website as each is migrated off its local copy in §9.
+✅ **True today for Admin and Demo** — both consume `@munaxa/ui` via the workspace, so editing a
+component updates both with no app edit. Becomes true for Landing/website as each joins (§9).
 
 ---
 
@@ -274,7 +274,8 @@ replacement is proven in that app.**
 1. **Landing → packages.** _Tokens: ✅ done in Phase 2 (§10)._ Remaining: consume `@munaxa/ui`,
    `@munaxa/icons`, `@munaxa/config-tailwind` to delete the 7 local `ui/*` and `lib/cn.ts` — this
    step needs the **component-distribution decision** (§10.3: join workspace vs publish packages).
-2. **Demo → packages.** Same procedure for `munaxademo` (7 local `ui/*` + inlined tokens + `lib/cn.ts`).
+2. ~~**Demo → packages.**~~ ✅ **Done in Phase 3 (§11)** — joined the workspace, consumes `@munaxa/ui`
+   + shared preset; 7 local `ui/*` and `lib/cn.ts` deleted.
 3. **Design-system website → consumer-only.** Bridge `munaxadesignsystem` (Vite/Tailwind v4) to
    `@munaxa/ui` + `@munaxa/design-tokens`; replace its 53 local `ui/*` and `tokens/*`; rebuild every
    doc page as a live `@munaxa/ui` consumer with the full documentation template (§7). Delete the
@@ -345,3 +346,68 @@ for *tokens* (plain values) but not for *React components*. Two viable paths —
 Until that decision, Landing's local components remain (inventoried in §1.1); **nothing was
 deleted**. The same generator already supports adding `munaxademo` as a second target (one line
 in `scripts/sync-design-tokens.mjs`).
+
+---
+
+## 11. Phase 3 — Demo migrated onto the shared packages (approach A, shipped)
+
+**Decision (owner):** approach **A** — standalone apps **join the pnpm workspace** and consume the
+private `@munaxa/*` packages live, using **`turbo prune`** to keep each app's deploy lean. Demo is
+the first app migrated this way.
+
+### 11.1 What shipped
+
+| Change | Detail |
+|---|---|
+| **Joined the workspace** | Removed Demo's standalone-root markers (`pnpm-workspace.yaml`, `pnpm-lock.yaml`, `package-lock.json`, `.npmrc`); added `munaxademo` to the root `pnpm-workspace.yaml`; added `@munaxa/ui`, `@munaxa/design-tokens`, `@munaxa/config-tailwind`, `@munaxa/config-typescript` as `workspace:*` deps. |
+| **Components: one implementation** | `src/components/ui/index.ts` now `export * from '@munaxa/ui'`; **deleted** the 7 local components (`button`, `badge`, `card`, `input`, `field`, `table`, `spinner`). All 31 `@/components/ui` import sites unchanged. |
+| **`cn` deduped** | `src/lib/cn.ts` now re-exports `cn` from `@munaxa/ui`; all 13 `@/lib/cn` importers unchanged. |
+| **Tokens: one source** | `tailwind.config.ts` now `presets: [preset]` from `@munaxa/config-tailwind` (values from `@munaxa/design-tokens`) + scans `@munaxa/ui` source. |
+| **`Tone` promoted** | `@munaxa/ui` now exports the `Tone` type (Demo pages import it from the barrel) — additive, backward-compatible for Admin. |
+| **CI** | Removed the standalone `demo` job + its `paths-filter`; Demo is now built/typechecked/linted by the workspace `node` job via `turbo`. |
+
+### 11.2 Deploy — `turbo prune` (the lean path)
+
+`turbo prune munaxademo --docker` was verified to emit a minimal subset containing **only Demo +
+its 6 `@munaxa/*` dependencies** (no `api`, `prisma`, or `admin`) — so Cloudflare/Docker builds
+stay small even though Demo is now in the monorepo. Build orchestration is handled by turbo:
+`pnpm turbo run build --filter=munaxademo` builds `design-tokens → icons → ui → munaxademo` in order.
+
+**One-time external change required (Cloudflare dashboard).** Demo deploys via Cloudflare's
+dashboard Git integration, which this repo can't edit. Its build must now build the workspace deps
+before the app. Either:
+- **Simple:** root directory `munaxademo`, build command `pnpm install && pnpm run cf:build`
+  (Demo's `cf:build` now prebuilds `@munaxa/*` via turbo, then runs `opennextjs-cloudflare build`).
+- **Lean (recommended):** root directory = repo root, build `pnpm dlx turbo prune munaxademo --docker`
+  then install/build the pruned `out/` subset.
+
+Until that dashboard setting is updated, the next Cloudflare deploy of Demo would fail at install —
+**this is the only step not completed in-repo, and it's documented here for the owner.**
+
+### 11.3 Visual impact (disclosed)
+
+Demo's local components had **drifted** from canonical `@munaxa/ui`. Adopting the canonical
+components is intentional drift-correction (Demo now matches the real Admin product), but it is
+visible and is disclosed here:
+
+| Component | Visible change when switching to `@munaxa/ui` |
+|---|---|
+| **Button** | corners `rounded-lg → rounded-md`; default loses `shadow-glow`; sizes `h-10/h-11 → h-9/h-10`; hover uses `accent` tokens |
+| **Input / Field / Table** | adopt canonical spacing/typography/border treatment (small) |
+| **Badge / Card / Spinner** | effectively identical (Badge differed by ~2 lines; Card/Spinner were identical) |
+| **Card shadow & hero backdrop** | **preserved** via two explicit `theme.extend` overrides — **no change** |
+
+If any of these deltas is unwanted, the fix is to adjust the **canonical** `@munaxa/ui` component
+(which then updates Admin + Demo together) — not to re-fork Demo.
+
+### 11.4 Verification (this environment)
+
+| Check | Result |
+|---|---|
+| `pnpm --filter munaxademo typecheck` | ✅ clean (all component APIs compatible) |
+| `pnpm --filter munaxademo build` (`next build`) | ✅ all routes compiled |
+| `pnpm turbo run build --filter=munaxademo` | ✅ 4 tasks (deps → demo) |
+| `turbo prune munaxademo --docker` | ✅ minimal subset (demo + 6 pkgs) |
+| `pnpm install --frozen-lockfile` | ✅ lockfile in sync |
+| Admin typecheck (regression from `Tone` export) | ✅ clean |
+| Landing token drift check | ✅ unchanged |

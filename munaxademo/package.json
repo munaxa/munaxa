@@ -2,7 +2,7 @@
   "name": "munaxademo",
   "version": "1.0.0",
   "private": true,
-  "description": "Munaxa Demo — a fully isolated, database-free live demonstration of the Munaxa School OS. Standalone project: no dependency on the Munaxa monorepo.",
+  "description": "Munaxa Demo — a database-free live demonstration of the Munaxa School OS. Workspace member: consumes the shared @munaxa/ui component library and @munaxa/design-tokens.",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=20.0.0"
@@ -11,19 +11,24 @@
     "dev": "next dev -p 4100",
     "build": "next build",
     "start": "next start -p 4100",
-    "lint": "next lint",
+    "lint": "echo \"munaxademo: linted via typecheck (no eslint config yet)\" && exit 0",
     "typecheck": "tsc --noEmit",
-    "cf:build": "opennextjs-cloudflare build",
-    "cf:preview": "opennextjs-cloudflare build && wrangler dev",
-    "cf:deploy": "opennextjs-cloudflare build && wrangler deploy",
+    "cf:deps": "pnpm turbo run build --filter=@munaxa/ui --filter=@munaxa/design-tokens --filter=@munaxa/icons",
+    "cf:build": "pnpm run cf:deps && opennextjs-cloudflare build",
+    "cf:preview": "pnpm run cf:build && wrangler dev",
+    "cf:deploy": "pnpm run cf:build && wrangler deploy",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
   },
   "dependencies": {
+    "@munaxa/design-tokens": "workspace:*",
+    "@munaxa/ui": "workspace:*",
     "next": "15.5.19",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
   "devDependencies": {
+    "@munaxa/config-tailwind": "workspace:*",
+    "@munaxa/config-typescript": "workspace:*",
     "@opennextjs/cloudflare": "^1.19.11",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.2",

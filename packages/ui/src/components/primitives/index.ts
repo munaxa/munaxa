@@ -1,2 +1,2 @@
 export { Button, type ButtonProps } from './button.js';
-export { Badge } from './badge.js';
+export { Badge, type Tone } from './badge.js';
