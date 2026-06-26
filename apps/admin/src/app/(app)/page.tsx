@@ -7,7 +7,9 @@ import { useI18n } from '@/components/i18n-provider';
 import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
 import { NavIcon, type NavIconKey } from '@/components/nav-icons';
 import type { Locale } from '@/lib/i18n';
-import { Badge, Button, Card, CardContent, EmptyState, cn } from '@/components/ui';
+import { Badge, Button, Card, CardContent, Dialog, EmptyState, Switch, cn } from '@/components/ui';
+
+type Translate = (k: string) => string;
 
 export default function Home() {
   return (
@@ -39,6 +41,13 @@ const strokeTone: Record<Tone, string> = {
   aqua: 'stroke-aqua',
   coral: 'stroke-coral',
   danger: 'stroke-destructive',
+};
+
+const fillTone: Record<Tone, string> = {
+  primary: 'fill-primary/10',
+  aqua: 'fill-aqua/10',
+  coral: 'fill-coral/10',
+  danger: 'fill-destructive/10',
 };
 
 /** Quick actions, ordered by everyday frequency (mirrors the mockup). Permission-filtered. */
@@ -114,12 +123,65 @@ const QUICK_ACTIONS: Array<{
   },
 ];
 
+// ---------------------------------------------------------------------------
+// Widget visibility (persisted client-side preference — purely presentational)
+// ---------------------------------------------------------------------------
+const WIDGETS = [
+  { id: 'kpis', labelKey: 'dashboard.kpisLabel' },
+  { id: 'attendance', labelKey: 'dashboard.attendanceToday' },
+  { id: 'trend', labelKey: 'dashboard.attendanceTrend' },
+  { id: 'activity', labelKey: 'dashboard.recentActivity' },
+  { id: 'grade', labelKey: 'dashboard.studentsByGrade' },
+  { id: 'fees', labelKey: 'dashboard.feeCollection' },
+  { id: 'quickActions', labelKey: 'dashboard.quickActions' },
+  { id: 'aiInsight', labelKey: 'dashboard.aiInsight' },
+] as const;
+
+type WidgetId = (typeof WIDGETS)[number]['id'];
+type WidgetPrefs = Record<WidgetId, boolean>;
+
+const PREFS_KEY = 'munaxa.dashboard.widgets';
+const DEFAULT_PREFS = Object.fromEntries(WIDGETS.map((w) => [w.id, true])) as WidgetPrefs;
+
+function useWidgetPrefs() {
+  const [prefs, setPrefs] = useState<WidgetPrefs>(DEFAULT_PREFS);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PREFS_KEY);
+      if (raw) setPrefs({ ...DEFAULT_PREFS, ...(JSON.parse(raw) as Partial<WidgetPrefs>) });
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, []);
+
+  const persist = useCallback((next: WidgetPrefs) => {
+    setPrefs(next);
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore quota / privacy-mode errors */
+    }
+  }, []);
+
+  const toggle = useCallback(
+    (id: WidgetId) => persist({ ...prefs, [id]: !prefs[id] }),
+    [persist, prefs],
+  );
+  const reset = useCallback(() => persist(DEFAULT_PREFS), [persist]);
+
+  return { prefs, toggle, reset };
+}
+
 function Dashboard() {
   const principal = usePrincipal();
   const { t, locale } = useI18n();
   const held = useMemo(() => new Set(principal.permissions), [principal.permissions]);
   const actions = QUICK_ACTIONS.filter((a) => !a.perm || held.has(a.perm) || principal.isPlatform);
   const canSeeKpis = held.has('report:read') || held.has('*') || principal.isPlatform;
+
+  const { prefs, toggle, reset } = useWidgetPrefs();
+  const [customizing, setCustomizing] = useState(false);
 
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [error, setError] = useState(false);
@@ -139,7 +201,7 @@ function Dashboard() {
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6">
-      <DashboardHeader locale={locale} t={t} />
+      <DashboardHeader locale={locale} t={t} onCustomize={() => setCustomizing(true)} />
 
       {canSeeKpis ? (
         error && !data ? (
@@ -156,13 +218,22 @@ function Dashboard() {
             </CardContent>
           </Card>
         ) : data ? (
-          <DashboardContent data={data} actions={actions} locale={locale} t={t} />
+          <DashboardContent data={data} actions={actions} prefs={prefs} locale={locale} t={t} />
         ) : (
           <DashboardSkeleton />
         )
-      ) : (
+      ) : prefs.quickActions ? (
         <QuickActionsCard actions={actions} t={t} />
-      )}
+      ) : null}
+
+      <CustomizeDialog
+        open={customizing}
+        onClose={() => setCustomizing(false)}
+        prefs={prefs}
+        toggle={toggle}
+        reset={reset}
+        t={t}
+      />
     </div>
   );
 }
@@ -170,7 +241,15 @@ function Dashboard() {
 // ---------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------
-function DashboardHeader({ locale, t }: { locale: Locale; t: (k: string) => string }) {
+function DashboardHeader({
+  locale,
+  t,
+  onCustomize,
+}: {
+  locale: Locale;
+  t: Translate;
+  onCustomize: () => void;
+}) {
   const now = new Date();
   const intlLocale = locale === 'ar' ? 'ar-JO' : 'en-US';
   const hour = now.getHours();
@@ -201,7 +280,7 @@ function DashboardHeader({ locale, t }: { locale: Locale; t: (k: string) => stri
           <CalendarIcon />
           {date} ({weekday})
         </span>
-        <Button>
+        <Button onClick={onCustomize}>
           <SlidersIcon />
           {t('dashboard.customize')}
         </Button>
@@ -216,68 +295,102 @@ function DashboardHeader({ locale, t }: { locale: Locale; t: (k: string) => stri
 function DashboardContent({
   data,
   actions,
+  prefs,
   locale,
   t,
 }: {
   data: DashboardOverview;
   actions: typeof QUICK_ACTIONS;
+  prefs: WidgetPrefs;
   locale: Locale;
-  t: (k: string) => string;
+  t: Translate;
 }) {
   const att = data.attendanceToday;
   const rate = att.total > 0 ? Math.round(((att.present + att.late) / att.total) * 100) : null;
 
+  // Attendance delta from the last two days that were actually marked.
+  const markedRates = data.attendanceTrend
+    .map((d) => d.rate)
+    .filter((r): r is number => r !== null);
+  const [prevRate, lastRate] = markedRates.slice(-2);
+  const attendanceDelta =
+    prevRate !== undefined && lastRate !== undefined ? lastRate - prevRate : null;
+
+  const cards: Array<{ id: WidgetId; node: React.ReactNode }> = [
+    { id: 'attendance', node: <AttendanceCard att={att} rate={rate} locale={locale} t={t} /> },
+    {
+      id: 'trend',
+      node: <AttendanceTrendCard trend={data.attendanceTrend} locale={locale} t={t} />,
+    },
+    { id: 'activity', node: <ActivityCard activity={data.recentActivity} locale={locale} t={t} /> },
+    {
+      id: 'grade',
+      node: <StudentsByGradeCard data={data.studentsByGrade} locale={locale} t={t} />,
+    },
+    { id: 'fees', node: <FeeCollectionCard finance={data.finance} locale={locale} t={t} /> },
+    { id: 'quickActions', node: <QuickActionsCard actions={actions} t={t} /> },
+  ];
+  const visibleCards = cards.filter((c) => prefs[c.id]);
+
   return (
     <>
-      {/* KPI row — five identical cards. */}
-      <section
-        aria-label={t('dashboard.title')}
-        className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
-      >
-        <Kpi
-          icon="students"
-          label={t('dashboard.students')}
-          value={formatNumber(data.students, locale)}
-        />
-        <Kpi
-          icon="teachers"
-          label={t('dashboard.teachers')}
-          value={formatNumber(data.staff, locale)}
-        />
-        <Kpi
-          icon="attendance"
-          tone="aqua"
-          label={t('dashboard.attendanceToday')}
-          value={rate !== null ? `${rate}%` : '—'}
-        />
-        <Kpi
-          icon="collections"
-          tone="coral"
-          label={t('dashboard.outstanding')}
-          value={formatMoney(data.finance.outstanding, locale)}
-        />
-        <Kpi
-          icon="feePlans"
-          label={t('dashboard.invoicePending')}
-          value={formatNumber(data.einvoice.pending, locale)}
-        />
-      </section>
+      {prefs.kpis ? (
+        <section
+          aria-label={t('dashboard.title')}
+          className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
+        >
+          <Kpi
+            icon="students"
+            label={t('dashboard.students')}
+            value={formatNumber(data.students, locale)}
+            delta={{ value: data.deltas.studentsThisMonth, suffix: t('dashboard.thisMonthShort') }}
+            spark={data.sparklines.students}
+          />
+          <Kpi
+            icon="teachers"
+            label={t('dashboard.teachers')}
+            value={formatNumber(data.staff, locale)}
+            delta={{ value: data.deltas.staffThisMonth, suffix: t('dashboard.thisMonthShort') }}
+            spark={data.sparklines.staff}
+          />
+          <Kpi
+            icon="attendance"
+            tone="aqua"
+            label={t('dashboard.attendanceToday')}
+            value={rate !== null ? `${rate}%` : '—'}
+            delta={
+              attendanceDelta !== null
+                ? { value: attendanceDelta, suffix: t('dashboard.vsYesterday'), unit: '%' }
+                : undefined
+            }
+            spark={markedRates}
+            sparkTone="aqua"
+          />
+          <Kpi
+            icon="collections"
+            tone="coral"
+            label={t('dashboard.outstanding')}
+            value={formatMoney(data.finance.outstanding, locale)}
+          />
+          <Kpi
+            icon="feePlans"
+            label={t('dashboard.invoicePending')}
+            value={formatNumber(data.einvoice.pending, locale)}
+          />
+        </section>
+      ) : null}
 
-      {/* Operational row — attendance breakdown · trend · activity. */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <AttendanceCard att={att} rate={rate} locale={locale} t={t} />
-        <AttendanceTrendCard t={t} />
-        <ActivityCard activity={data.recentActivity} locale={locale} t={t} />
-      </section>
+      {visibleCards.length > 0 ? (
+        <section className="grid gap-4 lg:grid-cols-3">
+          {visibleCards.map((c) => (
+            <div key={c.id} className="flex">
+              {c.node}
+            </div>
+          ))}
+        </section>
+      ) : null}
 
-      {/* Academic + financial row — grade distribution · fee collection · quick actions. */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <StudentsByGradeCard t={t} />
-        <FeeCollectionCard finance={data.finance} locale={locale} t={t} />
-        <QuickActionsCard actions={actions} t={t} />
-      </section>
-
-      <AiInsightBanner data={data} rate={rate} t={t} />
+      {prefs.aiInsight ? <AiInsightBanner data={data} rate={rate} t={t} /> : null}
     </>
   );
 }
@@ -290,30 +403,96 @@ function Kpi({
   label,
   value,
   tone = 'primary',
+  delta,
+  spark,
+  sparkTone = 'primary',
 }: {
   icon: NavIconKey;
   label: string;
   value: string;
   tone?: Tone;
+  delta?: { value: number; suffix: string; unit?: string | undefined } | undefined;
+  spark?: number[] | undefined;
+  sparkTone?: Tone;
 }) {
   return (
-    <Card className="h-full">
-      <CardContent className="flex h-full items-start gap-3 p-5">
+    <Card className="h-full w-full">
+      <CardContent className="flex h-full flex-col gap-3 p-5">
         <span
           aria-hidden="true"
-          className={cn(
-            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
-            chipTone[tone],
-          )}
+          className={cn('flex h-11 w-11 items-center justify-center rounded-xl', chipTone[tone])}
         >
           <NavIcon name={icon} />
         </span>
-        <div className="min-w-0">
+        <div>
           <p className="truncate text-sm text-muted-foreground">{label}</p>
           <p className="mt-0.5 font-display text-2xl font-semibold tabular-nums">{value}</p>
         </div>
+        <div className="mt-auto flex items-end justify-between gap-2">
+          {delta ? (
+            <DeltaChip value={delta.value} suffix={delta.suffix} unit={delta.unit} />
+          ) : (
+            <span />
+          )}
+          {spark && spark.length >= 2 ? <Sparkline values={spark} tone={sparkTone} /> : null}
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DeltaChip({
+  value,
+  suffix,
+  unit,
+}: {
+  value: number;
+  suffix: string;
+  unit?: string | undefined;
+}) {
+  const up = value >= 0;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 text-xs font-medium tabular-nums',
+        up ? 'text-aqua' : 'text-coral',
+      )}
+    >
+      <span aria-hidden="true">{up ? '↑' : '↓'}</span>
+      {Math.abs(value)}
+      {unit ?? ''}
+      <span className="font-normal text-muted-foreground">{suffix}</span>
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sparkline
+// ---------------------------------------------------------------------------
+function Sparkline({ values, tone = 'primary' }: { values: number[]; tone?: Tone }) {
+  const w = 72;
+  const h = 28;
+  const pad = 2;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+  const points = values
+    .map((v, i) => {
+      const x = pad + (i / (values.length - 1)) * (w - 2 * pad);
+      const y = h - pad - ((v - min) / range) * (h - 2 * pad);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" aria-hidden="true">
+      <polyline
+        points={points}
+        className={strokeTone[tone]}
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -436,11 +615,11 @@ function AttendanceCard({
   att: DashboardOverview['attendanceToday'];
   rate: number | null;
   locale: Locale;
-  t: (k: string) => string;
+  t: Translate;
 }) {
   const pct = (n: number) => (att.total > 0 ? `${Math.round((n / att.total) * 100)}%` : '0%');
   return (
-    <Card className="flex flex-col">
+    <Card className="flex w-full flex-col">
       <SectionHeader title={t('dashboard.attendanceToday')} badge={t('dashboard.today')} />
       <CardContent className="flex flex-1 flex-col">
         {att.total > 0 ? (
@@ -506,18 +685,107 @@ function AttendanceCard({
 }
 
 // ---------------------------------------------------------------------------
-// Attendance trend (no backing data — honest empty state)
+// Attendance trend (line chart)
 // ---------------------------------------------------------------------------
-function AttendanceTrendCard({ t }: { t: (k: string) => string }) {
+function AttendanceTrendCard({
+  trend,
+  locale,
+  t,
+}: {
+  trend: DashboardOverview['attendanceTrend'];
+  locale: Locale;
+  t: Translate;
+}) {
+  const intlLocale = locale === 'ar' ? 'ar-JO' : 'en-US';
+  const dayFmt = useMemo(
+    () => new Intl.DateTimeFormat(intlLocale, { weekday: 'short' }),
+    [intlLocale],
+  );
+  const points = trend.map((d, i) => ({
+    x: trend.length > 1 ? (i / (trend.length - 1)) * 100 : 50,
+    rate: d.rate,
+    label: dayFmt.format(new Date(`${d.date}T00:00:00Z`)),
+  }));
+  const valid = points.filter(
+    (p): p is { x: number; rate: number; label: string } => p.rate !== null,
+  );
+  const avg = valid.length
+    ? Math.round(valid.reduce((s, p) => s + p.rate, 0) / valid.length)
+    : null;
+  const first = valid[0];
+  const last = valid[valid.length - 1];
+  const linePoints = valid.map((p) => `${p.x},${100 - p.rate}`).join(' ');
+
   return (
-    <Card className="flex flex-col">
+    <Card className="flex w-full flex-col">
       <SectionHeader title={t('dashboard.attendanceTrend')} badge={t('dashboard.thisWeek')} />
       <CardContent className="flex flex-1 flex-col">
-        <EmptyState
-          className="flex-1 justify-center"
-          icon={<NavIcon name="reports" className="h-6 w-6" />}
-          title={t('dashboard.noTrendData')}
-        />
+        {valid.length >= 2 && first && last ? (
+          <>
+            <div className="relative h-40 w-full">
+              <svg
+                className="absolute inset-0 h-full w-full"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                {[0, 50, 100].map((y) => (
+                  <line
+                    key={y}
+                    x1="0"
+                    x2="100"
+                    y1={y}
+                    y2={y}
+                    className="stroke-border"
+                    strokeWidth="1"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                ))}
+                <polygon
+                  className={fillTone.primary}
+                  points={`${first.x},100 ${linePoints} ${last.x},100`}
+                />
+                <polyline
+                  points={linePoints}
+                  className="stroke-primary"
+                  fill="none"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+              {last ? (
+                <span
+                  className="absolute -translate-x-1/2 -translate-y-1/2 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground tabular-nums"
+                  style={{ left: `${last.x}%`, top: `${100 - last.rate}%` }}
+                >
+                  {last.rate}%
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-2 flex justify-between text-[10px] text-muted-foreground">
+              {points.map((p, i) => (
+                <span key={i}>{p.label}</span>
+              ))}
+            </div>
+            <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-sm">
+              <span className="text-muted-foreground">
+                {t('dashboard.averageThisWeek')}{' '}
+                <span className="font-semibold text-foreground tabular-nums">{avg}%</span>
+              </span>
+              <Link href="/reports" className="font-medium text-primary hover:underline">
+                {t('dashboard.viewFullReport')} →
+              </Link>
+            </div>
+          </>
+        ) : (
+          <EmptyState
+            className="flex-1 justify-center"
+            icon={<NavIcon name="reports" className="h-6 w-6" />}
+            title={t('dashboard.noTrendData')}
+          />
+        )}
       </CardContent>
     </Card>
   );
@@ -535,7 +803,7 @@ function ActivityCard({
 }: {
   activity: DashboardOverview['recentActivity'];
   locale: Locale;
-  t: (k: string) => string;
+  t: Translate;
 }) {
   const items = activity.slice(0, ACTIVITY_LIMIT);
   const fmt = useMemo(
@@ -549,7 +817,7 @@ function ActivityCard({
   );
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex w-full flex-col">
       <SectionHeader
         title={t('dashboard.recentActivity')}
         action={
@@ -605,25 +873,57 @@ function ActivityCard({
 }
 
 // ---------------------------------------------------------------------------
-// Students by grade (no backing data — honest empty state)
+// Students by grade (bar chart)
 // ---------------------------------------------------------------------------
-function StudentsByGradeCard({ t }: { t: (k: string) => string }) {
+function StudentsByGradeCard({
+  data,
+  locale,
+  t,
+}: {
+  data: DashboardOverview['studentsByGrade'];
+  locale: Locale;
+  t: Translate;
+}) {
+  const max = data.reduce((m, d) => Math.max(m, d.students), 0);
+  const total = data.reduce((s, d) => s + d.students, 0);
+  const gradeLabel = (level: number) => (level === 0 ? 'KG' : formatNumber(level, locale));
+
   return (
-    <Card className="flex flex-col">
+    <Card className="flex w-full flex-col">
       <SectionHeader title={t('dashboard.studentsByGrade')} badge={t('dashboard.thisSession')} />
       <CardContent className="flex flex-1 flex-col">
-        <EmptyState
-          className="flex-1 justify-center"
-          icon={<NavIcon name="academics" className="h-6 w-6" />}
-          title={t('dashboard.noGradeData')}
-        />
+        {total > 0 ? (
+          <div className="flex h-44 items-end gap-1.5">
+            {data.map((d) => (
+              <div
+                key={d.level}
+                className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
+              >
+                <div className="flex w-full flex-1 items-end">
+                  <div
+                    className="w-full rounded-t bg-primary/80 transition-colors hover:bg-primary"
+                    style={{ height: `${max > 0 ? Math.max((d.students / max) * 100, 2) : 0}%` }}
+                    title={`${d.nameEn}: ${formatNumber(d.students, locale)}`}
+                  />
+                </div>
+                <span className="text-[10px] text-muted-foreground">{gradeLabel(d.level)}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            className="flex-1 justify-center"
+            icon={<NavIcon name="academics" className="h-6 w-6" />}
+            title={t('dashboard.noGradeData')}
+          />
+        )}
       </CardContent>
     </Card>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Fee collection
+// Fee collection (3-way donut)
 // ---------------------------------------------------------------------------
 function FeeCollectionCard({
   finance,
@@ -632,16 +932,18 @@ function FeeCollectionCard({
 }: {
   finance: DashboardOverview['finance'];
   locale: Locale;
-  t: (k: string) => string;
+  t: Translate;
 }) {
   const paid = Number(finance.paid);
   const outstanding = Number(finance.outstanding);
+  const overdue = Number(finance.overdue);
+  const pending = Math.max(outstanding - overdue, 0);
   const total = paid + outstanding;
-  const collectedPct = total > 0 ? Math.round((paid / total) * 100) : 0;
   const pct = (n: number) => (total > 0 ? `${Math.round((n / total) * 100)}%` : '0%');
+  const collectedPct = total > 0 ? Math.round((paid / total) * 100) : 0;
 
   return (
-    <Card className="flex flex-col">
+    <Card className="flex w-full flex-col">
       <SectionHeader title={t('dashboard.feeCollection')} badge={t('dashboard.thisMonth')} />
       <CardContent className="flex flex-1 flex-col">
         {total > 0 ? (
@@ -649,8 +951,9 @@ function FeeCollectionCard({
             <div className="flex flex-col items-center gap-6 sm:flex-row">
               <DonutChart
                 segments={[
-                  { value: collectedPct, tone: 'aqua' },
-                  { value: 100 - collectedPct, tone: 'coral' },
+                  { value: total > 0 ? (paid / total) * 100 : 0, tone: 'aqua' },
+                  { value: total > 0 ? (pending / total) * 100 : 0, tone: 'coral' },
+                  { value: total > 0 ? (overdue / total) * 100 : 0, tone: 'danger' },
                 ]}
                 center={
                   <div>
@@ -674,8 +977,14 @@ function FeeCollectionCard({
                   {
                     tone: 'coral',
                     label: t('dashboard.pending'),
-                    value: formatMoney(finance.outstanding, locale),
-                    pct: pct(outstanding),
+                    value: formatMoney(String(pending), locale),
+                    pct: pct(pending),
+                  },
+                  {
+                    tone: 'danger',
+                    label: t('dashboard.overdue'),
+                    value: formatMoney(finance.overdue, locale),
+                    pct: pct(overdue),
                   },
                 ]}
               />
@@ -703,16 +1012,10 @@ function FeeCollectionCard({
 // ---------------------------------------------------------------------------
 // Quick actions
 // ---------------------------------------------------------------------------
-function QuickActionsCard({
-  actions,
-  t,
-}: {
-  actions: typeof QUICK_ACTIONS;
-  t: (k: string) => string;
-}) {
+function QuickActionsCard({ actions, t }: { actions: typeof QUICK_ACTIONS; t: Translate }) {
   if (actions.length === 0) return null;
   return (
-    <Card className="flex flex-col">
+    <Card className="flex w-full flex-col">
       <SectionHeader title={t('dashboard.quickActions')} />
       <CardContent className="flex-1">
         <div className="grid grid-cols-3 gap-3">
@@ -750,7 +1053,7 @@ function AiInsightBanner({
 }: {
   data: DashboardOverview;
   rate: number | null;
-  t: (k: string) => string;
+  t: Translate;
 }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
@@ -796,6 +1099,60 @@ function AiInsightBanner({
 }
 
 // ---------------------------------------------------------------------------
+// Customize dialog
+// ---------------------------------------------------------------------------
+function CustomizeDialog({
+  open,
+  onClose,
+  prefs,
+  toggle,
+  reset,
+  t,
+}: {
+  open: boolean;
+  onClose: () => void;
+  prefs: WidgetPrefs;
+  toggle: (id: WidgetId) => void;
+  reset: () => void;
+  t: Translate;
+}) {
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t('dashboard.customizeTitle')}
+      description={t('dashboard.customizeDesc')}
+      footer={
+        <div className="flex w-full items-center justify-between">
+          <Button variant="ghost" size="sm" onClick={reset}>
+            {t('dashboard.resetLayout')}
+          </Button>
+          <Button size="sm" onClick={onClose}>
+            {t('common.ok')}
+          </Button>
+        </div>
+      }
+    >
+      <ul className="divide-y divide-border">
+        {WIDGETS.map((w) => (
+          <li key={w.id} className="flex items-center justify-between gap-4 py-2.5">
+            <label htmlFor={`widget-${w.id}`} className="text-sm font-medium">
+              {t(w.labelKey)}
+            </label>
+            <Switch
+              id={`widget-${w.id}`}
+              checked={prefs[w.id]}
+              onCheckedChange={() => toggle(w.id)}
+              aria-label={t(w.labelKey)}
+            />
+          </li>
+        ))}
+      </ul>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Loading skeleton (mirrors the content layout to avoid layout shift)
 // ---------------------------------------------------------------------------
 function DashboardSkeleton() {
@@ -803,7 +1160,7 @@ function DashboardSkeleton() {
     <div className="space-y-6" aria-hidden>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-[88px] animate-pulse rounded-xl bg-secondary/60" />
+          <div key={i} className="h-[124px] animate-pulse rounded-xl bg-secondary/60" />
         ))}
       </div>
       {Array.from({ length: 2 }).map((_, row) => (

@@ -278,7 +278,13 @@
     "aiInsightAttendance": "Today's attendance rate is {rate}%.",
     "aiInsightOutstanding": "There's an outstanding balance worth collecting.",
     "aiInsightAllClear": "Everything looks healthy across your school today.",
-    "today": "Today"
+    "today": "Today",
+    "thisMonthShort": "this month",
+    "vsYesterday": "vs yesterday",
+    "customizeTitle": "Customize dashboard",
+    "customizeDesc": "Choose which widgets appear on your dashboard.",
+    "resetLayout": "Reset to default",
+    "kpisLabel": "Key metrics"
   },
   "reports": {
     "subtitle": "Summaries across attendance, academics, finance, and behavior — view or export.",
