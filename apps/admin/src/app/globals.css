@@ -77,6 +77,40 @@
     color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
   }
 
+  /* Breathing brand-teal glow behind the sign-in logo. The bloom lives on a ::before so it
+   * sits behind the mark and never affects layout; the slow pulse draws the eye to the brand
+   * on load. Frozen automatically by the prefers-reduced-motion guard below. */
+  .login-logo-glow {
+    position: relative;
+    isolation: isolate;
+  }
+  .login-logo-glow::before {
+    content: '';
+    position: absolute;
+    inset: -60%;
+    z-index: -1;
+    border-radius: 9999px;
+    background: radial-gradient(
+      circle at center,
+      color-mix(in oklch, var(--primary) 55%, transparent) 0%,
+      color-mix(in oklch, var(--primary) 22%, transparent) 38%,
+      transparent 70%
+    );
+    filter: blur(6px);
+    animation: login-logo-pulse 3.2s ease-in-out infinite;
+  }
+  @keyframes login-logo-pulse {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: scale(0.9);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.1);
+    }
+  }
+
   /* Jordanian flag mark — fixed national colours (kept here so the JSX stays free of raw hex). */
   .jo-black {
     fill: #000000;

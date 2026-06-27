@@ -87,7 +87,9 @@ export default function LoginPage() {
       <div className="relative mx-auto flex min-h-screen max-w-[1440px] flex-col px-5 py-6 lg:px-10">
         {/* Brand lockup. */}
         <header className="flex items-center gap-3">
-          <Logo size={40} priority />
+          <span className="login-logo-glow inline-flex">
+            <Logo size={40} priority />
+          </span>
           <div className="leading-tight">
             <p className="font-display text-2xl font-bold lowercase tracking-tight">munaxa</p>
             <p className="text-xs text-muted-foreground">School OS</p>
