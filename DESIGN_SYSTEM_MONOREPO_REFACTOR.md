@@ -622,3 +622,45 @@ DS site) and `theme.css` (generated, used by the Tailwind-v3 apps) — because t
 site are on different Tailwind majors. Only `theme.oklch.css` is authored; `theme.css` is generated
 and drift-gated, so there is still exactly one source of truth. Collapsing to a single physical file
 would require migrating the apps to Tailwind v4 (a separate, larger effort).
+
+---
+
+## 16. Phase 8 — Single physical token file: all apps on Tailwind v4
+
+The whole platform is now on **Tailwind v4** and consumes **one physical token file**.
+
+### 16.1 What shipped
+
+- **`packages/design-tokens/css/theme.oklch.css`** is now THE single physical palette file. The
+  design-system site, `@munaxa/ui`, **and all three apps** (Admin, Landing, Demo) consume it (via
+  the shared `packages/design-tokens/css/tailwind.css`, the v4 equivalent of the old preset).
+- **Admin, Landing, Demo migrated v3 → v4**: `@tailwindcss/postcss`, `@import "tailwindcss"` +
+  the shared theme, removed `tailwind.config.ts`, swapped `tailwindcss-animate` → `tw-animate-css`,
+  dropped `autoprefixer` (built into v4) and Landing's container-queries plugin (built into v4).
+- **`@munaxa/ui` is unchanged** — the shared `tailwind.css` carries small `@utility` shims
+  (`z-modal`, `z-dropdown`, `shadow`, `shadow-sm`, `backdrop-blur-sm`) recreating the few classes
+  v4 renamed/recalibrated, with their exact v3 values, so the component library renders identically.
+- **`@source`** directives added per app so v4 scans `@munaxa/ui`'s source for classes.
+- Admin's login CSS rewritten from `hsl(var(--token)/α)` → `color-mix(in oklch, …)` (vars are oklch now).
+- **Deleted:** `theme.css` (generated), `scripts/sync-theme.mjs`, the `sync:theme` scripts + CI
+  check, `culori`, and the entire `@munaxa/config-tailwind` v3 preset package.
+
+### 16.2 Verification
+
+| Check | Result |
+|---|---|
+| `next build` — Admin, Landing, Demo (v4) | ✅ all |
+| `turbo run lint typecheck` (apps + ui + tokens) | ✅ all |
+| Demo (light + dark) + Landing screenshots | ✅ pixel-equivalent / on-brand teal |
+| Frozen lockfile | ✅ in sync |
+
+> **Admin visual QA pending:** Admin builds, typechecks and lints clean on v4, but its
+> authenticated screens couldn't be visually verified in this environment (needs DB/auth). The
+> login-CSS `color-mix` rewrite is mathematically equivalent to the old `hsl(/α)`; please eyeball
+> Admin in a real environment.
+
+### 16.3 Result
+
+There is now exactly **one** implementation of every component (`@munaxa/ui`) and **one physical
+file** of design tokens (`theme.oklch.css`), authored once and consumed live by every Munaxa
+surface. Editing `theme.oklch.css` re-themes the design-system site, Admin, Landing and Demo.

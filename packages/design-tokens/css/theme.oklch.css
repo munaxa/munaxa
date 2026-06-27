@@ -1,9 +1,9 @@
 /**
  * @munaxa/design-tokens — canonical brand palette (Munaxa Design System), in oklch.
  *
- * THE single source of truth for the Munaxa palette. Tailwind-v4 consumers (the design-system
- * site) @import this file directly; the Tailwind-v3 apps consume packages/design-tokens/css/theme.css
- * which is GENERATED from this file by `pnpm sync:theme` (CI guards drift via `pnpm sync:theme:check`).
+ * THE single physical token file for the Munaxa palette. Every consumer is Tailwind v4 and
+ * imports it (via the shared theme css/tailwind.css): the design-system site, @munaxa/ui, and
+ * every app (Admin, Landing, Demo).
  *
  * Edit colors here only. Structural, non-palette vars (fonts, radius, hero gradient) live with
  * each consumer. Light = :root, dark = .dark.

@@ -1,82 +1,14 @@
 @import 'tailwindcss';
-/* THE single physical token file — the canonical Munaxa palette (oklch), shared with the
-   design-system site. No generated theme.css for this app: Demo is on Tailwind v4 and consumes
-   the source directly. */
-@import '@munaxa/design-tokens/css/theme.oklch.css';
+/* Shared Munaxa v4 theme — pulls in THE single physical token file (theme.oklch.css). */
+@import '@munaxa/design-tokens/css/tailwind.css';
 @import 'tw-animate-css';
+@source '../../../packages/ui/src';
 
-@custom-variant dark (&:is(.dark *));
-
-/*
- * Tailwind v4 theme — maps the palette CSS variables (from theme.oklch.css) onto Tailwind's
- * token namespaces. Mirrors the design-system site so Demo and the DS site share one palette.
- */
 @theme inline {
-  /* Radius scale (8 / 12 / 14 / 22 / 32px) */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: 1.375rem;
-  --radius-2xl: 2rem;
-
-  /* Type families (provided by next/font in layout.tsx) */
-  --font-sans: var(--font-body);
-  --font-display: var(--font-display);
-  --font-body: var(--font-body);
-  --font-mono: var(--font-mono);
-
-  /* Colors */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-coral: var(--coral);
-  --color-aqua: var(--aqua);
-  --color-success: var(--success);
-  --color-warning: var(--warning);
-  --color-info: var(--info);
-
-  /* Elevation (Demo keeps its softer card shadow) */
-  --shadow-card: 0 24px 50px -28px rgba(11, 5, 24, 0.55), 0 0 0 1px hsl(var(--border)) inset;
-  --shadow-glow: 0 14px 40px -16px hsl(var(--primary) / 0.45);
-  --shadow-focus: 0 0 0 3px rgb(0 117 149 / 0.28);
+  /* Demo keeps its softer card shadow. */
+  --shadow-card: 0 24px 50px -28px rgba(11, 5, 24, 0.55), 0 0 0 1px var(--border) inset;
 }
 
-/*
- * v3-compat shims: the shared @munaxa/ui is still authored with Tailwind-v3 class names. These
- * recreate the handful that v4 renamed/recalibrated, with their exact v3 values, so the
- * UNCHANGED component library renders identically under v4. (Removed once @munaxa/ui goes v4.)
- */
-@utility z-modal {
-  z-index: 40;
-}
-@utility z-dropdown {
-  z-index: 20;
-}
-@utility shadow {
-  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-}
-@utility shadow-sm {
-  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-}
-@utility backdrop-blur-sm {
-  backdrop-filter: blur(4px);
-}
 @utility bg-grad-hero {
   background-image: var(--grad-hero);
 }
