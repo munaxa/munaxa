@@ -1,15 +1,13 @@
 /**
- * @munaxa/design-tokens — canonical theme (the single source of truth).
+ * @munaxa/design-tokens — canonical theme. GENERATED — DO NOT EDIT BY HAND.
  *
- * The full Munaxa Design System (munaxadesignsystem) palette — neutral surfaces, teal primary,
- * theme-aware accents — for light (:root) and dark (.dark). Every app imports this file, so
- * editing it re-themes Admin, Landing, Demo and every @munaxa/ui component (Button, Input, …)
- * live. Values are the sRGB-mapped HSL channels of munaxadesignsystem/client/src/index.css,
- * consumed via the preset's `hsl(var(--token))` bridge (alpha modifiers supported).
+ * Single source of truth: munaxadesignsystem/client/src/index.css.
+ * Regenerate with:  pnpm sync:theme   (CI guards drift via pnpm sync:theme:check)
  *
- *   @import "@munaxa/design-tokens/css/theme.css";
- *
- * DO NOT redefine these per app. Add only app-specific, non-palette vars locally.
+ * The full Munaxa Design System palette (neutral surfaces, teal primary, theme-aware accents)
+ * for light (:root) and dark (.dark), as sRGB-mapped HSL channels consumed via the preset's
+ * `hsl(var(--token))` bridge. Every app imports this file, so editing munaxadesignsystem and
+ * re-running `pnpm sync:theme` re-themes Admin, Landing, Demo and every @munaxa/ui component.
  */
 
 :root {

@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { colors } from '@munaxa/design-tokens';
 import { CONTACT_EMAIL, CONTACT_FROM_EMAIL, SITE_NAME, SITE_URL } from './constants';
 import { escapeHtml } from './validation';
 import { logger } from './logger';
@@ -61,54 +62,54 @@ export async function sendAcknowledgmentEmail(data: InquiryEmailData): Promise<v
   const html = `
     <!doctype html>
     <html lang="en">
-      <body style="margin:0;padding:0;background-color:#F7F5FF;font-family:Helvetica,Arial,sans-serif;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F7F5FF;padding:32px 16px;">
+      <body style="margin:0;padding:0;background-color:${colors.neutral.bg};font-family:Helvetica,Arial,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${colors.neutral.bg};padding:32px 16px;">
           <tr>
             <td align="center">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:#FFFFFF;border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(30,11,77,0.08);">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background-color:${colors.neutral[0]};border-radius:14px;overflow:hidden;box-shadow:0 4px 20px rgba(30,11,77,0.08);">
                 <tr>
-                  <td style="background-color:#7A3FFF;padding:28px 32px;">
-                    <span style="color:#FFFFFF;font-size:20px;font-weight:700;letter-spacing:0.02em;">${escapeHtml(SITE_NAME)}</span>
+                  <td style="background-color:${colors.brand.DEFAULT};padding:28px 32px;">
+                    <span style="color:${colors.neutral[0]};font-size:20px;font-weight:700;letter-spacing:0.02em;">${escapeHtml(SITE_NAME)}</span>
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:32px;color:#1E0B4D;font-size:15px;line-height:1.6;">
-                    <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#1E0B4D;">Thanks for reaching out, ${escapeHtml(firstName)}!</h1>
+                  <td style="padding:32px;color:${colors.neutral.ink};font-size:15px;line-height:1.6;">
+                    <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:${colors.neutral.ink};">Thanks for reaching out, ${escapeHtml(firstName)}!</h1>
                     <p style="margin:0 0 16px;">
                       We've received your message on behalf of <strong>${escapeHtml(data.schoolName)}</strong> and a member of
                       our team will be in touch within one business day to schedule a demo and answer any questions.
                     </p>
                     <p style="margin:0 0 12px;">Here's a copy of what you sent us:</p>
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border:1px solid #E3DFEF;border-radius:8px;overflow:hidden;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border:1px solid ${colors.neutral.border};border-radius:8px;overflow:hidden;">
                       <tr>
-                        <td style="padding:10px 14px;background-color:#F0ECFA;font-weight:600;width:120px;border-bottom:1px solid #E3DFEF;vertical-align:top;">Name</td>
-                        <td style="padding:10px 14px;border-bottom:1px solid #E3DFEF;">${escapeHtml(data.name)}</td>
+                        <td style="padding:10px 14px;background-color:${colors.neutral.surface};font-weight:600;width:120px;border-bottom:1px solid ${colors.neutral.border};vertical-align:top;">Name</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid ${colors.neutral.border};">${escapeHtml(data.name)}</td>
                       </tr>
                       <tr>
-                        <td style="padding:10px 14px;background-color:#F0ECFA;font-weight:600;border-bottom:1px solid #E3DFEF;vertical-align:top;">School</td>
-                        <td style="padding:10px 14px;border-bottom:1px solid #E3DFEF;">${escapeHtml(data.schoolName)}</td>
+                        <td style="padding:10px 14px;background-color:${colors.neutral.surface};font-weight:600;border-bottom:1px solid ${colors.neutral.border};vertical-align:top;">School</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid ${colors.neutral.border};">${escapeHtml(data.schoolName)}</td>
                       </tr>
                       <tr>
-                        <td style="padding:10px 14px;background-color:#F0ECFA;font-weight:600;border-bottom:1px solid #E3DFEF;vertical-align:top;">Phone</td>
-                        <td style="padding:10px 14px;border-bottom:1px solid #E3DFEF;">${escapeHtml(data.phone)}</td>
+                        <td style="padding:10px 14px;background-color:${colors.neutral.surface};font-weight:600;border-bottom:1px solid ${colors.neutral.border};vertical-align:top;">Phone</td>
+                        <td style="padding:10px 14px;border-bottom:1px solid ${colors.neutral.border};">${escapeHtml(data.phone)}</td>
                       </tr>
                       <tr>
-                        <td style="padding:10px 14px;background-color:#F0ECFA;font-weight:600;vertical-align:top;">Message</td>
+                        <td style="padding:10px 14px;background-color:${colors.neutral.surface};font-weight:600;vertical-align:top;">Message</td>
                         <td style="padding:10px 14px;">${escapeHtml(data.message).replace(/\n/g, '<br/>')}</td>
                       </tr>
                     </table>
                     <p style="margin:0 0 24px;">
                       Have more to add? Just reply to this email — it goes straight to our team.
                     </p>
-                    <a href="${SITE_URL}" style="display:inline-block;background-color:#5B1FD6;color:#FFFFFF;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">
+                    <a href="${SITE_URL}" style="display:inline-block;background-color:${colors.brand.DEFAULT};color:${colors.neutral[0]};text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:8px;">
                       Visit ${escapeHtml(SITE_URL.replace(/^https?:\/\//, ''))}
                     </a>
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:20px 32px;background-color:#F0ECFA;color:#5A4D7A;font-size:12px;text-align:center;">
+                  <td style="padding:20px 32px;background-color:${colors.neutral.surface};color:${colors.neutral.mutedText};font-size:12px;text-align:center;">
                     ${escapeHtml(SITE_NAME)} — the School Operating System<br/>
-                    <a href="mailto:${CONTACT_EMAIL}" style="color:#5B1FD6;text-decoration:none;">${CONTACT_EMAIL}</a>
+                    <a href="mailto:${CONTACT_EMAIL}" style="color:${colors.brand.DEFAULT};text-decoration:none;">${CONTACT_EMAIL}</a>
                   </td>
                 </tr>
               </table>

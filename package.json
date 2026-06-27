@@ -17,6 +17,8 @@
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
+    "sync:theme": "node scripts/sync-theme-from-designsystem.mjs",
+    "sync:theme:check": "node scripts/sync-theme-from-designsystem.mjs --check",
     "prisma:generate": "pnpm --filter @munaxa/api prisma:generate",
     "prisma:migrate": "pnpm --filter @munaxa/api prisma:migrate",
     "docker:up": "docker compose up -d",
@@ -26,6 +28,7 @@
   "devDependencies": {
     "@munaxa/config-eslint": "workspace:*",
     "@munaxa/config-typescript": "workspace:*",
+    "culori": "^4.0.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.10",
     "prettier": "^3.4.2",

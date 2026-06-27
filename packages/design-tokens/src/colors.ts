@@ -33,36 +33,36 @@ export const colors = {
   /** Theme-aware accent — aqua. Bind via CSS variable `--aqua`. */
   aqua: { light: '#0D9488', dark: '#4DF4E1' },
 
-  /** Deep "ink" violet dark surfaces. */
+  /** Deep neutral "ink" dark surfaces (munaxadesignsystem dark theme). */
   ink: {
-    900: '#0B0518',
-    800: '#140A2E',
-    700: '#1A0F38',
-    600: '#221547',
-    border: '#2F224F',
+    900: '#090B0C',
+    800: '#131718',
+    700: '#161B1D',
+    600: '#1F2527',
+    border: '#2A3133',
   },
 
-  /** Light violet-tinted neutral scale. */
+  /** Light neutral scale (munaxadesignsystem light theme). */
   neutral: {
     0: '#FFFFFF',
-    bg: '#F7F5FF',
-    surface: '#F0ECFA',
-    border: '#E3DFEF',
-    input: '#C8C0DC',
-    mutedText: '#5A4D7A',
-    ink: '#1E0B4D',
+    bg: '#F4F4F5',
+    surface: '#F1F3F3',
+    border: '#E3E7E8',
+    input: '#E3E7E8',
+    mutedText: '#67787C',
+    ink: '#090B0C',
   },
 
-  /** Semantic status colors — theme-aware. `danger` doubles as `destructive`. */
+  /** Semantic status colors — theme-aware (munaxadesignsystem). `danger` doubles as `destructive`. */
   semantic: {
-    success: { light: '#0D9488', dark: '#10B981' },
+    success: { light: '#0D9488', dark: '#4DF4E1' },
     warning: { light: '#F59E0B', dark: '#FBBF24' },
     info: { light: '#3B82F6', dark: '#60A5FA' },
-    danger: { light: '#D9534F', dark: '#F87171' },
+    danger: { light: '#D9534F', dark: '#FF5C7A' },
   },
 
-  /** Data-visualization scale (chart-1 → chart-5). */
-  dataViz: ['#7A3FFF', '#B97BFF', '#0D9488', '#F59E0B', '#3B82F6'],
+  /** Data-visualization scale (munaxadesignsystem chart-1 → chart-5). */
+  dataViz: ['#D0D6D8', '#67787C', '#4B585B', '#394447', '#22292B'],
 } as const;
 
 export type Colors = typeof colors;

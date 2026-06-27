@@ -83,6 +83,11 @@ jobs:
       - name: Build internal packages
         run: pnpm turbo run build --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils --filter=@munaxa/design-tokens
 
+      - name: Theme sync check (munaxadesignsystem is the single source of truth)
+        # Fails if packages/design-tokens/css/theme.css has drifted from
+        # munaxadesignsystem/client/src/index.css. Fix with `pnpm sync:theme` and commit.
+        run: pnpm sync:theme:check
+
       - name: Apply database migrations
         run: pnpm --filter @munaxa/api prisma:deploy
 
