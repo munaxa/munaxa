@@ -1,37 +1,40 @@
 import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
+import { colors, elevation, motion, zIndex, typography } from '@munaxa/design-tokens';
 
 /**
  * Shared Tailwind preset carrying the Munaxa design-system tokens.
  *
- * Colours are the Munaxa Design System brand — the single source of truth lives in
- * munaxadesignsystem/client/src/index.css: violet primary (#5B1FD6 light / #B97BFF dark) on
- * ink/violet surfaces, with coral + aqua accents. The theme-aware CSS variables consumed below
- * (`hsl(var(--token))`) are defined per app (apps/admin/src/app/globals.css); the static brand
- * swatches here (`violet`, `ink`) mirror the Munaxa Design System hexes directly. Keep both in sync with
- * munaxadesignsystem when the brand changes. Supports RTL/LTR via logical properties.
+ * The single source of truth for every token value is `@munaxa/design-tokens`. This preset
+ * only *maps* those tokens onto Tailwind's theme — it invents no values. Editing a token in
+ * `packages/design-tokens` therefore reflows every app that consumes this preset (Admin,
+ * Landing, Demo) and `@munaxa/ui`, with no per-app edits.
+ *
+ * Theme-aware semantic colors (`primary`, `background`, `border`, …) remain wired to CSS
+ * variables (`hsl(var(--token))`) defined per app in globals.css, so light/dark theming works.
+ * The static brand swatches (`violet`, `ink`) and the structural scales below pull their values
+ * straight from the token package. Supports RTL/LTR via logical properties.
  */
 const preset: Omit<Config, 'content'> = {
   darkMode: ['class'],
   theme: {
     extend: {
       colors: {
-        // Brand
+        // Brand — static swatches sourced from the token package.
         violet: {
-          DEFAULT: '#7A3FFF',
-          light: '#B97BFF',
+          DEFAULT: colors.brand.DEFAULT,
+          light: colors.brand.light,
         },
         // Theme-aware (CSS vars in globals.css): full-brightness on dark, darker on light so the
         // accents stay legible in both themes. Alpha modifiers (e.g. text-coral/40) supported.
         coral: 'hsl(var(--coral) / <alpha-value>)',
         aqua: 'hsl(var(--aqua) / <alpha-value>)',
-        // Ink surfaces — Munaxa Design System deep ink/violet scale (matches the dark
-        // --background/--sidebar/--card/--secondary in munaxadesignsystem/client/src/index.css).
+        // Ink surfaces — deep ink/violet scale from the token package.
         ink: {
-          900: '#0B0518',
-          800: '#140A2E',
-          700: '#1A0F38',
-          600: '#221547',
+          900: colors.ink[900],
+          800: colors.ink[800],
+          700: colors.ink[700],
+          600: colors.ink[600],
         },
         // shadcn token bridge (CSS variables defined in globals.css)
         border: 'hsl(var(--border))',
@@ -64,7 +67,7 @@ const preset: Omit<Config, 'content'> = {
           foreground: 'hsl(var(--card-foreground))',
         },
         // Semantic status colors — theme-aware (CSS vars in globals.css; light + dark
-        // variants from the Munaxa Design System). `danger` is covered by `destructive`.
+        // variants live in the token package). `danger` is covered by `destructive`.
         success: 'hsl(var(--success) / <alpha-value>)',
         warning: 'hsl(var(--warning) / <alpha-value>)',
         info: 'hsl(var(--info) / <alpha-value>)',
@@ -74,50 +77,44 @@ const preset: Omit<Config, 'content'> = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
-      // Named layering scale — ported from design-system/tokens/zIndex.ts.
+      // Named layering scale — from @munaxa/design-tokens.
       // Additive (Tailwind's numeric z-* utilities remain available).
       zIndex: {
-        base: '0',
-        sticky: '10',
-        dropdown: '20',
-        overlay: '30',
-        modal: '40',
-        toast: '50',
+        base: String(zIndex.base),
+        sticky: String(zIndex.sticky),
+        dropdown: String(zIndex.dropdown),
+        overlay: String(zIndex.overlay),
+        modal: String(zIndex.modal),
+        toast: String(zIndex.toast),
       },
-      // Motion tokens — ported from design-system/tokens/motion.ts.
+      // Motion tokens — from @munaxa/design-tokens.
       transitionDuration: {
-        fast: '120ms',
-        normal: '200ms',
-        slow: '300ms',
+        fast: motion.duration.fast,
+        normal: motion.duration.normal,
+        slow: motion.duration.slow,
       },
       transitionTimingFunction: {
-        standard: 'cubic-bezier(0.2, 0, 0, 1)',
-        enter: 'cubic-bezier(0, 0, 0, 1)',
-        exit: 'cubic-bezier(0.3, 0, 1, 1)',
+        standard: motion.easing.standard,
+        enter: motion.easing.enter,
+        exit: motion.easing.exit,
       },
-      // Typography per design-system/tokens/typography.ts:
-      //   sans: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif
-      //   mono: ui-monospace, "SFMono-Regular", monospace
-      // --font-display / --font-body are IBM Plex Sans; --font-arabic carries Arabic glyphs
-      // (the Latin face has none, so the browser falls through to it for Arabic text).
-      // --font-mono is intentionally left first as a fallback hook for other preset consumers;
-      // the admin app no longer defines it, so it resolves to the reference system mono stack.
+      // Typography — from @munaxa/design-tokens. --font-display / --font-body are IBM Plex
+      // Sans; --font-arabic carries Arabic glyphs (the Latin face has none).
       fontFamily: {
-        display: ['var(--font-display)', 'var(--font-arabic)', 'system-ui', 'sans-serif'],
-        body: ['var(--font-body)', 'var(--font-arabic)', 'system-ui', 'sans-serif'],
-        mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        display: [...typography.fontFamily.display],
+        body: [...typography.fontFamily.body],
+        mono: [...typography.fontFamily.mono],
       },
       boxShadow: {
-        // Munaxa Design System elevation — soft violet-tinted card shadow (mirrors
-        // --shadow-card in munaxadesignsystem) plus a brand "glow" for accents.
-        card: '0 24px 50px -30px rgb(30 11 77 / 0.25), 0 0 0 1px hsl(var(--border)) inset',
-        glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
-        // Focus ring — brand violet #7A3FFF @ 28%.
-        focus: '0 0 0 3px rgb(122 63 255 / 0.28)',
+        // Elevation — from @munaxa/design-tokens (soft violet-tinted card shadow, brand glow,
+        // and the accessible focus ring).
+        card: elevation.card,
+        glow: elevation.glow,
+        focus: elevation.focus,
       },
       backgroundImage: {
-        // Brand violet gradient — Munaxa Design System chart violets (#B97BFF→#7A3FFF→#5B1FD6).
-        'grad-primary': 'linear-gradient(135deg, #B97BFF 0%, #7A3FFF 55%, #5B1FD6 120%)',
+        // Brand violet gradient — stops from @munaxa/design-tokens.
+        'grad-primary': `linear-gradient(135deg, ${colors.gradientStops.from} 0%, ${colors.gradientStops.via} 55%, ${colors.gradientStops.to} 120%)`,
         'grad-hero':
           'radial-gradient(ellipse 80% 60% at 50% 0%, hsl(var(--primary) / 0.16) 0%, transparent 62%)',
       },

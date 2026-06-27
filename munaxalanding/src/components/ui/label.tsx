@@ -1,11 +1,5 @@
-import type { LabelHTMLAttributes } from 'react';
-import { cn } from '@/lib/cn';
-
-export function Label({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>) {
-  return (
-    <label
-      className={cn('mb-1.5 block text-sm font-medium text-foreground', className)}
-      {...props}
-    />
-  );
-}
+/**
+ * Re-export the canonical Label from @munaxa/ui (single implementation).
+ * Existing `@/components/ui/label` imports keep working unchanged.
+ */
+export { Label } from '@munaxa/ui';

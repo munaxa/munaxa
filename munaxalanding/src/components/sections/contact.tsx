@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from 'react';
 import Script from 'next/script';
-import { Mail, Phone, MapPin, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mail, Phone, MapPin, Loader2, CheckCircle2, AlertCircle } from '@munaxa/icons';
 import { Button } from '@/components/ui/button';
 import { Input, Textarea } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';

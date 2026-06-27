@@ -1,12 +1,17 @@
 import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 import containerQueries from '@tailwindcss/container-queries';
+import { colors } from '@munaxa/design-tokens';
 
 /**
- * Munaxa munaxadesignsystem tokens (inlined so this app is fully standalone). Palette: violet
- * primary, theme-aware coral/aqua accents, on deep dark or light surfaces. Radius scale
- * (sm/DEFAULT/lg/2xl/3xl = 8/14/12/22/32px) and fonts (display/body/mono/arabic) mirror munaxadesignsystem.
- * Supports RTL/LTR via logical properties + the `font-arabic` (Cairo) family.
+ * Munaxa design tokens. Static brand/surface swatches are sourced directly from
+ * `@munaxa/design-tokens` (the single source of truth) — Landing is a workspace member, so it
+ * imports the package live; editing a token there reflows Landing with no per-app edit.
+ *
+ * Landing keeps its own (intentionally marketing-flavored) theme for radius/shadow/glow/fonts +
+ * container-queries, which differ from the shared preset; consolidating those onto the preset is
+ * a separate design decision (see DESIGN_SYSTEM_MONOREPO_REFACTOR.md §12). Theme-aware
+ * coral/aqua/primary come from CSS variables in globals.css. Supports RTL/LTR + `font-arabic`.
  */
 const config: Config = {
   darkMode: ['class'],
@@ -14,21 +19,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand
+        // Brand — from @munaxa/design-tokens.
         violet: {
-          DEFAULT: '#7A3FFF',
-          light: '#B97BFF',
+          DEFAULT: colors.brand.DEFAULT,
+          light: colors.brand.light,
         },
         // Theme-aware (CSS vars in globals.css): full-brightness on dark, darker on light so the
         // accents stay legible in both themes. Alpha modifiers (e.g. text-coral/40) supported.
         coral: 'hsl(var(--coral) / <alpha-value>)',
         aqua: 'hsl(var(--aqua) / <alpha-value>)',
-        // Surfaces (dark)
+        // Surfaces (dark) — from @munaxa/design-tokens.
         ink: {
-          900: '#0B0518',
-          800: '#140A2E',
-          700: '#1A0F38',
-          600: '#221547',
+          900: colors.ink[900],
+          800: colors.ink[800],
+          700: colors.ink[700],
+          600: colors.ink[600],
         },
         // shadcn token bridge (CSS variables defined in globals.css)
         border: 'hsl(var(--border))',

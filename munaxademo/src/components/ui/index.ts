@@ -1,7 +1,6 @@
-export { Button, type ButtonProps } from './button';
-export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './card';
-export { Input, Select } from './input';
-export { Field } from './field';
-export { Badge, type Tone } from './badge';
-export { Table, THead, TBody, TR, TH, TD } from './table';
-export { Spinner } from './spinner';
+/**
+ * The Demo Portal consumes the canonical Munaxa component layer from `@munaxa/ui`.
+ * This barrel re-exports it so existing `@/components/ui` imports keep working unchanged;
+ * there are no demo-local primitive implementations anymore (single source of truth).
+ */
+export * from '@munaxa/ui';

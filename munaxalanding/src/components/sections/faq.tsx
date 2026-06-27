@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '@munaxa/icons';
 import type { Dictionary } from '@/lib/i18n/types';
 
 export function Faq({ dict }: { dict: Dictionary }) {
