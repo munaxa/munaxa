@@ -261,10 +261,9 @@ The rule going forward, enforced by convention and the public barrel: **apps imp
 
 ### 8.3 "Change `Button.tsx` → every app updates" — current truth
 
-✅ **True today for Admin and Demo** (full primitive sets) and **partially for Landing** — Landing
-consumes `@munaxa/ui` for `cn` + `Label` and the shared `@munaxa/icons`, but keeps its own
-marketing-flavored Button/Badge/Card/Input pending a design decision (§12.3). Becomes fully true
-for Landing and the website as those are resolved (§9).
+✅ **True today for Admin, Demo and Landing** — all three consume `@munaxa/ui` for their full
+primitive set, so editing a component updates every one with no app edit. (Landing's last 4
+primitives were normalized to canonical in Phase 5 — §13.) Becomes true for the website at §9.
 
 ---
 
@@ -273,9 +272,9 @@ for Landing and the website as those are resolved (§9).
 Ordered, each independently shippable and verifiable. **Nothing here deletes code until its
 replacement is proven in that app.**
 
-1. **Landing → packages.** ✅ **Mostly done in Phase 4 (§12)** — joined the workspace; tokens via
-   `@munaxa/design-tokens`, icons via `@munaxa/icons`, `cn` + `Label` via `@munaxa/ui`. Remaining:
-   the 4 marketing-flavored primitives (Button/Badge/Card/Input) need a **design decision** (§12.3).
+1. ~~**Landing → packages.**~~ ✅ **Done (Phase 4 §12 + Phase 5 §13).** Joined the workspace; tokens
+   via `@munaxa/design-tokens`, icons via `@munaxa/icons`, all primitives (incl. Button/Badge/Card/
+   Input + `cn`/`Label`) via `@munaxa/ui`. All local primitive implementations removed.
 2. ~~**Demo → packages.**~~ ✅ **Done in Phase 3 (§11)** — joined the workspace, consumes `@munaxa/ui`
    + shared preset; 7 local `ui/*` and `lib/cn.ts` deleted.
 3. **Design-system website → consumer-only.** Bridge `munaxadesignsystem` (Vite/Tailwind v4) to
@@ -451,7 +450,11 @@ its build command must build workspace deps first (`pnpm install && pnpm run dep
 `deploy` now prebuilds `@munaxa/*`), or use the lean `turbo prune munaxalanding --docker` subset.
 **This external setting is the only step not completable in-repo.**
 
-### 12.3 Deliberately NOT done — the 4 marketing primitives (needs a design decision)
+### 12.3 The 4 marketing primitives — RESOLVED in Phase 5 (§13)
+
+> **Resolved: approach A (normalize).** The owner chose to normalize Landing's Button/Badge/Card/
+> Input to the canonical `@munaxa/ui` components. Done in Phase 5 (§13). The original analysis is
+> retained below for context.
 
 Landing's `Button`, `Badge`, `Card`, `Input` have a genuinely **different design spec** from
 canonical `@munaxa/ui` — this is the marketing look, not mere drift:
@@ -487,3 +490,47 @@ Until then, Landing's 4 primitives remain local (inventoried in §1.1); **nothin
 | No `lucide-react` imports remain in Landing | ✅ (all via `@munaxa/icons`) |
 | Admin + Demo typecheck (regression from `Label`) | ✅ clean |
 | `pnpm install --frozen-lockfile` | ✅ in sync |
+
+---
+
+## 13. Phase 5 — Landing primitives normalized to canonical (approach A, shipped)
+
+Owner decision on §12.3: **approach A — normalize**. Landing's 4 marketing primitives now use the
+canonical `@munaxa/ui` components; their local implementations are gone.
+
+### 13.1 What shipped
+
+| Change | Detail |
+|---|---|
+| **Canonical Button enriched** | Added `buttonVariants(variant, size, className?)` (positional) + exported `ButtonVariant`/`ButtonSize` from `@munaxa/ui`. Additive — `Button`'s rendered output is unchanged for Admin/Demo (it now routes through `buttonVariants` internally). This gives `<a>`-as-button CTAs one shared styling source. |
+| **Button** | `munaxalanding/src/components/ui/button.tsx` → re-exports `Button`, `buttonVariants`, `ButtonProps`, `ButtonVariant`, `ButtonSize` from `@munaxa/ui`. The 3 `buttonVariants('…','…')` CTA call sites work unchanged. |
+| **Badge / Card / Input** | each local file → a thin re-export from `@munaxa/ui` (`Badge`; `Card*`; `Input` + `Textarea`). |
+| **Local implementations removed** | The five duplicated primitive bodies (button/badge/card/input/label) are gone — only 1-line re-export shims remain so the deep-import paths (`@/components/ui/button`, …) keep working with zero call-site churn. |
+
+### 13.2 Visual impact (accepted — this is the chosen normalization)
+
+Landing's marketing flourishes are intentionally replaced by the product look:
+
+| Primitive | Before (marketing) | After (canonical) |
+|---|---|---|
+| Button | `rounded-lg`, **`shadow-glow`**, h-9/11/12 | `rounded-md`, no glow, h-8/9/10 |
+| Badge | **pill** `rounded-full`, neutral | `rounded-md`, tone-based |
+| Card | `rounded-xl` | shared radius |
+| Input / Textarea | h-11 / `min-h-32` | canonical field surface |
+
+Landing now visually matches the Admin product. If a specific marketing treatment is wanted back,
+add it as an **opt-in variant on the canonical component** (so it's available platform-wide), never
+as a Landing-local fork.
+
+### 13.3 Verification
+
+| Check | Result |
+|---|---|
+| `@munaxa/ui` build (+ `buttonVariants`) | ✅ |
+| `pnpm --filter munaxalanding typecheck` | ✅ clean |
+| `pnpm --filter munaxalanding lint` | ✅ clean |
+| `pnpm --filter munaxalanding build` | ✅ all routes compiled |
+| Admin + Demo typecheck (regression from Button changes) | ✅ clean |
+
+**Result:** Landing, Demo and Admin now share **one** implementation of every primitive. The only
+remaining duplicate UI in the platform is the design-system website (§9 item 3).

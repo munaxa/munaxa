@@ -1,8 +1,8 @@
 import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cn } from '../../lib/cn.js';
 
-type Variant = 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive';
-type Size = 'sm' | 'md' | 'lg' | 'icon';
+export type ButtonVariant = 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive';
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon';
 
 // Styling mirrors the Munaxa Design System shadcn Button: solid primary, rounded-md,
 // subtle hover, focus ring — no gradient/glow.
@@ -11,7 +11,7 @@ const base =
   'transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 ' +
   'disabled:pointer-events-none disabled:opacity-50';
 
-const variantClass: Record<Variant, string> = {
+const variantClass: Record<ButtonVariant, string> = {
   default: 'bg-primary text-primary-foreground hover:bg-primary/90',
   secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
   outline:
@@ -20,16 +20,28 @@ const variantClass: Record<Variant, string> = {
   destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
 };
 
-const sizeClass: Record<Size, string> = {
+const sizeClass: Record<ButtonSize, string> = {
   sm: 'h-8 px-3',
   md: 'h-9 px-4',
   lg: 'h-10 px-6',
   icon: 'h-9 w-9',
 };
 
+/**
+ * Returns the Button's classes — usable on non-`<button>` elements (e.g. `<a>` CTAs styled as
+ * buttons). Positional args keep call sites terse: `buttonVariants('outline', 'lg', className)`.
+ */
+export function buttonVariants(
+  variant: ButtonVariant = 'default',
+  size: ButtonSize = 'md',
+  className?: string,
+): string {
+  return cn(base, variantClass[variant], sizeClass[size], className);
+}
+
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: Variant;
-  size?: Size;
+  variant?: ButtonVariant;
+  size?: ButtonSize;
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -37,11 +49,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   return (
-    <button
-      ref={ref}
-      type={type}
-      className={cn(base, variantClass[variant], sizeClass[size], className)}
-      {...props}
-    />
+    <button ref={ref} type={type} className={buttonVariants(variant, size, className)} {...props} />
   );
 });
