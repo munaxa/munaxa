@@ -24,3 +24,51 @@
     @apply bg-background text-foreground font-body;
   }
 }
+
+@layer components {
+  /* Breathing brand-teal glow behind the sign-in logo (mirrors the admin app). The bloom lives
+   * on a ::before so it sits behind the mark and never affects layout; the slow pulse draws the
+   * eye to the brand on load. Frozen automatically by the prefers-reduced-motion guard below. */
+  .login-logo-glow {
+    position: relative;
+    isolation: isolate;
+  }
+  .login-logo-glow::before {
+    content: '';
+    position: absolute;
+    inset: -55%;
+    z-index: -1;
+    border-radius: 9999px;
+    background: radial-gradient(
+      circle at center,
+      color-mix(in oklch, var(--primary) 55%, transparent) 0%,
+      color-mix(in oklch, var(--primary) 22%, transparent) 38%,
+      transparent 70%
+    );
+    filter: blur(8px);
+    animation: login-logo-pulse 3.2s ease-in-out infinite;
+  }
+  @keyframes login-logo-pulse {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: scale(0.9);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.1);
+    }
+  }
+}
+
+/* Respect users who prefer reduced motion (WCAG 2.3.3): neutralize animations app-wide. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
