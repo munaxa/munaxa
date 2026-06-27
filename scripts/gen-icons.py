@@ -7,7 +7,7 @@ launcher/apple-touch icons must be opaque. This pads the ibex onto square canvas
   Web (copied into apps/admin/src/app/):
     favicon.ico  (16/32/48/64, transparent)
     icon.png     (512, transparent)
-    apple-icon.png (180, opaque on brand ink #0B0518)
+    apple-icon.png (180, opaque on brand ink #090B0C)
   Mobile launcher sources (apps/mobile/assets/icon/):
     ic_launcher.png            (1024, opaque on ink) — iOS + legacy Android
     ic_launcher_foreground.png (1024, transparent)   — Android adaptive foreground
@@ -20,7 +20,7 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "docs/design-system/logo.png")
-INK = (11, 5, 24, 255)  # brand ink-900 #0B0518
+INK = (9, 11, 12, 255)  # brand ink-900 #090B0C (munaxadesignsystem)
 
 logo = Image.open(SRC).convert("RGBA")
 ratio = logo.width / logo.height
