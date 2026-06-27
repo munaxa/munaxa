@@ -255,14 +255,16 @@ The rule going forward, enforced by convention and the public barrel: **apps imp
 |---|---|
 | **Admin** | ✅ **Yes, today.** Admin → `config-tailwind` preset → `@munaxa/design-tokens`. |
 | **`@munaxa/ui`** | ✅ Yes — consumes the preset's classes + can import tokens directly. |
-| **Landing** | ✅ **Yes, as of Phase 2 (§10).** Edit `@munaxa/design-tokens` → `pnpm sync:tokens` → Landing's generated tokens update; CI fails if they drift. |
+| **Landing** | ✅ **Yes, live, as of Phase 4 (§12).** Landing joined the workspace and imports `@munaxa/design-tokens` directly. (Supersedes the Phase-2 generator, now removed.) |
 | **Demo** | ✅ **Yes, live, as of Phase 3 (§11).** Demo joined the workspace and consumes the shared preset → `@munaxa/design-tokens` directly. |
 | **Design-system website** | ⏳ **After §9 step.** Replace its local `tokens/*` with `@munaxa/design-tokens`. |
 
 ### 8.3 "Change `Button.tsx` → every app updates" — current truth
 
-✅ **True today for Admin and Demo** — both consume `@munaxa/ui` via the workspace, so editing a
-component updates both with no app edit. Becomes true for Landing/website as each joins (§9).
+✅ **True today for Admin and Demo** (full primitive sets) and **partially for Landing** — Landing
+consumes `@munaxa/ui` for `cn` + `Label` and the shared `@munaxa/icons`, but keeps its own
+marketing-flavored Button/Badge/Card/Input pending a design decision (§12.3). Becomes fully true
+for Landing and the website as those are resolved (§9).
 
 ---
 
@@ -271,9 +273,9 @@ component updates both with no app edit. Becomes true for Landing/website as eac
 Ordered, each independently shippable and verifiable. **Nothing here deletes code until its
 replacement is proven in that app.**
 
-1. **Landing → packages.** _Tokens: ✅ done in Phase 2 (§10)._ Remaining: consume `@munaxa/ui`,
-   `@munaxa/icons`, `@munaxa/config-tailwind` to delete the 7 local `ui/*` and `lib/cn.ts` — this
-   step needs the **component-distribution decision** (§10.3: join workspace vs publish packages).
+1. **Landing → packages.** ✅ **Mostly done in Phase 4 (§12)** — joined the workspace; tokens via
+   `@munaxa/design-tokens`, icons via `@munaxa/icons`, `cn` + `Label` via `@munaxa/ui`. Remaining:
+   the 4 marketing-flavored primitives (Button/Badge/Card/Input) need a **design decision** (§12.3).
 2. ~~**Demo → packages.**~~ ✅ **Done in Phase 3 (§11)** — joined the workspace, consumes `@munaxa/ui`
    + shared preset; 7 local `ui/*` and `lib/cn.ts` deleted.
 3. **Design-system website → consumer-only.** Bridge `munaxadesignsystem` (Vite/Tailwind v4) to
@@ -295,7 +297,15 @@ workspace in §9, it is covered by the same workspace gates.
 
 ---
 
-## 10. Phase 2 — Landing token consolidation (shipped)
+## 10. Phase 2 — Landing token consolidation (interim; SUPERSEDED by Phase 4 §12)
+
+> **Superseded.** Phase 2 bridged tokens into Landing via a committed generator while Landing was
+> still a standalone pnpm root. With the owner's choice of **approach A**, Landing joined the
+> workspace in Phase 4 and now imports `@munaxa/design-tokens` directly, so the generator
+> (`scripts/sync-design-tokens.mjs`, the `sync:tokens` scripts, the CI drift check, and
+> `munaxalanding/src/design-tokens.generated.ts`) was **removed**. The section below is kept for
+> history.
+
 
 **Goal:** make `@munaxa/design-tokens` the source of truth for Landing's tokens **without**
 changing Landing's standalone deploy model and with **zero visual change**.
@@ -411,3 +421,69 @@ If any of these deltas is unwanted, the fix is to adjust the **canonical** `@mun
 | `pnpm install --frozen-lockfile` | ✅ lockfile in sync |
 | Admin typecheck (regression from `Tone` export) | ✅ clean |
 | Landing token drift check | ✅ unchanged |
+
+---
+
+## 12. Phase 4 — Landing migrated onto the workspace (approach A, shipped)
+
+Landing joined the workspace and now shares the platform's tokens, icons and shared utilities.
+Because Landing is the **public marketing site**, the hard "no redesign" rule governed scope: the
+zero-visual-risk consolidation was done in full; the marketing-flavored primitives were **not**
+unilaterally restyled.
+
+### 12.1 What shipped (zero visual change)
+
+| Change | Detail |
+|---|---|
+| **Joined the workspace** | Removed Landing's standalone-root markers (`pnpm-workspace.yaml`, `pnpm-lock.yaml`, `.npmrc`); added `munaxalanding` to the root workspace; added `@munaxa/ui`, `@munaxa/design-tokens`, `@munaxa/icons` as `workspace:*` deps. |
+| **Tokens: one source** | `tailwind.config.ts` imports `colors` from `@munaxa/design-tokens` directly (brand + ink). Landing keeps its marketing theme (radius/shadow/glow/fonts + container-queries) verbatim → no visual change. |
+| **Icons: one source** | All **12** `lucide-react` importers repointed to `@munaxa/icons` (drop-in re-export); the direct `lucide-react` dependency removed. |
+| **`cn` deduped** | `src/lib/cn.ts` re-exports `cn` from `@munaxa/ui`; the `clsx`/`tailwind-merge` direct deps removed. |
+| **`Label` consolidated** | Promoted a canonical `Label` into `@munaxa/ui` (ported verbatim from Landing → pixel-identical); `src/components/ui/label.tsx` re-exports it. |
+| **Generator removed** | The Phase-2 token generator + CI drift check + generated file deleted (superseded — §10). |
+| **CI** | Removed the standalone `landing` job + its `paths-filter`; Landing is now built/typechecked/linted by the workspace `node` job via `turbo`. |
+| **Deploy** | `deploy`/`preview` now prebuild `@munaxa/*` via turbo before `opennextjs-cloudflare build`. |
+
+### 12.2 Deploy (same as Demo, §11.2)
+
+Landing deploys via Cloudflare's external dashboard. The one-time dashboard change still applies:
+its build command must build workspace deps first (`pnpm install && pnpm run deploy`, where
+`deploy` now prebuilds `@munaxa/*`), or use the lean `turbo prune munaxalanding --docker` subset.
+**This external setting is the only step not completable in-repo.**
+
+### 12.3 Deliberately NOT done — the 4 marketing primitives (needs a design decision)
+
+Landing's `Button`, `Badge`, `Card`, `Input` have a genuinely **different design spec** from
+canonical `@munaxa/ui` — this is the marketing look, not mere drift:
+
+| Primitive | Landing (marketing) | `@munaxa/ui` (product) |
+|---|---|---|
+| Button | `rounded-lg`, **`shadow-glow`** default, sizes h-9/11/12, exposes **`buttonVariants()`** for `<a>` CTAs | `rounded-md`, no glow, sizes h-8/9/10, no `buttonVariants` |
+| Badge | **pill** (`rounded-full`), single neutral style | `rounded-md`, `tone`-based |
+| Card | `rounded-xl` | shared radius |
+| Input | exports `Textarea` from the same module | `Textarea` is a separate export |
+
+Forcing these onto `@munaxa/ui` would **visibly redesign the public marketing page** (and break the
+`buttonVariants`/`Textarea` import contracts), which the mission forbids. Two clean resolutions —
+**owner's call**:
+
+- **(A) Normalize** Landing to the product components (Landing's CTAs lose the glow, badges square
+  off, etc.) — true single implementation, visible marketing change.
+- **(B) Make the canonical components configurable** to the marketing look: add opt-in
+  `@munaxa/ui` variants (e.g. a `glow` Button option + `buttonVariants` helper, a `pill` Badge, an
+  `xl` Card radius) sourced from Landing's existing styles, then Landing consumes those. Preserves
+  the marketing look **and** achieves one implementation. _(Recommended.)_
+
+Until then, Landing's 4 primitives remain local (inventoried in §1.1); **nothing was deleted**.
+
+### 12.4 Verification (this environment)
+
+| Check | Result |
+|---|---|
+| `pnpm --filter munaxalanding typecheck` | ✅ clean |
+| `pnpm --filter munaxalanding lint` | ✅ clean |
+| `pnpm --filter munaxalanding build` (`next build`) | ✅ all routes compiled |
+| `pnpm turbo run build --filter=munaxalanding` | ✅ deps → landing |
+| No `lucide-react` imports remain in Landing | ✅ (all via `@munaxa/icons`) |
+| Admin + Demo typecheck (regression from `Label`) | ✅ clean |
+| `pnpm install --frozen-lockfile` | ✅ in sync |

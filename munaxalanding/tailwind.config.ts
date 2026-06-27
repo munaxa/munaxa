@@ -1,16 +1,17 @@
 import type { Config } from 'tailwindcss';
 import animate from 'tailwindcss-animate';
 import containerQueries from '@tailwindcss/container-queries';
-import { brand, ink } from './src/design-tokens.generated';
+import { colors } from '@munaxa/design-tokens';
 
 /**
- * Munaxa design tokens. The static brand/surface swatches below are sourced from
- * `@munaxa/design-tokens` via the committed `src/design-tokens.generated.ts` (run
- * `pnpm sync:tokens` from the monorepo root to refresh) — so this app stays a standalone
- * pnpm root with no new runtime dependency, yet shares one source of truth for token values.
- * Theme-aware coral/aqua/primary come from CSS variables in globals.css (light + dark). Radius
- * scale (sm/DEFAULT/lg/2xl/3xl = 8/14/12/22/32px) and fonts (display/body/mono/arabic) mirror
- * the design system. Supports RTL/LTR via logical properties + the `font-arabic` (Cairo) family.
+ * Munaxa design tokens. Static brand/surface swatches are sourced directly from
+ * `@munaxa/design-tokens` (the single source of truth) — Landing is a workspace member, so it
+ * imports the package live; editing a token there reflows Landing with no per-app edit.
+ *
+ * Landing keeps its own (intentionally marketing-flavored) theme for radius/shadow/glow/fonts +
+ * container-queries, which differ from the shared preset; consolidating those onto the preset is
+ * a separate design decision (see DESIGN_SYSTEM_MONOREPO_REFACTOR.md §12). Theme-aware
+ * coral/aqua/primary come from CSS variables in globals.css. Supports RTL/LTR + `font-arabic`.
  */
 const config: Config = {
   darkMode: ['class'],
@@ -18,10 +19,10 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Brand — from @munaxa/design-tokens (see src/design-tokens.generated.ts).
+        // Brand — from @munaxa/design-tokens.
         violet: {
-          DEFAULT: brand.DEFAULT,
-          light: brand.light,
+          DEFAULT: colors.brand.DEFAULT,
+          light: colors.brand.light,
         },
         // Theme-aware (CSS vars in globals.css): full-brightness on dark, darker on light so the
         // accents stay legible in both themes. Alpha modifiers (e.g. text-coral/40) supported.
@@ -29,10 +30,10 @@ const config: Config = {
         aqua: 'hsl(var(--aqua) / <alpha-value>)',
         // Surfaces (dark) — from @munaxa/design-tokens.
         ink: {
-          900: ink[900],
-          800: ink[800],
-          700: ink[700],
-          600: ink[600],
+          900: colors.ink[900],
+          800: colors.ink[800],
+          700: colors.ink[700],
+          600: colors.ink[600],
         },
         // shadcn token bridge (CSS variables defined in globals.css)
         border: 'hsl(var(--border))',

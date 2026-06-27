@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Sparkles } from 'lucide-react';
+import { ArrowRight, Check, Sparkles } from '@munaxa/icons';
 import { AppFrame } from '@/components/product/app-frame';
 import { DashboardPreview } from '@/components/product/dashboard-preview';
 import { buttonVariants } from '@/components/ui/button';

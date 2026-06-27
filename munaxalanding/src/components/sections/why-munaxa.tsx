@@ -6,7 +6,7 @@ import {
   Layers,
   Sparkles,
   type LucideIcon,
-} from 'lucide-react';
+} from '@munaxa/icons';
 import type { Dictionary } from '@/lib/i18n/types';
 
 const ICONS: LucideIcon[] = [Award, Building2, Layers, Sparkles, Globe2, ShieldCheck];

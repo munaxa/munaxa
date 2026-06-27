@@ -1,4 +1,4 @@
-import { ArrowRight, ShieldCheck, Sparkles } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Sparkles } from '@munaxa/icons';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AppFrame } from '@/components/product/app-frame';

@@ -1,4 +1,4 @@
-import { Quote } from 'lucide-react';
+import { Quote } from '@munaxa/icons';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Dictionary } from '@/lib/i18n/types';
 

@@ -1,7 +1,5 @@
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-/** Tailwind-aware className combiner. */
-export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs));
-}
+/**
+ * Re-export the canonical `cn` from @munaxa/ui so Landing shares one implementation.
+ * Existing `@/lib/cn` imports keep working unchanged.
+ */
+export { cn } from '@munaxa/ui';

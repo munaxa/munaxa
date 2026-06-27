@@ -8,7 +8,7 @@ import {
   Bus,
   Gauge,
   type LucideIcon,
-} from 'lucide-react';
+} from '@munaxa/icons';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import type { Dictionary } from '@/lib/i18n/types';
 

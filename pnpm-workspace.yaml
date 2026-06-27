@@ -2,4 +2,5 @@ packages:
   - 'apps/api'
   - 'apps/admin'
   - 'munaxademo'
+  - 'munaxalanding'
   - 'packages/*'

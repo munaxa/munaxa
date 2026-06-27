@@ -17,8 +17,6 @@
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
-    "sync:tokens": "node scripts/sync-design-tokens.mjs",
-    "sync:tokens:check": "node scripts/sync-design-tokens.mjs --check",
     "prisma:generate": "pnpm --filter @munaxa/api prisma:generate",
     "prisma:migrate": "pnpm --filter @munaxa/api prisma:migrate",
     "docker:up": "docker compose up -d",

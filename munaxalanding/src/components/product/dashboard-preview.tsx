@@ -9,7 +9,7 @@ import {
   Bus,
   MessageSquare,
   BarChart3,
-} from 'lucide-react';
+} from '@munaxa/icons';
 import { cn } from '@/lib/cn';
 
 /**
