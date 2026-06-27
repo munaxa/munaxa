@@ -335,8 +335,6 @@ function buildOnce(): Baseline {
     parents.push(...familyParents);
   }
 
-  const studentById = new Map(students.map((s) => [s.id, s]));
-
   /* ── Admissions pipeline ── */
   const STAGES: AdmissionApplication['stage'][] = [
     'INQUIRY',

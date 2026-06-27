@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 /**
- * sync-theme-from-designsystem — generate the canonical token theme FROM munaxadesignsystem.
+ * sync-theme — generate the Tailwind-v3 (hsl) theme from the canonical oklch palette.
  *
- * `munaxadesignsystem/client/src/index.css` is the single source of truth for the Munaxa brand
- * palette. This script parses its `:root` (light) and `.dark` blocks, gamut-maps each color to
- * sRGB and emits `packages/design-tokens/css/theme.css` as "H S% L%" channels that the apps'
- * Tailwind preset consumes via `hsl(var(--token))`. Every app imports that file, so the brand
- * defined in munaxadesignsystem flows to Admin, Landing, Demo and every @munaxa/ui component.
+ * `packages/design-tokens/css/theme.oklch.css` is THE single source of truth for the Munaxa
+ * palette (the Tailwind-v4 design-system site @imports it directly). This script parses its
+ * `:root`/`.dark` blocks, gamut-maps each color to sRGB and emits
+ * `packages/design-tokens/css/theme.css` as "H S% L%" channels that the Tailwind-v3 apps consume
+ * via the preset's `hsl(var(--token))` bridge. So one edit to theme.oklch.css re-themes the DS
+ * site AND (after sync) Admin, Landing, Demo and every @munaxa/ui component.
  *
- *   pnpm sync:theme          # regenerate theme.css from munaxadesignsystem
- *   pnpm sync:theme:check    # CI: fail if theme.css has drifted from munaxadesignsystem
+ *   pnpm sync:theme          # regenerate theme.css from theme.oklch.css
+ *   pnpm sync:theme:check    # CI: fail if theme.css has drifted from theme.oklch.css
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -17,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { converter, parse, clampChroma } from 'culori';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = resolve(repoRoot, 'munaxadesignsystem/client/src/index.css');
+const SRC = resolve(repoRoot, 'packages/design-tokens/css/theme.oklch.css');
 const OUT = resolve(repoRoot, 'packages/design-tokens/css/theme.css');
 const check = process.argv.includes('--check');
 
@@ -92,26 +93,24 @@ function render(name, map) {
 }
 
 const header = `/**
- * @munaxa/design-tokens — canonical theme. GENERATED — DO NOT EDIT BY HAND.
+ * @munaxa/design-tokens — Tailwind-v3 theme (hsl). GENERATED — DO NOT EDIT BY HAND.
  *
- * Single source of truth: munaxadesignsystem/client/src/index.css.
+ * Single source of truth: packages/design-tokens/css/theme.oklch.css.
  * Regenerate with:  pnpm sync:theme   (CI guards drift via pnpm sync:theme:check)
  *
  * The full Munaxa Design System palette (neutral surfaces, teal primary, theme-aware accents)
  * for light (:root) and dark (.dark), as sRGB-mapped HSL channels consumed via the preset's
- * \`hsl(var(--token))\` bridge. Every app imports this file, so editing munaxadesignsystem and
- * re-running \`pnpm sync:theme\` re-themes Admin, Landing, Demo and every @munaxa/ui component.
+ * \`hsl(var(--token))\` bridge. Every Tailwind-v3 app imports this file; editing theme.oklch.css
+ * and re-running \`pnpm sync:theme\` re-themes Admin, Landing, Demo and every @munaxa/ui component.
  */
 `;
 const content = `${header}\n${render(':root', light)}\n\n${render('.dark', dark)}\n`;
 
 const current = existsSync(OUT) ? readFileSync(OUT, 'utf8') : null;
 if (current === content) {
-  console.log('✓ theme.css is in sync with munaxadesignsystem');
+  console.log('✓ theme.css is in sync with theme.oklch.css');
 } else if (check) {
-  console.error(
-    '✗ theme.css has drifted from munaxadesignsystem. Run `pnpm sync:theme` and commit.',
-  );
+  console.error('✗ theme.css has drifted from theme.oklch.css. Run `pnpm sync:theme` and commit.');
   process.exit(1);
 } else {
   writeFileSync(OUT, content);

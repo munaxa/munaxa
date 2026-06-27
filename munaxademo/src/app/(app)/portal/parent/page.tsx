@@ -6,7 +6,7 @@ import { studentName } from '@/lib/demo-store/selectors';
 import { jod, pct, fmtDate } from '@/lib/format';
 import { useToast } from '@/components/toast';
 import { PageHeader } from '@/components/page';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import type { Student } from '@/seed/types';
 
 export default function ParentPortalPage() {

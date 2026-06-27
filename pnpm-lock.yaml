@@ -288,12 +288,18 @@ importers:
         specifier: 19.0.0
         version: 19.0.0(react@19.0.0)
     devDependencies:
+      '@eslint/js':
+        specifier: ^9.17.0
+        version: 9.39.4
       '@munaxa/config-tailwind':
         specifier: workspace:*
         version: link:../packages/config-tailwind
       '@munaxa/config-typescript':
         specifier: workspace:*
         version: link:../packages/config-typescript
+      '@next/eslint-plugin-next':
+        specifier: ^15.1.0
+        version: 15.1.12
       '@opennextjs/cloudflare':
         specifier: ^1.19.11
         version: 1.20.1(next@15.5.19(@opentelemetry/api@1.9.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(wrangler@4.105.0)
@@ -312,6 +318,18 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.4(jiti@2.7.0)
+      eslint-config-prettier:
+        specifier: ^9.1.0
+        version: 9.1.2(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-react-hooks:
+        specifier: ^5.1.0
+        version: 5.2.0(eslint@9.39.4(jiti@2.7.0))
+      globals:
+        specifier: ^15.14.0
+        version: 15.15.0
       postcss:
         specifier: ^8.4.49
         version: 8.5.15
@@ -327,6 +345,9 @@ importers:
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.19.1
+        version: 8.60.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       wrangler:
         specifier: ^4.100.0
         version: 4.105.0

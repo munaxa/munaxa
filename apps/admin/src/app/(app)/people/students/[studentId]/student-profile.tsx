@@ -12,15 +12,7 @@ import { fullNameAr, fullNameEn, studentsApi, type Student } from '@/lib/people'
 import { sectionsApi, type Section } from '@/lib/structure';
 import { areasApi, type Area } from '@/lib/areas';
 import { StudentEditor } from '../student-editor';
-import {
-  Badge,
-  Button,
-  Card,
-  Spinner,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui';
+import { Badge, Button, Card, Spinner, Tabs, TabsList, TabsTrigger } from '@/components/ui';
 import { PlaceholderTab } from './tabs/placeholder-tab';
 
 const TabSpinner = () => (
@@ -111,6 +103,9 @@ export function StudentProfile() {
       const qs = new URLSearchParams(searchParams.toString());
       qs.set('tab', key);
       // Template-literal path isn't statically a typed Route; cast as elsewhere in the app.
+      // Required for `next build` (typedRoutes); local type-aware lint lacks .next/types and
+      // sees it as redundant — disable that rule here.
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       router.push(`${pathname}?${qs.toString()}` as never);
     },
     [router, pathname, searchParams],

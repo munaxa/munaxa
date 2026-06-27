@@ -1,13 +1,13 @@
 /**
- * @munaxa/design-tokens — canonical theme. GENERATED — DO NOT EDIT BY HAND.
+ * @munaxa/design-tokens — Tailwind-v3 theme (hsl). GENERATED — DO NOT EDIT BY HAND.
  *
- * Single source of truth: munaxadesignsystem/client/src/index.css.
+ * Single source of truth: packages/design-tokens/css/theme.oklch.css.
  * Regenerate with:  pnpm sync:theme   (CI guards drift via pnpm sync:theme:check)
  *
  * The full Munaxa Design System palette (neutral surfaces, teal primary, theme-aware accents)
  * for light (:root) and dark (.dark), as sRGB-mapped HSL channels consumed via the preset's
- * `hsl(var(--token))` bridge. Every app imports this file, so editing munaxadesignsystem and
- * re-running `pnpm sync:theme` re-themes Admin, Landing, Demo and every @munaxa/ui component.
+ * `hsl(var(--token))` bridge. Every Tailwind-v3 app imports this file; editing theme.oklch.css
+ * and re-running `pnpm sync:theme` re-themes Admin, Landing, Demo and every @munaxa/ui component.
  */
 
 :root {

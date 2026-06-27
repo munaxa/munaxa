@@ -31,10 +31,8 @@ const csp = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  // The demo has no ESLint config of its own; linting is gated by the workspace
-  // (turbo lint/typecheck), not by `next build`. (As a standalone root, ESLint wasn't
-  // installed so Next skipped it; in the workspace ESLint resolves, so opt out explicitly
-  // to preserve the "typecheck + build" gate this app has always used.)
+  // ESLint runs as its own workspace step (`pnpm lint` → eslint.config.mjs), so we don't
+  // double-lint inside `next build`. Keeps the build focused on compilation.
   eslint: { ignoreDuringBuilds: true },
   // Self-contained server bundle for a slim production container / cloud deploy.
   output: 'standalone',
