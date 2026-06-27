@@ -9,8 +9,8 @@ export const elevation = {
   lg: '0 12px 28px rgb(30 11 77 / 0.14)',
   card: '0 24px 50px -30px rgb(30 11 77 / 0.25), 0 0 0 1px hsl(var(--border)) inset',
   glow: '0 14px 40px -16px hsl(var(--primary) / 0.45)',
-  /** Focus ring — brand violet #7A3FFF @ 28%. */
-  focus: '0 0 0 3px rgb(122 63 255 / 0.28)',
+  /** Focus ring — brand teal #007595 @ 28%. */
+  focus: '0 0 0 3px rgb(0 117 149 / 0.28)',
 } as const;
 
 export type Elevation = typeof elevation;

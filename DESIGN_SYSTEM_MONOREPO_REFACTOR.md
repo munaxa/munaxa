@@ -534,3 +534,91 @@ as a Landing-local fork.
 
 **Result:** Landing, Demo and Admin now share **one** implementation of every primitive. The only
 remaining duplicate UI in the platform is the design-system website (§9 item 3).
+
+---
+
+## 14. Phase 6 — Full munaxadesignsystem palette as the live single source
+
+Owner decision: adopt the **complete** munaxadesignsystem palette (not just the primary hue) across
+all sites, and make it the **live** single source of truth — editing one file re-themes every app
+and every `@munaxa/ui` component.
+
+### 14.1 What shipped
+
+| Change | Detail |
+|---|---|
+| **Canonical theme** | New `packages/design-tokens/css/theme.css` — the full munaxadesignsystem palette (neutral surfaces, teal primary, theme-aware accents, semantic success/warning/info) for light (`:root`) + dark (`.dark`). Values are the sRGB-gamut-mapped HSL channels of `munaxadesignsystem/client/src/index.css` (oklch → hsl via culori), consumed through the preset's existing `hsl(var(--token))` bridge so alpha modifiers keep working. |
+| **Live single source** | Admin, Demo and Landing each `@import "@munaxa/design-tokens/css/theme.css"` and **no longer define palette variables locally** — only app-specific non-palette vars remain (radius scale, hero backdrop, RTL fonts). Edit `theme.css` → all three apps and every `@munaxa/ui` component (Button, Input, Card, Badge, …) re-theme at once. |
+| **Static swatches** | `@munaxa/design-tokens` `colors.ts` / `tokens.css` brand + focus ring updated to the teal brand to match. |
+| **Package export** | `@munaxa/design-tokens` now exports `./css/theme.css` (and `./css/*`). |
+
+### 14.2 Visual result (verified on Demo, light + dark)
+
+- **Light:** neutral white/near-white surfaces (previously violet-tinted), teal primary, neutral
+  borders — matches the munaxadesignsystem site.
+- **Dark:** neutral near-black surfaces (previously deep violet "ink"), dark teal primary.
+- Buttons, inputs, cards, badges and stat tiles all follow, because they are `@munaxa/ui`
+  components coloured by the imported theme.
+
+### 14.3 Verification
+
+| Check | Result |
+|---|---|
+| `@munaxa/design-tokens` build | ✅ |
+| Demo `next build` (canary for `@import` resolution) | ✅ |
+| Landing `next build` | ✅ |
+| Admin typecheck | ✅ |
+| Prettier (theme.css + all globals.css) | ✅ |
+| Demo screenshots, light + dark | ✅ neutral surfaces + teal |
+
+> Note: `@munaxa/design-tokens` carries the munaxadesignsystem palette as the in-repo single source.
+> Closing the loop so the `munaxadesignsystem` site *also* consumes this package (rather than holding
+> its own copy in `index.css`) is the natural next step — it would make the DS site and the apps share
+> one literal file.
+
+---
+
+## 15. Phase 7 — Loop closed: one authored palette file; DS site consumes the package
+
+The Munaxa palette is now authored in **exactly one file** and consumed by everything, including
+the design-system site.
+
+### 15.1 The single source
+
+`packages/design-tokens/css/theme.oklch.css` (oklch) is THE authored palette. From it:
+- The **design-system site** (`munaxadesignsystem`, Tailwind v4) `@import`s it directly — added
+  `@munaxa/design-tokens` as a `file:` dependency; its `index.css` no longer defines palette
+  colors (only fonts/radius/hero gradient remain local). Verified: the built DS CSS now contains
+  `--primary: oklch(…)` from the package.
+- The **Tailwind-v3 apps** (Admin/Landing/Demo) consume `theme.css`, which is **generated** from
+  `theme.oklch.css` by `pnpm sync:theme` (oklch → sRGB-mapped hsl). CI guards drift via
+  `pnpm sync:theme:check`.
+
+So: edit `theme.oklch.css` → the DS site updates directly, and `pnpm sync:theme` propagates the
+same change to every app and every `@munaxa/ui` component.
+
+### 15.2 Enforcement (every item uses tokens)
+
+- Hex-ban ESLint guardrail now on **Admin, Landing, Demo, and `@munaxa/ui`** (the token package
+  is the only place hexes live). Demo gained a full ESLint config (`eslint.config.mjs`).
+- Email templates (Demo + Landing) import `colors` from `@munaxa/design-tokens` (no hex literals).
+- The only remaining built-in color utilities (`text-white`) were replaced with `text-primary-foreground`.
+- Pre-existing Admin typed-route `as never` casts were given scoped eslint-disables (keeps both
+  `next build` and lint green).
+
+### 15.3 Verification
+
+| Check | Result |
+|---|---|
+| DS site `vite build` consuming the package | ✅ (built CSS has the oklch tokens) |
+| `pnpm sync:theme:check` (theme.css ⇄ theme.oklch.css) | ✅ |
+| Workspace `turbo run lint typecheck` | ✅ all (except `@munaxa/api` typecheck, which needs `prisma generate` — env-only, CI runs it) |
+| Demo + Landing `next build` | ✅ |
+
+### 15.4 Note on "one literal file"
+
+Two CSS files exist by necessity — `theme.oklch.css` (the authored source, used by the Tailwind-v4
+DS site) and `theme.css` (generated, used by the Tailwind-v3 apps) — because the apps and the DS
+site are on different Tailwind majors. Only `theme.oklch.css` is authored; `theme.css` is generated
+and drift-gated, so there is still exactly one source of truth. Collapsing to a single physical file
+would require migrating the apps to Tailwind v4 (a separate, larger effort).

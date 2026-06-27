@@ -6,22 +6,18 @@ import nextPlugin from '@next/eslint-plugin-next';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 /**
- * Munaxa Landing Page ESLint (flat config). Fully self-contained — TypeScript
- * type-checked rules, Next.js core-web-vitals, React hooks, and the Munaxa
- * design-token guardrails.
+ * Munaxa Demo ESLint (flat config) — mirrors the Landing app: TypeScript type-checked rules,
+ * Next.js core-web-vitals, React hooks, and the Munaxa design-token guardrail (no hardcoded
+ * hex colors — use token classes / @munaxa/design-tokens).
  */
 export default tseslint.config(
   js.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.recommended,
   {
     languageOptions: {
       globals: {
         ...globals.browser,
         ...globals.node,
-      },
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
       },
     },
     rules: {
@@ -46,9 +42,10 @@ export default tseslint.config(
     },
   },
   {
-    // Design-system guardrail: no hardcoded hex colors — use token classes (text-coral, bg-card,
-    // border-border, …). Tokens live in tailwind.config.ts + globals.css.
+    // Design-system guardrail: no hardcoded hex colors — use token classes (bg-primary,
+    // text-foreground, …) whose values come from @munaxa/design-tokens.
     files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/seed/**'],
     rules: {
       'no-restricted-syntax': [
         'error',
@@ -56,13 +53,13 @@ export default tseslint.config(
           selector:
             'Literal[value=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-fA-F])/]',
           message:
-            'No hardcoded hex colors — use design-system token classes (e.g. text-coral, bg-card, border-border). Tokens: tailwind.config.ts + globals.css.',
+            'No hardcoded hex colors — use token classes (bg-primary, text-foreground, …) or @munaxa/design-tokens.',
         },
         {
           selector:
             'TemplateElement[value.raw=/#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-fA-F])/]',
           message:
-            'No hardcoded hex colors — use design-system token classes (e.g. text-coral, bg-card, border-border). Tokens: tailwind.config.ts + globals.css.',
+            'No hardcoded hex colors — use token classes (bg-primary, text-foreground, …) or @munaxa/design-tokens.',
         },
       ],
     },

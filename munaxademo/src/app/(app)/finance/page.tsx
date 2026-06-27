@@ -330,7 +330,6 @@ function NewInvoiceDialog({ onClose }: { onClose: () => void }) {
 
 function Dialog({
   title,
-  onClose,
   children,
 }: {
   title: string;

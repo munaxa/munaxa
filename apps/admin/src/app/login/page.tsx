@@ -234,7 +234,7 @@ function SignInCard(p: CardProps) {
           <button
             type="submit"
             disabled={p.loading}
-            className="bg-grad-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-display font-semibold text-white shadow-glow transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-70"
+            className="bg-grad-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-display font-semibold text-primary-foreground shadow-glow transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-70"
           >
             {p.loading ? (
               <>
