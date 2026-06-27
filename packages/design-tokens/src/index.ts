@@ -1,10 +1,9 @@
 /**
  * @munaxa/design-tokens — the single source of truth for every Munaxa design token.
  *
- * Changing a value here propagates to:
- *   - @munaxa/config-tailwind (the shared Tailwind preset) → every app using it
- *   - @munaxa/ui components
- *   - any app importing tokens directly
+ * These typed tokens are the reference for design tooling and docs. The *runtime* palette is
+ * authored in `css/theme.oklch.css` and exposed to apps via the shared Tailwind v4 theme
+ * (`css/tailwind.css`), which @munaxa/ui, the design-system site and every app import directly.
  *
  * No application should hardcode a color, spacing, radius, shadow, z-index or breakpoint.
  */

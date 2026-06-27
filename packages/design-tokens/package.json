@@ -2,7 +2,7 @@
   "name": "@munaxa/design-tokens",
   "version": "0.1.0",
   "private": true,
-  "description": "The single source of truth for every Munaxa design token (colors, typography, spacing, radius, elevation, border, motion, transitions, z-index, breakpoints). Consumed by @munaxa/config-tailwind, @munaxa/ui and every Munaxa application.",
+  "description": "The single source of truth for every Munaxa design token (colors, typography, spacing, radius, elevation, border, motion, transitions, z-index, breakpoints). The canonical palette (css/theme.oklch.css) + the shared Tailwind v4 theme (css/tailwind.css) are consumed directly by @munaxa/ui, the design-system site and every Munaxa application.",
   "type": "module",
   "exports": {
     ".": {
@@ -10,7 +10,6 @@
       "default": "./dist/index.js"
     },
     "./css": "./css/tokens.css",
-    "./css/theme.css": "./css/theme.css",
     "./css/*": "./css/*"
   },
   "main": "./dist/index.js",
