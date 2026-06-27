@@ -12,9 +12,10 @@
     "typecheck": "tsc --noEmit",
     "test": "echo \"no tests yet\" && exit 0",
     "cf:deps": "pnpm turbo run build --filter=@munaxa/ui --filter=@munaxa/design-tokens --filter=@munaxa/icons",
-    "preview": "pnpm run cf:deps && opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "pnpm run cf:deps && opennextjs-cloudflare build && opennextjs-cloudflare deploy",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf:build": "pnpm run cf:deps && opennextjs-cloudflare build",
+    "cf:preview": "pnpm run cf:build && wrangler dev",
+    "cf:deploy": "pnpm run cf:build && wrangler deploy",
+    "cf:typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
   },
   "dependencies": {
     "@munaxa/design-tokens": "workspace:*",
