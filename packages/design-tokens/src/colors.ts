@@ -2,9 +2,9 @@
  * Munaxa color tokens — the canonical brand palette and the single source of truth
  * for every color value across the platform (Admin, Landing, Demo, Design System).
  *
- * Values mirror the *live* Munaxa brand currently shipped by the design system and the
- * Admin Portal: a violet primary (#7A3FFF) on deep "ink" violet surfaces, with
- * theme-aware coral + aqua accents and a light violet-tinted neutral scale.
+ * The brand is the munaxadesignsystem (Orbix) teal (#007595 / #00B8DB) — the single source of
+ * truth. Surfaces still use the deep "ink" scale and theme-aware coral/aqua accents; those are
+ * intentionally kept (brand-hue-only rebrand) and can be migrated to the DS neutral palette later.
  *
  * Two layers live here:
  *  - STATIC swatches (`brand`, `ink`, `neutral`, `dataViz`, `gradientStops`) — fixed hexes
@@ -14,18 +14,18 @@
  *    light and dark themes without touching component code.
  */
 export const colors = {
-  /** Primary brand violet (static swatch — matches the live preset). */
+  /** Primary brand teal — the munaxadesignsystem (Orbix) brand, single source of truth. */
   brand: {
-    DEFAULT: '#7A3FFF',
-    light: '#B97BFF',
-    dark: '#5B1FD6',
+    DEFAULT: '#007595',
+    light: '#00B8DB',
+    dark: '#005066',
   },
 
   /** Gradient stops used by brand surfaces (light → primary → deep). */
   gradientStops: {
-    from: '#B97BFF',
-    via: '#7A3FFF',
-    to: '#5B1FD6',
+    from: '#00B8DB',
+    via: '#007595',
+    to: '#005066',
   },
 
   /** Theme-aware accent — coral. Bind via CSS variable `--coral`. */

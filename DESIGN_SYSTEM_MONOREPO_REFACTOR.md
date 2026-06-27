@@ -534,3 +534,44 @@ as a Landing-local fork.
 
 **Result:** Landing, Demo and Admin now share **one** implementation of every primitive. The only
 remaining duplicate UI in the platform is the design-system website (§9 item 3).
+
+---
+
+## 14. Phase 6 — Full munaxadesignsystem palette as the live single source
+
+Owner decision: adopt the **complete** munaxadesignsystem palette (not just the primary hue) across
+all sites, and make it the **live** single source of truth — editing one file re-themes every app
+and every `@munaxa/ui` component.
+
+### 14.1 What shipped
+
+| Change | Detail |
+|---|---|
+| **Canonical theme** | New `packages/design-tokens/css/theme.css` — the full munaxadesignsystem palette (neutral surfaces, teal primary, theme-aware accents, semantic success/warning/info) for light (`:root`) + dark (`.dark`). Values are the sRGB-gamut-mapped HSL channels of `munaxadesignsystem/client/src/index.css` (oklch → hsl via culori), consumed through the preset's existing `hsl(var(--token))` bridge so alpha modifiers keep working. |
+| **Live single source** | Admin, Demo and Landing each `@import "@munaxa/design-tokens/css/theme.css"` and **no longer define palette variables locally** — only app-specific non-palette vars remain (radius scale, hero backdrop, RTL fonts). Edit `theme.css` → all three apps and every `@munaxa/ui` component (Button, Input, Card, Badge, …) re-theme at once. |
+| **Static swatches** | `@munaxa/design-tokens` `colors.ts` / `tokens.css` brand + focus ring updated to the teal brand to match. |
+| **Package export** | `@munaxa/design-tokens` now exports `./css/theme.css` (and `./css/*`). |
+
+### 14.2 Visual result (verified on Demo, light + dark)
+
+- **Light:** neutral white/near-white surfaces (previously violet-tinted), teal primary, neutral
+  borders — matches the munaxadesignsystem site.
+- **Dark:** neutral near-black surfaces (previously deep violet "ink"), dark teal primary.
+- Buttons, inputs, cards, badges and stat tiles all follow, because they are `@munaxa/ui`
+  components coloured by the imported theme.
+
+### 14.3 Verification
+
+| Check | Result |
+|---|---|
+| `@munaxa/design-tokens` build | ✅ |
+| Demo `next build` (canary for `@import` resolution) | ✅ |
+| Landing `next build` | ✅ |
+| Admin typecheck | ✅ |
+| Prettier (theme.css + all globals.css) | ✅ |
+| Demo screenshots, light + dark | ✅ neutral surfaces + teal |
+
+> Note: `@munaxa/design-tokens` carries the munaxadesignsystem palette as the in-repo single source.
+> Closing the loop so the `munaxadesignsystem` site *also* consumes this package (rather than holding
+> its own copy in `index.css`) is the natural next step — it would make the DS site and the apps share
+> one literal file.

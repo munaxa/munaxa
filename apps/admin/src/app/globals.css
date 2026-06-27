@@ -1,74 +1,18 @@
+@import '@munaxa/design-tokens/css/theme.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /*
- * Munaxa design tokens (shadcn bridge) — colours are the Munaxa Design System brand,
- * sourced 1:1 from munaxadesignsystem/client/src/index.css (the single source of truth):
- * violet primary (#5B1FD6 light / #B97BFF dark) on ink/violet surfaces, coral + aqua accents,
- * with semantic success(aqua-teal) / warning(amber) / error(coral) / info. Values below are the
- * Munaxa Design System hexes converted to the shadcn HSL channel format the Tailwind preset consumes
- * (`hsl(var(--token))`); the original hex is kept inline for reference. Default theme is light;
- * dark via .dark. When the brand changes, re-sync from munaxadesignsystem — do not edit ad hoc.
+ * Theme (colors, light + dark) is the single source of truth in @munaxa/design-tokens
+ * (css/theme.css = the full munaxadesignsystem palette), imported above and consumed via the
+ * preset's `hsl(var(--token))` bridge. Do NOT redefine palette variables here — only
+ * app-specific, non-palette vars belong in this file.
  */
 @layer base {
   :root {
     /* --font-display / --font-body / --font-mono are provided by next/font (see layout.tsx). */
     --radius: 0.5rem;
-
-    /* Light — violet on near-white, violet-tinted surfaces */
-    --background: 252 100% 98%; /* #f7f5ff */
-    --foreground: 257 75% 17.3%; /* #1e0b4d */
-    --card: 0 0% 100%; /* #ffffff */
-    --card-foreground: 257 75% 17.3%; /* #1e0b4d */
-    --primary: 260 74.7% 48%; /* #5b1fd6 */
-    --primary-foreground: 0 0% 100%; /* #ffffff */
-    --secondary: 257 58.3% 95.3%; /* #f0ecfa */
-    --secondary-foreground: 257 75% 17.3%; /* #1e0b4d */
-    --muted: 257 58.3% 95.3%; /* #f0ecfa */
-    --muted-foreground: 257 22.6% 39%; /* #5a4d7a */
-    --accent: 2 64.5% 58%; /* #d9534f — coral */
-    --accent-foreground: 0 0% 100%; /* #ffffff */
-    --destructive: 2 64.5% 58%; /* #d9534f */
-    --destructive-foreground: 0 0% 100%; /* #ffffff */
-    --border: 255 33.3% 90.6%; /* #e3dfef */
-    --input: 257 28.6% 80.8%; /* #c8c0dc */
-    --ring: 260 74.7% 48%; /* #5b1fd6 */
-    /* Semantic */
-    --success: 175 83.9% 31.6%; /* #0d9488 */
-    --warning: 38 92.1% 50.2%; /* #f59e0b */
-    --info: 217 91.2% 59.8%; /* #3b82f6 */
-    /* Brand accents */
-    --aqua: 175 83.9% 31.6%; /* #0d9488 */
-    --coral: 2 64.5% 58%; /* #d9534f */
-  }
-
-  .dark {
-    /* Dark "ink" — violet on deep ink/violet surfaces */
-    --background: 259 65.5% 5.7%; /* #0b0518 */
-    --foreground: 256 100% 97.1%; /* #f4f0ff */
-    --card: 256 57.7% 13.9%; /* #1a0f38 */
-    --card-foreground: 256 100% 97.1%; /* #f4f0ff */
-    --primary: 268 100% 74.1%; /* #b97bff */
-    --primary-foreground: 259 65.5% 5.7%; /* #0b0518 */
-    --secondary: 256 54.3% 18%; /* #221547 */
-    --secondary-foreground: 256 100% 97.1%; /* #f4f0ff */
-    --muted: 256 54.3% 18%; /* #221547 */
-    --muted-foreground: 252 20.3% 72%; /* #afa9c6 */
-    --accent: 13 100% 71.6%; /* #ff8e6e — coral */
-    --accent-foreground: 259 65.5% 5.7%; /* #0b0518 */
-    --destructive: 349 100% 68%; /* #ff5c7a */
-    --destructive-foreground: 0 0% 100%; /* #ffffff */
-    --border: 257 39.8% 22.2%; /* #2f224f */
-    --input: 257 39.8% 22.2%; /* #2f224f */
-    --ring: 268 100% 74.1%; /* #b97bff */
-    /* Semantic — dark variants */
-    --success: 173 88.4% 62.9%; /* #4df4e1 */
-    --warning: 43 96.4% 56.3%; /* #fbbf24 */
-    --info: 213 93.9% 67.8%; /* #60a5fa */
-    /* Brand accents */
-    --aqua: 173 88.4% 62.9%; /* #4df4e1 */
-    --coral: 13 100% 71.6%; /* #ff8e6e */
   }
 }
 
@@ -87,12 +31,12 @@
  * so it follows light/dark automatically via the app's `.dark` class. Only a few helpers live here.
  */
 @layer components {
-  /* Soft violet light-bloom behind the sign-in card (the "studio light" in the reference). */
+  /* Soft light-bloom behind the sign-in card (the "studio light" in the reference). */
   .login-glow {
     background: radial-gradient(circle at center, hsl(var(--primary) / 0.45) 0%, transparent 70%);
   }
-  /* Aurora ambient lighting for the auth backdrop — soft violet/secondary/accent blooms. Tuned
-   * for the dark "ink" backdrop; on light it reads as faint violet tints. */
+  /* Aurora ambient lighting for the auth backdrop — soft primary/secondary/accent blooms. Tuned
+   * for the dark backdrop; on light it reads as faint tints. */
   .login-aurora {
     background-image:
       radial-gradient(40% 48% at 10% 15%, hsl(var(--primary) / 0.2), transparent 60%),
