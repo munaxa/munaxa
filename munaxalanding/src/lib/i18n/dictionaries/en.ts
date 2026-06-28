@@ -353,6 +353,24 @@ export const en: Dictionary = {
     terms: 'Terms of Service',
     rights: '© {year} Munaxa. All rights reserved.',
   },
+  notFound: {
+    code: '404',
+    badge: 'Page not found',
+    title: 'This page is out of session',
+    description:
+      'The page you were looking for may have been moved, renamed, or never existed. ' +
+      'Let’s get you back to where your school runs smoothly.',
+    ctaHome: 'Back to home',
+    ctaDemo: 'Book a demo',
+    quickLinksLabel: 'Popular destinations',
+    quickLinks: [
+      { href: '/#modules', label: 'Modules' },
+      { href: '/#why-munaxa', label: 'Why Munaxa' },
+      { href: '/#faq', label: 'FAQ' },
+      { href: '/#contact', label: 'Contact' },
+    ],
+    illustrationAlt: 'Munaxa 404 — page not found',
+  },
   legal: {
     privacy: {
       title: 'Privacy Policy',

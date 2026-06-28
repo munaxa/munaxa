@@ -120,6 +120,17 @@ export interface Dictionary {
     terms: string;
     rights: string;
   };
+  notFound: {
+    code: string;
+    badge: string;
+    title: string;
+    description: string;
+    ctaHome: string;
+    ctaDemo: string;
+    quickLinksLabel: string;
+    quickLinks: { href: string; label: string }[];
+    illustrationAlt: string;
+  };
   legal: {
     privacy: {
       title: string;
