@@ -449,6 +449,11 @@ model Tenant {
   feeModificationApprovals FeeModificationApproval[]
   financialArrangements    FinancialArrangement[]
   registrationCommitments  RegistrationCommitment[]
+  generatedDocuments       GeneratedDocument[]
+  registrationAgreements   RegistrationAgreement[]
+  documentSequences        DocumentSequence[]
+  documentAccessLogs       DocumentAccessLog[]
+  documentEmailLogs        DocumentEmailLog[]
 
   @@index([status])
 }
@@ -518,6 +523,8 @@ model AcademicYear {
   gradeFeeItems    GradeFeeItem[]
   enrollmentQuotes EnrollmentQuote[]
   enrollments      Enrollment[]
+  generatedDocuments     GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
   busRoutes        BusRoute[]
   serviceAreas     Area[]
 
@@ -681,6 +688,8 @@ model Student {
   enrollments           Enrollment[]
   enrollmentQuotes      EnrollmentQuote[]
   financialArrangements FinancialArrangement[]
+  generatedDocuments    GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -708,9 +717,11 @@ model Parent {
   updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt   DateTime? @db.Timestamptz(6)
 
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  studentLinks ParentStudent[]
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  studentLinks           ParentStudent[]
+  generatedDocuments     GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
 
   // Uniqueness is enforced by PARTIAL unique indexes (WHERE "deletedAt" IS NULL) created in
   // migration 20260622160000_parent_unique_partial — NOT by Prisma @@unique — so that a
@@ -2954,6 +2965,7 @@ model Enrollment {
   modifications FeeModification[]
   arrangements  FinancialArrangement[]
   commitment    RegistrationCommitment?
+  registrationAgreements RegistrationAgreement[]
 
   @@unique([tenantId, studentId, academicYearId])
   @@index([tenantId, academicYearId, gradeId])
@@ -3034,4 +3046,245 @@ model RegistrationCommitment {
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, committedAt])
+}
+
+// ----------------------------------------------------------------------------
+// Enterprise Document Engine (Phase 23)
+//   Reusable engine that generates every official school document (admissions
+//   agreements + finance documents) from a permanent JSON snapshot, stores the
+//   rendered PDF immutably, and archives + audits every generation/print/email.
+//   Consumes the existing ledger/admissions/organization data; never duplicates
+//   any financial record.
+// ----------------------------------------------------------------------------
+
+/// The catalog of official documents the engine can produce. New types are added here
+/// and given a template in the document module — no schema change needed per layout.
+enum DocumentType {
+  REGISTRATION_AGREEMENT
+  PAYMENT_RECEIPT
+  ANNUAL_TUITION_CERTIFICATE
+  OUTSTANDING_BALANCE_CERTIFICATE
+  CLEARANCE_CERTIFICATE
+  ACCOUNT_STATEMENT
+  PAYMENT_HISTORY
+  FEE_BREAKDOWN
+  STUDENT_FINANCIAL_SUMMARY
+}
+
+/// Document rendering language. BILINGUAL renders Arabic + English side-by-side.
+enum DocumentLanguage {
+  EN
+  AR
+  BILINGUAL
+}
+
+/// Lifecycle of an archived document. A document is immutable once ARCHIVED; a newer
+/// version of the same logical document SUPERSEDES it (the old PDF is retained).
+enum GeneratedDocumentStatus {
+  ARCHIVED
+  SUPERSEDED
+  CANCELLED
+}
+
+/// Lifecycle of a registration agreement (a legal commitment, never overwritten).
+enum RegistrationAgreementStatus {
+  DRAFT
+  COMMITTED
+  SIGNED
+  CANCELLED
+  ARCHIVED
+}
+
+/// Persistence strategy for a document type (Phase 23b). SNAPSHOT = legal record: the rendered PDF
+/// is stored immutably and reprints serve the stored bytes. DYNAMIC = operational report: only
+/// metadata is stored; the PDF is rendered on demand from live ledger data and discarded after.
+enum DocumentPersistence {
+  SNAPSHOT
+  DYNAMIC
+}
+
+/// An action recorded against a document for the access history (Phase 23b).
+enum DocumentAccessAction {
+  GENERATE
+  PRINT
+  DOWNLOAD
+  EMAIL
+  VIEW
+}
+
+/// Outcome of a document access action.
+enum DocumentAccessStatus {
+  SUCCESS
+  FAILED
+}
+
+/// Gapless, per-tenant, per-scope counter (one row per tenant+scope). Mirrors the
+/// FinanceReceiptCounter/EInvoiceCounter pattern so document/agreement numbers are
+/// sequential with no gaps or duplicates. `scope` is e.g. "AGREEMENT" or "DOC:PAYMENT_RECEIPT".
+model DocumentSequence {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  scope    String
+  nextNo   Int    @default(1)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope])
+}
+
+/// An archived official document record (Phase 23 + 23b). For SNAPSHOT documents (legal records) the
+/// rendered PDF is stored in `pdf` (bytea) so reprints serve the exact stored snapshot. For DYNAMIC
+/// documents (operational reports) `pdf`/`checksum`/`byteSize` are NULL — only metadata is kept and
+/// the PDF is re-rendered on demand from live ledger data (using `params`) and discarded. `params`
+/// captures the inputs needed to re-render a DYNAMIC document; `dataSnapshot` captures the data a
+/// SNAPSHOT PDF was built from. Tenant-scoped (RLS); every action is recorded in DocumentAccessLog.
+model GeneratedDocument {
+  id           String                  @id @default(uuid()) @db.Uuid
+  tenantId     String                  @db.Uuid
+  documentNo   Int // gapless per tenant+type
+  type         DocumentType
+  persistence  DocumentPersistence     @default(SNAPSHOT)
+  title        String
+  language     DocumentLanguage        @default(EN)
+  status       GeneratedDocumentStatus @default(ARCHIVED)
+  version      Int                     @default(1)
+
+  // Optional subjects/links (all SetNull so the archive survives record deletion).
+  studentId      String? @db.Uuid
+  parentId       String? @db.Uuid
+  academicYearId String? @db.Uuid
+  enrollmentId   String? @db.Uuid
+  transactionId  String? @db.Uuid
+
+  // SNAPSHOT: the immutable data + rendered artifact. DYNAMIC: these are NULL.
+  dataSnapshot Json?
+  pdf          Bytes?
+  checksum     String? // sha256 hex of the stored PDF (SNAPSHOT only)
+  byteSize     Int?
+  // DYNAMIC: the inputs needed to re-render the PDF on demand from live data.
+  params       Json?
+
+  // Access counters (denormalised cache of DocumentAccessLog for fast listing/UI).
+  printedCount       Int       @default(0)
+  downloadCount      Int       @default(0)
+  emailCount         Int       @default(0)
+  lastPrintedAt      DateTime? @db.Timestamptz(6)
+  lastDownloadedAt   DateTime? @db.Timestamptz(6)
+  lastEmailedAt      DateTime? @db.Timestamptz(6)
+  lastPrintedById    String?   @db.Uuid
+  lastDownloadedById String?   @db.Uuid
+  lastEmailedById    String?   @db.Uuid
+  generatedById      String?   @db.Uuid
+  generatedAt        DateTime  @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student      Student?               @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  parent       Parent?                @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear?          @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  agreement    RegistrationAgreement?
+  accessLogs   DocumentAccessLog[]
+  emailLogs    DocumentEmailLog[]
+
+  @@unique([tenantId, type, documentNo])
+  @@index([tenantId, type])
+  @@index([tenantId, studentId])
+  @@index([tenantId, generatedAt])
+}
+
+/// Complete per-action access history for a document (Phase 23b): generation, print, download,
+/// email and view events, with the actor and request context. The counters on GeneratedDocument are
+/// a denormalised cache of these rows. Tenant-scoped (RLS); each row mirrors an AuditLog entry.
+model DocumentAccessLog {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @db.Uuid
+  documentId  String               @db.Uuid
+  documentType DocumentType
+  action      DocumentAccessAction
+  status      DocumentAccessStatus @default(SUCCESS)
+  actorUserId String?              @db.Uuid
+  ip          String?
+  userAgent   String?
+  device      String?
+  detail      String?
+  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId, createdAt])
+  @@index([tenantId, action])
+}
+
+/// Email-delivery history for a document (Phase 23b) — metadata only; the PDF attachment is never
+/// stored (re-attached from the snapshot or re-rendered for dynamic docs). Tenant-scoped (RLS).
+model DocumentEmailLog {
+  id               String               @id @default(uuid()) @db.Uuid
+  tenantId         String               @db.Uuid
+  documentId       String               @db.Uuid
+  sentById         String?              @db.Uuid
+  recipients       String[]
+  cc               String[]
+  bcc              String[]
+  subject          String?
+  providerResponse String?
+  status           DocumentAccessStatus @default(SUCCESS)
+  retryCount       Int                  @default(0)
+  sentAt           DateTime             @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId, sentAt])
+}
+
+/// A registration agreement — the legal commitment between the school and the parent, created
+/// automatically right after a successful registration commit, from a permanent snapshot. Never
+/// overwritten: if fees change after commitment a new version is created and the prior version is
+/// ARCHIVED (full history preserved). The rendered PDF lives on the linked GeneratedDocument.
+model RegistrationAgreement {
+  id          String                      @id @default(uuid()) @db.Uuid
+  tenantId    String                      @db.Uuid
+  agreementNo Int // gapless per tenant
+  version     Int                         @default(1)
+  status      RegistrationAgreementStatus @default(COMMITTED)
+
+  enrollmentId   String  @db.Uuid
+  studentId      String  @db.Uuid
+  parentId       String? @db.Uuid
+  academicYearId String  @db.Uuid
+  campusId       String? @db.Uuid
+  gradeId        String? @db.Uuid
+  sectionId      String? @db.Uuid
+
+  registrationDate DateTime         @db.Date
+  paymentMode      QuotePaymentMode @default(INSTALLMENTS)
+  installments     Int              @default(1)
+  // Permanent financial snapshot at commit time (fee lines, discounts, schedule).
+  feeBreakdown        Json
+  installmentSchedule Json
+  grandTotal          Decimal @db.Decimal(12, 3)
+
+  // The archived PDF document for this version (the stored, reprintable snapshot).
+  documentId   String? @unique @db.Uuid
+  supersedesId String? @db.Uuid // prior version this one replaces
+
+  registrarId String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment              @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  student      Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parent       Parent?                 @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear            @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  document     GeneratedDocument?      @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  supersedes   RegistrationAgreement?  @relation("AgreementVersions", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy RegistrationAgreement[] @relation("AgreementVersions")
+
+  @@unique([tenantId, agreementNo])
+  @@unique([tenantId, enrollmentId, version])
+  @@index([tenantId, studentId])
+  @@index([tenantId, enrollmentId])
 }

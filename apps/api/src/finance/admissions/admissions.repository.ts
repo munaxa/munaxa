@@ -642,6 +642,17 @@ export class AdmissionsRepository extends TenantRepository {
     });
   }
 
+  /** The enrollment a fee modification belongs to (used to (re)generate its registration agreement). */
+  enrollmentIdForModification(modificationId: string): Promise<string | null> {
+    return this.run(async (tx) => {
+      const mod = await tx.feeModification.findFirst({
+        where: { id: modificationId },
+        select: { enrollmentId: true },
+      });
+      return mod?.enrollmentId ?? null;
+    });
+  }
+
   createArrangement(dto: CreateArrangementDto) {
     return this.run(async (tx, tenantId) => {
       const row = await tx.financialArrangement.create({
