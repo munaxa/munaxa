@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArrowRight, Compass, Home } from '@munaxa/icons';
 import { Header } from '@/components/sections/header';
 import { Footer } from '@/components/sections/footer';
@@ -50,10 +51,10 @@ export default async function NotFound() {
           <p className="mt-5 max-w-xl text-pretty text-lg text-muted-foreground">{t.description}</p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <a href="/" className={buttonVariants('default', 'lg', 'group')}>
+            <Link href="/" className={buttonVariants('default', 'lg', 'group')}>
               <Home className="h-4 w-4" aria-hidden />
               {t.ctaHome}
-            </a>
+            </Link>
             <a href={DEMO_URL} className={buttonVariants('outline', 'lg', 'group')}>
               {t.ctaDemo}
               <ArrowRight
