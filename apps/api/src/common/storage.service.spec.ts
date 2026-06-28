@@ -57,6 +57,29 @@ describe('StorageService — upload validation (file security)', () => {
     expect(key).not.toContain('/etc/');
   });
 
+  describe('branding images (Organization module)', () => {
+    it('accepts SVG/PNG/JPEG/WEBP for branding (SVG widened vs the document allow-list)', () => {
+      for (const ok of ['image/svg+xml', 'image/png', 'image/jpeg', 'image/webp']) {
+        expect(() => service.assertImageAllowed(ok)).not.toThrow();
+      }
+    });
+
+    it('rejects non-image and oversized branding uploads', () => {
+      expect(() => service.assertImageAllowed('application/pdf')).toThrow(BadRequestException);
+      expect(() => service.assertImageAllowed('text/html')).toThrow(BadRequestException);
+      expect(() => service.assertImageAllowed('image/png', 6 * 1024 * 1024)).toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('presigns a branding image upload (stub URL when storage unconfigured)', async () => {
+      const key = service.buildKey('tenant-1', 'organization', 'logo.svg');
+      await expect(service.presignImageUpload(key, 'image/svg+xml', 1024)).resolves.toMatchObject({
+        fileKey: key,
+      });
+    });
+  });
+
   describe('assertKeyInTenant — cross-tenant object reference (BOLA)', () => {
     const run = <T>(tenantId: string, fn: () => T) => TenantContextStore.run({ tenantId }, fn);
 

@@ -165,6 +165,12 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'nav.section.settings',
     items: [
       {
+        href: '/settings/organization',
+        labelKey: 'nav.organization',
+        icon: 'settings',
+        perm: 'organization:read',
+      },
+      {
         href: '/structure/schools',
         labelKey: 'nav.structure',
         icon: 'structure',

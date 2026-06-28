@@ -334,6 +334,17 @@ enum RoleKey {
   Student
 }
 
+// School type for the Organization identity profile (Settings → Organization → General).
+enum OrganizationSchoolType {
+  PRIVATE
+  INTERNATIONAL
+  NATIONAL
+  IB
+  BRITISH
+  AMERICAN
+  OTHER
+}
+
 // ----------------------------------------------------------------------------
 // Tenancy
 // ----------------------------------------------------------------------------
@@ -385,6 +396,7 @@ model Tenant {
   notificationDeliveries   NotificationDelivery[]
   notificationAudits       NotificationAudit[]
   notificationSettings     NotificationSettings?
+  organizationSettings     OrganizationSettings?
   deviceTokens             DeviceToken[]
   featureFlags             FeatureFlag[]
   auditLogs                AuditLog[]
@@ -1491,6 +1503,132 @@ model NotificationSettings {
   updatedAt    DateTime @updatedAt @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// Single source of truth for school identity, branding, document generation, communication,
+/// compliance, social presence, and advanced document defaults (Settings → Organization).
+/// One row per tenant. Every optional branding/document feature has its own enable toggle; when a
+/// toggle is off the corresponding asset/section is omitted from generated documents and the UI.
+/// Asset columns store S3 object keys (never the binary). Structured/optional sub-configs are kept
+/// in JSON columns (forward-compatible, mirrors EInvoiceSettings.templateConfig).
+model OrganizationSettings {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+
+  // ── General / identity ──
+  nameEn           String?
+  nameAr           String?
+  legalName        String?
+  shortName        String?
+  schoolCode       String?
+  ministryNumber   String?
+  schoolType       OrganizationSchoolType @default(PRIVATE)
+  motto            String?
+  mission          String?
+  vision           String?
+  establishedYear  Int?
+  description       String?
+  timezone         String                 @default("Asia/Amman")
+  defaultLanguage  String                 @default("en")
+  academicCalendar String?
+
+  // ── Contact ──
+  phone            String?
+  mobile           String?
+  whatsapp         String?
+  email            String?
+  website          String?
+  country          String?
+  city             String?
+  district         String?
+  street           String?
+  building         String?
+  postalCode       String?
+  googleMapsUrl    String?
+  latitude         Decimal? @db.Decimal(10, 7)
+  longitude        Decimal? @db.Decimal(10, 7)
+  emergencyContact String?
+  officeHours      String?
+
+  // ── Branding feature toggles (every feature independently enabled) ──
+  logoEnabled      Boolean @default(false)
+  darkLogoEnabled  Boolean @default(false)
+  smallLogoEnabled Boolean @default(false)
+  watermarkEnabled Boolean @default(false)
+  stampEnabled     Boolean @default(false)
+  signatureEnabled Boolean @default(false)
+
+  // ── Branding assets (S3 object keys) ──
+  logoKey      String?
+  darkLogoKey  String?
+  smallLogoKey String?
+  stampKey     String?
+  signatureKey String?
+  bannerKey    String?
+
+  // ── Branding structured config ──
+  logoVisibility    Json? // { reports, certificates, studentCards, parentPortal, mobileApp, login }
+  watermark         Json? // { source: LOGO|SCHOOL_NAME|CONFIDENTIAL, text, opacity, scale, rotation }
+  stampPlacement    String @default("RIGHT") // LEFT | CENTER | RIGHT
+  signaturePosition String @default("RIGHT") // LEFT | CENTER | RIGHT
+
+  // ── Document settings ──
+  headerEnabled Boolean @default(false)
+  footerEnabled Boolean @default(false)
+  qrEnabled     Boolean @default(false)
+  documents     Json? // { headerHtml, headerAlign, footerHtml, footerAlign, logoPosition, paperSize, margins{top,bottom,left,right}, headerHeight, footerHeight, qrContent }
+
+  // ── Communication identity ──
+  senderName              String?
+  senderEmail             String?
+  replyToEmail            String?
+  emailFooter             String?
+  notificationDisplayName String?
+  smsSender               String?
+  whatsappDisplayName     String?
+  pushIconKey             String?
+  notificationImageKey    String?
+
+  // ── Social & website ──
+  socialEnabled Boolean @default(false)
+  social        Json? // { website, facebook, instagram, linkedin, youtube, tiktok, x }
+
+  // ── Academic identity ──
+  curriculum         String?
+  academicYearFormat String?
+  colorTheme         String?
+
+  // ── Compliance (optional) ──
+  complianceEnabled      Boolean @default(false)
+  commercialRegistration String?
+  licenseNumber          String?
+  ministryLicense        String?
+  taxNumber              String?
+  vatNumber              String?
+  otherGovIds            Json? // [{ label, value }]
+
+  // ── Advanced document defaults ──
+  defaultReportLanguage      String  @default("en")
+  defaultCertificateLanguage String  @default("en")
+  documentNumberPrefix       String?
+  defaultFont                String?
+  defaultReportTheme         String?
+  defaultLogoVariant         String  @default("PRIMARY") // PRIMARY | DARK | SMALL
+  documentCompression        Boolean @default(true)
+  pdfQuality                 Int     @default(90)
+  imageQuality               Int     @default(85)
+  storageOptimization        Boolean @default(true)
+
+  // ── Audit ──
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model DeviceToken {
