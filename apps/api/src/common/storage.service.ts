@@ -96,6 +96,57 @@ export class StorageService {
     }
   }
 
+  /**
+   * Branding-image allow-list for the Organization module. Unlike the generic document
+   * allow-list this includes `image/svg+xml` (school logos are commonly vector). These assets
+   * are only ever served back via a pre-signed GET from the bucket origin (never inlined from
+   * the app origin), and are written with a 5 MB ceiling + SSE — so a crafted SVG cannot become
+   * a stored-XSS vector against the application.
+   */
+  static readonly IMAGE_MIME: ReadonlySet<string> = new Set([
+    'image/svg+xml',
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+  ]);
+  private static readonly MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+  /** Validate a branding image's declared content type / size (images-only, 5 MB cap). */
+  assertImageAllowed(contentType: string, sizeBytes?: number): void {
+    const type = (contentType ?? '').split(';')[0]!.trim().toLowerCase();
+    if (!StorageService.IMAGE_MIME.has(type)) {
+      throw new BadRequestException(`Unsupported image type: ${type || '(none)'}`);
+    }
+    if (sizeBytes !== undefined && (sizeBytes < 0 || sizeBytes > StorageService.MAX_IMAGE_BYTES)) {
+      throw new BadRequestException('Image exceeds the maximum allowed size (5 MB)');
+    }
+  }
+
+  /** Pre-sign an upload for a branding image (images-only allow-list, incl. SVG). */
+  async presignImageUpload(
+    fileKey: string,
+    contentType: string,
+    sizeBytes?: number,
+  ): Promise<PresignedUpload> {
+    this.assertImageAllowed(contentType, sizeBytes);
+    if (!this.configured) {
+      const base = this.endpoint ?? 'https://uploads.munaxa.local';
+      return { uploadUrl: `${base}/${this.bucket ?? 'munaxa-dev'}/${fileKey}?stub=put`, fileKey };
+    }
+    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+    const client = new S3Client({ region: this.region, endpoint: this.endpoint });
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: fileKey,
+      ContentType: contentType,
+      ...(sizeBytes !== undefined ? { ContentLength: sizeBytes } : {}),
+      ServerSideEncryption: 'AES256',
+    });
+    const uploadUrl = await getSignedUrl(client, command, { expiresIn: 900 });
+    return { uploadUrl, fileKey };
+  }
+
   async presignUpload(
     fileKey: string,
     contentType: string,

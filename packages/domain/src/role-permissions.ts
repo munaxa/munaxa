@@ -34,6 +34,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.GRADE_MANAGE,
     Permission.SECTION_MANAGE,
     Permission.CLASSROOM_MANAGE,
+    Permission.ORGANIZATION_READ,
     Permission.TIMETABLE_READ,
     Permission.ATTENDANCE_READ,
     Permission.HOMEWORK_READ,
