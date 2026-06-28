@@ -12,6 +12,8 @@ export interface SendMailInput {
   from?: string;
   /** Reply-To address (e.g. the tenant support inbox from NotificationSettings). */
   replyTo?: string;
+  /** Optional file attachments (e.g. a generated PDF document). */
+  attachments?: Array<{ filename: string; content: Buffer }>;
 }
 
 /**
@@ -46,6 +48,14 @@ export class MailService {
           html: input.html,
           ...(input.text ? { text: input.text } : {}),
           ...(input.replyTo ? { reply_to: input.replyTo } : {}),
+          ...(input.attachments && input.attachments.length > 0
+            ? {
+                attachments: input.attachments.map((a) => ({
+                  filename: a.filename,
+                  content: a.content.toString('base64'),
+                })),
+              }
+            : {}),
         }),
       });
       if (!res.ok) {

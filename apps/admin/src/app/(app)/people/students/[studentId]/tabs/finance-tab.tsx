@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useI18n } from '@/components/i18n-provider';
 import { useToast } from '@/components/toast';
 import { TransactionStatusBadge } from '@/components/domain';
+import { DocumentsSection } from './documents-section';
+import { documentsApi } from '@/lib/documents';
 import {
   financeApi,
   type AgingBuckets,
@@ -246,6 +248,16 @@ export function FinanceTab({ studentId }: { studentId: string }) {
       toast.error(e instanceof Error ? e.message : 'Payment failed');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  /** Generate (if needed) and open the official PDF receipt for a verified payment. */
+  async function printReceipt(transactionId: string) {
+    try {
+      const doc = await documentsApi.generate({ type: 'PAYMENT_RECEIPT', studentId, transactionId });
+      await documentsApi.download(doc.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not generate receipt');
     }
   }
 
@@ -686,7 +698,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                       size="sm"
                       variant="ghost"
                       disabled={tx.receiptNo == null}
-                      onClick={() => window.print()}
+                      onClick={() => void printReceipt(tx.id)}
                     >
                       {t('studentProfile.printReceipt')}
                     </Button>
@@ -748,15 +760,11 @@ export function FinanceTab({ studentId }: { studentId: string }) {
         </CardContent>
       </Card>
 
-      {/* Documents */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('studentProfile.documents')}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <EmptyState title={t('studentProfile.documentsHint')} />
-        </CardContent>
-      </Card>
+      {/* Documents — Enterprise Document Engine (agreements, receipts, certificates, statements) */}
+      <div>
+        <h2 className="mb-3 font-display text-lg font-semibold">{t('studentProfile.documents')}</h2>
+        <DocumentsSection studentId={studentId} />
+      </div>
     </div>
   );
 }

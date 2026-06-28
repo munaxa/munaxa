@@ -67,6 +67,9 @@ export const Permission = {
   PTM_BOOK: 'ptm:book',
   PTM_MANAGE: 'ptm:manage',
   DOCUMENT_MANAGE: 'document:manage',
+  // Enterprise Document Engine (Phase 23): official document generation & archive.
+  DOCUMENT_READ: 'document:read',
+  DOCUMENT_GENERATE: 'document:generate',
 
   // Student app (resources & gamification)
   RESOURCE_READ: 'resource:read',
@@ -168,6 +171,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.PTM_BOOK]: 'Book parent-teacher meeting slots.',
   [Permission.PTM_MANAGE]: 'Create and manage parent-teacher meeting schedules.',
   [Permission.DOCUMENT_MANAGE]: 'Upload and manage shared documents.',
+  [Permission.DOCUMENT_READ]:
+    'View, download and reprint archived official documents (agreements, receipts, certificates, statements).',
+  [Permission.DOCUMENT_GENERATE]:
+    'Generate official documents (registration agreements, tuition/clearance/balance certificates, statements) and email them.',
 
   [Permission.RESOURCE_READ]: 'View shared learning resources.',
   [Permission.RESOURCE_MANAGE]: 'Upload and manage shared learning resources.',
