@@ -71,7 +71,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-aurora relative min-h-screen overflow-hidden bg-background text-foreground">
+    <main className="login-aurora relative min-h-screen overflow-hidden bg-background text-foreground lg:h-screen">
       {/* Abstract geometric accents — quiet, enterprise (not cyberpunk). */}
       <div
         aria-hidden="true"
@@ -84,7 +84,7 @@ export default function LoginPage() {
 
       <ThemeToggle />
 
-      <div className="relative mx-auto flex min-h-screen max-w-[1440px] flex-col px-5 py-6 lg:px-10">
+      <div className="relative mx-auto flex min-h-screen max-w-[1440px] flex-col px-5 py-6 lg:h-full lg:min-h-0 lg:px-10">
         {/* Brand lockup. */}
         <header className="flex items-center gap-3">
           <Logo size={40} priority />
@@ -94,7 +94,7 @@ export default function LoginPage() {
           </div>
         </header>
 
-        <div className="grid flex-1 items-center gap-10 py-10 md:grid-cols-[2fr_3fr] md:gap-12 lg:grid-cols-[45fr_55fr] lg:gap-16">
+        <div className="grid flex-1 items-center gap-8 py-6 md:grid-cols-[2fr_3fr] md:gap-12 lg:grid-cols-[45fr_55fr] lg:gap-16">
           <BrandPanel t={t} />
           <SignInCard
             t={t}
@@ -146,11 +146,11 @@ function SignInCard(p: CardProps) {
   const { t } = p;
   return (
     <div className="mx-auto w-full max-w-[520px]">
-      <div className="rounded-3xl border border-border bg-card/70 p-7 shadow-card backdrop-blur-xl sm:p-10 lg:p-12">
+      <div className="rounded-3xl border border-border bg-card/70 p-7 shadow-card backdrop-blur-xl sm:p-9 lg:p-10">
         <h1 className="font-display text-3xl font-bold">{t('auth.welcomeBack')}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">{t('auth.signInContinue')}</p>
 
-        <form onSubmit={p.onSubmit} className="mt-8 space-y-5">
+        <form onSubmit={p.onSubmit} className="mt-6 space-y-4">
           <Field label={t('auth.schoolCode')}>
             {(id) => (
               <InputWithIcon icon={<BuildingIcon />}>
@@ -248,7 +248,7 @@ function SignInCard(p: CardProps) {
         </form>
 
         {/* Security notice. */}
-        <div className="mt-6 flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
+        <div className="mt-5 flex items-start gap-2.5 text-xs leading-relaxed text-muted-foreground">
           <span className="mt-0.5 shrink-0 text-success">
             <ShieldIcon size={16} />
           </span>
@@ -256,7 +256,7 @@ function SignInCard(p: CardProps) {
         </div>
 
         {/* In-card technology badges. */}
-        <div className="mt-6 grid grid-cols-2 gap-3 border-t border-border pt-6">
+        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-border pt-5">
           <TechBadge
             icon={<InvoiceIcon />}
             title={t('auth.jofotaraConnected')}
@@ -300,13 +300,13 @@ function BrandPanel({ t }: { t: (k: string) => string }) {
         <br />
         <span className="text-primary">{t('auth.marketingTitle2')}</span>
       </h2>
-      <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground">
+      <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground lg:text-base">
         {t('auth.marketingSubtitle')}
       </p>
 
       <DashboardPreview t={t} />
 
-      <div className="mt-7 grid grid-cols-2 gap-3">
+      <div className="mt-5 grid grid-cols-2 gap-3">
         <ComplianceBadge
           icon={<ShieldIcon />}
           title="ISO 27001"
@@ -369,7 +369,7 @@ function DashboardPreview({ t }: { t: (k: string) => string }) {
     { label: 'Parent Comms', value: '320 sent', icon: <ChatIcon /> },
   ];
   return (
-    <div className="relative mt-9 overflow-hidden rounded-2xl border border-border bg-card/70 p-4 shadow-card backdrop-blur-xl">
+    <div className="relative mt-6 overflow-hidden rounded-2xl border border-border bg-card/70 p-4 shadow-card backdrop-blur-xl">
       <div className="login-glow pointer-events-none absolute -end-12 -top-12 h-48 w-48 opacity-40 blur-2xl" />
       <div className="relative">
         {/* Header */}
