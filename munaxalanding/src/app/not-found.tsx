@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { ArrowRight, Compass, Home } from '@munaxa/icons';
 import { Header } from '@/components/sections/header';
 import { Footer } from '@/components/sections/footer';
@@ -9,10 +10,13 @@ import { getDictionary } from '@/lib/i18n';
 import { getTheme } from '@/lib/theme/get-theme';
 import { DEMO_URL } from '@/lib/constants';
 
-export const metadata: Metadata = {
-  title: 'Page not found',
-  robots: { index: false, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const dict = getDictionary(await getLocale());
+  return {
+    title: dict.notFound.badge,
+    robots: { index: false, follow: true },
+  };
+}
 
 export default async function NotFound() {
   const [locale, theme] = await Promise.all([getLocale(), getTheme()]);
@@ -47,10 +51,10 @@ export default async function NotFound() {
           <p className="mt-5 max-w-xl text-pretty text-lg text-muted-foreground">{t.description}</p>
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <a href="/" className={buttonVariants('default', 'lg', 'group')}>
+            <Link href="/" className={buttonVariants('default', 'lg', 'group')}>
               <Home className="h-4 w-4" aria-hidden />
               {t.ctaHome}
-            </a>
+            </Link>
             <a href={DEMO_URL} className={buttonVariants('outline', 'lg', 'group')}>
               {t.ctaDemo}
               <ArrowRight
@@ -61,18 +65,21 @@ export default async function NotFound() {
           </div>
 
           <div className="mt-12 w-full max-w-md">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <p
+              id="not-found-quick-links"
+              className="text-xs font-medium uppercase tracking-wider text-muted-foreground"
+            >
               {t.quickLinksLabel}
             </p>
             <nav
               className="mt-4 flex flex-wrap items-center justify-center gap-2.5"
-              aria-label={t.quickLinksLabel}
+              aria-labelledby="not-found-quick-links"
             >
               {t.quickLinks.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
-                  className="rounded-full border border-border bg-background/60 px-4 py-1.5 text-sm font-medium text-muted-foreground backdrop-blur transition hover:border-primary/40 hover:text-foreground"
+                  className="rounded-full border border-border bg-background/60 px-4 py-1.5 text-sm font-medium text-muted-foreground backdrop-blur transition-colors outline-none hover:border-primary/40 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
                 >
                   {link.label}
                 </a>
