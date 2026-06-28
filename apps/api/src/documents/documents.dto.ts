@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DocumentLanguage, DocumentType, FeeItemKind } from '@prisma/client';
-import { IsArray, IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsBoolean, IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
 
 /** Generate a finance document for a student. `type` selects the template. */
 export class GenerateDocumentDto {
@@ -34,7 +34,40 @@ export class GenerateAgreementDto {
   language?: DocumentLanguage;
 }
 
+/**
+ * Email a document. With no fields set, it is sent to the student's primary parent. Parent roles can
+ * be toggled, and custom addresses / CC / BCC added (custom recipients are permission-controlled by
+ * the DOCUMENT_GENERATE requirement on the endpoint).
+ */
 export class EmailDocumentDto {
-  @ApiProperty() @IsEmail() to!: string;
+  /** Explicit custom recipient addresses (in addition to any selected parent roles). */
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  to?: string[];
+
+  @ApiPropertyOptional({ description: 'Send to the primary parent (default true).' })
+  @IsOptional()
+  @IsBoolean()
+  includePrimaryParent?: boolean;
+
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() includeSecondaryParent?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() includeGuardian?: boolean;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  cc?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsEmail({}, { each: true })
+  bcc?: string[];
+
+  @ApiPropertyOptional() @IsOptional() @IsEmail() replyTo?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() subject?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() message?: string;
 }

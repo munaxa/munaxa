@@ -1,9 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DocumentLanguage, DocumentType, FeeItemKind, Prisma } from '@prisma/client';
+import { DocumentLanguage, DocumentType, FeeItemKind } from '@prisma/client';
 import { StatementService, type StudentStatement } from '../finance/statement/statement.service';
-import { DocumentEngineService } from './document-engine.service';
 import { DocumentRepository } from './document.repository';
-import type { DocumentMeta } from './document.repository';
+import type { BuiltDocument, DocumentParams } from './document.types';
 import type { DocumentLayout, FieldRow, LayoutBlock } from './pdf/document-layout';
 import { feeKindLabel } from './templates/fee-labels';
 import { allocatePaidAcrossCategories } from './templates/tuition-calc';
@@ -18,18 +17,63 @@ export interface TuitionCertificateOptions {
 }
 
 /**
- * Finance Documents (Part 2 + Part 6). Each method collects data from the existing billing ledger /
- * statement (never recomputing or duplicating financial records), maps it to a declarative
- * {@link DocumentLayout}, and hands it to the Document Engine to render + archive. Receipt generation
- * is fully independent of Admissions.
+ * Finance Documents (Part 2 + Part 6). Each builder collects data from the existing billing ledger /
+ * statement (never recomputing or duplicating financial records) and maps it to a declarative
+ * {@link DocumentLayout} returned as a {@link BuiltDocument}. The Document Engine decides whether to
+ * archive a PDF (none of these do — they are all DYNAMIC) or render on demand. Because the builders
+ * are pure (params in → layout out), the same `build()` re-renders a document from the live ledger
+ * every time it is downloaded/printed/emailed. Receipt generation is independent of Admissions.
  */
 @Injectable()
 export class FinanceDocumentsService {
   constructor(
-    private readonly engine: DocumentEngineService,
     private readonly repo: DocumentRepository,
     private readonly statements: StatementService,
   ) {}
+
+  /**
+   * Dispatch on document type to the matching builder, re-collecting live data each call. Used both
+   * for the initial generate and for every subsequent download/print/email of a DYNAMIC document.
+   */
+  build(params: DocumentParams): Promise<BuiltDocument> {
+    const language = params.language;
+    switch (params.type) {
+      case DocumentType.PAYMENT_RECEIPT:
+        if (!params.transactionId)
+          throw new BadRequestException('transactionId is required for a receipt');
+        return this.paymentReceipt(params.transactionId, language);
+      case DocumentType.ANNUAL_TUITION_CERTIFICATE:
+        if (!params.studentId || !params.academicYearId)
+          throw new BadRequestException('studentId and academicYearId are required');
+        return this.annualTuitionCertificate(
+          params.studentId,
+          {
+            academicYearId: params.academicYearId,
+            ...(params.includeKinds ? { includeKinds: params.includeKinds } : {}),
+          },
+          language,
+        );
+      case DocumentType.OUTSTANDING_BALANCE_CERTIFICATE:
+        return this.outstandingBalanceCertificate(this.requireStudentId(params), language);
+      case DocumentType.CLEARANCE_CERTIFICATE:
+        return this.clearanceCertificate(this.requireStudentId(params), language);
+      case DocumentType.ACCOUNT_STATEMENT:
+        return this.accountStatement(this.requireStudentId(params), language);
+      case DocumentType.PAYMENT_HISTORY:
+        return this.paymentHistory(this.requireStudentId(params), language);
+      case DocumentType.FEE_BREAKDOWN:
+        return this.feeBreakdown(this.requireStudentId(params), language);
+      case DocumentType.STUDENT_FINANCIAL_SUMMARY:
+        return this.studentFinancialSummary(this.requireStudentId(params), language);
+      default:
+        throw new BadRequestException(`Type ${params.type} is not a dynamic finance document`);
+    }
+  }
+
+  private requireStudentId(params: DocumentParams): string {
+    if (!params.studentId) throw new BadRequestException('studentId is required');
+    return params.studentId;
+  }
 
   // ── Header field helpers ───────────────────────────────────────────────────
   private studentFields(ctx: StudentCtx, language: DocumentLanguage): FieldRow[] {
@@ -64,7 +108,7 @@ export class FinanceDocumentsService {
   }
 
   // ── Payment Receipt ─────────────────────────────────────────────────────────
-  async paymentReceipt(transactionId: string, language: DocumentLanguage): Promise<DocumentMeta> {
+  async paymentReceipt(transactionId: string, language: DocumentLanguage): Promise<BuiltDocument> {
     const txn = await this.repo.transactionContext(transactionId);
     if (!txn) throw new NotFoundException('Transaction not found');
     if (txn.status !== 'VERIFIED') {
@@ -143,17 +187,15 @@ export class FinanceDocumentsService {
       blocks,
     };
 
-    return this.engine.generate({
-      layout,
+    return {
+      type: DocumentType.PAYMENT_RECEIPT,
       language,
-      archive: {
-        type: DocumentType.PAYMENT_RECEIPT,
-        studentId: txn.studentId,
-        parentId: parent?.id ?? null,
-        transactionId,
-        dataSnapshot: snapshot,
-      },
-    });
+      layout,
+      studentId: txn.studentId,
+      parentId: parent?.id ?? null,
+      transactionId,
+      dataSnapshot: snapshot,
+    };
   }
 
   // ── Annual Tuition Certificate (Part 6) ─────────────────────────────────────
@@ -161,7 +203,7 @@ export class FinanceDocumentsService {
     studentId: string,
     options: TuitionCertificateOptions,
     language: DocumentLanguage,
-  ): Promise<DocumentMeta> {
+  ): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
     const enrollment = await this.repo.yearEnrollment(studentId, options.academicYearId);
     if (!enrollment?.quote) {
@@ -240,24 +282,22 @@ export class FinanceDocumentsService {
       ],
     };
 
-    return this.engine.generate({
-      layout,
+    return {
+      type: DocumentType.ANNUAL_TUITION_CERTIFICATE,
       language,
-      archive: {
-        type: DocumentType.ANNUAL_TUITION_CERTIFICATE,
-        studentId,
-        parentId: ctx.parentLinks[0]?.parent?.id ?? null,
-        academicYearId: options.academicYearId,
-        dataSnapshot: snapshot,
-      },
-    });
+      layout,
+      studentId,
+      parentId: ctx.parentLinks[0]?.parent?.id ?? null,
+      academicYearId: options.academicYearId,
+      dataSnapshot: snapshot,
+    };
   }
 
   // ── Outstanding Balance Certificate ─────────────────────────────────────────
   async outstandingBalanceCertificate(
     studentId: string,
     language: DocumentLanguage,
-  ): Promise<DocumentMeta> {
+  ): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
     const st = await this.statements.forStudent(studentId);
     const snapshot = this.summaryNumbers(st);
@@ -289,11 +329,11 @@ export class FinanceDocumentsService {
         { kind: 'signatures', blocks: [{ label: L(language, 'Finance Manager', 'المدير المالي') }] },
       ],
     };
-    return this.archiveSimple(layout, DocumentType.OUTSTANDING_BALANCE_CERTIFICATE, ctx, snapshot);
+    return this.toBuilt(layout, DocumentType.OUTSTANDING_BALANCE_CERTIFICATE, ctx, snapshot);
   }
 
   // ── Clearance Certificate ───────────────────────────────────────────────────
-  async clearanceCertificate(studentId: string, language: DocumentLanguage): Promise<DocumentMeta> {
+  async clearanceCertificate(studentId: string, language: DocumentLanguage): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
     const st = await this.statements.forStudent(studentId);
     const snapshot = this.summaryNumbers(st);
@@ -320,11 +360,11 @@ export class FinanceDocumentsService {
         { kind: 'signatures', blocks: [{ label: L(language, 'Finance Manager', 'المدير المالي') }] },
       ],
     };
-    return this.archiveSimple(layout, DocumentType.CLEARANCE_CERTIFICATE, ctx, snapshot);
+    return this.toBuilt(layout, DocumentType.CLEARANCE_CERTIFICATE, ctx, snapshot);
   }
 
   // ── Account Statement (running ledger) ──────────────────────────────────────
-  async accountStatement(studentId: string, language: DocumentLanguage): Promise<DocumentMeta> {
+  async accountStatement(studentId: string, language: DocumentLanguage): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
     const st = await this.statements.forStudent(studentId);
     const entries = this.ledgerEntries(st);
@@ -362,11 +402,11 @@ export class FinanceDocumentsService {
         },
       ],
     };
-    return this.archiveSimple(layout, DocumentType.ACCOUNT_STATEMENT, ctx, snapshot);
+    return this.toBuilt(layout, DocumentType.ACCOUNT_STATEMENT, ctx, snapshot);
   }
 
   // ── Payment History ─────────────────────────────────────────────────────────
-  async paymentHistory(studentId: string, language: DocumentLanguage): Promise<DocumentMeta> {
+  async paymentHistory(studentId: string, language: DocumentLanguage): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
     const st = await this.statements.forStudent(studentId);
     const verified = st.transactions.filter((t) => t.status === 'VERIFIED');
@@ -407,11 +447,11 @@ export class FinanceDocumentsService {
         },
       ],
     };
-    return this.archiveSimple(layout, DocumentType.PAYMENT_HISTORY, ctx, snapshot);
+    return this.toBuilt(layout, DocumentType.PAYMENT_HISTORY, ctx, snapshot);
   }
 
   // ── Fee Breakdown ─────────────────────────────────────────────────────────
-  async feeBreakdown(studentId: string, language: DocumentLanguage): Promise<DocumentMeta> {
+  async feeBreakdown(studentId: string, language: DocumentLanguage): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
     const st = await this.statements.forStudent(studentId);
     const snapshot = {
@@ -457,14 +497,14 @@ export class FinanceDocumentsService {
         },
       ],
     };
-    return this.archiveSimple(layout, DocumentType.FEE_BREAKDOWN, ctx, snapshot);
+    return this.toBuilt(layout, DocumentType.FEE_BREAKDOWN, ctx, snapshot);
   }
 
   // ── Student Financial Summary ───────────────────────────────────────────────
   async studentFinancialSummary(
     studentId: string,
     language: DocumentLanguage,
-  ): Promise<DocumentMeta> {
+  ): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
     const st = await this.statements.forStudent(studentId);
     const snapshot = this.summaryNumbers(st);
@@ -491,7 +531,7 @@ export class FinanceDocumentsService {
         },
       ],
     };
-    return this.archiveSimple(layout, DocumentType.STUDENT_FINANCIAL_SUMMARY, ctx, snapshot);
+    return this.toBuilt(layout, DocumentType.STUDENT_FINANCIAL_SUMMARY, ctx, snapshot);
   }
 
   // ── shared helpers ──────────────────────────────────────────────────────────
@@ -553,21 +593,19 @@ export class FinanceDocumentsService {
     });
   }
 
-  private archiveSimple(
+  private toBuilt(
     layout: DocumentLayout,
     type: DocumentType,
     ctx: StudentCtx,
     snapshot: unknown,
-  ): Promise<DocumentMeta> {
-    return this.engine.generate({
-      layout,
+  ): BuiltDocument {
+    return {
+      type,
       language: layout.language ?? DocumentLanguage.EN,
-      archive: {
-        type,
-        studentId: ctx.id,
-        parentId: ctx.parentLinks[0]?.parent?.id ?? null,
-        dataSnapshot: snapshot as Prisma.InputJsonValue,
-      },
-    });
+      layout,
+      studentId: ctx.id,
+      parentId: ctx.parentLinks[0]?.parent?.id ?? null,
+      dataSnapshot: snapshot as BuiltDocument['dataSnapshot'],
+    };
   }
 }

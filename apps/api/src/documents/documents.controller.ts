@@ -5,10 +5,11 @@ import {
   Param,
   Post,
   Query,
+  Req,
   Res,
   StreamableFile,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DocumentType } from '@prisma/client';
 import { Permission } from '@munaxa/domain';
@@ -16,6 +17,7 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { DocumentsService } from './documents.service';
 import { EmailDocumentDto, GenerateAgreementDto, GenerateDocumentDto } from './documents.dto';
 import type { DocumentMeta } from './document.repository';
+import type { AccessContext } from './document.types';
 
 /**
  * Enterprise Document Engine API (Parts 3–6, 8). Generates official documents from a permanent
@@ -84,33 +86,49 @@ export class DocumentsController {
     return this.service.getMeta(id);
   }
 
+  @Get(':id/history')
+  @RequirePermissions(Permission.DOCUMENT_READ)
+  @ApiOperation({ summary: 'Per-action access history (generate/print/download/email/view)' })
+  history(@Param('id') id: string) {
+    return this.service.accessHistory(id);
+  }
+
   @Get(':id/download')
   @RequirePermissions(Permission.DOCUMENT_READ)
-  @ApiOperation({ summary: 'Download the stored PDF snapshot (audited)' })
+  @ApiOperation({ summary: 'Download the PDF — stored (SNAPSHOT) or re-rendered live (DYNAMIC)' })
   async download(
     @Param('id') id: string,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const { meta, pdf } = await this.service.download(id);
+    const { meta, pdf } = await this.service.download(id, this.ctx(req));
     return this.streamPdf(res, meta, pdf, 'inline');
   }
 
   @Post(':id/print')
   @RequirePermissions(Permission.DOCUMENT_READ)
-  @ApiOperation({ summary: 'Reprint the stored PDF (increments the print counter; audited)' })
+  @ApiOperation({ summary: 'Reprint the PDF (records a PRINT action); re-rendered live if DYNAMIC' })
   async print(
     @Param('id') id: string,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    const { meta, pdf } = await this.service.print(id);
+    const { meta, pdf } = await this.service.print(id, this.ctx(req));
     return this.streamPdf(res, meta, pdf, 'inline');
   }
 
   @Post(':id/email')
   @RequirePermissions(Permission.DOCUMENT_GENERATE)
-  @ApiOperation({ summary: 'Email the stored PDF as an attachment (audited)' })
-  email(@Param('id') id: string, @Body() dto: EmailDocumentDto) {
-    return this.service.email(id, dto);
+  @ApiOperation({ summary: 'Email the document as a PDF attachment (audited; recipients resolved)' })
+  email(@Param('id') id: string, @Body() dto: EmailDocumentDto, @Req() req: Request) {
+    return this.service.email(id, dto, this.ctx(req));
+  }
+
+  /** Best-effort request context (client IP + user agent) for the access history. */
+  private ctx(req: Request): AccessContext {
+    const fwd = req.headers['x-forwarded-for'];
+    const ip = (Array.isArray(fwd) ? fwd[0] : fwd)?.split(',')[0]?.trim() || req.ip;
+    return { ip: ip ?? undefined, userAgent: req.headers['user-agent'] ?? undefined };
   }
 
   private streamPdf(

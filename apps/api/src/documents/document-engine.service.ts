@@ -1,29 +1,21 @@
 import { Injectable } from '@nestjs/common';
-import type { DocumentLanguage, DocumentType, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { BrandingService } from './branding.service';
 import { PdfRenderer, type RenderedPdf } from './pdf/pdf-renderer';
 import { DocumentRepository, type DocumentMeta } from './document.repository';
+import { isDynamic } from './document-strategy';
+import type { BuiltDocument, DocumentParams } from './document.types';
 import type { BrandingContext, DocumentLayout } from './pdf/document-layout';
 
-export interface GenerateInput {
-  layout: DocumentLayout;
-  language: DocumentLanguage;
-  archive: {
-    type: DocumentType;
-    studentId?: string | null;
-    parentId?: string | null;
-    academicYearId?: string | null;
-    enrollmentId?: string | null;
-    transactionId?: string | null;
-    dataSnapshot: Prisma.InputJsonValue;
-  };
-}
-
 /**
- * The reusable Document Engine core (Part 3): collect-data → merge-branding → render-PDF →
- * store-snapshot → archive. Templates produce a {@link DocumentLayout}; this turns it into a
- * branded, immutable, archived PDF and returns the archive metadata. Shared by every finance
- * document and by the registration-agreement flow (which adds versioning on top).
+ * The reusable Document Engine core (Part 3 + Phase 23b). It applies the per-type persistence
+ * strategy:
+ *
+ *  • SNAPSHOT — render the PDF and archive it immutably (legal records).
+ *  • DYNAMIC  — persist metadata + re-render params only; the PDF is produced on demand and
+ *    discarded (operational reports). No binary storage, no duplicate financial data.
+ *
+ * Shared by the finance builders and the registration-agreement flow (which adds versioning).
  */
 @Injectable()
 export class DocumentEngineService {
@@ -42,20 +34,44 @@ export class DocumentEngineService {
     return this.renderer.render(layout, branding);
   }
 
-  /** Full path: render a layout with the tenant's branding and archive it immutably. */
-  async generate(input: GenerateInput): Promise<DocumentMeta> {
+  /** Render a built document to a PDF buffer using the tenant's branding (streaming/on-demand). */
+  async renderBuilt(built: BuiltDocument): Promise<RenderedPdf> {
     const branding = await this.branding.forTenant();
-    const rendered = await this.renderer.render(input.layout, branding);
+    return this.renderer.render(built.layout, branding);
+  }
+
+  /**
+   * Persist a built document according to its strategy and return the archive metadata. SNAPSHOT
+   * documents store the rendered PDF; DYNAMIC documents store metadata + `params` only (re-rendered
+   * on demand). The GENERATE access event is recorded by the repository in the same transaction.
+   */
+  async persist(built: BuiltDocument, params: DocumentParams): Promise<DocumentMeta> {
+    if (isDynamic(built.type)) {
+      return this.repo.persistDynamicMetadata({
+        type: built.type,
+        title: built.layout.title,
+        language: built.language,
+        studentId: built.studentId ?? null,
+        parentId: built.parentId ?? null,
+        academicYearId: built.academicYearId ?? null,
+        enrollmentId: built.enrollmentId ?? null,
+        transactionId: built.transactionId ?? null,
+        params: params as unknown as Prisma.InputJsonValue,
+      });
+    }
+    // SNAPSHOT: render once and archive the immutable PDF.
+    const branding = await this.branding.forTenant();
+    const rendered = await this.renderer.render(built.layout, branding);
     return this.repo.archiveDocument({
-      type: input.archive.type,
-      title: input.layout.title,
-      language: input.language,
-      studentId: input.archive.studentId ?? null,
-      parentId: input.archive.parentId ?? null,
-      academicYearId: input.archive.academicYearId ?? null,
-      enrollmentId: input.archive.enrollmentId ?? null,
-      transactionId: input.archive.transactionId ?? null,
-      dataSnapshot: input.archive.dataSnapshot,
+      type: built.type,
+      title: built.layout.title,
+      language: built.language,
+      studentId: built.studentId ?? null,
+      parentId: built.parentId ?? null,
+      academicYearId: built.academicYearId ?? null,
+      enrollmentId: built.enrollmentId ?? null,
+      transactionId: built.transactionId ?? null,
+      ...(built.dataSnapshot !== undefined ? { dataSnapshot: built.dataSnapshot } : {}),
       pdf: rendered.buffer,
       checksum: rendered.checksum,
       byteSize: rendered.byteSize,

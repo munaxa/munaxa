@@ -6,9 +6,11 @@ import { useToast } from '@/components/toast';
 import {
   documentsApi,
   type AcademicYearOption,
+  type DocumentAccessLog,
   type DocumentMeta,
   type DocumentType,
   type DocumentLanguage,
+  type EmailDocumentInput,
   type FeeItemKind,
   type RegistrationAgreementRow,
 } from '@/lib/documents';
@@ -20,8 +22,10 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  Dialog,
   EmptyState,
   Field,
+  Input,
   Select,
   Spinner,
   Table,
@@ -76,6 +80,23 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
   const [language, setLanguage] = useState<DocumentLanguage>('EN');
   const [yearId, setYearId] = useState('');
   const [includeKinds, setIncludeKinds] = useState<Set<FeeItemKind>>(new Set());
+
+  // Email dialog state.
+  const [emailDoc, setEmailDoc] = useState<DocumentMeta | null>(null);
+  const [emailForm, setEmailForm] = useState({
+    includePrimaryParent: true,
+    includeSecondaryParent: false,
+    includeGuardian: false,
+    to: '',
+    cc: '',
+    subject: '',
+    message: '',
+  });
+  const [sending, setSending] = useState(false);
+
+  // Access-history dialog state.
+  const [historyDoc, setHistoryDoc] = useState<DocumentMeta | null>(null);
+  const [history, setHistory] = useState<DocumentAccessLog[] | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,14 +172,57 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
     }
   }
 
-  async function emailDoc(id: string) {
-    const to = window.prompt(t('studentProfile.emailPrompt') || 'Recipient email');
-    if (!to) return;
-    await withBusy(`email-${id}`, async () => {
-      await documentsApi.email(id, to);
-      toast.success(t('studentProfile.documentEmailed'));
-      await load();
+  function openEmail(doc: DocumentMeta) {
+    setEmailForm({
+      includePrimaryParent: true,
+      includeSecondaryParent: false,
+      includeGuardian: false,
+      to: '',
+      cc: '',
+      subject: '',
+      message: '',
     });
+    setEmailDoc(doc);
+  }
+
+  async function sendEmail() {
+    if (!emailDoc) return;
+    const split = (v: string) =>
+      v
+        .split(/[,;\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    const input: EmailDocumentInput = {
+      includePrimaryParent: emailForm.includePrimaryParent,
+      includeSecondaryParent: emailForm.includeSecondaryParent,
+      includeGuardian: emailForm.includeGuardian,
+      ...(split(emailForm.to).length ? { to: split(emailForm.to) } : {}),
+      ...(split(emailForm.cc).length ? { cc: split(emailForm.cc) } : {}),
+      ...(emailForm.subject.trim() ? { subject: emailForm.subject.trim() } : {}),
+      ...(emailForm.message.trim() ? { message: emailForm.message.trim() } : {}),
+    };
+    setSending(true);
+    try {
+      await documentsApi.email(emailDoc.id, input);
+      toast.success(t('studentProfile.documentEmailed'));
+      setEmailDoc(null);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Email failed');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function openHistory(doc: DocumentMeta) {
+    setHistoryDoc(doc);
+    setHistory(null);
+    try {
+      setHistory(await documentsApi.history(doc.id));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to load history');
+      setHistory([]);
+    }
   }
 
   if (loading) {
@@ -335,6 +399,8 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                 <TH>{t('studentProfile.receiptNo')}</TH>
                 <TH>{t('studentProfile.language')}</TH>
                 <TH className="text-end">{t('studentProfile.printed')}</TH>
+                <TH className="text-end">{t('studentProfile.downloaded')}</TH>
+                <TH className="text-end">{t('studentProfile.emailed')}</TH>
                 <TH>{t('studentProfile.generatedAt')}</TH>
                 <TH className="text-end">{t('common.actions')}</TH>
               </TR>
@@ -344,6 +410,9 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                 <TR key={d.id}>
                   <TD>
                     {typeLabel(d.type)}
+                    <Badge tone={d.persistence === 'SNAPSHOT' ? 'success' : 'muted'} className="ms-2">
+                      {d.persistence}
+                    </Badge>
                     {d.status !== 'ARCHIVED' ? (
                       <Badge tone="muted" className="ms-2">
                         {d.status}
@@ -353,6 +422,8 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                   <TD className="font-mono text-xs">DOC-{docNo(d.documentNo)}</TD>
                   <TD className="font-mono text-xs">{d.language}</TD>
                   <TD className="text-end font-mono">{d.printedCount}</TD>
+                  <TD className="text-end font-mono">{d.downloadCount}</TD>
+                  <TD className="text-end font-mono">{d.emailCount}</TD>
                   <TD className="whitespace-nowrap font-mono text-xs">{dateStr(d.generatedAt)}</TD>
                   <TD className="text-end">
                     <div className="flex justify-end gap-1">
@@ -372,13 +443,11 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                       >
                         {t('studentProfile.printReceipt')}
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={busy !== null}
-                        onClick={() => void emailDoc(d.id)}
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => openEmail(d)}>
                         {t('studentProfile.emailDocument')}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => void openHistory(d)}>
+                        {t('studentProfile.accessHistory')}
                       </Button>
                     </div>
                   </TD>
@@ -386,7 +455,7 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
               ))}
               {docs.length === 0 ? (
                 <TR>
-                  <TD colSpan={6}>
+                  <TD colSpan={8}>
                     <EmptyState title={t('studentProfile.noDocuments')} />
                   </TD>
                 </TR>
@@ -395,6 +464,107 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Email dialog */}
+      <Dialog
+        open={emailDoc !== null}
+        onClose={() => setEmailDoc(null)}
+        title={t('studentProfile.emailDocument')}
+        description={emailDoc?.title ?? ''}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setEmailDoc(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button size="sm" disabled={sending} onClick={() => void sendEmail()}>
+              {sending ? t('common.recording') : t('studentProfile.sendEmail')}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Checkbox
+              label={t('studentProfile.primaryParent')}
+              checked={emailForm.includePrimaryParent}
+              onChange={(e) => setEmailForm({ ...emailForm, includePrimaryParent: e.target.checked })}
+            />
+            <Checkbox
+              label={t('studentProfile.secondaryParent')}
+              checked={emailForm.includeSecondaryParent}
+              onChange={(e) =>
+                setEmailForm({ ...emailForm, includeSecondaryParent: e.target.checked })
+              }
+            />
+            <Checkbox
+              label={t('studentProfile.guardian')}
+              checked={emailForm.includeGuardian}
+              onChange={(e) => setEmailForm({ ...emailForm, includeGuardian: e.target.checked })}
+            />
+          </div>
+          <Field label={t('studentProfile.customEmails')}>
+            <Input
+              value={emailForm.to}
+              placeholder="a@example.com, b@example.com"
+              onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
+            />
+          </Field>
+          <Field label="CC">
+            <Input value={emailForm.cc} onChange={(e) => setEmailForm({ ...emailForm, cc: e.target.value })} />
+          </Field>
+          <Field label={t('studentProfile.subject')}>
+            <Input
+              value={emailForm.subject}
+              onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
+            />
+          </Field>
+          <Field label={t('studentProfile.message')}>
+            <Input
+              value={emailForm.message}
+              onChange={(e) => setEmailForm({ ...emailForm, message: e.target.value })}
+            />
+          </Field>
+        </div>
+      </Dialog>
+
+      {/* Access-history dialog */}
+      <Dialog
+        open={historyDoc !== null}
+        onClose={() => setHistoryDoc(null)}
+        title={t('studentProfile.accessHistory')}
+        description={historyDoc?.title ?? ''}
+      >
+        {history === null ? (
+          <div className="flex justify-center py-6">
+            <Spinner />
+          </div>
+        ) : history.length === 0 ? (
+          <EmptyState title={t('studentProfile.noDocuments')} />
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>{t('common.actions')}</TH>
+                <TH>{t('common.status')}</TH>
+                <TH>{t('finance.date')}</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {history.map((h) => (
+                <TR key={h.id}>
+                  <TD>{h.action}</TD>
+                  <TD>
+                    <Badge tone={h.status === 'SUCCESS' ? 'success' : 'danger'}>{h.status}</Badge>
+                  </TD>
+                  <TD className="whitespace-nowrap font-mono text-xs">
+                    {new Date(h.createdAt).toLocaleString()}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </Dialog>
     </div>
   );
 }

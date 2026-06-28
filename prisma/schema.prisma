@@ -452,6 +452,8 @@ model Tenant {
   generatedDocuments       GeneratedDocument[]
   registrationAgreements   RegistrationAgreement[]
   documentSequences        DocumentSequence[]
+  documentAccessLogs       DocumentAccessLog[]
+  documentEmailLogs        DocumentEmailLog[]
 
   @@index([status])
 }
@@ -3093,6 +3095,29 @@ enum RegistrationAgreementStatus {
   ARCHIVED
 }
 
+/// Persistence strategy for a document type (Phase 23b). SNAPSHOT = legal record: the rendered PDF
+/// is stored immutably and reprints serve the stored bytes. DYNAMIC = operational report: only
+/// metadata is stored; the PDF is rendered on demand from live ledger data and discarded after.
+enum DocumentPersistence {
+  SNAPSHOT
+  DYNAMIC
+}
+
+/// An action recorded against a document for the access history (Phase 23b).
+enum DocumentAccessAction {
+  GENERATE
+  PRINT
+  DOWNLOAD
+  EMAIL
+  VIEW
+}
+
+/// Outcome of a document access action.
+enum DocumentAccessStatus {
+  SUCCESS
+  FAILED
+}
+
 /// Gapless, per-tenant, per-scope counter (one row per tenant+scope). Mirrors the
 /// FinanceReceiptCounter/EInvoiceCounter pattern so document/agreement numbers are
 /// sequential with no gaps or duplicates. `scope` is e.g. "AGREEMENT" or "DOC:PAYMENT_RECEIPT".
@@ -3107,15 +3132,18 @@ model DocumentSequence {
   @@unique([tenantId, scope])
 }
 
-/// An immutable, archived official document. The rendered PDF is stored in `pdf` (bytea) so
-/// reprints serve the exact stored snapshot — never a re-render from live data. `dataSnapshot`
-/// captures the data the PDF was built from (audit/forensics + future re-render). Tenant-scoped
-/// (RLS). Every print/download/email is audited and `printedCount`/`lastPrintedAt` are tracked.
+/// An archived official document record (Phase 23 + 23b). For SNAPSHOT documents (legal records) the
+/// rendered PDF is stored in `pdf` (bytea) so reprints serve the exact stored snapshot. For DYNAMIC
+/// documents (operational reports) `pdf`/`checksum`/`byteSize` are NULL — only metadata is kept and
+/// the PDF is re-rendered on demand from live ledger data (using `params`) and discarded. `params`
+/// captures the inputs needed to re-render a DYNAMIC document; `dataSnapshot` captures the data a
+/// SNAPSHOT PDF was built from. Tenant-scoped (RLS); every action is recorded in DocumentAccessLog.
 model GeneratedDocument {
   id           String                  @id @default(uuid()) @db.Uuid
   tenantId     String                  @db.Uuid
   documentNo   Int // gapless per tenant+type
   type         DocumentType
+  persistence  DocumentPersistence     @default(SNAPSHOT)
   title        String
   language     DocumentLanguage        @default(EN)
   status       GeneratedDocumentStatus @default(ARCHIVED)
@@ -3128,29 +3156,87 @@ model GeneratedDocument {
   enrollmentId   String? @db.Uuid
   transactionId  String? @db.Uuid
 
-  // Immutable snapshot + rendered artifact.
-  dataSnapshot Json
-  pdf          Bytes
-  checksum     String // sha256 hex of the stored PDF
-  byteSize     Int
+  // SNAPSHOT: the immutable data + rendered artifact. DYNAMIC: these are NULL.
+  dataSnapshot Json?
+  pdf          Bytes?
+  checksum     String? // sha256 hex of the stored PDF (SNAPSHOT only)
+  byteSize     Int?
+  // DYNAMIC: the inputs needed to re-render the PDF on demand from live data.
+  params       Json?
 
-  printedCount  Int       @default(0)
-  lastPrintedAt DateTime? @db.Timestamptz(6)
-  generatedById String?   @db.Uuid
-  generatedAt   DateTime  @default(now()) @db.Timestamptz(6)
-  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+  // Access counters (denormalised cache of DocumentAccessLog for fast listing/UI).
+  printedCount       Int       @default(0)
+  downloadCount      Int       @default(0)
+  emailCount         Int       @default(0)
+  lastPrintedAt      DateTime? @db.Timestamptz(6)
+  lastDownloadedAt   DateTime? @db.Timestamptz(6)
+  lastEmailedAt      DateTime? @db.Timestamptz(6)
+  lastPrintedById    String?   @db.Uuid
+  lastDownloadedById String?   @db.Uuid
+  lastEmailedById    String?   @db.Uuid
+  generatedById      String?   @db.Uuid
+  generatedAt        DateTime  @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student      Student?      @relation(fields: [studentId], references: [id], onDelete: SetNull)
-  parent       Parent?       @relation(fields: [parentId], references: [id], onDelete: SetNull)
-  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student      Student?               @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  parent       Parent?                @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear?          @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
   agreement    RegistrationAgreement?
+  accessLogs   DocumentAccessLog[]
+  emailLogs    DocumentEmailLog[]
 
   @@unique([tenantId, type, documentNo])
   @@index([tenantId, type])
   @@index([tenantId, studentId])
   @@index([tenantId, generatedAt])
+}
+
+/// Complete per-action access history for a document (Phase 23b): generation, print, download,
+/// email and view events, with the actor and request context. The counters on GeneratedDocument are
+/// a denormalised cache of these rows. Tenant-scoped (RLS); each row mirrors an AuditLog entry.
+model DocumentAccessLog {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @db.Uuid
+  documentId  String               @db.Uuid
+  documentType DocumentType
+  action      DocumentAccessAction
+  status      DocumentAccessStatus @default(SUCCESS)
+  actorUserId String?              @db.Uuid
+  ip          String?
+  userAgent   String?
+  device      String?
+  detail      String?
+  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId, createdAt])
+  @@index([tenantId, action])
+}
+
+/// Email-delivery history for a document (Phase 23b) — metadata only; the PDF attachment is never
+/// stored (re-attached from the snapshot or re-rendered for dynamic docs). Tenant-scoped (RLS).
+model DocumentEmailLog {
+  id               String               @id @default(uuid()) @db.Uuid
+  tenantId         String               @db.Uuid
+  documentId       String               @db.Uuid
+  sentById         String?              @db.Uuid
+  recipients       String[]
+  cc               String[]
+  bcc              String[]
+  subject          String?
+  providerResponse String?
+  status           DocumentAccessStatus @default(SUCCESS)
+  retryCount       Int                  @default(0)
+  sentAt           DateTime             @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId, sentAt])
 }
 
 /// A registration agreement — the legal commitment between the school and the parent, created

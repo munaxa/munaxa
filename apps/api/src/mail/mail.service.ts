@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Env } from '../config/env.validation';
 
 export interface SendMailInput {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   /** Plain-text alternative (multipart). Recommended for deliverability + non-HTML clients. */
@@ -12,6 +12,10 @@ export interface SendMailInput {
   from?: string;
   /** Reply-To address (e.g. the tenant support inbox from NotificationSettings). */
   replyTo?: string;
+  /** Carbon-copy recipients. */
+  cc?: string[];
+  /** Blind carbon-copy recipients. */
+  bcc?: string[];
   /** Optional file attachments (e.g. a generated PDF document). */
   attachments?: Array<{ filename: string; content: Buffer }>;
 }
@@ -37,17 +41,20 @@ export class MailService {
     const apiKey = this.config.get('RESEND_API_KEY', { infer: true });
     if (!apiKey) return { sent: false };
 
+    const recipients = Array.isArray(input.to) ? input.to.join(', ') : input.to;
     try {
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           from: input.from ?? this.config.get('EMAIL_FROM', { infer: true }),
-          to: [input.to],
+          to: Array.isArray(input.to) ? input.to : [input.to],
           subject: input.subject,
           html: input.html,
           ...(input.text ? { text: input.text } : {}),
           ...(input.replyTo ? { reply_to: input.replyTo } : {}),
+          ...(input.cc && input.cc.length > 0 ? { cc: input.cc } : {}),
+          ...(input.bcc && input.bcc.length > 0 ? { bcc: input.bcc } : {}),
           ...(input.attachments && input.attachments.length > 0
             ? {
                 attachments: input.attachments.map((a) => ({
@@ -59,14 +66,14 @@ export class MailService {
         }),
       });
       if (!res.ok) {
-        this.logger.warn(`Resend rejected mail to ${input.to} (${res.status})`);
+        this.logger.warn(`Resend rejected mail to ${recipients} (${res.status})`);
         return { sent: false };
       }
-      this.logger.log(`Sent "${input.subject}" to ${input.to}`);
+      this.logger.log(`Sent "${input.subject}" to ${recipients}`);
       return { sent: true };
     } catch (err) {
       this.logger.warn(
-        `Failed to send mail to ${input.to}: ${err instanceof Error ? err.message : 'unknown'}`,
+        `Failed to send mail to ${recipients}: ${err instanceof Error ? err.message : 'unknown'}`,
       );
       return { sent: false };
     }

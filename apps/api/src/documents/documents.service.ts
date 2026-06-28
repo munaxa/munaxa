@@ -5,19 +5,29 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DocumentLanguage, DocumentType } from '@prisma/client';
+import {
+  DocumentAccessAction,
+  DocumentAccessStatus,
+  DocumentLanguage,
+  DocumentType,
+} from '@prisma/client';
 import type { Env } from '../config/env.validation';
 import { MailService } from '../mail/mail.service';
 import { DocumentRepository, type DocumentMeta } from './document.repository';
 import { FinanceDocumentsService } from './finance-documents.service';
 import { RegistrationAgreementService } from './registration-agreement.service';
+import { DocumentEngineService } from './document-engine.service';
+import type { AccessContext, DocumentParams } from './document.types';
 import type { EmailDocumentDto, GenerateAgreementDto, GenerateDocumentDto } from './documents.dto';
 import { docNumber } from './templates/util';
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 /**
- * Document Engine orchestrator: the single entry point the API/UI talk to. Dispatches generation by
- * type, lists the archive, and serves stored snapshots for print/download/email — each of which is
- * audited (Part 8). Reprints always return the exact stored PDF, never a re-render.
+ * Document Engine orchestrator (Phase 23 + 23b). Single entry point for the API/UI. Applies the
+ * persistence strategy: SNAPSHOT documents are served from the stored PDF; DYNAMIC documents are
+ * re-rendered from the live ledger on every print/download/email and discarded. Every action is
+ * recorded in DocumentAccessLog + the audit log.
  */
 @Injectable()
 export class DocumentsService {
@@ -25,51 +35,33 @@ export class DocumentsService {
     private readonly repo: DocumentRepository,
     private readonly finance: FinanceDocumentsService,
     private readonly agreements: RegistrationAgreementService,
+    private readonly engine: DocumentEngineService,
     private readonly mail: MailService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
-  generate(dto: GenerateDocumentDto): Promise<DocumentMeta> {
-    const language = dto.language ?? DocumentLanguage.EN;
-    switch (dto.type) {
-      case DocumentType.PAYMENT_RECEIPT:
-        if (!dto.transactionId) throw new BadRequestException('transactionId is required for a receipt');
-        return this.finance.paymentReceipt(dto.transactionId, language);
-      case DocumentType.ANNUAL_TUITION_CERTIFICATE:
-        if (!dto.academicYearId)
-          throw new BadRequestException('academicYearId is required for a tuition certificate');
-        return this.finance.annualTuitionCertificate(
-          dto.studentId,
-          { academicYearId: dto.academicYearId, ...(dto.includeKinds ? { includeKinds: dto.includeKinds } : {}) },
-          language,
-        );
-      case DocumentType.OUTSTANDING_BALANCE_CERTIFICATE:
-        return this.finance.outstandingBalanceCertificate(dto.studentId, language);
-      case DocumentType.CLEARANCE_CERTIFICATE:
-        return this.finance.clearanceCertificate(dto.studentId, language);
-      case DocumentType.ACCOUNT_STATEMENT:
-        return this.finance.accountStatement(dto.studentId, language);
-      case DocumentType.PAYMENT_HISTORY:
-        return this.finance.paymentHistory(dto.studentId, language);
-      case DocumentType.FEE_BREAKDOWN:
-        return this.finance.feeBreakdown(dto.studentId, language);
-      case DocumentType.STUDENT_FINANCIAL_SUMMARY:
-        return this.finance.studentFinancialSummary(dto.studentId, language);
-      case DocumentType.REGISTRATION_AGREEMENT:
-        throw new BadRequestException(
-          'Use POST /documents/agreements to (re)generate a registration agreement',
-        );
-      default:
-        throw new BadRequestException('Unsupported document type');
+  /** Generate (and persist per strategy) a finance document. Registration agreements use their own
+   * versioned flow (POST /documents/agreements). */
+  async generate(dto: GenerateDocumentDto): Promise<DocumentMeta> {
+    if (dto.type === DocumentType.REGISTRATION_AGREEMENT) {
+      throw new BadRequestException(
+        'Use POST /documents/agreements to (re)generate a registration agreement',
+      );
     }
+    const params: DocumentParams = {
+      type: dto.type,
+      language: dto.language ?? DocumentLanguage.EN,
+      ...(dto.studentId ? { studentId: dto.studentId } : {}),
+      ...(dto.transactionId ? { transactionId: dto.transactionId } : {}),
+      ...(dto.academicYearId ? { academicYearId: dto.academicYearId } : {}),
+      ...(dto.includeKinds ? { includeKinds: dto.includeKinds } : {}),
+    };
+    const built = await this.finance.build(params);
+    return this.engine.persist(built, params);
   }
 
   async generateAgreement(dto: GenerateAgreementDto) {
-    const { agreement, document } = await this.agreements.generate(
-      dto.enrollmentId,
-      dto.language ?? DocumentLanguage.EN,
-    );
-    return { agreement, document };
+    return this.agreements.generate(dto.enrollmentId, dto.language ?? DocumentLanguage.EN);
   }
 
   list(filter: { studentId?: string; type?: DocumentType; enrollmentId?: string }) {
@@ -90,34 +82,123 @@ export class DocumentsService {
     return this.repo.academicYears();
   }
 
-  download(id: string) {
-    return this.repo.download(id);
+  accessHistory(id: string) {
+    return this.repo.accessHistory(id);
   }
 
-  print(id: string) {
-    return this.repo.print(id);
+  /** Produce the PDF for a document WITHOUT recording an access action. SNAPSHOT → stored bytes;
+   * DYNAMIC → re-render from live data using the stored params. */
+  private async produce(id: string): Promise<{ meta: DocumentMeta; pdf: Buffer }> {
+    const { meta, persistence, pdf, params } = await this.repo.documentForServe(id);
+    if (persistence === 'SNAPSHOT') {
+      if (!pdf) throw new NotFoundException('Stored document PDF is missing');
+      return { meta, pdf };
+    }
+    // DYNAMIC: rebuild from the live ledger using the persisted params.
+    if (!params) throw new BadRequestException('Document cannot be regenerated (missing params)');
+    const built = await this.finance.build(params as DocumentParams);
+    const rendered = await this.engine.renderBuilt(built);
+    return { meta, pdf: rendered.buffer };
   }
 
-  /** Email the stored PDF as an attachment, then audit the send. */
-  async email(id: string, dto: EmailDocumentDto): Promise<{ sent: boolean }> {
-    const { meta, pdf } = await this.repo.pdfFor(id);
+  async download(id: string, ctx?: AccessContext): Promise<{ meta: DocumentMeta; pdf: Buffer }> {
+    const out = await this.produce(id);
+    await this.repo.recordAccess(id, DocumentAccessAction.DOWNLOAD, ctx);
+    return out;
+  }
+
+  async print(id: string, ctx?: AccessContext): Promise<{ meta: DocumentMeta; pdf: Buffer }> {
+    const out = await this.produce(id);
+    await this.repo.recordAccess(id, DocumentAccessAction.PRINT, ctx);
+    return out;
+  }
+
+  /**
+   * Email a document. Recipients are resolved from the requested parent roles (primary parent by
+   * default) plus any explicit custom addresses. SNAPSHOT docs attach the stored PDF; DYNAMIC docs
+   * are rendered immediately before sending and the attachment is never archived.
+   */
+  async email(id: string, dto: EmailDocumentDto, ctx?: AccessContext): Promise<{ sent: boolean }> {
+    const { meta, pdf } = await this.produce(id);
+    const { to, cc, bcc } = await this.resolveRecipients(meta, dto);
+    if (to.length === 0) {
+      throw new BadRequestException('No recipient email available (no parent email on file)');
+    }
+
     const filename = `${meta.type.toLowerCase()}-${docNumber('DOC', meta.documentNo)}.pdf`;
-    const subject = meta.title;
+    const subject = dto.subject?.trim() || meta.title;
     const html =
       `<p>Dear parent,</p><p>Please find attached your document: <strong>${meta.title}</strong>.</p>` +
-      `${dto.message ? `<p>${dto.message}</p>` : ''}<p>Thank you.</p>`;
+      `${dto.message ? `<p>${this.escapeHtml(dto.message)}</p>` : ''}<p>Thank you.</p>`;
     const from = this.config.get('EMAIL_FROM_FINANCE', { infer: true });
-    const { sent } = await this.mail.send({
-      to: dto.to,
-      subject,
-      html,
-      ...(from ? { from } : {}),
-      attachments: [{ filename, content: pdf }],
-    });
-    if (!sent) {
-      throw new ServiceUnavailableException('Email could not be sent (mail service unavailable)');
+
+    let sent = false;
+    let providerError: string | null = null;
+    try {
+      const res = await this.mail.send({
+        to,
+        subject,
+        html,
+        ...(from ? { from } : {}),
+        ...(dto.replyTo ? { replyTo: dto.replyTo } : {}),
+        ...(cc.length > 0 ? { cc } : {}),
+        ...(bcc.length > 0 ? { bcc } : {}),
+        attachments: [{ filename, content: pdf }],
+      });
+      sent = res.sent;
+    } catch (err) {
+      providerError = err instanceof Error ? err.message : 'send failed';
     }
-    await this.repo.logEmail(id, dto.to);
+
+    const status = sent ? DocumentAccessStatus.SUCCESS : DocumentAccessStatus.FAILED;
+    await this.repo.logDocumentEmail({
+      documentId: id,
+      recipients: to,
+      cc,
+      bcc,
+      subject,
+      providerResponse: providerError,
+      status,
+    });
+    await this.repo.recordAccess(id, DocumentAccessAction.EMAIL, ctx, status);
+
+    if (!sent) {
+      throw new ServiceUnavailableException(
+        providerError ?? 'Email could not be sent (mail service unavailable)',
+      );
+    }
     return { sent };
+  }
+
+  /** Resolve the final recipient/cc/bcc lists from requested parent roles + explicit addresses. */
+  private async resolveRecipients(
+    meta: DocumentMeta,
+    dto: EmailDocumentDto,
+  ): Promise<{ to: string[]; cc: string[]; bcc: string[] }> {
+    // Primary parent is the default recipient unless the caller specified another recipient.
+    const otherSpecified =
+      (dto.to?.length ?? 0) > 0 || Boolean(dto.includeSecondaryParent) || Boolean(dto.includeGuardian);
+    const includePrimary = dto.includePrimaryParent ?? !otherSpecified;
+
+    const needRoles = includePrimary || dto.includeSecondaryParent || dto.includeGuardian;
+    const roles = needRoles && meta.studentId
+      ? await this.repo.recipientEmails(meta.studentId)
+      : { primary: null, secondary: null, guardian: null };
+
+    const to = new Set<string>();
+    if (includePrimary && roles.primary) to.add(roles.primary);
+    if (dto.includeSecondaryParent && roles.secondary) to.add(roles.secondary);
+    if (dto.includeGuardian && roles.guardian) to.add(roles.guardian);
+    for (const e of dto.to ?? []) if (EMAIL_RE.test(e)) to.add(e.trim());
+
+    const cc = (dto.cc ?? []).filter((e) => EMAIL_RE.test(e)).map((e) => e.trim());
+    const bcc = (dto.bcc ?? []).filter((e) => EMAIL_RE.test(e)).map((e) => e.trim());
+    return { to: [...to], cc, bcc };
+  }
+
+  private escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c,
+    );
   }
 }

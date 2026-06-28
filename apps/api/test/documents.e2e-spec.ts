@@ -100,17 +100,27 @@ describe('Documents / Document Engine (e2e)', () => {
 
   let documentId: string;
 
-  it('generates & archives an account statement from the ledger', async () => {
+  it('generates a DYNAMIC account statement (metadata only — no stored PDF)', async () => {
     const res = await http()
       .post('/api/v1/documents/generate')
       .set(auth(financeToken))
       .send({ type: 'ACCOUNT_STATEMENT', studentId, language: 'EN' })
       .expect(201);
     expect(res.body.type).toBe('ACCOUNT_STATEMENT');
+    expect(res.body.persistence).toBe('DYNAMIC');
     expect(res.body.documentNo).toBeGreaterThanOrEqual(1);
-    expect(res.body.checksum).toMatch(/^[a-f0-9]{64}$/);
-    expect(res.body.byteSize).toBeGreaterThan(0);
+    // DYNAMIC documents store no PDF, so no checksum/byteSize are persisted.
+    expect(res.body.checksum ?? null).toBeNull();
+    expect(res.body.byteSize ?? null).toBeNull();
     documentId = res.body.id;
+  });
+
+  it('stores no PDF bytea for a DYNAMIC document', async () => {
+    const row = await withPlatform(prisma, (tx) =>
+      tx.generatedDocument.findFirst({ where: { id: documentId }, select: { pdf: true, params: true } }),
+    );
+    expect(row?.pdf ?? null).toBeNull();
+    expect(row?.params).toBeTruthy(); // re-render params are persisted instead
   });
 
   it('lists the archive for the student', async () => {
@@ -121,7 +131,7 @@ describe('Documents / Document Engine (e2e)', () => {
     expect(res.body.some((d: { id: string }) => d.id === documentId)).toBe(true);
   });
 
-  it('downloads the stored PDF snapshot', async () => {
+  it('re-renders the DYNAMIC document live on download', async () => {
     const res = await http()
       .get(`/api/v1/documents/${documentId}/download`)
       .set(auth(financeToken))
@@ -137,11 +147,35 @@ describe('Documents / Document Engine (e2e)', () => {
       .set(auth(financeToken))
       .expect(200);
     expect(meta.body.printedCount).toBeGreaterThanOrEqual(1);
+    expect(meta.body.downloadCount).toBeGreaterThanOrEqual(1); // from the download test above
 
     const prints = await withPlatform(prisma, (tx) =>
       tx.auditLog.count({ where: { tenantId: TENANT, action: 'document.print' } }),
     );
     expect(prints).toBeGreaterThanOrEqual(1);
+  });
+
+  it('records a full per-action access history', async () => {
+    const res = await http()
+      .get(`/api/v1/documents/${documentId}/history`)
+      .set(auth(financeToken))
+      .expect(200);
+    const actions = (res.body as Array<{ action: string }>).map((r) => r.action);
+    expect(actions).toEqual(expect.arrayContaining(['GENERATE', 'DOWNLOAD', 'PRINT']));
+  });
+
+  it('logs email delivery metadata (mail unavailable in tests → FAILED, no throw on logging)', async () => {
+    // No RESEND_API_KEY in tests, so the send is a no-op and the endpoint reports unavailable (503),
+    // but the attempt is still recorded as a DocumentEmailLog + an EMAIL access entry.
+    await http()
+      .post(`/api/v1/documents/${documentId}/email`)
+      .set(auth(financeToken))
+      .send({ to: ['guardian@example.com'] })
+      .expect(503);
+    const emailLogs = await withPlatform(prisma, (tx) =>
+      tx.documentEmailLog.count({ where: { tenantId: TENANT, documentId } }),
+    );
+    expect(emailLogs).toBeGreaterThanOrEqual(1);
   });
 
   it('audits generation and download', async () => {

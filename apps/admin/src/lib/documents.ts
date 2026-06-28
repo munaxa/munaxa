@@ -28,10 +28,13 @@ export type FeeItemKind =
   | 'TRANSPORT'
   | 'CUSTOM';
 
+export type DocumentPersistence = 'SNAPSHOT' | 'DYNAMIC';
+
 export interface DocumentMeta {
   id: string;
   documentNo: number;
   type: DocumentType;
+  persistence: DocumentPersistence;
   title: string;
   language: DocumentLanguage;
   status: 'ARCHIVED' | 'SUPERSEDED' | 'CANCELLED';
@@ -40,11 +43,37 @@ export interface DocumentMeta {
   academicYearId?: string | null;
   enrollmentId?: string | null;
   transactionId?: string | null;
-  checksum: string;
-  byteSize: number;
+  checksum?: string | null;
+  byteSize?: number | null;
   printedCount: number;
+  downloadCount: number;
+  emailCount: number;
   lastPrintedAt?: string | null;
+  lastDownloadedAt?: string | null;
+  lastEmailedAt?: string | null;
   generatedAt: string;
+}
+
+export interface DocumentAccessLog {
+  id: string;
+  action: 'GENERATE' | 'PRINT' | 'DOWNLOAD' | 'EMAIL' | 'VIEW';
+  status: 'SUCCESS' | 'FAILED';
+  actorUserId?: string | null;
+  ip?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+}
+
+export interface EmailDocumentInput {
+  to?: string[];
+  includePrimaryParent?: boolean;
+  includeSecondaryParent?: boolean;
+  includeGuardian?: boolean;
+  cc?: string[];
+  bcc?: string[];
+  replyTo?: string;
+  subject?: string;
+  message?: string;
 }
 
 export interface RegistrationAgreementRow {
@@ -132,9 +161,12 @@ export const documentsApi = {
 
   print: (id: string) => authFetch(`/documents/${id}/print`, { method: 'POST', body: '{}' }).then(openPdf),
 
-  email: (id: string, to: string, message?: string) =>
+  email: (id: string, input: EmailDocumentInput) =>
     authFetch(`/documents/${id}/email`, {
       method: 'POST',
-      body: JSON.stringify({ to, ...(message ? { message } : {}) }),
+      body: JSON.stringify(input),
     }).then((r) => json<{ sent: boolean }>(r)),
+
+  history: (id: string) =>
+    authFetch(`/documents/${id}/history`).then((r) => json<DocumentAccessLog[]>(r)),
 };

@@ -74,6 +74,45 @@ in a deterministic priority order (tuition first), capped at each category's net
 (`templates/tuition-calc.ts`). Wording is generic and tenant-configurable — there is **no hardcoded
 reference to any country's tax authority**, so it localizes beyond Jordan.
 
+## Persistence strategy (Phase 23b — storage optimisation)
+
+Each document type declares a **persistence strategy** in `document-strategy.ts`; the engine needs no
+other change to add a type:
+
+| Strategy | Used by | Storage | On print/download/email |
+|----------|---------|---------|--------------------------|
+| **SNAPSHOT** | Registration Agreement (legal records) | Rendered PDF stored immutably (`pdf` bytea + `checksum` + `byteSize`) + versioned archive | Serves the **stored** bytes (never re-rendered) |
+| **DYNAMIC** | All finance documents (receipts, certificates, statements) | **Metadata only** — `pdf`/`checksum`/`byteSize` are NULL; `params` holds the re-render inputs | **Re-rendered live** from the billing ledger each time, then discarded |
+
+This removes archived PDFs (and their unbounded DB growth) for every operational report while keeping
+legal documents immutable. Dynamic builders are pure (`params → layout`), so the same `build()` powers
+the first generate and every later download/print/email — the **Billing Ledger remains the single
+source of truth** and receipts/statements are never cached or duplicated.
+
+Generation flows:
+
+```
+SNAPSHOT:  collect → render PDF → archive PDF → (print/download/email serve stored bytes)
+DYNAMIC:   collect → persist metadata + params   (no PDF)
+           on demand: rebuild from params → render in memory → stream → discard
+```
+
+## Access history & counters (Phase 23b)
+
+Every action is recorded in **`DocumentAccessLog`** (`GENERATE`/`PRINT`/`DOWNLOAD`/`EMAIL`/`VIEW`,
+with actor, status, IP, user-agent). The `printedCount` / `downloadCount` / `emailCount` +
+`last*At` / `last*ById` columns on `GeneratedDocument` are a denormalised cache of that log, updated
+in the same transaction. `GET /documents/:id/history` returns the full per-action history.
+
+## Email delivery & history (Phase 23b)
+
+`POST /documents/:id/email` resolves recipients from the requested parent roles (**primary parent by
+default**, plus secondary parent / guardian) and any custom addresses, with CC/BCC, Reply-To, subject
+and message overrides. SNAPSHOT docs attach the stored PDF; DYNAMIC docs are rendered immediately
+before sending and **never archived**. Delivery is metadata-only in **`DocumentEmailLog`** (recipients,
+cc, bcc, subject, provider response, status, retry count) — attachments are never stored. Reuses the
+existing `MailService` (Resend) — no second email system.
+
 ## Security & audit (Part 8)
 - All documents inherit **tenant isolation** (RLS `FORCE ROW LEVEL SECURITY`, `app_current_tenant()`).
 - Stored PDFs are **immutable snapshots** (checksummed).
@@ -95,9 +134,10 @@ has all permissions.
 | GET | `/documents/agreements` | `document:read` | List registration agreements (all versions). |
 | POST | `/documents/agreements` | `document:generate` | (Re)generate an agreement (new version). |
 | GET | `/documents/:id` | `document:read` | Document metadata. |
-| GET | `/documents/:id/download` | `document:read` | Download the stored PDF (audited). |
-| POST | `/documents/:id/print` | `document:read` | Reprint (increments counter; audited). |
-| POST | `/documents/:id/email` | `document:generate` | Email the PDF as an attachment (audited). |
+| GET | `/documents/:id/history` | `document:read` | Per-action access history. |
+| GET | `/documents/:id/download` | `document:read` | Download the PDF — stored (SNAPSHOT) or re-rendered live (DYNAMIC); audited. |
+| POST | `/documents/:id/print` | `document:read` | Reprint (records PRINT; re-rendered live if DYNAMIC). |
+| POST | `/documents/:id/email` | `document:generate` | Email the PDF (resolves recipients; audited; metadata-only history). |
 
 ## Arabic rendering
 pdfkit ships Latin-only fonts. AR/BILINGUAL labels are wired through the data layer; to render Arabic
@@ -105,5 +145,7 @@ glyphs, configure an Arabic-capable TTF via `PDF_ARABIC_FONT_PATH` (the renderer
 it, the standard font is used.
 
 ## Tests
-- `apps/api/src/documents/**/*.spec.ts` — tuition allocation, template utils, and real PDF rendering.
-- `apps/api/test/documents.e2e-spec.ts` — generate/archive/download/reprint/audit/RBAC against Postgres.
+- `apps/api/src/documents/**/*.spec.ts` — persistence strategy, tuition allocation, template utils,
+  and real PDF rendering.
+- `apps/api/test/documents.e2e-spec.ts` — DYNAMIC generate (no stored PDF), live re-render on
+  download, reprint counters, per-action access history, email-log, audit and RBAC against Postgres.
