@@ -26,9 +26,7 @@ export class AreaRepository extends TenantRepository {
           _count: { select: { students: true } },
         },
       }),
-    ).then((rows) =>
-      rows.map(({ _count, ...a }) => ({ ...a, studentCount: _count.students }) as AreaWithStats),
-    );
+    ).then((rows) => rows.map(({ _count, ...a }) => ({ ...a, studentCount: _count.students })));
   }
 
   create(data: Omit<Prisma.AreaUncheckedCreateInput, 'tenantId'>): Promise<Area> {
