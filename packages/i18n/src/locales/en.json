@@ -104,7 +104,15 @@
     "badgeDataProtection": "Data Protection",
     "badgeJofotaraReady": "JoFotara Ready",
     "badgeHighlyAvailable": "Highly Available",
-    "footerTagline": "Secure • Reliable • Cloud Native"
+    "footerTagline": "Secure • Reliable • Cloud Native",
+    "errIdentifierRequired": "Please enter your username or email.",
+    "errIdentifierInvalid": "Enter a valid email address or username.",
+    "errPasswordRequired": "Please enter your password.",
+    "errSchoolCode": "School code may contain only lowercase letters, numbers and hyphens.",
+    "lockedTitle": "Account temporarily locked",
+    "lockedBody": "Too many failed sign-in attempts. Please try again in {t}.",
+    "rateLimited": "Too many attempts. Please wait {s}s before trying again.",
+    "attemptsRemaining": "{n} attempt(s) remaining before a temporary lock."
   },
   "shell": {
     "schoolPlane": "School plane",

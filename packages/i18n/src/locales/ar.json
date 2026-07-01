@@ -104,7 +104,15 @@
     "badgeDataProtection": "حماية البيانات",
     "badgeJofotaraReady": "جاهز لـ JoFotara",
     "badgeHighlyAvailable": "توافر عالٍ",
-    "footerTagline": "آمن • موثوق • سحابي أصيل"
+    "footerTagline": "آمن • موثوق • سحابي أصيل",
+    "errIdentifierRequired": "الرجاء إدخال اسم المستخدم أو البريد الإلكتروني.",
+    "errIdentifierInvalid": "أدخل بريدًا إلكترونيًا أو اسم مستخدم صالحًا.",
+    "errPasswordRequired": "الرجاء إدخال كلمة المرور.",
+    "errSchoolCode": "قد يحتوي رمز المدرسة على أحرف إنجليزية صغيرة وأرقام وشرطات فقط.",
+    "lockedTitle": "الحساب مقفل مؤقتًا",
+    "lockedBody": "عدد كبير من محاولات الدخول الفاشلة. يرجى المحاولة مجددًا بعد {t}.",
+    "rateLimited": "محاولات كثيرة جدًا. يرجى الانتظار {s} ثانية قبل المحاولة مجددًا.",
+    "attemptsRemaining": "بقيت {n} محاولة قبل القفل المؤقت."
   },
   "shell": {
     "schoolPlane": "نطاق المدرسة",

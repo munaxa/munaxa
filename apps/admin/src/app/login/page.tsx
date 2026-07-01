@@ -1,11 +1,26 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
 import { useI18n } from '@/components/i18n-provider';
 import { Logo } from '@/components/logo';
+import {
+  sanitizeIdentifier,
+  sanitizePassword,
+  sanitizeSchoolCode,
+  validateLogin,
+  type LoginFieldErrors,
+} from '@/lib/login-validation';
+import {
+  formatCountdown,
+  guardStatus,
+  recordAttempt,
+  recordFailure,
+  recordSuccess,
+  type GuardStatus,
+} from '@/lib/login-guard';
 
 // Typed as a plain string so the cast below is required under Next's typedRoutes (the route
 // registry isn't generated during standalone typecheck) — matching the app's href convention.
@@ -25,8 +40,19 @@ export default function LoginPage() {
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
+  const [guard, setGuard] = useState<GuardStatus>({
+    locked: false,
+    lockRemainingMs: 0,
+    rateLimited: false,
+    rateRemainingMs: 0,
+    remainingAttempts: 5,
+  });
+  // Latest guard value for the interval callback, without re-subscribing every tick.
+  const guardRef = useRef(guard);
+  guardRef.current = guard;
 
-  // Restore a remembered school code + identifier so returning users only type their password.
+  // Restore a remembered school code + identifier, and hydrate the client guard state.
   useEffect(() => {
     try {
       if (localStorage.getItem(REMEMBER_KEY) === '1') {
@@ -37,23 +63,56 @@ export default function LoginPage() {
     } catch {
       /* ignore storage access errors */
     }
+    setGuard(guardStatus());
   }, []);
+
+  // While locked or rate-limited, tick every second so the countdown updates and the form
+  // re-enables the moment the window elapses.
+  useEffect(() => {
+    if (!guard.locked && !guard.rateLimited) return;
+    const id = setInterval(() => setGuard(guardStatus()), 1000);
+    return () => clearInterval(id);
+  }, [guard.locked, guard.rateLimited]);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
+
+    // 1) Sanitise, then reflect the cleaned values back into the fields.
+    const clean = {
+      identifier: sanitizeIdentifier(identifier),
+      password: sanitizePassword(password),
+      schoolCode: sanitizeSchoolCode(schoolCode),
+    };
+    setIdentifier(clean.identifier);
+    setPassword(clean.password);
+    setSchoolCode(clean.schoolCode);
+
+    // 2) Validate. Stop at the first round of client errors.
+    const errors = validateLogin(clean);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    // 3) Enforce the client guard (lockout + rate limit) before touching the network.
+    const current = guardStatus();
+    setGuard(current);
+    if (current.locked || current.rateLimited) return;
+    setGuard(recordAttempt());
+
     setLoading(true);
     try {
       const result = await login({
-        identifier,
-        password,
-        ...(schoolCode ? { tenantSlug: schoolCode } : {}),
+        identifier: clean.identifier,
+        password: clean.password,
+        ...(clean.schoolCode ? { tenantSlug: clean.schoolCode } : {}),
       });
+      recordSuccess();
+      setGuard(guardStatus());
       try {
         if (remember) {
           localStorage.setItem(REMEMBER_KEY, '1');
-          localStorage.setItem(IDENTIFIER_KEY, identifier);
-          localStorage.setItem(SCHOOL_KEY, schoolCode);
+          localStorage.setItem(IDENTIFIER_KEY, clean.identifier);
+          localStorage.setItem(SCHOOL_KEY, clean.schoolCode);
         } else {
           localStorage.removeItem(REMEMBER_KEY);
           localStorage.removeItem(IDENTIFIER_KEY);
@@ -64,11 +123,20 @@ export default function LoginPage() {
       }
       router.push(result.mustChangePassword ? '/change-password' : '/');
     } catch (err) {
+      // A rejected sign-in counts as a failed attempt for the lockout counter.
+      setGuard(recordFailure());
       setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
   }
+
+  // The blocking notice (lockout wins over rate limit) shown above the button.
+  const blockedMessage = guard.locked
+    ? t('auth.lockedBody').replace('{t}', formatCountdown(guard.lockRemainingMs))
+    : guard.rateLimited
+      ? t('auth.rateLimited').replace('{s}', String(Math.ceil(guard.rateRemainingMs / 1000)))
+      : null;
 
   return (
     <main className="login-aurora relative min-h-screen overflow-hidden bg-background text-foreground lg:h-screen">
@@ -110,6 +178,15 @@ export default function LoginPage() {
             setRemember={setRemember}
             error={error}
             loading={loading}
+            fieldErrors={fieldErrors}
+            blockedMessage={blockedMessage}
+            lockedTitle={guard.locked ? t('auth.lockedTitle') : null}
+            blocked={guard.locked || guard.rateLimited}
+            attemptsRemaining={
+              !guard.locked && guard.remainingAttempts <= 2
+                ? t('auth.attemptsRemaining').replace('{n}', String(guard.remainingAttempts))
+                : null
+            }
             onSubmit={(e) => void onSubmit(e)}
           />
         </div>
@@ -139,6 +216,11 @@ interface CardProps {
   setRemember: (v: boolean) => void;
   error: string | null;
   loading: boolean;
+  fieldErrors: LoginFieldErrors;
+  blockedMessage: string | null;
+  lockedTitle: string | null;
+  blocked: boolean;
+  attemptsRemaining: string | null;
   onSubmit: (e: React.FormEvent) => void;
 }
 
@@ -150,51 +232,70 @@ function SignInCard(p: CardProps) {
         <h1 className="font-display text-3xl font-bold">{t('auth.welcomeBack')}</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">{t('auth.signInContinue')}</p>
 
-        <form onSubmit={p.onSubmit} className="mt-6 space-y-4">
-          <Field label={t('auth.schoolCode')}>
-            {(id) => (
-              <InputWithIcon icon={<BuildingIcon />}>
+        <form onSubmit={p.onSubmit} noValidate className="mt-6 space-y-4">
+          <Field
+            label={t('auth.schoolCode')}
+            error={p.fieldErrors.schoolCode ? t(p.fieldErrors.schoolCode) : undefined}
+          >
+            {({ id, invalid, describedBy }) => (
+              <InputWithIcon icon={<BuildingIcon />} invalid={invalid}>
                 <input
                   id={id}
                   type="text"
+                  inputMode="text"
+                  maxLength={64}
                   value={p.schoolCode}
-                  onChange={(e) => p.setSchoolCode(e.target.value)}
+                  onChange={(e) => p.setSchoolCode(sanitizeSchoolCode(e.target.value))}
                   autoComplete="organization"
                   placeholder={t('auth.schoolCodePlaceholder')}
+                  aria-invalid={invalid}
+                  aria-describedby={describedBy}
                   className="login-input-field"
                 />
               </InputWithIcon>
             )}
           </Field>
 
-          <Field label={t('auth.usernameOrEmail')}>
-            {(id) => (
-              <InputWithIcon icon={<UserIcon />}>
+          <Field
+            label={t('auth.usernameOrEmail')}
+            error={p.fieldErrors.identifier ? t(p.fieldErrors.identifier) : undefined}
+          >
+            {({ id, invalid, describedBy }) => (
+              <InputWithIcon icon={<UserIcon />} invalid={invalid}>
                 <input
                   id={id}
                   type="text"
                   required
+                  maxLength={254}
                   value={p.identifier}
                   onChange={(e) => p.setIdentifier(e.target.value)}
                   autoComplete="username"
                   placeholder={t('auth.usernamePlaceholder')}
+                  aria-invalid={invalid}
+                  aria-describedby={describedBy}
                   className="login-input-field"
                 />
               </InputWithIcon>
             )}
           </Field>
 
-          <Field label={t('auth.password')}>
-            {(id) => (
-              <InputWithIcon icon={<LockIcon />}>
+          <Field
+            label={t('auth.password')}
+            error={p.fieldErrors.password ? t(p.fieldErrors.password) : undefined}
+          >
+            {({ id, invalid, describedBy }) => (
+              <InputWithIcon icon={<LockIcon />} invalid={invalid}>
                 <input
                   id={id}
                   type={p.showPassword ? 'text' : 'password'}
                   required
+                  maxLength={128}
                   value={p.password}
                   onChange={(e) => p.setPassword(e.target.value)}
                   autoComplete="current-password"
                   placeholder={t('auth.passwordPlaceholder')}
+                  aria-invalid={invalid}
+                  aria-describedby={describedBy}
                   className="login-input-field !pe-11"
                 />
                 <button
@@ -225,15 +326,34 @@ function SignInCard(p: CardProps) {
             </Link>
           </div>
 
-          {p.error ? (
+          {p.blockedMessage ? (
+            <div
+              className="flex items-start gap-2.5 rounded-xl border border-destructive/40 bg-destructive/10 px-3.5 py-3 text-sm text-destructive"
+              role="alert"
+            >
+              <span className="mt-0.5 shrink-0">
+                <ShieldIcon size={16} />
+              </span>
+              <div>
+                {p.lockedTitle ? <p className="font-semibold">{p.lockedTitle}</p> : null}
+                <p className="leading-snug">{p.blockedMessage}</p>
+              </div>
+            </div>
+          ) : p.error ? (
             <p className="text-sm text-destructive" role="alert">
               {p.error}
             </p>
           ) : null}
 
+          {p.attemptsRemaining && !p.blockedMessage ? (
+            <p className="text-xs text-accent" role="status">
+              {p.attemptsRemaining}
+            </p>
+          ) : null}
+
           <button
             type="submit"
-            disabled={p.loading}
+            disabled={p.loading || p.blocked}
             className="bg-grad-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-display font-semibold text-white shadow-glow transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-70"
           >
             {p.loading ? (
@@ -473,21 +593,53 @@ function AreaChart() {
 
 /* ───────────────────────── Shared inputs ───────────────────────── */
 
-function Field({ label, children }: { label: string; children: (id: string) => React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string | undefined;
+  children: (props: {
+    id: string;
+    invalid: boolean;
+    describedBy?: string | undefined;
+  }) => React.ReactNode;
+}) {
   const id = useId();
+  const errorId = `${id}-error`;
   return (
     <div className="space-y-1.5">
       <label htmlFor={id} className="block text-sm font-medium">
         {label}
       </label>
-      {children(id)}
+      {children({ id, invalid: !!error, describedBy: error ? errorId : undefined })}
+      {error ? (
+        <p id={errorId} className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
 
-function InputWithIcon({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function InputWithIcon({
+  icon,
+  invalid,
+  children,
+}: {
+  icon: React.ReactNode;
+  invalid?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="relative rounded-xl border border-input bg-background/50 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40">
+    <div
+      className={`relative rounded-xl border bg-background/50 transition-colors ${
+        invalid
+          ? 'border-destructive focus-within:border-destructive focus-within:ring-2 focus-within:ring-destructive/30'
+          : 'border-input focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40'
+      }`}
+    >
       <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-muted-foreground">
         {icon}
       </span>
