@@ -1,4 +1,6 @@
+import { applyDecorators } from '@nestjs/common';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
@@ -8,6 +10,37 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+
+// Control characters (incl. NUL and DEL) never belong in a login handle — strip them (and trim)
+// on the server so sanitisation is authoritative, not merely a client-side nicety.
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
+
+const stripControlAndTrim = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.replace(CONTROL_CHARS, '').trim() : value;
+
+/**
+ * Tenant slug: lowercase alphanumeric with internal hyphens, bounded length. A user-supplied
+ * tenantSlug reaches the tenant-resolution query, so we sanitise (trim/lowercase, blank → absent)
+ * and validate its shape before it is trusted.
+ */
+export const TENANT_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
+
+const normalizeSlug = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' ? value.trim().toLowerCase() || undefined : value;
+
+/** Optional, sanitised and shape-validated tenant slug — reused across auth DTOs. */
+function IsOptionalTenantSlug(): PropertyDecorator {
+  return applyDecorators(
+    Transform(normalizeSlug),
+    IsOptional(),
+    IsString(),
+    MaxLength(63),
+    Matches(TENANT_SLUG_PATTERN, {
+      message: 'tenantSlug must be a valid slug: lowercase letters, numbers and hyphens',
+    }),
+  );
+}
 
 /**
  * Minimum password strength: at least one lower-case letter, one upper-case letter, one digit and
@@ -25,6 +58,7 @@ export class LoginDto {
     description: 'Email or username. Preferred field; falls back to `email` for legacy clients.',
     example: 'admin@school.example',
   })
+  @Transform(stripControlAndTrim)
   @IsOptional()
   @IsString()
   @MaxLength(320)
@@ -48,8 +82,7 @@ export class LoginDto {
     description: 'School (tenant) identifier. Required when the handle exists across tenants.',
     example: 'green-valley',
   })
-  @IsOptional()
-  @IsString()
+  @IsOptionalTenantSlug()
   tenantSlug?: string;
 }
 
@@ -60,8 +93,7 @@ export class SessionExchangeDto {
   firebaseIdToken!: string;
 
   @ApiPropertyOptional({ example: 'green-valley' })
-  @IsOptional()
-  @IsString()
+  @IsOptionalTenantSlug()
   tenantSlug?: string;
 }
 
@@ -102,8 +134,7 @@ export class RequestPasswordResetDto {
   email!: string;
 
   @ApiPropertyOptional({ example: 'green-valley' })
-  @IsOptional()
-  @IsString()
+  @IsOptionalTenantSlug()
   tenantSlug?: string;
 }
 
