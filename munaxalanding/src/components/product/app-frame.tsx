@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react';
+import { Lock } from '@munaxa/icons';
 import { cn } from '@/lib/cn';
 
 /**

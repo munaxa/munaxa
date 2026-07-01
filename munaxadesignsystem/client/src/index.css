@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Brand palette — single source of truth (@munaxa/design-tokens). The :root/.dark color tokens
+   below come from this import; only structural vars (fonts, radius, hero gradient) stay local. */
+@import "@munaxa/design-tokens/css/theme.oklch.css";
 /* Munaxa Design System type families (mirrors munaxalanding): Sora (display),
    Inter (body), Cairo (Arabic/RTL). The font files are loaded in index.html. */
 
@@ -22,7 +25,7 @@
   --color-aqua: var(--aqua);
   --shadow-card:
     0 24px 50px -30px rgb(30 11 77 / 0.25), 0 0 0 1px var(--border) inset;
-  --shadow-glow: 0 14px 40px -16px rgb(122 63 255 / 0.55);
+  --shadow-glow: 0 14px 40px -16px rgb(0 117 149 / 0.55);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -63,8 +66,8 @@
 
 :root {
   /* ── Munaxa Design System — Light theme (website default) ───────────────
-     Brand violet #7A3FFF (light tint #B97BFF). On light surfaces the semantic
-     primary darkens to #5B1FD6 so it stays legible; accents are coral + aqua. */
+     Color tokens come from @munaxa/design-tokens (imported above). Only structural,
+     non-palette vars live here. */
 
   /* Type families */
   --font-display: "Sora", system-ui, sans-serif;
@@ -75,115 +78,20 @@
   /* Radius — 14px base */
   --radius: 0.875rem;
 
-  /* Primary / brand */
-  --primary: #5b1fd6;
-  --primary-foreground: #ffffff;
-  --sidebar-primary: #5b1fd6;
-  --sidebar-primary-foreground: #ffffff;
-
-  /* Accents (theme-aware) */
-  --coral: #d9534f;
-  --aqua: #0d9488;
-
-  /* Chart palette — brand violets + accents */
-  --chart-1: #7a3fff;
-  --chart-2: #b97bff;
-  --chart-3: #0d9488;
-  --chart-4: #d9534f;
-  --chart-5: #5b1fd6;
-
-  /* Surfaces & text */
-  --background: #f7f5ff;
-  --foreground: #1e0b4d;
-  --card: #ffffff;
-  --card-foreground: #1e0b4d;
-  --popover: #ffffff;
-  --popover-foreground: #1e0b4d;
-  --secondary: #f0ecfa;
-  --secondary-foreground: #1e0b4d;
-  --muted: #f0ecfa;
-  --muted-foreground: #5a4d7a;
-  --accent: #d9534f;
-  --accent-foreground: #ffffff;
-  --destructive: #d9534f;
-  --destructive-foreground: #ffffff;
-  --border: #e3dfef;
-  --input: #c8c0dc;
-  --ring: #5b1fd6;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1e0b4d;
-  --sidebar-accent: #f0ecfa;
-  --sidebar-accent-foreground: #5b1fd6;
-  --sidebar-border: #e3dfef;
-  --sidebar-ring: #5b1fd6;
-
-  /* Semantic */
-  --success: #0d9488;
-  --warning: #f59e0b;
-  --error: #d9534f;
-  --info: #3b82f6;
-
-  /* Hero gradient backdrop (light) */
+  /* Hero gradient backdrop (light) — teal */
   --grad-hero: radial-gradient(
     ellipse 90% 60% at 50% -10%,
-    rgb(122 63 255 / 0.08),
+    rgb(0 117 149 / 0.08),
     transparent 60%
   );
 }
 
 .dark {
-  /* ── Munaxa Design System — Dark "ink" theme ──────────────────────────── */
-  --primary: #b97bff;
-  --primary-foreground: #0b0518;
-  --sidebar-primary: #b97bff;
-  --sidebar-primary-foreground: #0b0518;
-
-  /* Accents brighten on ink surfaces */
-  --coral: #ff8e6e;
-  --aqua: #4df4e1;
-
-  /* Chart palette */
-  --chart-1: #b97bff;
-  --chart-2: #7a3fff;
-  --chart-3: #4df4e1;
-  --chart-4: #ff8e6e;
-  --chart-5: #5b1fd6;
-
-  /* Ink surfaces & text */
-  --background: #0b0518;
-  --foreground: #f4f0ff;
-  --card: #1a0f38;
-  --card-foreground: #f4f0ff;
-  --popover: #1a0f38;
-  --popover-foreground: #f4f0ff;
-  --secondary: #221547;
-  --secondary-foreground: #f4f0ff;
-  --muted: #221547;
-  --muted-foreground: #afa9c6;
-  --accent: #ff8e6e;
-  --accent-foreground: #0b0518;
-  --destructive: #ff5c7a;
-  --destructive-foreground: #ffffff;
-  --border: #2f224f;
-  --input: #2f224f;
-  --ring: #b97bff;
-  --sidebar: #140a2e;
-  --sidebar-foreground: #f4f0ff;
-  --sidebar-accent: #221547;
-  --sidebar-accent-foreground: #b97bff;
-  --sidebar-border: #2f224f;
-  --sidebar-ring: #b97bff;
-
-  /* Semantic — dark */
-  --success: #4df4e1;
-  --warning: #fbbf24;
-  --error: #ff5c7a;
-  --info: #60a5fa;
-
-  /* Hero gradient backdrop (dark) */
+  /* Color tokens come from @munaxa/design-tokens (.dark block in theme.oklch.css). Only the
+     structural hero gradient is local. */
   --grad-hero: radial-gradient(
     ellipse 90% 60% at 50% -10%,
-    rgb(122 63 255 / 0.18),
+    rgb(0 184 219 / 0.18),
     transparent 60%
   );
 }

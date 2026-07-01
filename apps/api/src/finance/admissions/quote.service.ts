@@ -123,17 +123,34 @@ export class QuoteService {
       });
     }
 
-    // 2) Transport (never discountable).
+    // 2) Transport (never discountable). One fare per route holds the two-way total + one-way %;
+    // the chosen direction decides which portion applies.
+    const routeName = dto.transportRouteGroup?.trim();
     if (direction !== TransportDirection.NONE) {
-      const fare = (await this.config.listTransportFares(dto.academicYearId)).find(
-        (f) => f.direction === direction && f.isActive,
+      const fares = (await this.config.listTransportFares(dto.academicYearId)).filter(
+        (f) => f.isActive && !f.route?.disabledAt,
       );
-      if (!fare) warnings.push(`No transport fare configured for ${direction}; using 0.`);
+      const fare = routeName ? fares.find((f) => f.route?.name === routeName) : fares[0];
+      if (!fare) {
+        warnings.push(
+          routeName
+            ? `No transport fare configured for route "${routeName}"; using 0.`
+            : 'No transport fare configured; using 0.',
+        );
+      }
+      const total = d(fare?.amount ?? 0);
+      const fee =
+        direction === TransportDirection.ONE_WAY
+          ? total.mul(d(fare?.oneWayPct ?? 100)).div(100)
+          : total;
+      const label = fare?.route?.name
+        ? `Transportation (${fare.route.name} · ${direction.replace('_', ' ')})`
+        : `Transportation (${direction.replace('_', ' ')})`;
       lines.push({
         kind: FeeItemKind.TRANSPORT,
         feeItemId: null,
-        label: `Transportation (${direction.replace('_', ' ')})`,
-        amount: d(fare?.amount ?? 0).toFixed(3),
+        label,
+        amount: fee.toDecimalPlaces(3).toFixed(3),
         discountable: false,
         discountAmount: '0.000',
         overridden: false,
@@ -191,15 +208,11 @@ export class QuoteService {
         throw new BadRequestException(`Installments must be between ${minI} and ${maxI}.`);
       }
       const base = dto.firstDueDate ? new Date(dto.firstDueDate) : new Date();
-      const year = await this.repo.findAcademicYear(dto.academicYearId);
       const totalFils = grandTotal.mul(1000).toNearest(1).toNumber();
       const per = Math.floor(totalFils / installments);
       for (let i = 0; i < installments; i += 1) {
         const fils = i === installments - 1 ? totalFils - per * (installments - 1) : per;
         const due = this.addMonths(base, i);
-        if (year && due > year.endDate) {
-          warnings.push('Installment schedule extends past the end of the academic year.');
-        }
         schedule.push({
           index: i + 1,
           dueDate: due.toISOString().slice(0, 10),

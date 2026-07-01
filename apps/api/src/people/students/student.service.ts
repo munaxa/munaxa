@@ -42,6 +42,7 @@ export class StudentService {
   async update(id: string, dto: UpdateStudentDto): Promise<Student> {
     await this.get(id);
     await this.assertSection(dto.sectionId);
+    await this.assertArea(dto.areaId);
     const data: Prisma.StudentUpdateInput = {
       ...(dto.firstNameEn !== undefined ? { firstNameEn: dto.firstNameEn } : {}),
       ...(dto.lastNameEn !== undefined ? { lastNameEn: dto.lastNameEn } : {}),
@@ -58,6 +59,12 @@ export class StudentService {
       ...(dto.status !== undefined ? { status: dto.status } : {}),
       ...(dto.sectionId !== undefined
         ? { section: dto.sectionId ? { connect: { id: dto.sectionId } } : { disconnect: true } }
+        : {}),
+      ...(dto.areaId !== undefined
+        ? { area: dto.areaId ? { connect: { id: dto.areaId } } : { disconnect: true } }
+        : {}),
+      ...(dto.transportRequested !== undefined
+        ? { transportRequested: dto.transportRequested }
         : {}),
     };
     return this.repo.update(id, data);
@@ -213,6 +220,12 @@ export class StudentService {
   private async assertSection(sectionId?: string): Promise<void> {
     if (sectionId && !(await this.repo.sectionExists(sectionId))) {
       throw new BadRequestException('Section not found in this tenant');
+    }
+  }
+
+  private async assertArea(areaId?: string): Promise<void> {
+    if (areaId && !(await this.repo.areaExists(areaId))) {
+      throw new BadRequestException('Area not found in this tenant');
     }
   }
 }

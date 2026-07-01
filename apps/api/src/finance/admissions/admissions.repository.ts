@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import {
   ApprovalStatus,
   ChargeStatus,
@@ -10,6 +10,7 @@ import {
   StudentStatus,
 } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+import type { TxClient } from '../../prisma/tenant.helpers';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import { generateStudentQrCode } from '../../people/people.util';
 import type { ComputedQuote } from './quote.service';
@@ -232,7 +233,57 @@ export class AdmissionsRepository extends TenantRepository {
   }
 
   // ── Atomic registration commit ──
-  async commit(dto: CommitDto, requireApproval: boolean) {
+  // Creates the ledger charges for a committed enrollment. Full payment = one charge per fee
+  // line (net of discount); installments = the grand total split into N monthly charges sharing
+  // one plan group. Called at commit time for unmodified fees, or at approval time once a held
+  // (fee-modified) enrollment is approved.
+  private async createEnrollmentCharges(
+    tx: TxClient,
+    tenantId: string,
+    studentId: string,
+    planId: string | null,
+    quote: Prisma.EnrollmentQuoteGetPayload<{ include: { items: true } }>,
+  ) {
+    if (quote.paymentMode === QuotePaymentMode.FULL) {
+      for (const item of quote.items) {
+        const net = item.amount.minus(item.discountAmount);
+        if (net.lessThanOrEqualTo(0)) continue;
+        await tx.charge.create({
+          data: {
+            tenantId,
+            studentId,
+            description: item.label,
+            amount: net,
+            dueDate: quote.firstDueDate ?? null,
+            status: ChargeStatus.PENDING,
+            createdById: this.actor(),
+          },
+        });
+      }
+    } else {
+      const months = quote.installments;
+      const totalFils = toFils(quote.grandTotal.toString());
+      const per = Math.floor(totalFils / months);
+      const base = quote.firstDueDate ?? new Date();
+      for (let i = 0; i < months; i += 1) {
+        const fils = i === months - 1 ? totalFils - per * (months - 1) : per;
+        await tx.charge.create({
+          data: {
+            tenantId,
+            studentId,
+            installmentPlanId: planId,
+            description: `Tuition & fees — ${i + 1}/${months}`,
+            amount: new Prisma.Decimal(fils).div(1000),
+            dueDate: addMonths(base, i),
+            status: ChargeStatus.PENDING,
+            createdById: this.actor(),
+          },
+        });
+      }
+    }
+  }
+
+  async commit(dto: CommitDto) {
     return this.run(async (tx, tenantId) => {
       // Idempotency: a prior commit with the same key returns the same enrollment.
       const existing = await tx.registrationCommitment.findUnique({
@@ -270,6 +321,12 @@ export class AdmissionsRepository extends TenantRepository {
             ...(s.dateOfBirth ? { dateOfBirth: new Date(s.dateOfBirth) } : {}),
             ...(s.nationalId ? { nationalId: s.nationalId } : {}),
             ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
+            // Transportation demand captured at registration (additive; Fleet stays the
+            // operational source of truth via the StudentBusAssignment created in step 6).
+            ...(dto.areaId ? { areaId: dto.areaId } : {}),
+            ...(dto.transportRequested !== undefined
+              ? { transportRequested: dto.transportRequested }
+              : {}),
             status: StudentStatus.ACTIVE,
             qrCode: generateStudentQrCode(),
           },
@@ -306,11 +363,34 @@ export class AdmissionsRepository extends TenantRepository {
             data: { tenantId, parentId: parent.id, studentId, relation, isPrimary: true },
           });
         }
-      } else if (dto.sectionId) {
-        await tx.student.update({ where: { id: studentId }, data: { sectionId: dto.sectionId } });
+      } else {
+        // Returning student: keep their profile but refresh placement + transport demand
+        // from this registration (all additive/optional).
+        const data: Prisma.StudentUpdateInput = {
+          ...(dto.sectionId ? { section: { connect: { id: dto.sectionId } } } : {}),
+          ...(dto.areaId ? { area: { connect: { id: dto.areaId } } } : {}),
+          ...(dto.transportRequested !== undefined
+            ? { transportRequested: dto.transportRequested }
+            : {}),
+        };
+        if (Object.keys(data).length > 0) {
+          await tx.student.update({ where: { id: studentId }, data });
+        }
       }
 
-      // 3) Enrollment (one per student+year).
+      // 3) Enrollment (one per student+year). A fee change only holds the enrollment in
+      //    PENDING_APPROVAL when the tenant has opted into the finance-approval workflow
+      //    (BillingPolicy.requireFinanceApprovalForFeeChanges). By default that flag is false:
+      //    the person admitting the student — typically the finance officer, who already holds
+      //    fee authority (FEE_OVERRIDE) — commits in a single step with no pending state. The
+      //    modification is still recorded and auto-approved for the audit trail (step 5). Schools
+      //    that want separation of duties flip the toggle on to require a separate approval.
+      const policy = await tx.billingPolicy.findUnique({
+        where: { tenantId },
+        select: { requireFinanceApprovalForFeeChanges: true },
+      });
+      const requireApproval = policy?.requireFinanceApprovalForFeeChanges ?? false;
+      const held = quote.feeModified && requireApproval;
       const planId = quote.paymentMode === QuotePaymentMode.INSTALLMENTS ? randomUUID() : null;
       const enrollment = await tx.enrollment.create({
         data: {
@@ -321,10 +401,7 @@ export class AdmissionsRepository extends TenantRepository {
           ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
           quoteId: quote.id,
           transportDirection: quote.transportDirection,
-          status:
-            requireApproval && quote.feeModified
-              ? EnrollmentStatus.PENDING_APPROVAL
-              : EnrollmentStatus.COMMITTED,
+          status: held ? EnrollmentStatus.PENDING_APPROVAL : EnrollmentStatus.COMMITTED,
           paymentMode: quote.paymentMode,
           installmentPlanId: planId,
           feeModified: quote.feeModified,
@@ -332,48 +409,18 @@ export class AdmissionsRepository extends TenantRepository {
         },
       });
 
-      // 4) Charges (reuse the existing ledger). Full payment = one charge per fee line (net);
-      //    installments = split the grand total into N monthly charges (one plan group).
-      const due = quote.firstDueDate ?? null;
-      if (quote.paymentMode === QuotePaymentMode.FULL) {
-        for (const item of quote.items) {
-          const net = item.amount.minus(item.discountAmount);
-          if (net.lessThanOrEqualTo(0)) continue;
-          await tx.charge.create({
-            data: {
-              tenantId,
-              studentId,
-              description: item.label,
-              amount: net,
-              dueDate: due,
-              status: ChargeStatus.PENDING,
-              createdById: this.actor(),
-            },
-          });
-        }
-      } else {
-        const months = quote.installments;
-        const totalFils = toFils(quote.grandTotal.toString());
-        const per = Math.floor(totalFils / months);
-        const base = quote.firstDueDate ?? new Date();
-        for (let i = 0; i < months; i += 1) {
-          const fils = i === months - 1 ? totalFils - per * (months - 1) : per;
-          await tx.charge.create({
-            data: {
-              tenantId,
-              studentId,
-              installmentPlanId: planId,
-              description: `Tuition & fees — ${i + 1}/${months}`,
-              amount: new Prisma.Decimal(fils).div(1000),
-              dueDate: addMonths(base, i),
-              status: ChargeStatus.PENDING,
-              createdById: this.actor(),
-            },
-          });
-        }
+      // 4) Charges (reuse the existing ledger). When a fee change holds the enrollment for
+      //    finance approval, we defer charge creation until approval so nothing financial is
+      //    committed before the decision — see decideModification().
+      if (!held) {
+        await this.createEnrollmentCharges(tx, tenantId, studentId, planId, quote);
       }
 
-      // 5) Fee-modification tracking + optional approval gate.
+      // 5) Fee-modification tracking. Every change is recorded for the audit trail. When the
+      //    enrollment is held (step 3) the approval is PENDING so it surfaces in the finance
+      //    approval inbox; otherwise it is auto-approved (decided now by the committing actor)
+      //    so there is no pending item but the who/original/new history is preserved.
+      const decidedNow = new Date();
       for (const item of quote.items) {
         if (!item.overridden || item.originalAmount === null) continue;
         const diff = item.amount.minus(item.originalAmount);
@@ -390,11 +437,18 @@ export class AdmissionsRepository extends TenantRepository {
             modifiedById: this.actor(),
           },
         });
-        if (requireApproval) {
-          await tx.feeModificationApproval.create({
-            data: { tenantId, modificationId: mod.id, status: ApprovalStatus.PENDING },
-          });
-        }
+        await tx.feeModificationApproval.create({
+          data: held
+            ? { tenantId, modificationId: mod.id, status: ApprovalStatus.PENDING }
+            : {
+                tenantId,
+                modificationId: mod.id,
+                status: ApprovalStatus.APPROVED,
+                approverId: this.actor(),
+                decidedAt: decidedNow,
+                note: 'Auto-approved: tenant does not require finance approval for fee changes',
+              },
+        });
       }
 
       // 6) Permanent "Fee Modified" badge on the student's billing profile.
@@ -404,6 +458,34 @@ export class AdmissionsRepository extends TenantRepository {
           create: { tenantId, studentId, feeModified: true },
           update: { feeModified: true },
         });
+      }
+
+      // 6b) Bus route + trip assignment (one per student): mirror the admission choice into the
+      //     fleet so it shows under Fleet → Route detail and on the student's profile.
+      if (dto.busRouteId) {
+        const route = await tx.busRoute.findFirst({
+          where: { id: dto.busRouteId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!route) throw new BadRequestException('Bus route not found in this tenant');
+        const existingAssignment = await tx.studentBusAssignment.findFirst({
+          where: { studentId },
+        });
+        if (existingAssignment) {
+          await tx.studentBusAssignment.update({
+            where: { id: existingAssignment.id },
+            data: { routeId: dto.busRouteId, stopId: null, tripRound: dto.busTripRound ?? null },
+          });
+        } else {
+          await tx.studentBusAssignment.create({
+            data: {
+              tenantId,
+              studentId,
+              routeId: dto.busRouteId,
+              tripRound: dto.busTripRound ?? null,
+            },
+          });
+        }
       }
 
       // 7) Idempotent commitment record + audit.
@@ -498,6 +580,20 @@ export class AdmissionsRepository extends TenantRepository {
         include: { modification: true },
       });
       if (!approval) throw new BadRequestException('No pending approval for this modification');
+
+      // Separation of duties: by default the user who applied the fee modification cannot
+      // approve/reject it. Schools with a single finance person can opt out via the
+      // allowSelfFeeApproval billing-policy flag.
+      const actor = this.actor();
+      if (actor && approval.modification.modifiedById === actor) {
+        const policy = await tx.billingPolicy.findUnique({ where: { tenantId } });
+        if (!policy?.allowSelfFeeApproval) {
+          throw new ForbiddenException(
+            'You cannot approve a fee modification you created. A different user must decide it.',
+          );
+        }
+      }
+
       const status = approve ? ApprovalStatus.APPROVED : ApprovalStatus.REJECTED;
       const row = await tx.feeModificationApproval.update({
         where: { modificationId },
@@ -508,15 +604,33 @@ export class AdmissionsRepository extends TenantRepository {
           ...(note ? { note } : {}),
         },
       });
-      // On approval, activate the enrollment that was held pending.
-      if (approve && approval.modification.enrollmentId) {
-        await tx.enrollment.updateMany({
-          where: {
-            id: approval.modification.enrollmentId,
-            status: EnrollmentStatus.PENDING_APPROVAL,
+      // Apply the decision to the held enrollment. Approval activates it and creates the
+      // charges that were deferred at commit time; rejection cancels it (no charges exist).
+      // Both are scoped to PENDING_APPROVAL so a decision on one of several modifications for
+      // an already-decided enrollment is a safe no-op (charges are never created twice).
+      const enrollmentId = approval.modification.enrollmentId;
+      if (enrollmentId) {
+        const { count } = await tx.enrollment.updateMany({
+          where: { id: enrollmentId, status: EnrollmentStatus.PENDING_APPROVAL },
+          data: {
+            status: approve ? EnrollmentStatus.COMMITTED : EnrollmentStatus.CANCELLED,
           },
-          data: { status: EnrollmentStatus.COMMITTED },
         });
+        if (approve && count > 0) {
+          const enrollment = await tx.enrollment.findFirstOrThrow({
+            where: { id: enrollmentId },
+            include: { quote: { include: { items: true } } },
+          });
+          if (enrollment.quote) {
+            await this.createEnrollmentCharges(
+              tx,
+              tenantId,
+              enrollment.studentId,
+              enrollment.installmentPlanId,
+              enrollment.quote,
+            );
+          }
+        }
       }
       await this.writeAudit(tx, tenantId, {
         action: approve ? 'admissions.feeMod.approve' : 'admissions.feeMod.reject',
@@ -525,6 +639,17 @@ export class AdmissionsRepository extends TenantRepository {
         metadata: { modificationId },
       });
       return row;
+    });
+  }
+
+  /** The enrollment a fee modification belongs to (used to (re)generate its registration agreement). */
+  enrollmentIdForModification(modificationId: string): Promise<string | null> {
+    return this.run(async (tx) => {
+      const mod = await tx.feeModification.findFirst({
+        where: { id: modificationId },
+        select: { enrollmentId: true },
+      });
+      return mod?.enrollmentId ?? null;
     });
   }
 
@@ -552,9 +677,5 @@ export class AdmissionsRepository extends TenantRepository {
       });
       return row;
     });
-  }
-
-  getPolicyFlags() {
-    return this.run((tx, tenantId) => tx.billingPolicy.findUnique({ where: { tenantId } }));
   }
 }

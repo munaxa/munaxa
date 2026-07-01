@@ -1,28 +1,29 @@
-export { cn } from './cn.js';
+/**
+ * @munaxa/ui — the single, canonical component library for the Munaxa platform.
+ *
+ * Every application (Admin, Landing, Demo, future portals) and the design system website
+ * import components from this package root only:
+ *
+ *   import { Button, Card } from "@munaxa/ui";
+ *
+ * Never deep-import internal paths. Components are organized internally by category
+ * (primitives / forms / feedback / navigation / layout / data-display / patterns); the
+ * public surface is this flat barrel, so the internal taxonomy can evolve without breaking
+ * consumers.
+ */
 
-export { Button, type ButtonProps } from './components/button.js';
-export {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
-} from './components/card.js';
-export { Badge } from './components/badge.js';
-export { Input, Select, fieldBase } from './components/input.js';
-export { Textarea } from './components/textarea.js';
-export { Field } from './components/field.js';
-export { Checkbox, type CheckboxProps } from './components/checkbox.js';
-export { Radio, RadioGroup, type RadioProps } from './components/radio.js';
-export { Switch, type SwitchProps } from './components/switch.js';
-export { Table, THead, TBody, TR, TH, TD } from './components/table.js';
-export { Spinner } from './components/spinner.js';
-export { EmptyState } from './components/empty-state.js';
-export { ErrorState } from './components/error-state.js';
-export { Timeline, TimelineItem } from './components/timeline.js';
-export { Pagination, type PaginationProps } from './components/pagination.js';
-export { Tooltip } from './components/tooltip.js';
-export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/tabs.js';
-export { Dialog, type DialogProps } from './components/dialog.js';
-export { Drawer, type DrawerProps } from './components/drawer.js';
+// Helpers
+export { cn } from './lib/index.js';
+
+// Components — grouped by internal category, surfaced flat.
+export * from './components/primitives/index.js';
+export * from './components/forms/index.js';
+export * from './components/feedback/index.js';
+export * from './components/navigation/index.js';
+export * from './components/layout/index.js';
+export * from './components/data-display/index.js';
+export * from './components/patterns/index.js';
+
+// Design tokens — convenience namespace. The canonical import path remains
+// `@munaxa/design-tokens`; this mirror lets consumers read tokens via the UI package.
+export * as tokens from './tokens/index.js';

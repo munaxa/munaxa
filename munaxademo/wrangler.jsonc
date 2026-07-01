@@ -1,6 +1,7 @@
 {
   // Cloudflare Workers config for the Munaxa demo (deployed via the OpenNext adapter).
-  // Build from this subdirectory only — it is fully isolated from the Munaxa monorepo.
+  // The demo is a pnpm-workspace member: builds run from the monorepo root so the shared
+  // packages (@munaxa/ui, design-tokens, icons) are installed and bundled. See CLOUDFLARE_DEPLOY.md.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "munaxademo",
   "main": ".open-next/worker.js",

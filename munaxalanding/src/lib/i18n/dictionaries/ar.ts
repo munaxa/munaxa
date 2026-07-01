@@ -342,6 +342,24 @@ export const ar: Dictionary = {
     terms: 'شروط الخدمة',
     rights: '© {year} Munaxa. جميع الحقوق محفوظة.',
   },
+  notFound: {
+    code: '404',
+    badge: 'الصفحة غير موجودة',
+    title: 'هذه الصفحة خارج الدوام',
+    description:
+      'ربما تم نقل الصفحة التي تبحث عنها أو تغيير اسمها أو أنها لم تكن موجودة أصلاً. ' +
+      'دعنا نعيدك إلى حيث تسير مدرستك بسلاسة.',
+    ctaHome: 'العودة إلى الرئيسية',
+    ctaDemo: 'احجز عرضاً توضيحياً',
+    quickLinksLabel: 'وجهات شائعة',
+    quickLinks: [
+      { href: '/#modules', label: 'الوحدات' },
+      { href: '/#why-munaxa', label: 'لماذا Munaxa' },
+      { href: '/#faq', label: 'الأسئلة الشائعة' },
+      { href: '/#contact', label: 'تواصل معنا' },
+    ],
+    illustrationAlt: 'Munaxa 404 — الصفحة غير موجودة',
+  },
   legal: {
     privacy: {
       title: 'سياسة الخصوصية',

@@ -165,6 +165,12 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'nav.section.settings',
     items: [
       {
+        href: '/settings/organization',
+        labelKey: 'nav.organization',
+        icon: 'settings',
+        perm: 'organization:read',
+      },
+      {
         href: '/structure/schools',
         labelKey: 'nav.structure',
         icon: 'structure',
@@ -410,36 +416,66 @@ export function AppShell({
       ) : null}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-border px-6 py-3">
-          <div className="flex items-center gap-2 md:hidden">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setMenuOpen(true)}
-              aria-label={t('shell.openMenu')}
+        <header className="flex items-center gap-3 border-b border-border px-4 py-3 sm:px-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMenuOpen(true)}
+            aria-label={t('shell.openMenu')}
+          >
+            ☰
+          </Button>
+
+          {/* Search — opens the ⌘K palette; styled as the global search bar. */}
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label={t('search.title')}
+            aria-keyshortcuts="Control+K Meta+K"
+            className="flex h-9 max-w-xl flex-1 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent"
+          >
+            <span aria-hidden="true">⌕</span>
+            <span className="flex-1 truncate text-start">{t('search.placeholder')}</span>
+            <kbd className="hidden rounded border border-border px-1 font-mono text-[10px] sm:inline">
+              ⌘K
+            </kbd>
+          </button>
+
+          <div className="ms-auto flex items-center gap-2">
+            <span
+              className="hidden items-center gap-2 rounded-lg border border-border px-3 py-1.5 lg:flex"
+              title={principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
             >
-              ☰
-            </Button>
-            <span className="font-display text-sm font-medium text-muted-foreground">Munaxa</span>
-          </div>
-          <div className="ms-auto flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSearchOpen(true)}
-              aria-label={t('search.title')}
-              aria-keyshortcuts="Control+K Meta+K"
-            >
-              <span aria-hidden="true">⌕</span>
-              <span className="hidden sm:inline">{t('search.title')}</span>
-              <kbd className="hidden rounded border border-border px-1 font-mono text-[10px] text-muted-foreground sm:inline">
-                ⌘K
-              </kbd>
-            </Button>
-            <span className="hidden text-xs text-muted-foreground sm:inline">
-              {principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
+              <NavIcon name="structure" className="shrink-0 text-muted-foreground" />
+              <span className="max-w-[160px] truncate font-mono text-xs text-muted-foreground">
+                {principal.tenantId}
+              </span>
             </span>
             <ThemeLocaleToggle />
+            <button
+              type="button"
+              aria-label={t('shell.notifications')}
+              className="flex h-9 w-9 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <BellIcon />
+            </button>
+            <div className="flex items-center gap-2 rounded-lg border border-border py-1 ps-1 pe-2">
+              <span
+                aria-hidden="true"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+              >
+                {principal.roles[0]?.[0]?.toUpperCase() ?? 'U'}
+              </span>
+              <span className="hidden leading-tight sm:block">
+                <span className="block text-xs font-medium">
+                  {principal.roles[0] ?? t('shell.account')}
+                </span>
+                <span className="block text-[10px] text-muted-foreground">
+                  {principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
+                </span>
+              </span>
+            </div>
             <Button variant="outline" size="sm" onClick={() => void onLogout()}>
               {t('auth.signOut')}
             </Button>
@@ -453,6 +489,25 @@ export function AppShell({
 
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} principal={principal} />
     </div>
+  );
+}
+
+/** Top-bar notifications glyph (decorative; same stroke convention as nav-icons). */
+function BellIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M6 9a6 6 0 0 1 12 0c0 5 1.5 6 1.5 6h-15S6 14 6 9M10 19a2 2 0 0 0 4 0" />
+    </svg>
   );
 }
 

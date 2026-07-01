@@ -334,6 +334,17 @@ enum RoleKey {
   Student
 }
 
+// School type for the Organization identity profile (Settings → Organization → General).
+enum OrganizationSchoolType {
+  PRIVATE
+  INTERNATIONAL
+  NATIONAL
+  IB
+  BRITISH
+  AMERICAN
+  OTHER
+}
+
 // ----------------------------------------------------------------------------
 // Tenancy
 // ----------------------------------------------------------------------------
@@ -385,6 +396,7 @@ model Tenant {
   notificationDeliveries   NotificationDelivery[]
   notificationAudits       NotificationAudit[]
   notificationSettings     NotificationSettings?
+  organizationSettings     OrganizationSettings?
   deviceTokens             DeviceToken[]
   featureFlags             FeatureFlag[]
   auditLogs                AuditLog[]
@@ -400,6 +412,7 @@ model Tenant {
   buses                    Bus[]
   busStops                 BusStop[]
   busAssignments           StudentBusAssignment[]
+  areas                    Area[]
   libraryBooks             LibraryBook[]
   bookLoans                BookLoan[]
   inventoryItems           InventoryItem[]
@@ -410,6 +423,7 @@ model Tenant {
   einvoiceSettings         EInvoiceSettings?
   einvoiceCredentials      EInvoiceCredential[]
   einvoiceCounter          EInvoiceCounter?
+  financeReceiptCounter    FinanceReceiptCounter?
   einvoiceDocuments        EInvoiceDocument[]
   einvoiceLogs             EInvoiceLog[]
   feeAdjustments           FeeAdjustment[]
@@ -435,6 +449,11 @@ model Tenant {
   feeModificationApprovals FeeModificationApproval[]
   financialArrangements    FinancialArrangement[]
   registrationCommitments  RegistrationCommitment[]
+  generatedDocuments       GeneratedDocument[]
+  registrationAgreements   RegistrationAgreement[]
+  documentSequences        DocumentSequence[]
+  documentAccessLogs       DocumentAccessLog[]
+  documentEmailLogs        DocumentEmailLog[]
 
   @@index([status])
 }
@@ -504,6 +523,10 @@ model AcademicYear {
   gradeFeeItems    GradeFeeItem[]
   enrollmentQuotes EnrollmentQuote[]
   enrollments      Enrollment[]
+  generatedDocuments     GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
+  busRoutes        BusRoute[]
+  serviceAreas     Area[]
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
@@ -625,6 +648,10 @@ model Student {
   sectionId        String?       @db.Uuid
   qrCode           String        @unique
   status           StudentStatus @default(ACTIVE)
+  // Transportation demand, set during registration (additive — Fleet remains the
+  // operational source of truth via StudentBusAssignment).
+  areaId             String?     @db.Uuid // home area (geographic), drives Area Planning
+  transportRequested Boolean     @default(false) // parent requested transport → Unassigned queue
   enrollmentDate   DateTime      @default(now()) @db.Timestamptz(6)
   createdAt        DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
@@ -633,6 +660,7 @@ model Student {
   tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                  User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
   section               Section?               @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  area                  Area?                  @relation(fields: [areaId], references: [id], onDelete: SetNull)
   parentLinks           ParentStudent[]
   attendance            StudentAttendance[]
   behaviorLogs          BehaviorLog[]
@@ -660,12 +688,16 @@ model Student {
   enrollments           Enrollment[]
   enrollmentQuotes      EnrollmentQuote[]
   financialArrangements FinancialArrangement[]
+  generatedDocuments    GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
   @@index([tenantId])
   @@index([tenantId, sectionId])
   @@index([tenantId, status])
+  @@index([tenantId, areaId])
+  @@index([tenantId, transportRequested])
 }
 
 model Parent {
@@ -685,9 +717,11 @@ model Parent {
   updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt   DateTime? @db.Timestamptz(6)
 
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  studentLinks ParentStudent[]
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  studentLinks           ParentStudent[]
+  generatedDocuments     GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
 
   // Uniqueness is enforced by PARTIAL unique indexes (WHERE "deletedAt" IS NULL) created in
   // migration 20260622160000_parent_unique_partial — NOT by Prisma @@unique — so that a
@@ -1282,6 +1316,9 @@ model Transaction {
   method       PaymentMethod
   reference    String? // e.g. CliQ reference
   receiptKey   String? // S3 object key for an uploaded receipt
+  // Gapless, per-tenant official receipt number — allocated when the payment is VERIFIED (a
+  // receipt represents confirmed money, so rejected/pending payments never burn a number).
+  receiptNo    Int?
   status       TransactionStatus @default(PENDING)
   note         String?
   recordedById String?           @db.Uuid
@@ -1298,8 +1335,19 @@ model Transaction {
   einvoiceDocuments EInvoiceDocument[]
   allocations       PaymentAllocation[]
 
+  @@unique([tenantId, receiptNo])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
+}
+
+/// Row-locked, per-tenant counter that hands out gapless receipt numbers for verified payments
+/// (same pattern as EInvoiceCounter / the JoFotara ICV). Created lazily on first use.
+model FinanceReceiptCounter {
+  id            String @id @default(uuid()) @db.Uuid
+  tenantId      String @unique @db.Uuid
+  nextReceiptNo Int    @default(1)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 // ----------------------------------------------------------------------------
@@ -1466,6 +1514,132 @@ model NotificationSettings {
   updatedAt    DateTime @updatedAt @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// Single source of truth for school identity, branding, document generation, communication,
+/// compliance, social presence, and advanced document defaults (Settings → Organization).
+/// One row per tenant. Every optional branding/document feature has its own enable toggle; when a
+/// toggle is off the corresponding asset/section is omitted from generated documents and the UI.
+/// Asset columns store S3 object keys (never the binary). Structured/optional sub-configs are kept
+/// in JSON columns (forward-compatible, mirrors EInvoiceSettings.templateConfig).
+model OrganizationSettings {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+
+  // ── General / identity ──
+  nameEn           String?
+  nameAr           String?
+  legalName        String?
+  shortName        String?
+  schoolCode       String?
+  ministryNumber   String?
+  schoolType       OrganizationSchoolType @default(PRIVATE)
+  motto            String?
+  mission          String?
+  vision           String?
+  establishedYear  Int?
+  description       String?
+  timezone         String                 @default("Asia/Amman")
+  defaultLanguage  String                 @default("en")
+  academicCalendar String?
+
+  // ── Contact ──
+  phone            String?
+  mobile           String?
+  whatsapp         String?
+  email            String?
+  website          String?
+  country          String?
+  city             String?
+  district         String?
+  street           String?
+  building         String?
+  postalCode       String?
+  googleMapsUrl    String?
+  latitude         Decimal? @db.Decimal(10, 7)
+  longitude        Decimal? @db.Decimal(10, 7)
+  emergencyContact String?
+  officeHours      String?
+
+  // ── Branding feature toggles (every feature independently enabled) ──
+  logoEnabled      Boolean @default(false)
+  darkLogoEnabled  Boolean @default(false)
+  smallLogoEnabled Boolean @default(false)
+  watermarkEnabled Boolean @default(false)
+  stampEnabled     Boolean @default(false)
+  signatureEnabled Boolean @default(false)
+
+  // ── Branding assets (S3 object keys) ──
+  logoKey      String?
+  darkLogoKey  String?
+  smallLogoKey String?
+  stampKey     String?
+  signatureKey String?
+  bannerKey    String?
+
+  // ── Branding structured config ──
+  logoVisibility    Json? // { reports, certificates, studentCards, parentPortal, mobileApp, login }
+  watermark         Json? // { source: LOGO|SCHOOL_NAME|CONFIDENTIAL, text, opacity, scale, rotation }
+  stampPlacement    String @default("RIGHT") // LEFT | CENTER | RIGHT
+  signaturePosition String @default("RIGHT") // LEFT | CENTER | RIGHT
+
+  // ── Document settings ──
+  headerEnabled Boolean @default(false)
+  footerEnabled Boolean @default(false)
+  qrEnabled     Boolean @default(false)
+  documents     Json? // { headerHtml, headerAlign, footerHtml, footerAlign, logoPosition, paperSize, margins{top,bottom,left,right}, headerHeight, footerHeight, qrContent }
+
+  // ── Communication identity ──
+  senderName              String?
+  senderEmail             String?
+  replyToEmail            String?
+  emailFooter             String?
+  notificationDisplayName String?
+  smsSender               String?
+  whatsappDisplayName     String?
+  pushIconKey             String?
+  notificationImageKey    String?
+
+  // ── Social & website ──
+  socialEnabled Boolean @default(false)
+  social        Json? // { website, facebook, instagram, linkedin, youtube, tiktok, x }
+
+  // ── Academic identity ──
+  curriculum         String?
+  academicYearFormat String?
+  colorTheme         String?
+
+  // ── Compliance (optional) ──
+  complianceEnabled      Boolean @default(false)
+  commercialRegistration String?
+  licenseNumber          String?
+  ministryLicense        String?
+  taxNumber              String?
+  vatNumber              String?
+  otherGovIds            Json? // [{ label, value }]
+
+  // ── Advanced document defaults ──
+  defaultReportLanguage      String  @default("en")
+  defaultCertificateLanguage String  @default("en")
+  documentNumberPrefix       String?
+  defaultFont                String?
+  defaultReportTheme         String?
+  defaultLogoVariant         String  @default("PRIMARY") // PRIMARY | DARK | SMALL
+  documentCompression        Boolean @default(true)
+  pdfQuality                 Int     @default(90)
+  imageQuality               Int     @default(85)
+  storageOptimization        Boolean @default(true)
+
+  // ── Audit ──
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model DeviceToken {
@@ -1711,21 +1885,59 @@ model StudentGamification {
 // ----------------------------------------------------------------------------
 
 // --- Bus tracking -----------------------------------------------------------
-model BusRoute {
-  id          String    @id @default(uuid()) @db.Uuid
-  tenantId    String    @db.Uuid
-  name        String
-  description String?
-  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
-  deletedAt   DateTime? @db.Timestamptz(6)
+/// Geographic area master data (e.g. Khalda, Dabouq). The transportation department
+/// maps each area to the route that serves it (Area → Route) so registration can resolve
+/// the route automatically. Fleet remains the operational source of truth (routes/
+/// assignments); billing still flows through TransportFare — transportFee is an optional
+/// per-area override only.
+model Area {
+  id                      String    @id @default(uuid()) @db.Uuid
+  tenantId                String    @db.Uuid
+  name                    String
+  routeId                 String?   @db.Uuid // the route that serves this area (Area → Route)
+  academicYearId          String?   @db.Uuid // which year this route mapping reflects (optional)
+  transportFee            Decimal?  @db.Decimal(12, 3) // optional fee override; default is the route's TransportFare
+  transportationAvailable Boolean   @default(true) // surfaced as a choice in registration
+  active                  Boolean   @default(true)
+  notes                   String?
+  createdAt               DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt               DateTime? @db.Timestamptz(6)
 
-  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  buses       Bus[]
-  stops       BusStop[]
-  assignments StudentBusAssignment[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  route        BusRoute?     @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  students     Student[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, active])
+  @@index([routeId])
+}
+
+model BusRoute {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @db.Uuid
+  academicYearId String?   @db.Uuid // groups routes by academic year (e.g. 2026/2027)
+  name           String
+  description    String?
+  round1Time     String? // 1st trip time, "HH:MM"
+  round2Time     String? // 2nd trip time, "HH:MM"
+  disabledAt     DateTime? @db.Timestamptz(6) // when set, the route is disabled (still listed, shown as disabled)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime? @db.Timestamptz(6)
+
+  tenant         Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  academicYear   AcademicYear?          @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  buses          Bus[]
+  stops          BusStop[]
+  assignments    StudentBusAssignment[]
+  transportFares TransportFare[]
+  serviceAreas   Area[]
 
   @@index([tenantId])
+  @@index([tenantId, academicYearId])
 }
 
 model Bus {
@@ -1735,6 +1947,7 @@ model Bus {
   plateNumber String
   label       String?
   capacity    Int?
+  tripRound   Int? // which trip of the route this bus serves: 1 (1st) or 2 (2nd)
   driverName  String?
   driverPhone String?
   lastLat     Float?
@@ -1777,6 +1990,7 @@ model StudentBusAssignment {
   studentId String   @db.Uuid
   routeId   String   @db.Uuid
   stopId    String?  @db.Uuid
+  tripRound Int? // which trip of the route the student rides: 1 (1st) or 2 (2nd)
   createdAt DateTime @default(now()) @db.Timestamptz(6)
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -1784,7 +1998,7 @@ model StudentBusAssignment {
   route   BusRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
   stop    BusStop? @relation(fields: [stopId], references: [id], onDelete: SetNull)
 
-  @@unique([studentId, routeId])
+  @@unique([tenantId, studentId])
   @@index([tenantId])
   @@index([tenantId, routeId])
 }
@@ -2506,22 +2720,25 @@ model GradeFeeSchedule {
 
 /// Per-academic-year transportation fares by direction. Independent of tuition.
 model TransportFare {
-  id             String             @id @default(uuid()) @db.Uuid
-  tenantId       String             @db.Uuid
-  academicYearId String             @db.Uuid
-  direction      TransportDirection
-  amount         Decimal            @db.Decimal(12, 3) // JOD, annual
-  isActive       Boolean            @default(true)
-  createdById    String?            @db.Uuid
-  updatedById    String?            @db.Uuid
-  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  academicYearId String   @db.Uuid
+  routeId        String?  @db.Uuid // shared fleet route (source of truth for identity)
+  amount         Decimal  @db.Decimal(12, 3) // JOD, annual — the two-way (round trip) total
+  oneWayPct      Decimal  @default(100) @db.Decimal(5, 2) // one-way price as a % of the total
+  isActive       Boolean  @default(true)
+  createdById    String?  @db.Uuid
+  updatedById    String?  @db.Uuid
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
 
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  route        BusRoute?    @relation(fields: [routeId], references: [id], onDelete: SetNull)
 
-  @@unique([tenantId, academicYearId, direction])
+  @@unique([tenantId, academicYearId, routeId])
   @@index([tenantId, academicYearId])
+  @@index([routeId])
 }
 
 /// Configurable discount rules. Applications are recorded as FeeAdjustment rows
@@ -2561,6 +2778,10 @@ model BillingPolicy {
   /// When true, registrar fee modifications need FinanceOfficer approval before the
   /// enrollment/billing/invoices can be activated (FeeModificationApproval workflow).
   requireFinanceApprovalForFeeChanges Boolean  @default(false)
+  /// When false (default), the user who applies a fee modification cannot approve it —
+  /// approval requires a different user (separation of duties). Set true for small teams
+  /// where the same person registers and approves.
+  allowSelfFeeApproval                Boolean  @default(false)
   suspendTransportAfterOverdue        Int      @default(2) // # overdue installments
   createdById                         String?  @db.Uuid
   updatedById                         String?  @db.Uuid
@@ -2744,6 +2965,7 @@ model Enrollment {
   modifications FeeModification[]
   arrangements  FinancialArrangement[]
   commitment    RegistrationCommitment?
+  registrationAgreements RegistrationAgreement[]
 
   @@unique([tenantId, studentId, academicYearId])
   @@index([tenantId, academicYearId, gradeId])
@@ -2824,4 +3046,245 @@ model RegistrationCommitment {
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, committedAt])
+}
+
+// ----------------------------------------------------------------------------
+// Enterprise Document Engine (Phase 23)
+//   Reusable engine that generates every official school document (admissions
+//   agreements + finance documents) from a permanent JSON snapshot, stores the
+//   rendered PDF immutably, and archives + audits every generation/print/email.
+//   Consumes the existing ledger/admissions/organization data; never duplicates
+//   any financial record.
+// ----------------------------------------------------------------------------
+
+/// The catalog of official documents the engine can produce. New types are added here
+/// and given a template in the document module — no schema change needed per layout.
+enum DocumentType {
+  REGISTRATION_AGREEMENT
+  PAYMENT_RECEIPT
+  ANNUAL_TUITION_CERTIFICATE
+  OUTSTANDING_BALANCE_CERTIFICATE
+  CLEARANCE_CERTIFICATE
+  ACCOUNT_STATEMENT
+  PAYMENT_HISTORY
+  FEE_BREAKDOWN
+  STUDENT_FINANCIAL_SUMMARY
+}
+
+/// Document rendering language. BILINGUAL renders Arabic + English side-by-side.
+enum DocumentLanguage {
+  EN
+  AR
+  BILINGUAL
+}
+
+/// Lifecycle of an archived document. A document is immutable once ARCHIVED; a newer
+/// version of the same logical document SUPERSEDES it (the old PDF is retained).
+enum GeneratedDocumentStatus {
+  ARCHIVED
+  SUPERSEDED
+  CANCELLED
+}
+
+/// Lifecycle of a registration agreement (a legal commitment, never overwritten).
+enum RegistrationAgreementStatus {
+  DRAFT
+  COMMITTED
+  SIGNED
+  CANCELLED
+  ARCHIVED
+}
+
+/// Persistence strategy for a document type (Phase 23b). SNAPSHOT = legal record: the rendered PDF
+/// is stored immutably and reprints serve the stored bytes. DYNAMIC = operational report: only
+/// metadata is stored; the PDF is rendered on demand from live ledger data and discarded after.
+enum DocumentPersistence {
+  SNAPSHOT
+  DYNAMIC
+}
+
+/// An action recorded against a document for the access history (Phase 23b).
+enum DocumentAccessAction {
+  GENERATE
+  PRINT
+  DOWNLOAD
+  EMAIL
+  VIEW
+}
+
+/// Outcome of a document access action.
+enum DocumentAccessStatus {
+  SUCCESS
+  FAILED
+}
+
+/// Gapless, per-tenant, per-scope counter (one row per tenant+scope). Mirrors the
+/// FinanceReceiptCounter/EInvoiceCounter pattern so document/agreement numbers are
+/// sequential with no gaps or duplicates. `scope` is e.g. "AGREEMENT" or "DOC:PAYMENT_RECEIPT".
+model DocumentSequence {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  scope    String
+  nextNo   Int    @default(1)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope])
+}
+
+/// An archived official document record (Phase 23 + 23b). For SNAPSHOT documents (legal records) the
+/// rendered PDF is stored in `pdf` (bytea) so reprints serve the exact stored snapshot. For DYNAMIC
+/// documents (operational reports) `pdf`/`checksum`/`byteSize` are NULL — only metadata is kept and
+/// the PDF is re-rendered on demand from live ledger data (using `params`) and discarded. `params`
+/// captures the inputs needed to re-render a DYNAMIC document; `dataSnapshot` captures the data a
+/// SNAPSHOT PDF was built from. Tenant-scoped (RLS); every action is recorded in DocumentAccessLog.
+model GeneratedDocument {
+  id           String                  @id @default(uuid()) @db.Uuid
+  tenantId     String                  @db.Uuid
+  documentNo   Int // gapless per tenant+type
+  type         DocumentType
+  persistence  DocumentPersistence     @default(SNAPSHOT)
+  title        String
+  language     DocumentLanguage        @default(EN)
+  status       GeneratedDocumentStatus @default(ARCHIVED)
+  version      Int                     @default(1)
+
+  // Optional subjects/links (all SetNull so the archive survives record deletion).
+  studentId      String? @db.Uuid
+  parentId       String? @db.Uuid
+  academicYearId String? @db.Uuid
+  enrollmentId   String? @db.Uuid
+  transactionId  String? @db.Uuid
+
+  // SNAPSHOT: the immutable data + rendered artifact. DYNAMIC: these are NULL.
+  dataSnapshot Json?
+  pdf          Bytes?
+  checksum     String? // sha256 hex of the stored PDF (SNAPSHOT only)
+  byteSize     Int?
+  // DYNAMIC: the inputs needed to re-render the PDF on demand from live data.
+  params       Json?
+
+  // Access counters (denormalised cache of DocumentAccessLog for fast listing/UI).
+  printedCount       Int       @default(0)
+  downloadCount      Int       @default(0)
+  emailCount         Int       @default(0)
+  lastPrintedAt      DateTime? @db.Timestamptz(6)
+  lastDownloadedAt   DateTime? @db.Timestamptz(6)
+  lastEmailedAt      DateTime? @db.Timestamptz(6)
+  lastPrintedById    String?   @db.Uuid
+  lastDownloadedById String?   @db.Uuid
+  lastEmailedById    String?   @db.Uuid
+  generatedById      String?   @db.Uuid
+  generatedAt        DateTime  @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student      Student?               @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  parent       Parent?                @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear?          @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  agreement    RegistrationAgreement?
+  accessLogs   DocumentAccessLog[]
+  emailLogs    DocumentEmailLog[]
+
+  @@unique([tenantId, type, documentNo])
+  @@index([tenantId, type])
+  @@index([tenantId, studentId])
+  @@index([tenantId, generatedAt])
+}
+
+/// Complete per-action access history for a document (Phase 23b): generation, print, download,
+/// email and view events, with the actor and request context. The counters on GeneratedDocument are
+/// a denormalised cache of these rows. Tenant-scoped (RLS); each row mirrors an AuditLog entry.
+model DocumentAccessLog {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @db.Uuid
+  documentId  String               @db.Uuid
+  documentType DocumentType
+  action      DocumentAccessAction
+  status      DocumentAccessStatus @default(SUCCESS)
+  actorUserId String?              @db.Uuid
+  ip          String?
+  userAgent   String?
+  device      String?
+  detail      String?
+  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId, createdAt])
+  @@index([tenantId, action])
+}
+
+/// Email-delivery history for a document (Phase 23b) — metadata only; the PDF attachment is never
+/// stored (re-attached from the snapshot or re-rendered for dynamic docs). Tenant-scoped (RLS).
+model DocumentEmailLog {
+  id               String               @id @default(uuid()) @db.Uuid
+  tenantId         String               @db.Uuid
+  documentId       String               @db.Uuid
+  sentById         String?              @db.Uuid
+  recipients       String[]
+  cc               String[]
+  bcc              String[]
+  subject          String?
+  providerResponse String?
+  status           DocumentAccessStatus @default(SUCCESS)
+  retryCount       Int                  @default(0)
+  sentAt           DateTime             @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId, sentAt])
+}
+
+/// A registration agreement — the legal commitment between the school and the parent, created
+/// automatically right after a successful registration commit, from a permanent snapshot. Never
+/// overwritten: if fees change after commitment a new version is created and the prior version is
+/// ARCHIVED (full history preserved). The rendered PDF lives on the linked GeneratedDocument.
+model RegistrationAgreement {
+  id          String                      @id @default(uuid()) @db.Uuid
+  tenantId    String                      @db.Uuid
+  agreementNo Int // gapless per tenant
+  version     Int                         @default(1)
+  status      RegistrationAgreementStatus @default(COMMITTED)
+
+  enrollmentId   String  @db.Uuid
+  studentId      String  @db.Uuid
+  parentId       String? @db.Uuid
+  academicYearId String  @db.Uuid
+  campusId       String? @db.Uuid
+  gradeId        String? @db.Uuid
+  sectionId      String? @db.Uuid
+
+  registrationDate DateTime         @db.Date
+  paymentMode      QuotePaymentMode @default(INSTALLMENTS)
+  installments     Int              @default(1)
+  // Permanent financial snapshot at commit time (fee lines, discounts, schedule).
+  feeBreakdown        Json
+  installmentSchedule Json
+  grandTotal          Decimal @db.Decimal(12, 3)
+
+  // The archived PDF document for this version (the stored, reprintable snapshot).
+  documentId   String? @unique @db.Uuid
+  supersedesId String? @db.Uuid // prior version this one replaces
+
+  registrarId String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment              @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  student      Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parent       Parent?                 @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear            @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  document     GeneratedDocument?      @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  supersedes   RegistrationAgreement?  @relation("AgreementVersions", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy RegistrationAgreement[] @relation("AgreementVersions")
+
+  @@unique([tenantId, agreementNo])
+  @@unique([tenantId, enrollmentId, version])
+  @@index([tenantId, studentId])
+  @@index([tenantId, enrollmentId])
 }

@@ -8,14 +8,29 @@ export class BusRepository extends TenantRepository {
     return this.run((tx, tenantId) => tx.busRoute.create({ data: { ...data, tenantId } }));
   }
 
-  listRoutes(): Promise<BusRoute[]> {
+  updateRoute(id: string, data: Prisma.BusRouteUpdateInput): Promise<BusRoute> {
+    return this.run((tx) => tx.busRoute.update({ where: { id }, data }));
+  }
+
+  findRoute(id: string): Promise<BusRoute | null> {
+    return this.run((tx) => tx.busRoute.findFirst({ where: { id, deletedAt: null } }));
+  }
+
+  listRoutes(academicYearId?: string): Promise<BusRoute[]> {
     return this.run((tx) =>
-      tx.busRoute.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } }),
+      tx.busRoute.findMany({
+        where: { deletedAt: null, ...(academicYearId ? { academicYearId } : {}) },
+        orderBy: { name: 'asc' },
+      }),
     );
   }
 
   createBus(data: Omit<Prisma.BusUncheckedCreateInput, 'tenantId'>): Promise<Bus> {
     return this.run((tx, tenantId) => tx.bus.create({ data: { ...data, tenantId } }));
+  }
+
+  updateBus(id: string, data: Prisma.BusUpdateInput): Promise<Bus> {
+    return this.run((tx) => tx.bus.update({ where: { id }, data }));
   }
 
   listBuses(): Promise<Bus[]> {
@@ -47,6 +62,20 @@ export class BusRepository extends TenantRepository {
     );
   }
 
+  /** Whether another stop on the same route already uses this pickup time. */
+  pickupTimeTaken(routeId: string, pickupTime: string): Promise<boolean> {
+    return this.run(
+      async (tx) => (await tx.busStop.findFirst({ where: { routeId, pickupTime } })) !== null,
+    );
+  }
+
+  /** Whether the stop exists and belongs to the given route. */
+  stopBelongsToRoute(stopId: string, routeId: string): Promise<boolean> {
+    return this.run(
+      async (tx) => (await tx.busStop.findFirst({ where: { id: stopId, routeId } })) !== null,
+    );
+  }
+
   routeExists(routeId: string): Promise<boolean> {
     return this.run(
       async (tx) =>
@@ -58,19 +87,29 @@ export class BusRepository extends TenantRepository {
     studentId: string;
     routeId: string;
     stopId: string | null;
+    tripRound: number | null;
   }): Promise<StudentBusAssignment> {
     return this.run(async (tx, tenantId) => {
+      // One assignment per student: reassigning moves them (route + stop + trip) rather than adding a row.
       const existing = await tx.studentBusAssignment.findFirst({
-        where: { studentId: data.studentId, routeId: data.routeId },
+        where: { studentId: data.studentId },
       });
       if (existing) {
         return tx.studentBusAssignment.update({
           where: { id: existing.id },
-          data: { stopId: data.stopId },
+          data: { routeId: data.routeId, stopId: data.stopId, tripRound: data.tripRound },
         });
       }
       return tx.studentBusAssignment.create({ data: { ...data, tenantId } });
     });
+  }
+
+  findAssignment(id: string): Promise<StudentBusAssignment | null> {
+    return this.run((tx) => tx.studentBusAssignment.findFirst({ where: { id } }));
+  }
+
+  deleteAssignment(id: string): Promise<StudentBusAssignment> {
+    return this.run((tx) => tx.studentBusAssignment.delete({ where: { id } }));
   }
 
   listAssignments(routeId?: string): Promise<StudentBusAssignment[]> {
@@ -80,5 +119,31 @@ export class BusRepository extends TenantRepository {
         orderBy: { createdAt: 'desc' },
       }),
     );
+  }
+
+  /** A student's current route + trip + the bus serving it (for the student profile). */
+  studentTransport(studentId: string): Promise<{
+    routeName: string;
+    tripRound: number | null;
+    busNumber: string | null;
+    busPlate: string | null;
+  } | null> {
+    return this.run(async (tx) => {
+      const a = await tx.studentBusAssignment.findFirst({
+        where: { studentId },
+        include: { route: { select: { id: true, name: true } } },
+      });
+      if (!a?.route) return null;
+      const bus = await tx.bus.findFirst({
+        where: { routeId: a.route.id, deletedAt: null },
+        select: { plateNumber: true, label: true },
+      });
+      return {
+        routeName: a.route.name,
+        tripRound: a.tripRound,
+        busNumber: bus?.label ?? null,
+        busPlate: bus?.plateNumber ?? null,
+      };
+    });
   }
 }

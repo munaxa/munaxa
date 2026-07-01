@@ -4,12 +4,13 @@
 // consume the semantic CSS variables (see index.css / themes); these typed
 // values are the source-of-truth reference for design tooling and docs.
 export const colors = {
-  // Brand violet (DEFAULT is the marketing brand; primary* are the legible semantic tints per theme)
+  // Brand teal — Orbix Studio palette (shadcn preset b7BFbeatk). DEFAULT is the
+  // marketing brand; primary* are the legible semantic tints per theme.
   brand: {
-    violet: "#7A3FFF",
-    violetLight: "#B97BFF",
-    primaryLight: "#5B1FD6",
-    primaryDark: "#B97BFF",
+    violet: "#007595",
+    violetLight: "#00B8DB",
+    primaryLight: "#007595",
+    primaryDark: "#00B8DB",
   },
   // Theme-aware accents (light / dark)
   coral: { light: "#D9534F", dark: "#FF8E6E" },
@@ -38,8 +39,8 @@ export const colors = {
     danger: "#D9534F",
     info: "#3B82F6",
   },
-  // Data-viz scale — brand violets + accents
-  data: ["#7A3FFF", "#B97BFF", "#0D9488", "#D9534F", "#5B1FD6"],
+  // Data-viz scale — Orbix chart palette (chart-1 → chart-5)
+  data: ["#D0D6D8", "#67787C", "#4B585B", "#394447", "#22292B"],
 } as const;
 
 export type ColorToken = typeof colors;

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ApprovalStatus, EnrollmentStatus } from '@prisma/client';
 import { AdmissionsRepository } from './admissions.repository';
 import { QuoteService } from './quote.service';
+import { RegistrationAgreementService } from '../../documents/registration-agreement.service';
 import type {
   CommitDto,
   CreateArrangementDto,
@@ -21,6 +22,7 @@ export class AdmissionsService {
   constructor(
     private readonly repo: AdmissionsRepository,
     private readonly quotes: QuoteService,
+    private readonly agreements: RegistrationAgreementService,
   ) {}
 
   // Catalog
@@ -48,10 +50,20 @@ export class AdmissionsService {
     return this.repo.getQuote(id);
   }
 
-  // Commit (new or returning)
+  // Commit (new or returning). A fee change holds the enrollment in PENDING_APPROVAL (charges
+  // deferred) only when the tenant opts into the approval workflow
+  // (BillingPolicy.requireFinanceApprovalForFeeChanges, default false). Otherwise the admitting
+  // user — who holds fee authority — commits in one step; the change is recorded and
+  // auto-approved for audit. See AdmissionsRepository.commit.
+  // After a successful commit, automatically generate the Registration Agreement from the committed
+  // snapshot (Part 1). Best-effort and only for COMMITTED enrollments (held/PENDING_APPROVAL ones get
+  // their agreement when finance approves — see approve()). Generation never blocks/fails the commit.
   async commit(dto: CommitDto) {
-    const policy = await this.repo.getPolicyFlags();
-    return this.repo.commit(dto, policy?.requireFinanceApprovalForFeeChanges ?? false);
+    const enrollment = await this.repo.commit(dto);
+    if (enrollment.status === EnrollmentStatus.COMMITTED) {
+      await this.agreements.tryAutoGenerate(enrollment.id);
+    }
+    return enrollment;
   }
 
   loadReturning(studentId: string) {
@@ -69,8 +81,14 @@ export class AdmissionsService {
   listModifications(status?: ApprovalStatus) {
     return this.repo.listModifications(status);
   }
-  approve(modificationId: string, note?: string) {
-    return this.repo.decideModification(modificationId, true, note);
+  // Approving a held (fee-modified) enrollment activates it (creates its charges); generate the
+  // agreement from the now-committed snapshot. A later fee change that is re-approved produces a new
+  // agreement version (the prior one is archived) — see RegistrationAgreementService.
+  async approve(modificationId: string, note?: string) {
+    const decision = await this.repo.decideModification(modificationId, true, note);
+    const enrollmentId = await this.repo.enrollmentIdForModification(modificationId);
+    if (enrollmentId) await this.agreements.tryAutoGenerate(enrollmentId);
+    return decision;
   }
   reject(modificationId: string, note?: string) {
     return this.repo.decideModification(modificationId, false, note);

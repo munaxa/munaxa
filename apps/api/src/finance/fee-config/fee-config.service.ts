@@ -87,20 +87,28 @@ export class FeeConfigService {
   createTransportFare(dto: CreateTransportFareDto) {
     return this.repo.createTransportFare({
       academicYearId: dto.academicYearId,
-      direction: dto.direction,
       amount: dto.amount,
+      oneWayPct: dto.oneWayPct,
       isActive: dto.isActive ?? true,
+      ...(dto.routeId !== undefined ? { routeId: dto.routeId } : {}),
+      ...(dto.routeName !== undefined ? { routeName: dto.routeName } : {}),
     });
   }
   updateTransportFare(id: string, dto: UpdateTransportFareDto) {
     return this.repo.updateTransportFare(id, {
-      ...(dto.academicYearId !== undefined
-        ? { academicYear: { connect: { id: dto.academicYearId } } }
-        : {}),
-      ...(dto.direction !== undefined ? { direction: dto.direction } : {}),
+      ...(dto.academicYearId !== undefined ? { academicYearId: dto.academicYearId } : {}),
       ...(dto.amount !== undefined ? { amount: dto.amount } : {}),
+      ...(dto.oneWayPct !== undefined ? { oneWayPct: dto.oneWayPct } : {}),
       ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      ...(dto.routeId !== undefined ? { routeId: dto.routeId } : {}),
+      ...(dto.routeName !== undefined ? { routeName: dto.routeName } : {}),
     });
+  }
+
+  // Hard-delete a fare (the shared fleet route is preserved).
+  async deleteTransportFare(id: string) {
+    await this.repo.deleteTransportFare(id);
+    return { id };
   }
 
   // Discount rules
@@ -155,6 +163,9 @@ export class FeeConfigService {
       maxInstallments: dto.maxInstallments,
       fullPaymentDiscountPct: dto.fullPaymentDiscountPct,
       suspendTransportAfterOverdue: dto.suspendTransportAfterOverdue,
+      ...(dto.allowSelfFeeApproval !== undefined
+        ? { allowSelfFeeApproval: dto.allowSelfFeeApproval }
+        : {}),
     });
   }
 }

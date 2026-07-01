@@ -1,5 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
+  IsBoolean,
+  IsIn,
   IsInt,
   IsLatitude,
   IsLongitude,
@@ -22,6 +24,32 @@ export class CreateBusRouteDto {
   @IsString()
   @MaxLength(500)
   description?: string;
+
+  @ApiPropertyOptional({ description: 'Academic year this route belongs to.' })
+  @IsOptional()
+  @IsUUID()
+  academicYearId?: string;
+
+  @ApiPropertyOptional({ example: '07:00', description: '1st round trip time (HH:MM).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  round1Time?: string;
+
+  @ApiPropertyOptional({ example: '13:30', description: '2nd round trip time (HH:MM).' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  round2Time?: string;
+}
+
+export class UpdateBusRouteDto extends PartialType(CreateBusRouteDto) {
+  @ApiPropertyOptional({
+    description: 'Disable (true) or re-enable (false) the route. Disabled routes stay listed.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  disabled?: boolean;
 }
 
 export class CreateBusDto {
@@ -48,6 +76,12 @@ export class CreateBusDto {
   @Max(100)
   capacity?: number;
 
+  @ApiPropertyOptional({ enum: [1, 2], description: 'Trip of the route this bus serves (1 or 2).' })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2])
+  tripRound?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -60,6 +94,8 @@ export class CreateBusDto {
   @MaxLength(30)
   driverPhone?: string;
 }
+
+export class UpdateBusDto extends PartialType(CreateBusDto) {}
 
 export class UpdateBusLocationDto {
   @ApiProperty({ example: 31.9539 })
@@ -117,4 +153,13 @@ export class AssignStudentDto {
   @IsOptional()
   @IsUUID()
   stopId?: string;
+
+  @ApiPropertyOptional({
+    enum: [1, 2, 3],
+    description: 'Trip of the route the student rides: 1 (1st), 2 (2nd), or 3 (both).',
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2, 3])
+  tripRound?: number;
 }

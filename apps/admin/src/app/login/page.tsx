@@ -152,7 +152,9 @@ export default function LoginPage() {
       <div className="relative mx-auto flex min-h-screen max-w-[1440px] flex-col px-5 py-6 lg:h-full lg:min-h-0 lg:px-10">
         {/* Brand lockup. */}
         <header className="flex items-center gap-3">
-          <Logo size={40} priority />
+          <span className="login-logo-glow inline-flex">
+            <Logo size={40} priority />
+          </span>
           <div className="leading-tight">
             <p className="font-display text-2xl font-bold lowercase tracking-tight">munaxa</p>
             <p className="text-xs text-muted-foreground">School OS</p>
@@ -351,7 +353,7 @@ function SignInCard(p: CardProps) {
           <button
             type="submit"
             disabled={p.loading || p.blocked}
-            className="bg-grad-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-display font-semibold text-white shadow-glow transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-70"
+            className="bg-grad-primary flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-display font-semibold text-primary-foreground shadow-glow transition-[filter,transform] hover:brightness-110 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:cursor-not-allowed disabled:opacity-70"
           >
             {p.loading ? (
               <>

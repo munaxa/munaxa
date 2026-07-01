@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/shell';
 import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
@@ -61,6 +62,7 @@ const COLLECTIONS: {
 
 export default function FinancePage() {
   const toast = useToast();
+  const router = useRouter();
   const { t } = useI18n();
   const confirm = useConfirm();
   const [studentId, setStudentId] = useState('');
@@ -113,6 +115,25 @@ export default function FinancePage() {
     },
     [studentId, toast],
   );
+
+  // Open the full-page Student Profile (shared across modules) for this student.
+  const openProfile = useCallback(
+    (id: string) => {
+      if (id) router.push(`/people/students/${id}`);
+    },
+    [router],
+  );
+
+  // Deep link from Admissions: ?studentId=<id> opens that student's statement to collect fees.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('studentId');
+    if (id) {
+      setStudentId(id);
+      void load(id);
+    }
+    // Run once on mount; `load` is stable enough for this deep-link entry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function run(fn: () => Promise<unknown>, ok: string) {
     try {
@@ -227,6 +248,16 @@ export default function FinancePage() {
               feeModified={collections.feeModified}
               customArrangement={collections.customArrangement}
             />
+          ) : null}
+          {studentId ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="ms-auto"
+              onClick={() => openProfile(studentId)}
+            >
+              {t('finance.viewProfile')}
+            </Button>
           ) : null}
         </div>
 
@@ -785,10 +816,7 @@ export default function FinancePage() {
                             <button
                               type="button"
                               className="text-start font-medium text-foreground hover:text-primary hover:underline"
-                              onClick={() => {
-                                setStudentId(m.studentId);
-                                void load(m.studentId);
-                              }}
+                              onClick={() => openProfile(m.studentId)}
                             >
                               {m.firstNameEn} {m.lastNameEn}
                             </button>
@@ -1022,6 +1050,7 @@ export default function FinancePage() {
           </>
         ) : null}
       </div>
+
     </Shell>
   );
 }

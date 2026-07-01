@@ -6,6 +6,7 @@
  * mocked). Fails soft: if no API key is configured, requests are still stored and the
  * admin queue keeps working; we just skip sending.
  */
+import { colors } from '@munaxa/design-tokens';
 import type { DemoRequest } from '@/lib/requests';
 
 /** Read a var/secret on both Node (process.env) and Cloudflare Workers (CF env). */
@@ -89,29 +90,29 @@ export async function sendDemoRequestEmails(req: DemoRequest): Promise<EmailResu
   const tableRows = rows
     .map(
       ([k, v]) =>
-        `<tr><td style="padding:4px 12px 4px 0;color:#5A4D7A">${esc(k)}</td><td style="padding:4px 0"><strong>${esc(v || '—')}</strong></td></tr>`,
+        `<tr><td style="padding:4px 12px 4px 0;color:${colors.neutral.mutedText}">${esc(k)}</td><td style="padding:4px 0"><strong>${esc(v || '—')}</strong></td></tr>`,
     )
     .join('');
 
   const teamHtml = `
-    <div style="font-family:Inter,system-ui,sans-serif;color:#1E0B4D">
+    <div style="font-family:Inter,system-ui,sans-serif;color:${colors.neutral.ink}">
       <h2 style="margin:0 0 12px">New demo request — ${esc(req.schoolName)}</h2>
       <table style="border-collapse:collapse;font-size:14px">${tableRows}</table>
-      <p style="margin-top:16px;color:#5A4D7A">Review and provision access in the Demo Requests console.</p>
+      <p style="margin-top:16px;color:${colors.neutral.mutedText}">Review and provision access in the Demo Requests console.</p>
     </div>`;
 
   const prospectHtml = `
-    <div style="font-family:Inter,system-ui,sans-serif;color:#1E0B4D;max-width:520px">
+    <div style="font-family:Inter,system-ui,sans-serif;color:${colors.neutral.ink};max-width:520px">
       <h2 style="margin:0 0 12px">Thank you for your interest in Munaxa</h2>
-      <p style="color:#5A4D7A;line-height:1.6">
+      <p style="color:${colors.neutral.mutedText};line-height:1.6">
         Hi ${esc(req.contactPerson || 'there')},<br/><br/>
         We’ve received your demo request for <strong>${esc(req.schoolName)}</strong>.
         Our team will review it and reply as soon as possible with your private demo access.
       </p>
-      <p style="color:#5A4D7A;line-height:1.6">
+      <p style="color:${colors.neutral.mutedText};line-height:1.6">
         If you need anything in the meantime, just reply to this email.
       </p>
-      <p style="margin-top:20px;color:#8B80A8;font-size:13px">— The Munaxa team</p>
+      <p style="margin-top:20px;color:${colors.neutral.mutedText};font-size:13px">— The Munaxa team</p>
     </div>`;
 
   const [team, prospect] = await Promise.allSettled([

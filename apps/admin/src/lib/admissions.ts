@@ -63,6 +63,7 @@ export interface QuoteRequest {
   academicYearId: string;
   studentId?: string;
   transportDirection?: TransportDirection;
+  transportRouteGroup?: string;
   paymentMode?: QuotePaymentMode;
   installments?: number;
   firstDueDate?: string;
@@ -94,6 +95,14 @@ export interface CommitRequest {
     relation?: 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER';
   };
   sectionId?: string;
+  /** Fleet route to assign the student to (bus tracking). */
+  busRouteId?: string;
+  /** Trip of the route the student rides: 1 (1st) or 2 (2nd). */
+  busTripRound?: number;
+  /** Home area the student lives in (drives Fleet's Area Planning). */
+  areaId?: string;
+  /** Whether the parent requested transportation (feeds the Unassigned queue). */
+  transportRequested?: boolean;
 }
 
 export interface EnrollmentRow {
@@ -175,7 +184,7 @@ export const admissionsApi = {
     ),
   commit: (req: CommitRequest) =>
     authFetch('/admissions/commit', { method: 'POST', body: JSON.stringify(req) }).then((r) =>
-      json<{ id: string; status: string }>(r),
+      json<{ id: string; status: string; studentId: string }>(r),
     ),
   loadReturning: (studentId: string) =>
     authFetch(`/admissions/returning/${studentId}`).then((r) => json<ReturningStudent>(r)),

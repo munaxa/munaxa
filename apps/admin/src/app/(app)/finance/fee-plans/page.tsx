@@ -35,6 +35,7 @@ export default function FeePlansPage() {
   const toast = useToast();
   const [plans, setPlans] = useState<FeePlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<FeePlan | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -74,10 +75,19 @@ export default function FeePlansPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>{t('feePlans.create')}</CardTitle>
+            <CardTitle>{editing ? t('feePlans.editTitle') : t('feePlans.create')}</CardTitle>
           </CardHeader>
           <CardContent>
-            <CreateFeePlan onDone={load} onError={(m) => toast.error(m)} />
+            <FeePlanForm
+              key={editing?.id ?? 'new'}
+              editing={editing}
+              onDone={async () => {
+                setEditing(null);
+                await load();
+              }}
+              onCancel={() => setEditing(null)}
+              onError={(m) => toast.error(m)}
+            />
           </CardContent>
         </Card>
 
@@ -108,9 +118,14 @@ export default function FeePlansPage() {
                   </Badge>
                 </TD>
                 <TD className="text-end">
-                  <Button variant="ghost" size="sm" onClick={() => void toggleActive(p)}>
-                    {p.isActive ? t('common.deactivate') : t('common.activate')}
-                  </Button>
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(p)}>
+                      {t('common.edit')}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => void toggleActive(p)}>
+                      {p.isActive ? t('common.deactivate') : t('common.activate')}
+                    </Button>
+                  </div>
                 </TD>
               </TR>
             ))}
@@ -128,19 +143,23 @@ export default function FeePlansPage() {
   );
 }
 
-function CreateFeePlan({
+function FeePlanForm({
+  editing,
   onDone,
+  onCancel,
   onError,
 }: {
+  editing: FeePlan | null;
   onDone: () => Promise<void>;
+  onCancel: () => void;
   onError: (m: string) => void;
 }) {
   const { t } = useI18n();
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    amount: '',
-    recurrence: 'ONE_TIME' as FeeRecurrence,
+    name: editing?.name ?? '',
+    description: editing?.description ?? '',
+    amount: editing ? String(Number(editing.amount)) : '',
+    recurrence: editing?.recurrence ?? 'ONE_TIME',
   });
   const [busy, setBusy] = useState(false);
 
@@ -153,12 +172,18 @@ function CreateFeePlan({
         amount: Number(form.amount) || 0,
         recurrence: form.recurrence,
       };
-      if (form.description) payload.description = form.description;
-      await feePlansApi.create(payload);
-      setForm({ name: '', description: '', amount: '', recurrence: 'ONE_TIME' });
+      if (editing) {
+        // Include description even when blank so it can be cleared.
+        payload.description = form.description;
+        await feePlansApi.update(editing.id, payload);
+      } else {
+        if (form.description) payload.description = form.description;
+        await feePlansApi.create(payload);
+        setForm({ name: '', description: '', amount: '', recurrence: 'ONE_TIME' });
+      }
       await onDone();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Create failed');
+      onError(err instanceof Error ? err.message : 'Save failed');
     } finally {
       setBusy(false);
     }
@@ -202,9 +227,20 @@ function CreateFeePlan({
           ))}
         </Select>
       </Field>
-      <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? t('common.creating') : t('feePlans.createButton')}
-      </Button>
+      <div className="flex gap-2 sm:col-span-2">
+        <Button type="submit" disabled={busy}>
+          {busy
+            ? t('common.saving')
+            : editing
+              ? t('feePlans.saveButton')
+              : t('feePlans.createButton')}
+        </Button>
+        {editing ? (
+          <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
+            {t('common.cancel')}
+          </Button>
+        ) : null}
+      </div>
     </form>
   );
 }

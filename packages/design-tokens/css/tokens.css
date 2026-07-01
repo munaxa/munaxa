@@ -1,0 +1,76 @@
+/**
+ * @munaxa/design-tokens — canonical CSS custom properties.
+ *
+ * Import once at the app root:  @import "@munaxa/design-tokens/css";
+ *
+ * These mirror the values exported from the TypeScript token modules so non-TS
+ * consumers (plain CSS, print stylesheets, email templates) share the same source
+ * of truth. Theme-aware semantic colors (primary/background/border/etc.) continue
+ * to be defined per-app in globals.css against the documented HSL-triplet contract;
+ * the variables below are the static, theme-independent tokens that never branch by theme.
+ */
+:root {
+  /* Brand (static) — munaxadesignsystem (Orbix) teal */
+  --munaxa-brand: #007595;
+  --munaxa-brand-light: #00b8db;
+  --munaxa-brand-dark: #005066;
+
+  /* Ink surfaces */
+  --munaxa-ink-900: #0b0518;
+  --munaxa-ink-800: #140a2e;
+  --munaxa-ink-700: #1a0f38;
+  --munaxa-ink-600: #221547;
+  --munaxa-ink-border: #2f224f;
+
+  /* Spacing */
+  --munaxa-space-0: 0;
+  --munaxa-space-1: 0.25rem;
+  --munaxa-space-2: 0.5rem;
+  --munaxa-space-3: 0.75rem;
+  --munaxa-space-4: 1rem;
+  --munaxa-space-5: 1.25rem;
+  --munaxa-space-6: 1.5rem;
+  --munaxa-space-8: 2rem;
+  --munaxa-space-10: 2.5rem;
+  --munaxa-space-12: 3rem;
+  --munaxa-space-16: 4rem;
+  --munaxa-space-24: 6rem;
+
+  /* Radius */
+  --munaxa-radius-none: 0;
+  --munaxa-radius-sm: 0.5rem;
+  --munaxa-radius-md: 0.75rem;
+  --munaxa-radius-lg: 0.875rem;
+  --munaxa-radius-xl: 1.375rem;
+  --munaxa-radius-2xl: 2rem;
+  --munaxa-radius-full: 9999px;
+
+  /* Elevation */
+  --munaxa-shadow-sm: 0 1px 2px rgb(30 11 77 / 0.06);
+  --munaxa-shadow-md: 0 4px 12px rgb(30 11 77 / 0.1);
+  --munaxa-shadow-lg: 0 12px 28px rgb(30 11 77 / 0.14);
+  --munaxa-shadow-focus: 0 0 0 3px rgb(0 117 149 / 0.28);
+
+  /* Motion */
+  --munaxa-duration-fast: 120ms;
+  --munaxa-duration-normal: 200ms;
+  --munaxa-duration-slow: 300ms;
+  --munaxa-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --munaxa-easing-enter: cubic-bezier(0, 0, 0, 1);
+  --munaxa-easing-exit: cubic-bezier(0.3, 0, 1, 1);
+
+  /* Z-index layering */
+  --munaxa-z-base: 0;
+  --munaxa-z-sticky: 10;
+  --munaxa-z-dropdown: 20;
+  --munaxa-z-overlay: 30;
+  --munaxa-z-modal: 40;
+  --munaxa-z-toast: 50;
+
+  /* Breakpoints (reference) */
+  --munaxa-bp-sm: 640px;
+  --munaxa-bp-md: 768px;
+  --munaxa-bp-lg: 1024px;
+  --munaxa-bp-xl: 1280px;
+  --munaxa-bp-2xl: 1536px;
+}

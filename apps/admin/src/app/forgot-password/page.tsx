@@ -32,16 +32,18 @@ export default function ForgotPasswordPage() {
 
   return (
     <main className="flex min-h-screen">
-      <section className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-grad-primary p-12 text-white lg:flex">
+      <section className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-grad-primary p-12 text-primary-foreground lg:flex">
         <div className="flex items-center gap-2">
           <Logo size={36} priority />
           <span className="font-display text-xl font-semibold">Munaxa</span>
         </div>
         <div className="max-w-md space-y-4">
           <h2 className="font-display text-4xl font-bold leading-tight">{t('auth.heroTitle')}</h2>
-          <p className="text-base leading-relaxed text-white/80">{t('auth.heroSubtitle')}</p>
+          <p className="text-base leading-relaxed text-primary-foreground/80">
+            {t('auth.heroSubtitle')}
+          </p>
         </div>
-        <p className="text-sm text-white/60">{t('auth.heroFooter')}</p>
+        <p className="text-sm text-primary-foreground/60">{t('auth.heroFooter')}</p>
       </section>
 
       <section className="flex flex-1 items-center justify-center bg-background p-6 sm:p-10">

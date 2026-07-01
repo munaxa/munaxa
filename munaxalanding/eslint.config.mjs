@@ -68,15 +68,6 @@ export default tseslint.config(
     },
   },
   {
-    // Transactional emails are rendered outside the app's CSS — email clients don't support
-    // Tailwind classes or CSS custom properties, so lib/email.ts must use literal hex colors
-    // (kept in sync with the design tokens in tailwind.config.ts / globals.css by hand).
-    files: ['src/lib/email.ts'],
-    rules: {
-      'no-restricted-syntax': 'off',
-    },
-  },
-  {
     ignores: [
       '.next/**',
       'node_modules/**',

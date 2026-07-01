@@ -18,6 +18,14 @@ export class QuoteDto {
   transportDirection?: TransportDirection;
 
   @ApiPropertyOptional({
+    example: 'A,B,C',
+    description: 'Route group to price transport against (must match a configured fare).',
+  })
+  @IsOptional()
+  @IsString()
+  transportRouteGroup?: string;
+
+  @ApiPropertyOptional({
     default: false,
     description: 'Pay annual tuition in full (applies full-payment discount)',
   })

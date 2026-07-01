@@ -1,6 +1,6 @@
 'use client';
 
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from '@munaxa/icons';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 import { cn } from '@/lib/cn';

@@ -2,6 +2,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+// The demo is a pnpm-workspace member, so trace from the monorepo root: this both pulls the
+// workspace deps (@munaxa/ui, tokens, icons) into the standalone bundle and produces the
+// monorepo-nested layout (.next/standalone/munaxademo/.next/...) that the OpenNext Cloudflare
+// adapter expects. Pinning this to projectRoot breaks the OpenNext bundling step.
+const monorepoRoot = path.join(projectRoot, '..');
 
 /** @type {import('next').NextConfig} */
 
@@ -31,13 +36,16 @@ const csp = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // ESLint runs as its own workspace step (`pnpm lint` → eslint.config.mjs), so we don't
+  // double-lint inside `next build`. Keeps the build focused on compilation.
+  eslint: { ignoreDuringBuilds: true },
   // Self-contained server bundle for a slim production container / cloud deploy.
   output: 'standalone',
   // Competitor protection: never ship readable source maps to the browser.
   productionBrowserSourceMaps: false,
-  // Pin tracing root to this project so the standalone bundle is self-contained
-  // (the repo has a parent lockfile that Next would otherwise infer).
-  outputFileTracingRoot: projectRoot,
+  // Trace from the monorepo root so workspace deps are bundled and the standalone layout
+  // matches what the OpenNext Cloudflare adapter expects (see monorepoRoot note above).
+  outputFileTracingRoot: monorepoRoot,
   typedRoutes: true,
   // The Cloudflare adapter is resolved at runtime (only on Workers); don't bundle it
   // into the Node build. On non-Cloudflare hosts the dynamic import simply no-ops.

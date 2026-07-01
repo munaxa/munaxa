@@ -28,8 +28,7 @@ jobs:
       pull-requests: read
     outputs:
       mobile: ${{ steps.filter.outputs.mobile }}
-      landing: ${{ steps.filter.outputs.landing }}
-      demo: ${{ steps.filter.outputs.demo }}
+      designsystem: ${{ steps.filter.outputs.designsystem }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -38,10 +37,8 @@ jobs:
           filters: |
             mobile:
               - 'apps/mobile/**'
-            landing:
-              - 'munaxalanding/**'
-            demo:
-              - 'munaxademo/**'
+            designsystem:
+              - 'munaxadesignsystem/**'
 
   node:
     name: Lint · Typecheck · Test · Build (JS/TS)
@@ -84,7 +81,7 @@ jobs:
         run: pnpm prisma:generate
 
       - name: Build internal packages
-        run: pnpm turbo run build --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils
+        run: pnpm turbo run build --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils --filter=@munaxa/design-tokens
 
       - name: Apply database migrations
         run: pnpm --filter @munaxa/api prisma:deploy
@@ -139,45 +136,22 @@ jobs:
         working-directory: apps/mobile
         run: flutter test
 
-  landing:
-    name: Lint · Typecheck · Build (Landing)
-    runs-on: ubuntu-latest
-    # Standalone Cloudflare app (own pnpm root + lockfile, not in the workspace). Only run
-    # when its code changes.
-    needs: changes
-    if: needs.changes.outputs.landing == 'true'
-    defaults:
-      run:
-        working-directory: munaxalanding
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: munaxalanding/pnpm-lock.yaml
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Lint
-        run: pnpm lint
-      - name: Typecheck
-        run: pnpm typecheck
-      - name: Build
-        run: pnpm build
+  # NOTE: munaxademo and munaxalanding are now workspace members (approach A). They are built,
+  # typechecked and linted by the `node` job above via `turbo` (pnpm build / typecheck / lint
+  # cover all workspace packages, including these apps and their @munaxa/* dependencies). Their
+  # previous standalone `demo` / `landing` jobs were removed when they joined the workspace.
 
-  demo:
-    name: Lint · Typecheck · Build (Demo)
+  designsystem:
+    name: Typecheck · Build (Design System)
     runs-on: ubuntu-latest
-    # Standalone Cloudflare app (own pnpm root + lockfile, not in the workspace). Only run
-    # when its code changes.
+    # Standalone Cloudflare app (own pnpm root + lockfile, not in the workspace).
+    # Deployed to Cloudflare via the dashboard Git integration; this job only
+    # validates the static (Cloudflare) build. Only run when its code changes.
     needs: changes
-    if: needs.changes.outputs.demo == 'true'
+    if: needs.changes.outputs.designsystem == 'true'
     defaults:
       run:
-        working-directory: munaxademo
+        working-directory: munaxadesignsystem
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -187,16 +161,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-          cache-dependency-path: munaxademo/pnpm-lock.yaml
+          cache-dependency-path: munaxadesignsystem/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      # NOTE: demo has no ESLint setup yet (no config/deps — its `lint` script is leftover
-      # `next lint` scaffolding), so lint is omitted here. Typecheck + build still gate types
-      # and Next's build-time checks. Add an ESLint config (mirroring munaxalanding) to enable it.
+      # NOTE: the design system has no ESLint setup (only `check`/`format`), so
+      # lint is omitted. Typecheck + the Cloudflare static build gate it.
       - name: Typecheck
-        run: pnpm typecheck
-      - name: Build
-        run: pnpm build
+        run: pnpm check
+      - name: Build (Cloudflare static)
+        run: pnpm cf:build
 
   security:
     name: Security scans

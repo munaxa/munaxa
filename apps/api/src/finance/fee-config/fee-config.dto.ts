@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { DiscountCalc, DiscountType, TransportDirection } from '@prisma/client';
+import { DiscountCalc, DiscountType } from '@prisma/client';
 import {
   IsBoolean,
   IsEnum,
@@ -46,19 +46,40 @@ export class CreateGradeFeeScheduleDto {
 }
 export class UpdateGradeFeeScheduleDto extends PartialType(CreateGradeFeeScheduleDto) {}
 
-// ── Transport fare (per academic year × direction) ──
+// ── Transport fare (one per academic year × fleet route; two-way total + one-way %) ──
 export class CreateTransportFareDto {
   @ApiProperty() @IsUUID() academicYearId!: string;
 
-  @ApiProperty({ enum: TransportDirection })
-  @IsEnum(TransportDirection)
-  direction!: TransportDirection;
+  @ApiPropertyOptional({ description: 'Existing fleet route to attach the fare to.' })
+  @IsOptional()
+  @IsUUID()
+  routeId?: string;
 
-  @ApiProperty({ example: 300, description: 'Annual transport fee (JOD)' })
+  @ApiPropertyOptional({
+    example: 'A,B,C',
+    description:
+      'Route name to attach by. Reused if it already exists in the fleet, otherwise created. ' +
+      'Ignored when routeId is given.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(150)
+  routeName?: string;
+
+  @ApiProperty({ example: 300, description: 'Annual two-way (round trip) transport fee (JOD)' })
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)
   @Max(100000000)
   amount!: number;
+
+  @ApiProperty({
+    example: 70,
+    description: 'One-way price as a percentage of the two-way total (0–100).',
+  })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  oneWayPct!: number;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()
@@ -131,4 +152,13 @@ export class UpsertBillingPolicyDto {
   @Min(1)
   @Max(99)
   suspendTransportAfterOverdue!: number;
+
+  @ApiProperty({
+    required: false,
+    description:
+      'Allow the user who applied a fee modification to also approve it. When false (default), approval requires a different user.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  allowSelfFeeApproval?: boolean;
 }

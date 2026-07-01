@@ -11,6 +11,14 @@ export interface Transaction {
   chargeId?: string | null;
   /** ISO timestamp when the parent was emailed about this settled payment (null = not sent). */
   parentNotifiedAt?: string | null;
+  /** ISO timestamp the payment was recorded (the receipt/payment date). */
+  createdAt?: string | null;
+  /** Gapless official receipt number, allocated when the payment was verified (null until then). */
+  receiptNo?: number | null;
+  /** Display name of the cashier who recorded the payment. */
+  recordedByName?: string | null;
+  /** Linked JoFotara e-invoice document, if one was issued. */
+  einvoice?: { invoiceNumber: string; status: string; docType: string } | null;
 }
 
 export interface Charge {
@@ -373,8 +381,20 @@ export interface GradeFeeSchedule {
 export interface TransportFare {
   id: string;
   academicYearId: string;
-  direction: TransportDirection;
+  routeId: string | null;
+  /** Resolved fleet route (source of truth for the route's name + trip times + disabled state). */
+  route: {
+    id: string;
+    name: string;
+    description: string | null;
+    round1Time: string | null;
+    round2Time: string | null;
+    disabledAt: string | null;
+  } | null;
+  /** Two-way (round trip) annual total. */
   amount: string;
+  /** One-way price as a percentage of the two-way total. */
+  oneWayPct: string;
   isActive: boolean;
 }
 export interface DiscountRule {
@@ -395,6 +415,7 @@ export interface BillingPolicy {
   maxInstallments: number;
   fullPaymentDiscountPct: string;
   suspendTransportAfterOverdue: number;
+  allowSelfFeeApproval: boolean;
 }
 
 export const feeConfigApi = {
@@ -414,6 +435,22 @@ export const feeConfigApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<GradeFeeSchedule>(r)),
+  updateGradeFee: (
+    id: string,
+    data: Partial<{
+      gradeId: string;
+      academicYearId: string;
+      registrationFee: number;
+      tuitionFee: number;
+      effectiveFrom: string;
+      effectiveTo: string;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/grade-fees/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<GradeFeeSchedule>(r)),
 
   transportFares: (academicYearId?: string) =>
     authFetch(
@@ -421,13 +458,34 @@ export const feeConfigApi = {
     ).then((r) => json<TransportFare[]>(r)),
   createTransportFare: (data: {
     academicYearId: string;
-    direction: TransportDirection;
+    routeId?: string;
+    routeName?: string;
     amount: number;
+    oneWayPct?: number;
   }) =>
     authFetch('/finance/fee-config/transport-fares', {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<TransportFare>(r)),
+  updateTransportFare: (
+    id: string,
+    data: Partial<{
+      academicYearId: string;
+      routeId: string | null;
+      routeName: string;
+      amount: number;
+      oneWayPct: number;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/transport-fares/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<TransportFare>(r)),
+  deleteTransportFare: (id: string) =>
+    authFetch(`/finance/fee-config/transport-fares/${id}`, { method: 'DELETE' }).then(
+      () => undefined,
+    ),
 
   discountRules: () =>
     authFetch('/finance/fee-config/discount-rules').then((r) => json<DiscountRule[]>(r)),
@@ -443,6 +501,22 @@ export const feeConfigApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<DiscountRule>(r)),
+  updateDiscountRule: (
+    id: string,
+    data: Partial<{
+      name: string;
+      type: DiscountType;
+      calc: DiscountCalc;
+      value: number;
+      maxAmount: number;
+      appliesToTransport: boolean;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/finance/fee-config/discount-rules/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<DiscountRule>(r)),
 
   policy: () => authFetch('/finance/fee-config/policy').then((r) => json<BillingPolicy | null>(r)),
   upsertPolicy: (data: {
@@ -450,6 +524,7 @@ export const feeConfigApi = {
     maxInstallments: number;
     fullPaymentDiscountPct: number;
     suspendTransportAfterOverdue: number;
+    allowSelfFeeApproval?: boolean;
   }) =>
     authFetch('/finance/fee-config/policy', {
       method: 'PUT',
@@ -476,6 +551,7 @@ export const enrollmentApi = {
     gradeId: string;
     academicYearId: string;
     transportDirection?: TransportDirection;
+    transportRouteGroup?: string;
     fullPayment?: boolean;
     installments?: number;
     firstDueDate?: string;

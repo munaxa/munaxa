@@ -11,6 +11,7 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -70,6 +71,14 @@ export class QuoteDto {
   @IsOptional()
   @IsEnum(TransportDirection)
   transportDirection?: TransportDirection;
+
+  @ApiPropertyOptional({
+    example: 'A,B,C',
+    description: 'Route group to price transport against (must match a configured fare).',
+  })
+  @IsOptional()
+  @IsString()
+  transportRouteGroup?: string;
 
   @ApiPropertyOptional({ enum: QuotePaymentMode, default: QuotePaymentMode.INSTALLMENTS })
   @IsOptional()
@@ -157,6 +166,32 @@ export class CommitDto {
   @IsOptional()
   @IsUUID()
   sectionId?: string;
+
+  @ApiPropertyOptional({ description: 'Fleet route to assign the student to (bus tracking).' })
+  @IsOptional()
+  @IsUUID()
+  busRouteId?: string;
+
+  @ApiPropertyOptional({
+    enum: [1, 2],
+    description: 'Trip of the route the student rides (1 or 2).',
+  })
+  @IsOptional()
+  @IsInt()
+  @IsIn([1, 2])
+  busTripRound?: number;
+
+  @ApiPropertyOptional({ description: "Geographic area the student lives in (drives Fleet's Area Planning)." })
+  @IsOptional()
+  @IsUUID()
+  areaId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether the parent requested transportation (feeds the Unassigned queue).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  transportRequested?: boolean;
 }
 
 // ── Approvals & arrangements ──

@@ -16,6 +16,10 @@ export interface Student {
   nationalId?: string | null;
   moeStudentNumber?: string | null;
   sectionId?: string | null;
+  /** Home area (geographic); set during registration. Drives Fleet's Area Planning. */
+  areaId?: string | null;
+  /** Whether the parent requested transportation. Feeds the Fleet Unassigned queue. */
+  transportRequested?: boolean;
   dateOfBirth?: string | null;
   gender?: string | null;
   enrollmentDate?: string | null;
@@ -74,6 +78,8 @@ export interface UpdateStudentInput {
   nationalId?: string;
   moeStudentNumber?: string;
   sectionId?: string;
+  areaId?: string;
+  transportRequested?: boolean;
   gender?: string;
   dateOfBirth?: string;
   status?: string;
@@ -93,6 +99,8 @@ export const studentsApi = {
     authFetch(`/students${search ? `?search=${encodeURIComponent(search)}` : ''}`).then((r) =>
       json<Student[]>(r),
     ),
+  /** Load a single student by id — backs the full-page Student Profile header. */
+  get: (id: string) => authFetch(`/students/${id}`).then((r) => json<Student>(r)),
   bySection: (sectionId: string) =>
     authFetch(`/students?sectionId=${sectionId}`).then((r) => json<Student[]>(r)),
   create: (data: {
