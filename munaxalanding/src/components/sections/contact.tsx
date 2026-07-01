@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import Script from 'next/script';
 import { Mail, Phone, MapPin, Loader2, CheckCircle2, AlertCircle } from '@munaxa/icons';
 import { Button } from '@/components/ui/button';
@@ -217,9 +218,9 @@ export function Contact({ dict, nonce }: { dict: Dictionary; nonce?: string | un
 
             <p className="mt-4 text-xs text-muted-foreground">
               {form.consentBefore}{' '}
-              <a href="/privacy" className="underline hover:text-foreground">
+              <Link href="/privacy" className="underline hover:text-foreground">
                 {form.privacyLink}
-              </a>
+              </Link>
               {form.consentAfter}
             </p>
           </form>
