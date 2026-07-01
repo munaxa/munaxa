@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
@@ -48,9 +48,6 @@ export default function LoginPage() {
     rateRemainingMs: 0,
     remainingAttempts: 5,
   });
-  // Latest guard value for the interval callback, without re-subscribing every tick.
-  const guardRef = useRef(guard);
-  guardRef.current = guard;
 
   // Restore a remembered school code + identifier, and hydrate the client guard state.
   useEffect(() => {
