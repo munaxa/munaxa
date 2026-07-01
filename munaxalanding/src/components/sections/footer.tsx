@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { CONTACT_EMAIL, SITE_NAME } from '@/lib/constants';
 import type { Dictionary } from '@/lib/i18n/types';
 
@@ -24,12 +25,12 @@ export function Footer({ dict }: { dict: Dictionary }) {
         </div>
 
         <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-          <a href="/privacy" className="hover:text-foreground">
+          <Link href="/privacy" className="hover:text-foreground">
             {dict.footer.privacy}
-          </a>
-          <a href="/terms" className="hover:text-foreground">
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
             {dict.footer.terms}
-          </a>
+          </Link>
           <a href={`mailto:${CONTACT_EMAIL}`} className="hover:text-foreground">
             {CONTACT_EMAIL}
           </a>

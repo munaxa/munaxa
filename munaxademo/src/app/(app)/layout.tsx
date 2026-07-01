@@ -1,7 +1,17 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getServerSession } from '@/lib/auth/session';
 import { AppProviders } from '@/components/app-providers';
 import { PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
+
+/**
+ * Every authenticated demo screen (dashboards, students, finance, portals, …) is
+ * explicitly noindex/nofollow. This is defence-in-depth on top of the root layout's
+ * default and the X-Robots-Tag header set in middleware.
+ */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
+};
 
 /**
  * Server guard for every authenticated page. The middleware already blocks unsigned

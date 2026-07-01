@@ -7,9 +7,12 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/api/'],
+        // API routes and query-string search results are not indexable content;
+        // disallowing them prevents crawl traps and index bloat.
+        disallow: ['/api/', '/*?*'],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }
