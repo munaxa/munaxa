@@ -15,7 +15,7 @@ export class GenerateDocumentDto {
   @ApiPropertyOptional() @IsOptional() @IsUUID() academicYearId?: string;
 
   /** Required for PAYMENT_RECEIPT. */
-  @ApiPropertyOptional() @IsOptional() @IsUUID() transactionId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() paymentId?: string;
 
   /** ANNUAL_TUITION_CERTIFICATE: optional categories to include alongside tuition. */
   @ApiPropertyOptional({ enum: FeeItemKind, isArray: true })

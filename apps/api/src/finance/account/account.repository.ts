@@ -1,0 +1,122 @@
+import { Injectable } from '@nestjs/common';
+import { type Payer, type StudentFinancialAccount } from '@prisma/client';
+import { TenantRepository } from '../../common/tenant.repository';
+import { TenantContextStore } from '../../prisma/tenant-context';
+import type { TxClient } from '../../prisma/tenant.helpers';
+
+/**
+ * Student Financial Account + Payer data access (AR account context). The account is the AR
+ * ledger owner for one student; a Payer is the billing party (usually the primary guardian).
+ * `ensureAccount` is the single entry point that lazily creates the account (and links a payer
+ * from the primary guardian) — called at charge/enrollment time so every receivable has a home.
+ */
+@Injectable()
+export class AccountRepository extends TenantRepository {
+  private actor(): string | null {
+    return TenantContextStore.get()?.actorUserId ?? null;
+  }
+
+  findByStudent(studentId: string): Promise<StudentFinancialAccount | null> {
+    return this.run((tx) => tx.studentFinancialAccount.findFirst({ where: { studentId } }));
+  }
+
+  /** Find-or-create the account for a student, linking a Payer from the primary guardian. */
+  ensureAccount(studentId: string): Promise<StudentFinancialAccount> {
+    return this.run((tx, tenantId) => this.ensureAccountTx(tx, tenantId, studentId));
+  }
+
+  /** Transactional variant so callers can compose account creation with charge creation. */
+  async ensureAccountTx(
+    tx: TxClient,
+    tenantId: string,
+    studentId: string,
+  ): Promise<StudentFinancialAccount> {
+    const existing = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
+    if (existing) return existing;
+
+    const payerId = await this.ensurePayerForStudentTx(tx, tenantId, studentId);
+    const account = await tx.studentFinancialAccount.create({
+      data: { tenantId, studentId, payerId },
+    });
+    await this.writeAudit(tx, tenantId, {
+      action: 'finance.account.open',
+      entityType: 'StudentFinancialAccount',
+      entityId: account.id,
+      metadata: { studentId },
+    });
+    return account;
+  }
+
+  /** Ensure a Payer exists for the student's primary guardian; returns its id (or null). */
+  private async ensurePayerForStudentTx(
+    tx: TxClient,
+    tenantId: string,
+    studentId: string,
+  ): Promise<string | null> {
+    const link = await tx.parentStudent.findFirst({
+      where: { studentId },
+      orderBy: { isPrimary: 'desc' },
+      include: { parent: true },
+    });
+    const parent = link?.parent;
+    if (!parent) return null;
+    const existing = await tx.payer.findFirst({ where: { parentId: parent.id } });
+    if (existing) return existing.id;
+    const payer = await tx.payer.create({
+      data: {
+        tenantId,
+        parentId: parent.id,
+        nameEn: `${parent.firstNameEn} ${parent.lastNameEn}`.trim(),
+        nameAr: `${parent.firstNameAr} ${parent.lastNameAr}`.trim(),
+        phone: parent.phone,
+        email: parent.email,
+        createdById: this.actor(),
+      },
+    });
+    return payer.id;
+  }
+
+  payerById(id: string): Promise<Payer | null> {
+    return this.run((tx) => tx.payer.findFirst({ where: { id } }));
+  }
+
+  setStatus(studentId: string, status: StudentFinancialAccount['status']): Promise<StudentFinancialAccount> {
+    return this.run(async (tx, tenantId) => {
+      const account = await tx.studentFinancialAccount.update({
+        where: { studentId },
+        data: { status, ...(status !== 'ACTIVE' ? { closedAt: new Date() } : { closedAt: null }) },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.account.status',
+        entityType: 'StudentFinancialAccount',
+        entityId: account.id,
+        metadata: { status },
+      });
+      return account;
+    });
+  }
+
+  studentExists(studentId: string): Promise<boolean> {
+    return this.run(
+      async (tx) =>
+        (await tx.student.findFirst({ where: { id: studentId, deletedAt: null } })) !== null,
+    );
+  }
+
+  /** Sibling student ids = other students sharing at least one parent/guardian. */
+  siblingsOf(studentId: string): Promise<string[]> {
+    return this.run(async (tx) => {
+      const links = await tx.parentStudent.findMany({
+        where: { studentId },
+        select: { parentId: true },
+      });
+      const parentIds = links.map((l) => l.parentId);
+      if (parentIds.length === 0) return [];
+      const sibLinks = await tx.parentStudent.findMany({
+        where: { parentId: { in: parentIds }, studentId: { not: studentId } },
+        select: { studentId: true },
+      });
+      return [...new Set(sibLinks.map((s) => s.studentId))];
+    });
+  }
+}

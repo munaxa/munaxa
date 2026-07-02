@@ -54,8 +54,21 @@ describe('Documents / Document Engine (e2e)', () => {
         },
       });
       studentId = student.id;
-      await tx.charge.create({
-        data: { tenantId: TENANT, studentId, description: 'Tuition', amount: 500, status: 'PENDING' },
+      const docAccount = await tx.studentFinancialAccount.create({
+        data: { tenantId: TENANT, studentId },
+      });
+      const docCharge = await tx.charge.create({
+        data: {
+          tenantId: TENANT,
+          accountId: docAccount.id,
+          studentId,
+          description: 'Tuition',
+          amount: 500,
+          status: 'PENDING',
+        },
+      });
+      await tx.installment.create({
+        data: { tenantId: TENANT, chargeId: docCharge.id, seq: 1, amount: 500 },
       });
 
       const finance = await tx.user.create({

@@ -32,20 +32,14 @@ export class ApplyAdjustmentDto {
   @IsEnum(AdjustmentType)
   type!: AdjustmentType;
 
-  @ApiPropertyOptional({
-    example: 150,
-    description: 'Fixed reduction in JOD (use this OR percent)',
-  })
+  @ApiPropertyOptional({ example: 150, description: 'Fixed reduction in JOD (use this OR percent)' })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0.001)
   @Max(100000000)
   amount?: number;
 
-  @ApiPropertyOptional({
-    example: 25,
-    description: 'Percent of the charge net (requires chargeId)',
-  })
+  @ApiPropertyOptional({ example: 25, description: 'Percent of the charge net (requires chargeId)' })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
@@ -59,9 +53,9 @@ export class ApplyAdjustmentDto {
 }
 
 class AllocationLineDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({ format: 'uuid', description: 'The installment being settled' })
   @IsUUID()
-  chargeId!: string;
+  installmentId!: string;
 
   @ApiProperty({ example: 250 })
   @IsNumber({ maxDecimalPlaces: 3 })
@@ -70,9 +64,9 @@ class AllocationLineDto {
 }
 
 export class AllocatePaymentDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({ format: 'uuid', description: 'The verified payment to allocate' })
   @IsUUID()
-  transactionId!: string;
+  paymentId!: string;
 
   @ApiProperty({ type: [AllocationLineDto] })
   @IsArray()
@@ -80,12 +74,6 @@ export class AllocatePaymentDto {
   @ValidateNested({ each: true })
   @Type(() => AllocationLineDto)
   allocations!: AllocationLineDto[];
-}
-
-export class AllocateFifoDto {
-  @ApiProperty({ format: 'uuid', description: 'Verified payment to cascade across open charges' })
-  @IsUUID()
-  transactionId!: string;
 }
 
 export class CreateRefundDto {

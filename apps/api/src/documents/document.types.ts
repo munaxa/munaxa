@@ -10,7 +10,7 @@ export interface DocumentParams {
   type: DocumentType;
   language: DocumentLanguage;
   studentId?: string;
-  transactionId?: string;
+  paymentId?: string;
   academicYearId?: string;
   includeKinds?: FeeItemKind[];
 }
@@ -27,7 +27,7 @@ export interface BuiltDocument {
   parentId?: string | null;
   academicYearId?: string | null;
   enrollmentId?: string | null;
-  transactionId?: string | null;
+  paymentId?: string | null;
   /** Captured only for SNAPSHOT documents (forensics); ignored for DYNAMIC ones. */
   dataSnapshot?: Prisma.InputJsonValue;
 }

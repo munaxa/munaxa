@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import {
   ApprovalStatus,
@@ -13,6 +12,9 @@ import { TenantRepository } from '../../common/tenant.repository';
 import type { TxClient } from '../../prisma/tenant.helpers';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import { generateStudentQrCode } from '../../people/people.util';
+import { AccountRepository } from '../account/account.repository';
+import { InstallmentScheduleService } from '../charges/installment-schedule.service';
+import { fromFils } from '../shared/money';
 import type { ComputedQuote } from './quote.service';
 import type {
   CommitDto,
@@ -24,15 +26,6 @@ import type {
 } from './admissions.dto';
 
 const toFils = (n: number | string): number => Math.round(Number(n) * 1000);
-function addMonths(base: Date, n: number): Date {
-  const dt = new Date(base);
-  const day = dt.getDate();
-  dt.setDate(1);
-  dt.setMonth(dt.getMonth() + n);
-  const last = new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
-  dt.setDate(Math.min(day, last));
-  return dt;
-}
 
 /**
  * Admissions data layer (Phase 22). Tenant-scoped, RLS-enforced, audited. The registration commit
@@ -42,6 +35,15 @@ function addMonths(base: Date, n: number): Date {
  */
 @Injectable()
 export class AdmissionsRepository extends TenantRepository {
+  constructor(
+    prisma: AdmissionsRepository['prisma'],
+    connections: AdmissionsRepository['connections'],
+    private readonly accounts: AccountRepository,
+    private readonly schedule: InstallmentScheduleService,
+  ) {
+    super(prisma, connections);
+  }
+
   private actor(): string | null {
     return TenantContextStore.get()?.actorUserId ?? null;
   }
@@ -237,49 +239,93 @@ export class AdmissionsRepository extends TenantRepository {
   // line (net of discount); installments = the grand total split into N monthly charges sharing
   // one plan group. Called at commit time for unmodified fees, or at approval time once a held
   // (fee-modified) enrollment is approved.
+  /**
+   * Materialise the AR ledger for a committed enrollment on the new model (ADR-001):
+   *   FULL  → one Charge per fee line (net of discount), each with an implicit single installment.
+   *   INSTALLMENTS → one "Tuition & fees" Charge for the grand total + a PaymentPlan whose N
+   *                  monthly installments sum exactly to it (via the shared schedule generator).
+   * Every charge is linked to the account + enrollment + academic-year/grade dimensions (RR-2).
+   */
   private async createEnrollmentCharges(
     tx: TxClient,
     tenantId: string,
     studentId: string,
-    planId: string | null,
+    enrollmentId: string,
     quote: Prisma.EnrollmentQuoteGetPayload<{ include: { items: true } }>,
   ) {
+    const account = await this.accounts.ensureAccountTx(tx, tenantId, studentId);
+    const dims = {
+      accountId: account.id,
+      academicYearId: quote.academicYearId,
+      gradeId: quote.gradeId,
+      enrollmentId,
+    };
+    const dueDate = quote.firstDueDate ?? null;
+
     if (quote.paymentMode === QuotePaymentMode.FULL) {
       for (const item of quote.items) {
         const net = item.amount.minus(item.discountAmount);
         if (net.lessThanOrEqualTo(0)) continue;
-        await tx.charge.create({
+        const charge = await tx.charge.create({
           data: {
             tenantId,
             studentId,
+            ...dims,
+            feeItemId: item.feeItemId ?? null,
             description: item.label,
             amount: net,
-            dueDate: quote.firstDueDate ?? null,
+            dueDate,
             status: ChargeStatus.PENDING,
             createdById: this.actor(),
           },
         });
-      }
-    } else {
-      const months = quote.installments;
-      const totalFils = toFils(quote.grandTotal.toString());
-      const per = Math.floor(totalFils / months);
-      const base = quote.firstDueDate ?? new Date();
-      for (let i = 0; i < months; i += 1) {
-        const fils = i === months - 1 ? totalFils - per * (months - 1) : per;
-        await tx.charge.create({
-          data: {
-            tenantId,
-            studentId,
-            installmentPlanId: planId,
-            description: `Tuition & fees — ${i + 1}/${months}`,
-            amount: new Prisma.Decimal(fils).div(1000),
-            dueDate: addMonths(base, i),
-            status: ChargeStatus.PENDING,
-            createdById: this.actor(),
-          },
+        await tx.installment.create({
+          data: { tenantId, chargeId: charge.id, seq: 1, dueDate, amount: net },
         });
       }
+      return;
+    }
+
+    // INSTALLMENTS: one obligation for the grand total + a scheduled plan.
+    const charge = await tx.charge.create({
+      data: {
+        tenantId,
+        studentId,
+        ...dims,
+        description: 'Tuition & fees',
+        amount: quote.grandTotal,
+        dueDate,
+        status: ChargeStatus.PENDING,
+        createdById: this.actor(),
+      },
+    });
+    const first = (quote.firstDueDate ?? new Date()).toISOString().slice(0, 10);
+    const lines = this.schedule.generate(toFils(quote.grandTotal.toString()), {
+      cadence: 'MONTHLY',
+      installments: quote.installments,
+      firstDueDate: first,
+    });
+    const plan = await tx.paymentPlan.create({
+      data: {
+        tenantId,
+        chargeId: charge.id,
+        cadence: 'MONTHLY',
+        installments: quote.installments,
+        firstDueDate: quote.firstDueDate ?? new Date(),
+        createdById: this.actor(),
+      },
+    });
+    for (const line of lines) {
+      await tx.installment.create({
+        data: {
+          tenantId,
+          chargeId: charge.id,
+          planId: plan.id,
+          seq: line.seq,
+          dueDate: line.dueDate,
+          amount: fromFils(line.amountFils),
+        },
+      });
     }
   }
 
@@ -391,7 +437,6 @@ export class AdmissionsRepository extends TenantRepository {
       });
       const requireApproval = policy?.requireFinanceApprovalForFeeChanges ?? false;
       const held = quote.feeModified && requireApproval;
-      const planId = quote.paymentMode === QuotePaymentMode.INSTALLMENTS ? randomUUID() : null;
       const enrollment = await tx.enrollment.create({
         data: {
           tenantId,
@@ -403,17 +448,16 @@ export class AdmissionsRepository extends TenantRepository {
           transportDirection: quote.transportDirection,
           status: held ? EnrollmentStatus.PENDING_APPROVAL : EnrollmentStatus.COMMITTED,
           paymentMode: quote.paymentMode,
-          installmentPlanId: planId,
           feeModified: quote.feeModified,
           createdById: this.actor(),
         },
       });
 
-      // 4) Charges (reuse the existing ledger). When a fee change holds the enrollment for
-      //    finance approval, we defer charge creation until approval so nothing financial is
-      //    committed before the decision — see decideModification().
+      // 4) AR ledger (Account + Charge + Plan + Installments). When a fee change holds the
+      //    enrollment for finance approval, charge creation is deferred until approval so nothing
+      //    financial is committed before the decision — see decideModification().
       if (!held) {
-        await this.createEnrollmentCharges(tx, tenantId, studentId, planId, quote);
+        await this.createEnrollmentCharges(tx, tenantId, studentId, enrollment.id, quote);
       }
 
       // 5) Fee-modification tracking. Every change is recorded for the audit trail. When the
@@ -626,7 +670,7 @@ export class AdmissionsRepository extends TenantRepository {
               tx,
               tenantId,
               enrollment.studentId,
-              enrollment.installmentPlanId,
+              enrollment.id,
               enrollment.quote,
             );
           }

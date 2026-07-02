@@ -59,7 +59,7 @@ export class DashboardRepository extends TenantRepository {
           _sum: { amount: true },
           where: { studentId, status: { notIn: ['CANCELLED', 'WAIVED'] } },
         }),
-        tx.transaction.aggregate({
+        tx.payment.aggregate({
           _sum: { amount: true },
           where: { studentId, status: 'VERIFIED' },
         }),

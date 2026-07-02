@@ -39,9 +39,9 @@ export class FinanceDocumentsService {
     const language = params.language;
     switch (params.type) {
       case DocumentType.PAYMENT_RECEIPT:
-        if (!params.transactionId)
-          throw new BadRequestException('transactionId is required for a receipt');
-        return this.paymentReceipt(params.transactionId, language);
+        if (!params.paymentId)
+          throw new BadRequestException('paymentId is required for a receipt');
+        return this.paymentReceipt(params.paymentId, language);
       case DocumentType.ANNUAL_TUITION_CERTIFICATE:
         if (!params.studentId || !params.academicYearId)
           throw new BadRequestException('studentId and academicYearId are required');
@@ -108,8 +108,8 @@ export class FinanceDocumentsService {
   }
 
   // ── Payment Receipt ─────────────────────────────────────────────────────────
-  async paymentReceipt(transactionId: string, language: DocumentLanguage): Promise<BuiltDocument> {
-    const txn = await this.repo.transactionContext(transactionId);
+  async paymentReceipt(paymentId: string, language: DocumentLanguage): Promise<BuiltDocument> {
+    const txn = await this.repo.paymentContext(paymentId);
     if (!txn) throw new NotFoundException('Transaction not found');
     if (txn.status !== 'VERIFIED') {
       throw new BadRequestException('A receipt can only be issued for a verified payment');
@@ -133,7 +133,7 @@ export class FinanceDocumentsService {
       outstanding: summary.totals.outstanding,
       creditBalance: summary.totals.creditBalance,
       charges: allocations.map((a) => ({
-        description: a.charge?.description ?? '—',
+        description: a.installment?.charge?.description ?? '—',
         amount: a.amount.toFixed(3),
       })),
     };
@@ -193,7 +193,7 @@ export class FinanceDocumentsService {
       layout,
       studentId: txn.studentId,
       parentId: parent?.id ?? null,
-      transactionId,
+      paymentId,
       dataSnapshot: snapshot,
     };
   }
@@ -214,10 +214,8 @@ export class FinanceDocumentsService {
       kind: it.kind,
       net: it.amount.minus(it.discountAmount).toFixed(3),
     }));
-    // Paid toward the year: allocations to the year's installment-plan charges, else all-time paid.
-    const paid = enrollment.installmentPlanId
-      ? await this.repo.paidAllocatedToPlan(enrollment.installmentPlanId)
-      : (await this.statements.forStudent(studentId)).totals.paid;
+    // Paid toward the year: verified allocations to the installments of this enrollment's charges.
+    const paid = await this.repo.paidForEnrollment(enrollment.id);
 
     const selected = new Set(options.includeKinds ?? []);
     const { allocations, grandTotal } = allocatePaidAcrossCategories(categories, paid, selected);
@@ -409,7 +407,7 @@ export class FinanceDocumentsService {
   async paymentHistory(studentId: string, language: DocumentLanguage): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
     const st = await this.statements.forStudent(studentId);
-    const verified = st.transactions.filter((t) => t.status === 'VERIFIED');
+    const verified = st.payments.filter((t) => t.status === 'VERIFIED');
     const total = verified.reduce((s, t) => s + Number(t.amount), 0);
     const snapshot = {
       payments: verified.map((t) => ({
@@ -455,12 +453,12 @@ export class FinanceDocumentsService {
     const ctx = await this.requireStudent(studentId);
     const st = await this.statements.forStudent(studentId);
     const snapshot = {
-      lines: st.chargeBalances.map((b) => ({
+      lines: st.charges.map((b) => ({
         description: b.charge.description,
         gross: b.gross,
         discount: b.discount,
         net: b.net,
-        paid: b.allocated,
+        paid: b.paid,
         balance: b.balance,
       })),
       ...this.summaryNumbers(st),
@@ -541,7 +539,7 @@ export class FinanceDocumentsService {
       paid: st.totals.paid,
       outstanding: st.totals.outstanding,
       discounts: st.totals.discounts,
-      credits: st.totals.credits,
+      credits: st.totals.creditBalance,
       refunded: st.totals.refunded,
       creditBalance: st.totals.creditBalance,
     };
@@ -550,7 +548,7 @@ export class FinanceDocumentsService {
   private ledgerEntries(st: StudentStatement) {
     type Entry = { date: string | null; description: string; debit: number; credit: number; running: number };
     const entries: Omit<Entry, 'running'>[] = [];
-    for (const b of st.chargeBalances) {
+    for (const b of st.charges) {
       entries.push({
         date: b.charge.dueDate ? dateStr(b.charge.dueDate) : null,
         description: b.charge.description,
@@ -558,7 +556,7 @@ export class FinanceDocumentsService {
         credit: 0,
       });
     }
-    for (const tx of st.transactions) {
+    for (const tx of st.payments) {
       if (tx.status !== 'VERIFIED') continue;
       entries.push({
         date: dateStr(tx.verifiedAt ?? tx.createdAt),

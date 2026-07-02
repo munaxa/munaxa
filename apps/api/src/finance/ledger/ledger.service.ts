@@ -4,31 +4,34 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, type FeeAdjustment, type PaymentAllocation, type Refund } from '@prisma/client';
-import { BillingRepository } from './billing.repository';
+import { Prisma, type Credit, type FeeAdjustment, type PaymentAllocation, type Payment, type Refund } from '@prisma/client';
+import { LedgerRepository } from './ledger.repository';
+import { AccountRepository } from '../account/account.repository';
+import { FifoByDueDatePolicy } from './allocation-policy';
 import { FinanceBridgeService } from '../../einvoicing/finance-bridge.service';
-import type { ApplyAdjustmentDto, AllocatePaymentDto, CreateRefundDto } from './ledger.dto';
-
-const ZERO = new Prisma.Decimal(0);
+import { ZERO } from '../shared/money';
+import type { AllocatePaymentDto, ApplyAdjustmentDto, CreateRefundDto } from './ledger.dto';
 
 /**
- * Student billing ledger: structured deductions (scholarships/discounts/waivers/credit memos),
- * payment→charge allocation, and refunds of available credit. Every figure is recomputed from
- * the source rows, so the ledger can always be traced and never drifts.
+ * AR ledger orchestration: structured deductions (discount/scholarship/waiver/write-off/
+ * credit-memo/correction), payment→installment allocation (via the AllocationPolicy port),
+ * over-payment credit, and refunds that consume credit lots. All figures come from the ledger
+ * repository (the single source of truth); this service only validates + orchestrates (LR/AR/CR).
  */
 @Injectable()
 export class LedgerService {
   constructor(
-    private readonly repo: BillingRepository,
+    private readonly repo: LedgerRepository,
+    private readonly accounts: AccountRepository,
+    private readonly fifo: FifoByDueDatePolicy,
     private readonly bridge: FinanceBridgeService,
   ) {}
 
-  // ------------------------------------------------------------- deductions
+  // ───────────────────────────────────────────────────────── adjustments
 
   async applyAdjustment(dto: ApplyAdjustmentDto): Promise<FeeAdjustment> {
-    if (!(await this.repo.studentExists(dto.studentId))) {
-      throw new BadRequestException('Student not found in this tenant');
-    }
+    const account = await this.accounts.findByStudent(dto.studentId);
+    if (!account) throw new BadRequestException('Student has no financial account');
     if (dto.amount === undefined && dto.percent === undefined) {
       throw new BadRequestException('Provide either an amount or a percent');
     }
@@ -37,39 +40,34 @@ export class LedgerService {
     }
 
     let amount: Prisma.Decimal;
-    let chargeId: string | null = dto.chargeId ?? null;
+    const chargeId = dto.chargeId ?? null;
 
     if (dto.chargeId) {
-      const charge = await this.repo.chargeById(dto.chargeId);
-      if (!charge || charge.studentId !== dto.studentId) {
-        throw new BadRequestException('Charge not found for this student');
-      }
-      if (charge.status === 'CANCELLED') {
+      const views = await this.repo.chargeViews(dto.studentId);
+      const view = views.find((v) => v.charge.id === dto.chargeId);
+      if (!view) throw new BadRequestException('Charge not found for this student');
+      if (view.charge.status === 'CANCELLED') {
         throw new ConflictException('Cannot adjust a cancelled charge');
       }
-      // Net currently remaining to discount = amount − already-applied discounts.
-      const balances = await this.repo.chargeBalances(dto.studentId);
-      const cb = balances.find((b) => b.charge.id === dto.chargeId)!;
-      const net = new Prisma.Decimal(cb.net);
+      const balance = new Prisma.Decimal(view.balance);
       amount =
         dto.percent !== undefined
-          ? net.times(dto.percent).dividedBy(100)
+          ? new Prisma.Decimal(view.net).times(dto.percent).dividedBy(100)
           : new Prisma.Decimal(dto.amount!);
-      if (amount.greaterThan(net)) {
+      if (amount.greaterThan(balance)) {
         throw new BadRequestException(
-          `Deduction ${amount.toFixed(3)} exceeds the charge's remaining net ${net.toFixed(3)}`,
+          `Deduction ${amount.toFixed(3)} exceeds the charge's remaining balance ${balance.toFixed(3)}`,
         );
       }
     } else {
-      // Account-level credit memo.
       if (dto.type !== 'CREDIT_MEMO') {
         throw new BadRequestException('Only a CREDIT_MEMO may be account-level (no chargeId)');
       }
       amount = new Prisma.Decimal(dto.amount!);
-      chargeId = null;
     }
 
     const adjustment = await this.repo.applyAdjustment({
+      accountId: account.id,
       studentId: dto.studentId,
       chargeId,
       type: dto.type,
@@ -91,38 +89,30 @@ export class LedgerService {
     return this.repo.reverseAdjustment(id);
   }
 
-  // ------------------------------------------------------------ allocations
+  // ───────────────────────────────────────────────────────── allocations
 
-  /** Apply a verified payment to one or more charges (manual allocation). */
+  /** Manual allocation: apply a verified payment to specific installments (AR-6). */
   async allocate(dto: AllocatePaymentDto): Promise<PaymentAllocation[]> {
-    const txn = await this.repo.transactionById(dto.transactionId);
-    if (!txn) throw new NotFoundException('Transaction not found');
-    if (txn.status !== 'VERIFIED') {
+    const payment = await this.repo.paymentById(dto.paymentId);
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status !== 'VERIFIED') {
       throw new ConflictException('Only a verified payment can be allocated');
     }
     const requested = dto.allocations.reduce((s, a) => s.plus(a.amount), ZERO);
-    const unallocated = await this.repo.unallocatedFor(dto.transactionId);
+    const unallocated = await this.repo.unallocatedFor(dto.paymentId);
     if (requested.greaterThan(unallocated)) {
       throw new BadRequestException(
         `Allocation ${requested.toFixed(3)} exceeds the unallocated payment ${unallocated.toFixed(3)}`,
       );
     }
-
-    const balances = await this.repo.chargeBalances(txn.studentId);
     const results: PaymentAllocation[] = [];
     for (const line of dto.allocations) {
-      const cb = balances.find((b) => b.charge.id === line.chargeId);
-      if (!cb) throw new BadRequestException(`Charge ${line.chargeId} not found for this student`);
-      const balance = new Prisma.Decimal(cb.balance);
-      if (new Prisma.Decimal(line.amount).greaterThan(balance)) {
-        throw new BadRequestException(
-          `Allocation ${line.amount} exceeds charge balance ${cb.balance}`,
-        );
-      }
+      const inst = await this.repo.installmentById(line.installmentId);
+      if (!inst) throw new BadRequestException(`Installment ${line.installmentId} not found`);
       results.push(
         await this.repo.allocate({
-          transactionId: dto.transactionId,
-          chargeId: line.chargeId,
+          paymentId: dto.paymentId,
+          installmentId: line.installmentId,
           amount: new Prisma.Decimal(line.amount),
         }),
       );
@@ -131,66 +121,41 @@ export class LedgerService {
   }
 
   /**
-   * Allocate a verified payment across the student's open charges in FIFO (due-date) order.
-   * Used for a down payment / lump sum at enrollment: it cascades earliest-due first, capping at
-   * each charge's balance, until the payment is exhausted. Reuses the same audited allocate path.
+   * On verify, auto-allocate a payment across the account's open installments (FIFO by due date),
+   * then bank any residue as an over-payment Credit (AR-2, AR-5, BR-23, BR-24).
    */
-  async allocateFifo(transactionId: string): Promise<PaymentAllocation[]> {
-    const txn = await this.repo.transactionById(transactionId);
-    if (!txn) throw new NotFoundException('Transaction not found');
-    if (txn.status !== 'VERIFIED') {
-      throw new ConflictException('Only a verified payment can be allocated');
-    }
-    let remaining = await this.repo.unallocatedFor(transactionId);
-    if (remaining.lessThanOrEqualTo(ZERO)) return [];
+  async allocateOnVerify(payment: Payment): Promise<void> {
+    let remaining = await this.repo.unallocatedFor(payment.id);
+    if (remaining.lessThanOrEqualTo(ZERO)) return;
 
-    const balances = await this.repo.chargeBalances(txn.studentId);
-    const open = balances
-      .filter(
-        (b) => b.charge.status !== 'CANCELLED' && new Prisma.Decimal(b.balance).greaterThan(ZERO),
-      )
-      .sort((a, b) => {
-        // Earliest due date first; charges without a due date settle last, then creation order.
-        const da = a.charge.dueDate?.getTime() ?? Number.POSITIVE_INFINITY;
-        const db = b.charge.dueDate?.getTime() ?? Number.POSITIVE_INFINITY;
-        if (da !== db) return da - db;
-        return a.charge.createdAt.getTime() - b.charge.createdAt.getTime();
-      });
-
-    const results: PaymentAllocation[] = [];
-    for (const cb of open) {
-      if (remaining.lessThanOrEqualTo(ZERO)) break;
-      const amount = Prisma.Decimal.min(new Prisma.Decimal(cb.balance), remaining);
-      results.push(await this.repo.allocate({ transactionId, chargeId: cb.charge.id, amount }));
-      remaining = remaining.minus(amount);
-    }
-    return results;
-  }
-
-  /**
-   * Best-effort auto-allocation when a payment is verified against a specific charge
-   * (called from the transaction verify flow). Caps at the charge's remaining balance.
-   */
-  async autoAllocateOnVerify(transactionId: string, chargeId: string): Promise<void> {
-    const balances = await this.repo.chargeBalances(
-      (await this.repo.transactionById(transactionId))!.studentId,
+    const open = await this.repo.openInstallments(payment.studentId);
+    const lines = this.fifo.allocate(
+      remaining,
+      open.map((o, i) => ({ id: o.id, dueDate: o.dueDate, seq: i, balance: o.balance })),
     );
-    const cb = balances.find((b) => b.charge.id === chargeId);
-    if (!cb) return;
-    const balance = new Prisma.Decimal(cb.balance);
-    const unallocated = await this.repo.unallocatedFor(transactionId);
-    const amount = Prisma.Decimal.min(balance, unallocated);
-    if (amount.greaterThan(ZERO)) {
-      await this.repo.allocate({ transactionId, chargeId, amount });
+    for (const line of lines) {
+      await this.repo.allocate({
+        paymentId: payment.id,
+        installmentId: line.installmentId,
+        amount: line.amount,
+      });
+      remaining = remaining.minus(line.amount);
+    }
+    if (remaining.greaterThan(ZERO)) {
+      await this.repo.grantOverpaymentCredit({
+        accountId: payment.accountId,
+        payerId: payment.payerId,
+        paymentId: payment.id,
+        amount: remaining,
+      });
     }
   }
 
-  // ---------------------------------------------------------------- refunds
+  // ───────────────────────────────────────────────────────── refunds
 
   async createRefund(dto: CreateRefundDto): Promise<Refund> {
-    if (!(await this.repo.studentExists(dto.studentId))) {
-      throw new BadRequestException('Student not found in this tenant');
-    }
+    const account = await this.accounts.findByStudent(dto.studentId);
+    if (!account) throw new BadRequestException('Student has no financial account');
     const available = await this.repo.availableCredit(dto.studentId);
     if (new Prisma.Decimal(dto.amount).greaterThan(available)) {
       throw new BadRequestException(
@@ -198,7 +163,9 @@ export class LedgerService {
       );
     }
     return this.repo.createRefund({
+      accountId: account.id,
       studentId: dto.studentId,
+      payerId: account.payerId,
       amount: new Prisma.Decimal(dto.amount),
       method: dto.method,
       reference: dto.reference ?? null,
@@ -208,19 +175,22 @@ export class LedgerService {
 
   async verifyRefund(id: string): Promise<Refund> {
     const refund = await this.requirePendingRefund(id);
-    // Re-check at verify time: the credit balance may have changed since the request.
     const available = await this.repo.availableCredit(refund.studentId);
     if (refund.amount.greaterThan(available)) {
       throw new ConflictException(
         `Refund ${refund.amount.toFixed(3)} now exceeds the available credit ${available.toFixed(3)}`,
       );
     }
-    return this.repo.setRefundStatus(id, 'VERIFIED');
+    return this.repo.verifyRefund(id);
   }
 
   async rejectRefund(id: string, note?: string): Promise<Refund> {
     await this.requirePendingRefund(id);
-    return this.repo.setRefundStatus(id, 'REJECTED', note);
+    return this.repo.setRefundRejected(id, note);
+  }
+
+  listCredits(studentId: string): Promise<Array<Credit & { remaining: string }>> {
+    return this.repo.listCredits(studentId);
   }
 
   private async requirePendingRefund(id: string): Promise<Refund> {

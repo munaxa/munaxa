@@ -130,7 +130,7 @@ export class DashboardRepository extends TenantRepository {
           where: { tenantId, status: 'APPLIED' },
           _sum: { amount: true },
         }),
-        tx.transaction.aggregate({
+        tx.payment.aggregate({
           where: { tenantId, status: 'VERIFIED' },
           _sum: { amount: true },
         }),
@@ -138,7 +138,7 @@ export class DashboardRepository extends TenantRepository {
           where: { tenantId, status: { in: ['PENDING', 'PARTIAL'] }, dueDate: { lt: todayUtc } },
           _sum: { amount: true },
         }),
-        tx.transaction.aggregate({
+        tx.payment.aggregate({
           where: { tenantId, status: 'VERIFIED', createdAt: { gte: startOfMonth } },
           _sum: { amount: true },
         }),

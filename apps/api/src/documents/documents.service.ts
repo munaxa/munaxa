@@ -52,7 +52,7 @@ export class DocumentsService {
       type: dto.type,
       language: dto.language ?? DocumentLanguage.EN,
       ...(dto.studentId ? { studentId: dto.studentId } : {}),
-      ...(dto.transactionId ? { transactionId: dto.transactionId } : {}),
+      ...(dto.paymentId ? { paymentId: dto.paymentId } : {}),
       ...(dto.academicYearId ? { academicYearId: dto.academicYearId } : {}),
       ...(dto.includeKinds ? { includeKinds: dto.includeKinds } : {}),
     };
