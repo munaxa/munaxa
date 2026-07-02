@@ -212,13 +212,16 @@ export class LedgerRepository extends TenantRepository {
           const installments: InstallmentView[] = [];
           let paid = ZERO;
           for (const inst of c.installments) {
+            // Superseded/cancelled installments are retained in the DB for history but never
+            // shown in the schedule view (no stale/flat list — §16 UI rule).
+            if (inst.status === 'CANCELLED') continue;
             const a = await tx.paymentAllocation.aggregate({
               where: { installmentId: inst.id, reversedAt: null },
               _sum: { amount: true },
             });
             const instPaid = a._sum.amount ?? ZERO;
             const balance = floorZero(inst.amount.minus(instPaid));
-            if (inst.status !== 'CANCELLED') paid = paid.plus(instPaid);
+            paid = paid.plus(instPaid);
             installments.push({
               id: inst.id,
               seq: inst.seq,
@@ -228,7 +231,6 @@ export class LedgerRepository extends TenantRepository {
               balance: balance.toFixed(3),
               status: inst.status,
               overdue:
-                inst.status !== 'CANCELLED' &&
                 inst.status !== 'WAIVED' &&
                 balance.greaterThan(ZERO) &&
                 inst.dueDate != null &&

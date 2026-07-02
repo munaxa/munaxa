@@ -9,6 +9,8 @@ import {
   StudentStatus,
 } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+import { PrismaService } from '../../prisma/prisma.service';
+import { TenantConnectionManager } from '../../prisma/tenant-connection.service';
 import type { TxClient } from '../../prisma/tenant.helpers';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import { generateStudentQrCode } from '../../people/people.util';
@@ -36,8 +38,8 @@ const toFils = (n: number | string): number => Math.round(Number(n) * 1000);
 @Injectable()
 export class AdmissionsRepository extends TenantRepository {
   constructor(
-    prisma: AdmissionsRepository['prisma'],
-    connections: AdmissionsRepository['connections'],
+    prisma: PrismaService,
+    connections: TenantConnectionManager,
     private readonly accounts: AccountRepository,
     private readonly schedule: InstallmentScheduleService,
   ) {

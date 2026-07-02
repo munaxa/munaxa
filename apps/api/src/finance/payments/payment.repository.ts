@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma, type Payment } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+import { PrismaService } from '../../prisma/prisma.service';
+import { TenantConnectionManager } from '../../prisma/tenant-connection.service';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import { AccountRepository } from '../account/account.repository';
 
@@ -13,8 +15,8 @@ export interface DetailedPayment extends Payment {
 @Injectable()
 export class PaymentRepository extends TenantRepository {
   constructor(
-    prisma: PaymentRepository['prisma'],
-    connections: PaymentRepository['connections'],
+    prisma: PrismaService,
+    connections: TenantConnectionManager,
     private readonly accounts: AccountRepository,
   ) {
     super(prisma, connections);

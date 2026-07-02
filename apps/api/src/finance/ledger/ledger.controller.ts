@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
@@ -23,6 +23,7 @@ export class LedgerController {
   }
 
   @Post('adjustments/:id/reverse')
+  @HttpCode(200)
   @RequirePermissions(Permission.FINANCE_MANAGE)
   reverseAdjustment(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.reverseAdjustment(id);
@@ -51,12 +52,14 @@ export class LedgerController {
   }
 
   @Post('refunds/:id/verify')
+  @HttpCode(200)
   @RequirePermissions(Permission.FINANCE_MANAGE)
   verifyRefund(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.verifyRefund(id);
   }
 
   @Post('refunds/:id/reject')
+  @HttpCode(200)
   @RequirePermissions(Permission.FINANCE_MANAGE)
   rejectRefund(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RejectDto) {
     return this.service.rejectRefund(id, dto.note);
