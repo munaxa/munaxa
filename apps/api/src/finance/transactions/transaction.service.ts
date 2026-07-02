@@ -97,8 +97,19 @@ export class TransactionService {
     const text =
       `Dear parent,\n\nWe confirm we have received a payment of ${amount}` +
       `${studentNameEn ? ` for ${studentNameEn}` : ''}.\n\nThank you,\n${schoolName}`;
-    const from = this.config.get('EMAIL_FROM_FINANCE', { infer: true });
-    const { sent } = await this.mail.send({ to: parentEmail, subject, html, text, from });
+    // Send as THIS school (auto-derived <slug>@<verified-domain>, or the school's own override
+    // from Notification Settings) rather than a single global finance address.
+    const domain = this.config.get('EMAIL_SENDER_DOMAIN', { infer: true });
+    const fallbackFrom = this.config.get('EMAIL_FROM_FINANCE', { infer: true });
+    const { from, replyTo } = await this.repo.financeSender(domain, fallbackFrom);
+    const { sent } = await this.mail.send({
+      to: parentEmail,
+      subject,
+      html,
+      text,
+      from,
+      ...(replyTo ? { replyTo } : {}),
+    });
     if (!sent) {
       throw new ServiceUnavailableException('Email could not be sent (mail service unavailable)');
     }

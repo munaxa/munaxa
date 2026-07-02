@@ -62,6 +62,11 @@ services:
       # Security/account sender (temporary passwords). e.g. Munaxa <admin@mail.munaxa.com>
       - key: EMAIL_FROM_ADMIN
         sync: false
+      # Verified Resend domain — each school's parent-notification sender is auto-derived as
+      # "<School Name> <<tenant-slug>@mail.munaxa.com>" (overridable per school in Notification
+      # Settings). One verified domain covers every school; no per-school DNS.
+      - key: EMAIL_SENDER_DOMAIN
+        value: mail.munaxa.com
 
   - type: web
     name: munaxa-admin

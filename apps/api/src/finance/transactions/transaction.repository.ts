@@ -152,6 +152,38 @@ export class TransactionRepository extends TenantRepository {
     });
   }
 
+  /**
+   * Resolve THIS school's parent-notification sender identity:
+   *  - if the school customised its sender in Notification Settings, use that ("Name <email>");
+   *  - otherwise auto-derive a per-school address on the shared verified domain
+   *    (`<tenant-slug>@<domain>`), so every school sends as itself with no per-school DNS.
+   * `fallbackFrom` is used only when the tenant record is missing.
+   */
+  financeSender(
+    domain: string,
+    fallbackFrom: string,
+  ): Promise<{ from: string; replyTo: string | null }> {
+    return this.run(async (tx, tenantId) => {
+      const [tenant, settings] = await Promise.all([
+        tx.tenant.findFirst({ where: { id: tenantId }, select: { name: true, slug: true } }),
+        tx.notificationSettings.findUnique({ where: { tenantId } }),
+      ]);
+      if (!tenant) return { from: fallbackFrom, replyTo: settings?.replyToEmail ?? null };
+
+      // "Customised" = the admin changed the sender away from the built-in defaults.
+      const emailOverridden = Boolean(
+        settings && settings.senderEmail && settings.senderEmail !== 'notification@munaxa.com',
+      );
+      const nameCustom = Boolean(
+        settings && settings.senderName && settings.senderName !== 'Munaxa Notifications',
+      );
+
+      const name = nameCustom ? settings!.senderName : tenant.name;
+      const email = emailOverridden ? settings!.senderEmail : `${tenant.slug}@${domain}`;
+      return { from: `${name} <${email}>`, replyTo: settings?.replyToEmail ?? null };
+    });
+  }
+
   /** Mark that the parent was emailed about this settled payment (audited). */
   setParentNotified(id: string): Promise<Transaction> {
     return this.run(async (tx, tenantId) => {
