@@ -103,8 +103,16 @@ export class AccountRepository extends TenantRepository {
     );
   }
 
-  /** Sibling student ids = other students sharing at least one parent/guardian. */
-  siblingsOf(studentId: string): Promise<string[]> {
+  /** Siblings (students sharing a guardian) with their display names. */
+  siblingsOf(studentId: string): Promise<
+    Array<{
+      id: string;
+      firstNameEn: string;
+      lastNameEn: string;
+      firstNameAr: string;
+      lastNameAr: string;
+    }>
+  > {
     return this.run(async (tx) => {
       const links = await tx.parentStudent.findMany({
         where: { studentId },
@@ -116,7 +124,19 @@ export class AccountRepository extends TenantRepository {
         where: { parentId: { in: parentIds }, studentId: { not: studentId } },
         select: { studentId: true },
       });
-      return [...new Set(sibLinks.map((s) => s.studentId))];
+      const ids = [...new Set(sibLinks.map((s) => s.studentId))];
+      if (ids.length === 0) return [];
+      return tx.student.findMany({
+        where: { id: { in: ids }, deletedAt: null },
+        select: {
+          id: true,
+          firstNameEn: true,
+          lastNameEn: true,
+          firstNameAr: true,
+          lastNameAr: true,
+        },
+        orderBy: { firstNameEn: 'asc' },
+      });
     });
   }
 }

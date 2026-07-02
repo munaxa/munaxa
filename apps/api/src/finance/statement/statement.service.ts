@@ -22,6 +22,10 @@ export interface StudentStatement {
 
 export interface HouseholdMember {
   studentId: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
   outstanding: string;
 }
 
@@ -69,9 +73,13 @@ export class StatementService {
   async household(studentId: string): Promise<HouseholdMember[]> {
     const siblings = await this.accounts.siblingsOf(studentId);
     return Promise.all(
-      siblings.map(async (id) => ({
-        studentId: id,
-        outstanding: (await this.ledger.accountSummary(id)).outstanding,
+      siblings.map(async (s) => ({
+        studentId: s.id,
+        firstNameEn: s.firstNameEn,
+        lastNameEn: s.lastNameEn,
+        firstNameAr: s.firstNameAr,
+        lastNameAr: s.lastNameAr,
+        outstanding: (await this.ledger.accountSummary(s.id)).outstanding,
       })),
     );
   }
