@@ -45,6 +45,28 @@ services:
         value: '900'
       - key: JWT_REFRESH_TTL
         value: '2592000'
+      # --- Transactional email (Resend) ---
+      # Email is a no-op until RESEND_API_KEY is set — that is why "Notify parent"
+      # returns "mail service unavailable". Set the key in the Render dashboard, and point
+      # the sender addresses at a domain VERIFIED in your Resend account (Resend rejects
+      # sends from unverified domains, which also surfaces as "mail service unavailable").
+      - key: RESEND_API_KEY
+        sync: false
+      # Finance/payment sender used by parent settlement notifications.
+      # Value: Munaxa <payments@mail.munaxa.com>  (mail.munaxa.com must be verified in Resend)
+      - key: EMAIL_FROM_FINANCE
+        sync: false
+      # Default sender (invites, general mail). e.g. Munaxa <no-reply@mail.munaxa.com>
+      - key: EMAIL_FROM
+        sync: false
+      # Security/account sender (temporary passwords). e.g. Munaxa <admin@mail.munaxa.com>
+      - key: EMAIL_FROM_ADMIN
+        sync: false
+      # Verified Resend domain — each school's parent-notification sender is auto-derived as
+      # "<School Name> <<tenant-slug>@mail.munaxa.com>" (overridable per school in Notification
+      # Settings). One verified domain covers every school; no per-school DNS.
+      - key: EMAIL_SENDER_DOMAIN
+        value: mail.munaxa.com
 
   - type: web
     name: munaxa-admin
