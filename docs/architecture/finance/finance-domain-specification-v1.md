@@ -1,12 +1,21 @@
 # Munaxa Finance Domain Specification — v1.0
 
-> **Status:** FROZEN CANDIDATE — single source of truth for the Munaxa Finance domain.
-> Once approved, implementation proceeds strictly according to this document.
+> **Status:** APPROVED / FROZEN — single source of truth for the Munaxa Finance domain.
+> Implementation is in progress and proceeds strictly according to this document.
 > **Supersedes:** nothing (first spec). **Companion:** `finance-domain-redesign.md`
 > (rationale/roadmap). Where the two differ, **this document wins**.
-> **Scope:** Accounts Receivable (AR) for multi-tenant School OS. Design only.
+> **Scope:** Accounts Receivable (AR) for multi-tenant School OS.
 > **Money precision (global invariant):** `Decimal(12,3)` — JOD fils. All internal
 > arithmetic in integer **fils**; presentation `toFixed(3)`.
+>
+> **Implementation strategy amendment (approved):** Munaxa has **no production database,
+> no production customers, and no integrations requiring backward compatibility**. The
+> Migration Rules (§19, MG-*) — which assumed a live DB preserved via a parity gate — are
+> therefore **superseded by ADR-013 (greenfield replacement)**. The old Charge-centric
+> finance schema is **replaced outright**; obsolete tables/columns/code/UI are deleted, no
+> compatibility layers are retained, and the API adopts one ubiquitous language
+> (`Payment` replaces `Transaction`, etc.). Backward-compat items in §18/§20 do **not**
+> apply. See ADR-013.
 
 ---
 
@@ -851,6 +860,21 @@ low-risk cutover; promotion only on exact parity.
 **ADR-012 — Keep `Decimal(12,3)` + integer-fils arithmetic; per-tenant gapless counters.**
 *Context:* rounding drift and receipt/ICV gaplessness are legal/audit requirements. *Decision:*
 unchanged. *Consequences:* splits always reconcile (IR-2); receipts/ICV auditable (MT-3, BR-18).
+
+**ADR-013 — Greenfield replacement of the finance schema (supersedes MG-*).**
+*Context:* Munaxa is pre-production — no production database, customers, or integrations to
+preserve. The MG rules (§19) and the backward-compatibility strategy (§20) optimised for a live
+system that does not exist. *Decision:* **replace** the old Charge-centric finance schema outright
+in a single migration: drop the obsolete tables (`FeePlan`, `Transaction`, `FinanceReceiptCounter`,
+`PaymentReminder`) and legacy columns/relationships; create the AR model (`StudentFinancialAccount`,
+`Payer`, `PaymentPlan`, `Installment`, `Payment`, `Credit`, `RefundConsumption`, `CollectionsCase`,
+`PromiseToPay`, `DunningEvent`) with RLS+FORCE; adopt one ubiquitous language across schema, code,
+APIs and UI (`Transaction`→`Payment`, allocation targets `installmentId`, etc.). No parity gate, no
+dual-write, no compatibility adapters, no shadow columns are retained. *Consequences:* the codebase
+holds exactly one finance architecture (no old/new mixing); §19 (MG-*) and §20 no longer apply and
+are retained only as historical rationale; the DB migration is destructive-by-design and safe
+precisely because there is no data to preserve. All other rules (BR/LR/AR/IR/CR/DB/MT/AU/SE) and
+ADR-001..012 remain in force unchanged.
 
 ---
 
