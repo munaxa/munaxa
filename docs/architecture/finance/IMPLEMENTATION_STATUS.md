@@ -43,33 +43,35 @@ StudentFinancialAccount, Payer, Allocation, Invoice).
 - `finance/charges/charge.repository.ts` — charge (obligation) + implicit installment,
   payment-plan create/supersede, cancel, installment reschedule (re-asserts BR-9).
 
-## IN PROGRESS — Backend service/API layer
+## DONE — Backend service/API layer (compiles, typechecks, builds, lints; 181 unit tests pass)
 
-Remaining to reach a compiling, tested API (greenfield — no old shapes preserved):
+Committed in `feat(finance): AR domain backend`. Greenfield — no old shapes preserved.
 
-- [ ] `finance/charges`: `charge.service.ts`, `charge.dto.ts`, `charge.controller.ts`
-      (+ installments controller: `PATCH /finance/installments/:id`).
-- [ ] `finance/payments` (replaces `transactions`): repository, service, dto, controller
-      (presign/record/verify/reject/notify-parent; gapless `PaymentReceiptCounter`).
-- [ ] `finance/ledger`: `allocation-policy.ts` (FIFO_BY_DUE_DATE port, AR-8), `ledger.service.ts`,
-      `ledger.dto.ts`, `ledger.controller.ts` (allocate → installments; credits; refunds).
-- [ ] `finance/account`: service, controller, dto (`GET /finance/accounts/:studentId`).
-- [ ] `finance/statement`: hierarchical account → charges → plans → installments tree (§13).
-- [ ] `finance/collections`: retarget aging/overdue to **installments**; `CollectionsCase` +
-      `PromiseToPay` + `DunningEvent`; profile as cache.
-- [ ] `finance/finance.module.ts` rewire.
-- [ ] `einvoicing`: `finance-bridge.*` + `einvoicing.service`/`dto` (charge-sourced invoices,
-      `Payment` rename, `paymentId`).
-- [ ] `documents`: `finance-documents.service`, `document.repository`, types/dto/service,
-      `document-engine.service` (remove `installmentPlanId`; `transactionId`→`paymentId`).
-- [ ] `admissions`: `admissions.repository` commit — create Account + Charge + Plan +
-      Installments (no installment-charges).
-- [ ] `prisma/seed.ts` — finance seed on the new model.
+- [x] `finance/charges`: `charge.service`/`dto`/`controller` (obligation + plan engine;
+      `POST /finance/charges`, `/charges/:id/plan`, `/charges/:id/cancel`,
+      `PATCH /finance/installments/:id`, `GET /finance/charges`).
+- [x] `finance/payments` (replaces `transactions`): repository/service/dto/controller
+      (presign/record/verify/reject/notify-parent; gapless `PaymentReceiptCounter`; verify →
+      FIFO allocation to installments; residue → over-payment `Credit`).
+- [x] `finance/ledger`: `allocation-policy` (FIFO_BY_DUE_DATE port, AR-8), `ledger.repository`
+      (derived-figure SoT + status recompute + adjustments/allocations/credits/refunds),
+      `ledger.service`/`dto`/`controller`. Old `billing.repository` deleted.
+- [x] `finance/account`: repository/service/controller (`GET /finance/accounts/:studentId`).
+- [x] `finance/statement`: hierarchical account → charges → plans → installments tree (§13).
+- [x] `finance/collections`: aging/overdue retargeted to **installments**; `CollectionsCase` +
+      `PromiseToPay` + `DunningEvent`; `StudentBillingProfile` as cache.
+- [x] `finance/finance.module.ts` rewired.
+- [x] `einvoicing`: charge-sourced invoicing preserved; `Transaction`→`Payment`, `paymentId`.
+- [x] `documents`, `dashboard`, `reporting`, `parent-portal`: adapted to the new model.
+- [x] `admissions`: commit creates Account + Charge + Plan + Installments (no installment-charges).
+- [x] Unit tests: installment schedule (Σ==net, cadences, balloon, holiday, custom) + allocation
+      FIFO (ordering, caps, residue).
 
-## PENDING — Tests, UI, docs
+## IN PROGRESS / PENDING — Tests (integration), UI, reports, docs
 
-- [ ] Unit: schedule math, allocation FIFO, ledger reconciliation, credit/refund, outstanding.
-- [ ] Integration: commit→charge→plan→installment→payment→invoice; migration/RLS.
+- [ ] Integration tests (live DB): commit→charge→plan→installment→payment→invoice; ledger
+      reconciliation (Σ installments == net; Σ allocations + credits == verified payments); RLS.
+- [ ] `prisma/seed.ts` / `seed-demo.ts` — finance demo data on the new model.
 - [ ] Admin UI: hierarchical Student Finance (Account → Charges → Plans → Installments →
       Payments → Credits → Refunds → Collections), Munaxa Design System only.
 - [ ] Parent portal + Flutter: mirror the hierarchy; pay next-due installment.
