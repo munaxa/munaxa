@@ -25,8 +25,8 @@
     "DEMO_SESSION_TTL_MINUTES": "120",
     "DEMO_DEFAULT_EXPIRY_DAYS": "14",
     // "Book a Demo" intake emails (sent via Resend). RESEND_DEMO is a secret (below).
-    "DEMO_NOTIFY_EMAIL": "demo@munaxa.com",
-    "DEMO_FROM_EMAIL": "Munaxa Demo <demo@munaxa.com>"
+    "DEMO_NOTIFY_EMAIL": "demo@mail.munaxa.com",
+    "DEMO_FROM_EMAIL": "Munaxa Demo <demo@mail.munaxa.com>"
   },
   // Persists admin-created demo accounts (no database). Create the namespace with:
   //   npx wrangler kv namespace create DEMO_ACCOUNTS

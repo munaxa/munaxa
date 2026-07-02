@@ -20,8 +20,8 @@
     // Sender + recipient for contact-form email. EMAIL_FROM = visitor acknowledgment sender;
     // EMAIL_CONTACT_FROM = internal notification sender (the email that reaches info@munaxa.com).
     // Both addresses must be on a domain verified in Resend. RESEND_API_KEY stays a secret.
-    "EMAIL_FROM": "Munaxa <no-reply@munaxa.com>",
-    "EMAIL_CONTACT_FROM": "Munaxa Contact <contactus@munaxa.com>",
+    "EMAIL_FROM": "Munaxa <no-reply@mail.munaxa.com>",
+    "EMAIL_CONTACT_FROM": "Munaxa Contact <contactus@mail.munaxa.com>",
   },
   // Used by lib/rate-limit.ts for the contact form's per-IP sliding window.
   // Falls back to an in-memory limiter automatically when this binding is absent
