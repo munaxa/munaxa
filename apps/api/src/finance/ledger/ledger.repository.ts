@@ -71,6 +71,34 @@ export class LedgerRepository extends TenantRepository {
     return TenantContextStore.get()?.actorUserId ?? null;
   }
 
+  /** Batch: active-allocation sum per installment id (one query — avoids N+1). */
+  private async paidByInstallment(
+    tx: TxClient,
+    ids: string[],
+  ): Promise<Map<string, Prisma.Decimal>> {
+    if (ids.length === 0) return new Map();
+    const rows = await tx.paymentAllocation.groupBy({
+      by: ['installmentId'],
+      where: { installmentId: { in: ids }, reversedAt: null },
+      _sum: { amount: true },
+    });
+    return new Map(rows.map((r) => [r.installmentId, r._sum.amount ?? ZERO]));
+  }
+
+  /** Batch: consumed sum per credit id (one query). */
+  private async consumedByCredit(
+    tx: TxClient,
+    ids: string[],
+  ): Promise<Map<string, Prisma.Decimal>> {
+    if (ids.length === 0) return new Map();
+    const rows = await tx.refundConsumption.groupBy({
+      by: ['creditId'],
+      where: { creditId: { in: ids } },
+      _sum: { amount: true },
+    });
+    return new Map(rows.map((r) => [r.creditId, r._sum.amount ?? ZERO]));
+  }
+
   // ─────────────────────────────────────────────────────────── status recompute
 
   /** Recompute a single installment's status from its active allocations (LR-9). */
@@ -104,14 +132,11 @@ export class LedgerRepository extends TenantRepository {
     ]);
     const discount = discountAgg._sum.amount ?? ZERO;
     const net = charge.amount.minus(discount);
-    let paid = ZERO;
-    for (const inst of installments) {
-      const a = await tx.paymentAllocation.aggregate({
-        where: { installmentId: inst.id, reversedAt: null },
-        _sum: { amount: true },
-      });
-      paid = paid.plus(a._sum.amount ?? ZERO);
-    }
+    const paidBy = await this.paidByInstallment(
+      tx,
+      installments.map((i) => i.id),
+    );
+    const paid = installments.reduce((s, inst) => s.plus(paidBy.get(inst.id) ?? ZERO), ZERO);
     let status: Charge['status'];
     if (net.lessThanOrEqualTo(ZERO)) status = 'WAIVED';
     else if (paid.greaterThanOrEqualTo(net)) status = 'PAID';
@@ -210,16 +235,16 @@ export class LedgerRepository extends TenantRepository {
           const discount = discountAgg._sum.amount ?? ZERO;
           const net = c.amount.minus(discount);
           const installments: InstallmentView[] = [];
+          const paidBy = await this.paidByInstallment(
+            tx,
+            c.installments.map((i) => i.id),
+          );
           let paid = ZERO;
           for (const inst of c.installments) {
             // Superseded/cancelled installments are retained in the DB for history but never
             // shown in the schedule view (no stale/flat list — §16 UI rule).
             if (inst.status === 'CANCELLED') continue;
-            const a = await tx.paymentAllocation.aggregate({
-              where: { installmentId: inst.id, reversedAt: null },
-              _sum: { amount: true },
-            });
-            const instPaid = a._sum.amount ?? ZERO;
+            const instPaid = paidBy.get(inst.id) ?? ZERO;
             const balance = floorZero(inst.amount.minus(instPaid));
             paid = paid.plus(instPaid);
             installments.push({
@@ -274,13 +299,13 @@ export class LedgerRepository extends TenantRepository {
         },
         select: { id: true, dueDate: true, amount: true },
       });
+      const paidBy = await this.paidByInstallment(
+        tx,
+        installments.map((i) => i.id),
+      );
       const out: Array<{ id: string; dueDate: Date | null; balance: Prisma.Decimal }> = [];
       for (const inst of installments) {
-        const a = await tx.paymentAllocation.aggregate({
-          where: { installmentId: inst.id, reversedAt: null },
-          _sum: { amount: true },
-        });
-        const balance = floorZero(inst.amount.minus(a._sum.amount ?? ZERO));
+        const balance = floorZero(inst.amount.minus(paidBy.get(inst.id) ?? ZERO));
         if (balance.greaterThan(ZERO)) out.push({ id: inst.id, dueDate: inst.dueDate, balance });
       }
       return out;
@@ -341,15 +366,13 @@ export class LedgerRepository extends TenantRepository {
       },
       select: { id: true, amount: true },
     });
-    const out: Array<{ balance: Prisma.Decimal }> = [];
-    for (const inst of installments) {
-      const a = await tx.paymentAllocation.aggregate({
-        where: { installmentId: inst.id, reversedAt: null },
-        _sum: { amount: true },
-      });
-      out.push({ balance: floorZero(inst.amount.minus(a._sum.amount ?? ZERO)) });
-    }
-    return out;
+    const paidBy = await this.paidByInstallment(
+      tx,
+      installments.map((i) => i.id),
+    );
+    return installments.map((inst) => ({
+      balance: floorZero(inst.amount.minus(paidBy.get(inst.id) ?? ZERO)),
+    }));
   }
 
   // ─────────────────────────────────────────────────────────── credit ledger
@@ -359,15 +382,14 @@ export class LedgerRepository extends TenantRepository {
       where: { account: { studentId } },
       select: { id: true, amount: true },
     });
-    let total = ZERO;
-    for (const c of credits) {
-      const consumed = await tx.refundConsumption.aggregate({
-        where: { creditId: c.id },
-        _sum: { amount: true },
-      });
-      total = total.plus(floorZero(c.amount.minus(consumed._sum.amount ?? ZERO)));
-    }
-    return total;
+    const consumedBy = await this.consumedByCredit(
+      tx,
+      credits.map((c) => c.id),
+    );
+    return credits.reduce(
+      (total, c) => total.plus(floorZero(c.amount.minus(consumedBy.get(c.id) ?? ZERO))),
+      ZERO,
+    );
   }
 
   availableCredit(studentId: string): Promise<Prisma.Decimal> {
@@ -383,15 +405,14 @@ export class LedgerRepository extends TenantRepository {
         where: { account: { studentId } },
         orderBy: { createdAt: 'asc' },
       });
-      return Promise.all(
-        credits.map(async (c) => {
-          const consumed = await tx.refundConsumption.aggregate({
-            where: { creditId: c.id },
-            _sum: { amount: true },
-          });
-          return { ...c, remaining: floorZero(c.amount.minus(consumed._sum.amount ?? ZERO)).toFixed(3) };
-        }),
+      const consumedBy = await this.consumedByCredit(
+        tx,
+        credits.map((c) => c.id),
       );
+      return credits.map((c) => ({
+        ...c,
+        remaining: floorZero(c.amount.minus(consumedBy.get(c.id) ?? ZERO)).toFixed(3),
+      }));
     });
   }
 
@@ -697,14 +718,16 @@ export class LedgerRepository extends TenantRepository {
       where: { chargeId, status: { notIn: ['CANCELLED', 'WAIVED'] } },
       orderBy: [{ dueDate: 'asc' }, { seq: 'asc' }],
     });
-    const out: Array<{ id: string; dueDate: Date | null; seq: number; balance: Prisma.Decimal }> = [];
+    const paidBy = await this.paidByInstallment(
+      tx,
+      installments.map((i) => i.id),
+    );
+    const out: Array<{ id: string; dueDate: Date | null; seq: number; balance: Prisma.Decimal }> =
+      [];
     for (const inst of installments) {
-      const a = await tx.paymentAllocation.aggregate({
-        where: { installmentId: inst.id, reversedAt: null },
-        _sum: { amount: true },
-      });
-      const balance = floorZero(inst.amount.minus(a._sum.amount ?? ZERO));
-      if (balance.greaterThan(ZERO)) out.push({ id: inst.id, dueDate: inst.dueDate, seq: inst.seq, balance });
+      const balance = floorZero(inst.amount.minus(paidBy.get(inst.id) ?? ZERO));
+      if (balance.greaterThan(ZERO))
+        out.push({ id: inst.id, dueDate: inst.dueDate, seq: inst.seq, balance });
     }
     return out;
   }

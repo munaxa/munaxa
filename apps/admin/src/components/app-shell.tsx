@@ -91,6 +91,12 @@ const NAV_GROUPS: NavGroup[] = [
         perm: 'finance:read',
       },
       {
+        href: '/finance/reports',
+        labelKey: 'nav.financeReports',
+        icon: 'collections',
+        perm: 'finance:read',
+      },
+      {
         href: '/finance/fee-config',
         labelKey: 'nav.feeConfig',
         icon: 'feeConfig',

@@ -201,6 +201,18 @@ export interface TransportEvaluation {
   changed: boolean;
 }
 
+/** One row of the dimensional finance report (revenue/outstanding by year/grade/campus/category). */
+export interface FinanceDimensionRow {
+  dimId: string | null;
+  label: string;
+  gross: string;
+  discount: string;
+  net: string;
+  paid: string;
+  outstanding: string;
+  chargeCount: number;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
@@ -334,6 +346,12 @@ export const financeApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<PushOutstandingResult>(r)),
+
+  // ── Dimensional finance report (revenue/outstanding by year/grade/campus/category) ──
+  reportSummary: (dimension: 'academicYear' | 'grade' | 'campus' | 'category') =>
+    authFetch(`/finance/reports/summary?dimension=${dimension}`).then((r) =>
+      json<FinanceDimensionRow[]>(r),
+    ),
 
   // ── Aging / collection effectiveness ──
   aging: () => authFetch('/finance/collections/aging').then((r) => json<AgingReport>(r)),

@@ -32,6 +32,8 @@ import { AdmissionsController } from './admissions/admissions.controller';
 import { AdmissionsService } from './admissions/admissions.service';
 import { AdmissionsRepository } from './admissions/admissions.repository';
 import { QuoteService } from './admissions/quote.service';
+import { FinanceReportsController } from './reports/reports.controller';
+import { FinanceReportsRepository } from './reports/reports.repository';
 
 /**
  * Finance — the Accounts Receivable engine (Finance Domain Spec v1.0). Student Financial
@@ -51,6 +53,7 @@ import { QuoteService } from './admissions/quote.service';
     StatementController,
     LedgerController,
     CollectionsController,
+    FinanceReportsController,
     FeeConfigController,
     EnrollmentController,
     AdmissionsController,
@@ -77,6 +80,7 @@ import { QuoteService } from './admissions/quote.service';
     AdmissionsService,
     AdmissionsRepository,
     QuoteService,
+    FinanceReportsRepository,
   ],
 })
 export class FinanceModule {}

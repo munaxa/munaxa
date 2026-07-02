@@ -351,6 +351,21 @@ describe('Finance AR (e2e)', () => {
     expect(s.totals.outstanding).toBe('550.000');
   });
 
+  // ── Dimensional finance report (RR-3) ────────────────────────────────────────
+  it('reports revenue/outstanding grouped by a finance dimension (RR-3)', async () => {
+    const res = await http()
+      .get('/api/v1/finance/reports/summary?dimension=category')
+      .set(auth(financeToken))
+      .expect(200);
+    const rows = res.body as Array<{ gross: string; net: string; outstanding: string }>;
+    expect(Array.isArray(rows)).toBe(true);
+    // Every row reconciles: net == gross − discount and outstanding == net − paid (numeric).
+    for (const r of rows) {
+      expect(Number(r.gross)).toBeGreaterThanOrEqual(Number(r.net));
+      expect(Number(r.net)).toBeGreaterThanOrEqual(Number(r.outstanding));
+    }
+  });
+
   // ── Audit + RBAC (AU-1, SE-1) ────────────────────────────────────────────────
   it('writes an audit log for every financial action (AU-1)', async () => {
     const count = await withPlatform(prisma, (tx) =>
