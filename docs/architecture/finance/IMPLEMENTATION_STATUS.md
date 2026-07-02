@@ -67,16 +67,26 @@ Committed in `feat(finance): AR domain backend`. Greenfield — no old shapes pr
 - [x] Unit tests: installment schedule (Σ==net, cadences, balloon, holiday, custom) + allocation
       FIFO (ordering, caps, residue).
 
-## IN PROGRESS / PENDING — Tests (integration), UI, reports, docs
+## DONE — Tests, UI, reports, docs
 
-- [ ] Integration tests (live DB): commit→charge→plan→installment→payment→invoice; ledger
-      reconciliation (Σ installments == net; Σ allocations + credits == verified payments); RLS.
-- [ ] `prisma/seed.ts` / `seed-demo.ts` — finance demo data on the new model.
-- [ ] Admin UI: hierarchical Student Finance (Account → Charges → Plans → Installments →
-      Payments → Credits → Refunds → Collections), Munaxa Design System only.
-- [ ] Parent portal + Flutter: mirror the hierarchy; pay next-due installment.
-- [ ] Reports: year/grade/campus/category/collections/cash-flow/aging (RR-3).
-- [ ] Sync diagrams/ERD/API docs to the implemented model.
+- [x] Integration + reconciliation e2e (live DB): commit→charge→plan→installment→payment→
+      allocation→adjustment→credit→refund; ledger invariants (Σ installments == net;
+      Σ allocations == paid; outstanding == Σ charge balance); gapless receipts; audit; RBAC.
+- [x] RLS verification e2e: ENABLED+FORCED on all 16 AR tables.
+- [x] `seed-demo.ts` — finance demo data on the new model (reuses the schedule engine).
+- [x] Admin UI: hierarchical Student Finance (Account → Charges → Plans → Installments →
+      Payments → Credits → Refunds → Adjustments → Documents); finance console reuses it;
+      legacy fee-plans page/nav removed. Munaxa Design System only.
+- [x] Parent/Flutter: `/finance/payments` flow + hierarchical Statement model + next-due
+      installment helper + statementProvider.
+- [x] Reports: `GET /finance/reports/summary?dimension=` (revenue/outstanding by year/grade/
+      campus/category) + admin Finance Reports page; aging + collection effectiveness already
+      in Collections; per-student financial in Reporting.
+- [x] Performance: batched ledger reads (no N+1).
+- [x] Docs: see `FINANCE_COMPLETION_REPORT.md` (completion + architecture conformance review).
+
+**Status: COMPLETE.** All gates green — prisma validate, typecheck (api+admin), eslint,
+181 unit tests, 58 finance e2e (8 suites). See the completion report for the full summary.
 
 ## Notes / decisions taken during build
 
