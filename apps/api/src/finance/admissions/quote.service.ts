@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { FeeItemKind, Prisma, QuotePaymentMode, TransportDirection } from '@prisma/client';
 import { FeeConfigRepository } from '../fee-config/fee-config.repository';
+import { splitFils } from '../shared/money';
 import { AdmissionsRepository } from './admissions.repository';
 import type { FeeOverrideDto, QuoteDto } from './admissions.dto';
 
@@ -209,14 +210,13 @@ export class QuoteService {
       }
       const base = dto.firstDueDate ? new Date(dto.firstDueDate) : new Date();
       const totalFils = grandTotal.mul(1000).toNearest(1).toNumber();
-      const per = Math.floor(totalFils / installments);
+      const parts = splitFils(totalFils, installments); // shared single source
       for (let i = 0; i < installments; i += 1) {
-        const fils = i === installments - 1 ? totalFils - per * (installments - 1) : per;
         const due = this.addMonths(base, i);
         schedule.push({
           index: i + 1,
           dueDate: due.toISOString().slice(0, 10),
-          amount: d(fils).div(1000).toFixed(3),
+          amount: d(parts[i]!).div(1000).toFixed(3),
         });
       }
     } else {

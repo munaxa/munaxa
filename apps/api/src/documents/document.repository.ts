@@ -85,7 +85,7 @@ export class DocumentRepository extends TenantRepository {
 
   /**
    * Allocate the next gapless number for a per-tenant scope (row-locked, lazily created) — identical
-   * to the FinanceReceiptCounter / JoFotara ICV pattern, so numbers are sequential with no gaps.
+   * to the PaymentReceiptCounter / JoFotara ICV pattern, so numbers are sequential with no gaps.
    */
   private async nextNumber(tx: TxClient, tenantId: string, scope: string): Promise<number> {
     await tx.$executeRaw`

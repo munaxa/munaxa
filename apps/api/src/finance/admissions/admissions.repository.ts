@@ -16,7 +16,7 @@ import { TenantContextStore } from '../../prisma/tenant-context';
 import { generateStudentQrCode } from '../../people/people.util';
 import { AccountRepository } from '../account/account.repository';
 import { InstallmentScheduleService } from '../charges/installment-schedule.service';
-import { fromFils } from '../shared/money';
+import { fromFils, toFils } from '../shared/money';
 import type { ComputedQuote } from './quote.service';
 import type {
   CommitDto,
@@ -26,8 +26,6 @@ import type {
   UpdateFeeItemDto,
   UpsertGradeFeeItemDto,
 } from './admissions.dto';
-
-const toFils = (n: number | string): number => Math.round(Number(n) * 1000);
 
 /**
  * Admissions data layer (Phase 22). Tenant-scoped, RLS-enforced, audited. The registration commit

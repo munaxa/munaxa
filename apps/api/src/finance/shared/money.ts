@@ -28,3 +28,17 @@ export function jod(n: number | string | Prisma.Decimal): string {
 export function floorZero(v: Prisma.Decimal): Prisma.Decimal {
   return Prisma.Decimal.max(v, ZERO);
 }
+
+/**
+ * Split a total (in fils) into `count` equal parts, with the last part absorbing the rounding
+ * remainder so the parts always reconstruct the exact total (IR-2). This is the single source of
+ * the installment amount‑split — the schedule engine and every quote/agreement preview reuse it.
+ */
+export function splitFils(totalFils: number, count: number): number[] {
+  if (count <= 1) return [totalFils];
+  const per = Math.floor(totalFils / count);
+  const parts: number[] = [];
+  for (let i = 0; i < count - 1; i += 1) parts.push(per);
+  parts.push(totalFils - per * (count - 1));
+  return parts;
+}

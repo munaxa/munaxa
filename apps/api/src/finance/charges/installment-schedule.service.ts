@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { PaymentPlanCadence } from '@prisma/client';
-import { toFils } from '../shared/money';
+import { splitFils, toFils } from '../shared/money';
 
 /** One generated schedule line (amounts in integer fils). */
 export interface ScheduleLine {
@@ -105,13 +105,13 @@ export class InstallmentScheduleService {
    * distinctly larger and carries the remainder (BR-13, IR-4).
    */
   private splitFils(netFils: number, count: number, balloon: boolean): number[] {
+    if (!balloon) return splitFils(netFils, count); // shared equal-split (remainder to last)
     if (count === 1) return [netFils];
-    const per = balloon
-      ? Math.floor(netFils / (count + 1))
-      : Math.floor(netFils / count);
+    // Balloon: smaller equal parts, the final installment carries the larger remainder.
+    const per = Math.floor(netFils / (count + 1));
     const parts: number[] = [];
     for (let i = 0; i < count - 1; i += 1) parts.push(per);
-    parts.push(netFils - per * (count - 1)); // last absorbs the remainder
+    parts.push(netFils - per * (count - 1));
     return parts;
   }
 

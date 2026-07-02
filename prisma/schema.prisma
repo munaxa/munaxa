@@ -2675,7 +2675,7 @@ enum CollectionsCaseStatus {
 
 /// Type of a recorded dunning event within a case.
 enum DunningEventType {
-  REMINDER // an automated/manual reminder was sent (mirrors a PaymentReminder)
+  REMINDER // an automated/manual late-payment reminder was sent
   NOTE // a manual collection note
   STATUS_CHANGE // the case status changed
   PROMISE // a promise-to-pay was recorded
@@ -2731,7 +2731,7 @@ model PromiseToPay {
 }
 
 /// Append-only log of a dunning action (reminder/note/status change/promise/escalation).
-/// Reminder events also snapshot the amounts at send time (replaces the old PaymentReminder).
+/// Reminder events also snapshot the outstanding/overdue amounts at send time.
 model DunningEvent {
   id             String            @id @default(uuid()) @db.Uuid
   tenantId       String            @db.Uuid
@@ -3233,7 +3233,6 @@ model Enrollment {
   transportDirection TransportDirection @default(NONE)
   status             EnrollmentStatus   @default(COMMITTED)
   paymentMode        QuotePaymentMode   @default(INSTALLMENTS)
-  installmentPlanId  String?            @db.Uuid
   feeModified        Boolean            @default(false)
   createdById        String?            @db.Uuid
   createdAt          DateTime           @default(now()) @db.Timestamptz(6)
@@ -3401,7 +3400,7 @@ enum DocumentAccessStatus {
 }
 
 /// Gapless, per-tenant, per-scope counter (one row per tenant+scope). Mirrors the
-/// FinanceReceiptCounter/EInvoiceCounter pattern so document/agreement numbers are
+/// PaymentReceiptCounter/EInvoiceCounter pattern so document/agreement numbers are
 /// sequential with no gaps or duplicates. `scope` is e.g. "AGREEMENT" or "DOC:PAYMENT_RECEIPT".
 model DocumentSequence {
   id       String @id @default(uuid()) @db.Uuid

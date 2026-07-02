@@ -422,17 +422,6 @@
     "runningBalance": "Running balance",
     "viewProfile": "View profile"
   },
-  "feePlans": {
-    "create": "Create a fee plan",
-    "name": "Name",
-    "recurrence": "Recurrence",
-    "amountJod": "Amount (JOD)",
-    "createButton": "Create fee plan",
-    "editTitle": "Edit fee plan",
-    "saveButton": "Save changes",
-    "noPlans": "No fee plans yet.",
-    "description": "Description"
-  },
   "people": {
     "parentProfile": "Parent / guardian profile",
     "children": "Children",
