@@ -10,9 +10,11 @@
  *
  * Prints the login credentials at the end.
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSIONS, SCHOOL_ROLES, permissionsForRole } from '@munaxa/domain';
+import { InstallmentScheduleService } from '../src/finance/charges/installment-schedule.service';
+import { fromFils, toFils } from '../src/finance/shared/money';
 
 const TENANT_ID = 'ac276a70-7af3-4147-aa68-6b126e8f3a92';
 const SLUG = 'demo';
@@ -105,7 +107,7 @@ async function main(): Promise<void> {
     });
 
     // A sample student so the Finance/People screens have something to show.
-    await tx.student.upsert({
+    const student = await tx.student.upsert({
       where: { tenantId_nationalId: { tenantId: TENANT_ID, nationalId: '9901012345' } },
       create: {
         tenantId: TENANT_ID,
@@ -119,11 +121,182 @@ async function main(): Promise<void> {
       },
       update: {},
     });
+
+    await seedFinance(tx, student.id);
   });
   console.log(
     `\n✔ Demo ready.\n  Portal:   http://localhost:3000\n  Tenant:   ${SLUG}\n  Email:    ${ADMIN_EMAIL}\n  Password: ${ADMIN_PASSWORD}\n`,
   );
   await prisma.$disconnect();
+}
+
+/**
+ * Demo AR ledger for the sample student (Finance Domain Spec v1.0): a Student Financial Account
+ * with three charges (an Annual Tuition obligation paid over a 9-month plan, plus Registration and
+ * Transport), a couple of verified payments allocated to installments, and one discount — so the
+ * hierarchical Student Finance page has realistic Account → Charge → Plan → Installment data.
+ * Idempotent: skips if the account already exists. Uses the real schedule engine (single source).
+ */
+async function seedFinance(tx: PrismaClient, studentId: string): Promise<void> {
+  const existing = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
+  if (existing) return;
+
+  const account = await tx.studentFinancialAccount.create({
+    data: { tenantId: TENANT_ID, studentId },
+  });
+  const schedule = new InstallmentScheduleService();
+
+  // 1) Annual Tuition = 3,000 JOD over a 9-month plan (Σ installments == net).
+  const tuition = await tx.charge.create({
+    data: {
+      tenantId: TENANT_ID,
+      accountId: account.id,
+      studentId,
+      description: 'Annual Tuition 2026/27',
+      amount: '3000.000',
+      dueDate: new Date('2026-09-01'),
+      status: 'PENDING',
+    },
+  });
+  // A sibling discount on tuition (traceable adjustment) → net 2,850 scheduled across the plan.
+  await tx.feeAdjustment.create({
+    data: {
+      tenantId: TENANT_ID,
+      accountId: account.id,
+      studentId,
+      chargeId: tuition.id,
+      type: 'SIBLING_DISCOUNT',
+      amount: '150.000',
+      reason: 'Sibling discount (2 children enrolled)',
+    },
+  });
+  const plan = await tx.paymentPlan.create({
+    data: {
+      tenantId: TENANT_ID,
+      chargeId: tuition.id,
+      cadence: 'MONTHLY',
+      installments: 9,
+      firstDueDate: new Date('2026-09-01'),
+    },
+  });
+  const lines = schedule.generate(toFils('2850.000'), {
+    cadence: 'MONTHLY',
+    installments: 9,
+    firstDueDate: '2026-09-01',
+  });
+  const tuitionInstallments = [] as { id: string; amount: Prisma.Decimal }[];
+  for (const line of lines) {
+    const inst = await tx.installment.create({
+      data: {
+        tenantId: TENANT_ID,
+        chargeId: tuition.id,
+        planId: plan.id,
+        seq: line.seq,
+        dueDate: line.dueDate,
+        amount: fromFils(line.amountFils),
+      },
+    });
+    tuitionInstallments.push({ id: inst.id, amount: inst.amount });
+  }
+
+  // 2) Registration = 200 JOD (no plan → one implicit installment), paid in full.
+  const registration = await tx.charge.create({
+    data: {
+      tenantId: TENANT_ID,
+      accountId: account.id,
+      studentId,
+      description: 'Registration',
+      amount: '200.000',
+      dueDate: new Date('2026-08-01'),
+      status: 'PAID',
+    },
+  });
+  const regInstallment = await tx.installment.create({
+    data: {
+      tenantId: TENANT_ID,
+      chargeId: registration.id,
+      seq: 1,
+      dueDate: new Date('2026-08-01'),
+      amount: '200.000',
+      status: 'PAID',
+    },
+  });
+
+  // 3) Transportation = 600 JOD, unpaid.
+  const transport = await tx.charge.create({
+    data: {
+      tenantId: TENANT_ID,
+      accountId: account.id,
+      studentId,
+      description: 'Transportation (two-way)',
+      amount: '600.000',
+      dueDate: new Date('2026-09-01'),
+      status: 'PENDING',
+    },
+  });
+  await tx.installment.create({
+    data: {
+      tenantId: TENANT_ID,
+      chargeId: transport.id,
+      seq: 1,
+      dueDate: new Date('2026-09-01'),
+      amount: '600.000',
+    },
+  });
+
+  // Payments: registration paid in full; the first tuition installment settled.
+  const regPayment = await tx.payment.create({
+    data: {
+      tenantId: TENANT_ID,
+      accountId: account.id,
+      studentId,
+      amount: '200.000',
+      method: 'CASH',
+      status: 'VERIFIED',
+      receiptNo: 1,
+      verifiedAt: new Date('2026-08-02'),
+    },
+  });
+  await tx.paymentAllocation.create({
+    data: {
+      tenantId: TENANT_ID,
+      paymentId: regPayment.id,
+      installmentId: regInstallment.id,
+      amount: '200.000',
+    },
+  });
+
+  const first = tuitionInstallments[0]!;
+  const tuitionPayment = await tx.payment.create({
+    data: {
+      tenantId: TENANT_ID,
+      accountId: account.id,
+      studentId,
+      amount: first.amount,
+      method: 'CLIQ',
+      reference: 'CLIQ-DEMO-1',
+      status: 'VERIFIED',
+      receiptNo: 2,
+      verifiedAt: new Date('2026-09-02'),
+    },
+  });
+  await tx.paymentAllocation.create({
+    data: {
+      tenantId: TENANT_ID,
+      paymentId: tuitionPayment.id,
+      installmentId: first.id,
+      amount: first.amount,
+    },
+  });
+  await tx.installment.update({ where: { id: first.id }, data: { status: 'PAID' } });
+  await tx.charge.update({ where: { id: tuition.id }, data: { status: 'PARTIAL' } });
+
+  // Keep the receipt counter consistent with the two demo receipts issued.
+  await tx.paymentReceiptCounter.upsert({
+    where: { tenantId: TENANT_ID },
+    create: { tenantId: TENANT_ID, nextReceiptNo: 3 },
+    update: { nextReceiptNo: 3 },
+  });
 }
 
 main().catch(async (e) => {
