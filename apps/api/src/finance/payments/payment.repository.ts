@@ -187,7 +187,7 @@ export class PaymentRepository extends TenantRepository {
   ): Promise<{ from: string; replyTo: string | null }> {
     return this.run(async (tx, tenantId) => {
       const [tenant, settings] = await Promise.all([
-        tx.tenant.findFirst({ where: { id: tenantId }, select: { name: true, slug: true } }),
+        tx.tenant.findFirst({ where: { id: tenantId }, select: { name: true } }),
         tx.notificationSettings.findUnique({ where: { tenantId } }),
       ]);
       if (!tenant) return { from: fallbackFrom, replyTo: settings?.replyToEmail ?? null };
@@ -198,7 +198,9 @@ export class PaymentRepository extends TenantRepository {
         settings && settings.senderName && settings.senderName !== 'Munaxa Notifications',
       );
       const name = nameCustom ? settings!.senderName : tenant.name;
-      const email = emailOverridden ? settings!.senderEmail : `${tenant.slug}@${domain}`;
+      // Finance/payment mail goes out from a dedicated `payments@` mailbox (not the tenant slug),
+      // unless the tenant has explicitly overridden the sender in NotificationSettings.
+      const email = emailOverridden ? settings!.senderEmail : `payments@${domain}`;
       return { from: `${name} <${email}>`, replyTo: settings?.replyToEmail ?? null };
     });
   }
