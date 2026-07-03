@@ -275,7 +275,7 @@ class ParentPortalApi {
   // ----- Document vault ------------------------------------------------------
   Future<List<VaultDocument>> documents(String studentId) async {
     final res = await _dio.get<List<dynamic>>(
-      '/documents',
+      '/parent-portal/documents',
       queryParameters: {'studentId': studentId},
     );
     return (res.data ?? [])
@@ -292,7 +292,7 @@ class ParentPortalApi {
     required String contentType,
     required Uint8List bytes,
   }) async {
-    final presign = await _dio.post<Map<String, dynamic>>('/documents/presign', data: {
+    final presign = await _dio.post<Map<String, dynamic>>('/parent-portal/documents/presign', data: {
       'studentId': studentId,
       'fileName': fileName,
       'contentType': contentType,
@@ -306,7 +306,7 @@ class ParentPortalApi {
       options: Options(headers: {'Content-Type': contentType}),
     );
 
-    final res = await _dio.post<Map<String, dynamic>>('/documents', data: {
+    final res = await _dio.post<Map<String, dynamic>>('/parent-portal/documents', data: {
       'studentId': studentId,
       'title': title,
       'category': category,
@@ -319,6 +319,6 @@ class ParentPortalApi {
   }
 
   Future<void> deleteDocument(String id) async {
-    await _dio.delete<void>('/documents/$id');
+    await _dio.delete<void>('/parent-portal/documents/$id');
   }
 }
