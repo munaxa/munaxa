@@ -43,7 +43,20 @@ export interface PaymentPlan {
   status: string;
 }
 
-/** A charge (obligation) with its plan + installments and derived balances (the hierarchy). */
+/** A superseded/completed plan retained for history (shown only in the plan-history view). */
+export interface PlanHistory {
+  id: string;
+  cadence: PaymentPlanCadence;
+  count: number;
+  firstDueDate: string;
+  balloonFinal: boolean;
+  status: string;
+  scheduled: string;
+  paid: string;
+  lines: Installment[];
+}
+
+/** A charge (obligation) with its ACTIVE plan + installments and derived balances (the hierarchy). */
 export interface ChargeView {
   charge: {
     id: string;
@@ -59,6 +72,8 @@ export interface ChargeView {
   balance: string;
   plan: PaymentPlan | null;
   installments: Installment[];
+  /** Superseded/completed plans, hidden by default and shown in a history view. */
+  history?: PlanHistory[];
 }
 
 export interface Adjustment {

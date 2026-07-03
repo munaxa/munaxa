@@ -52,10 +52,15 @@ export class ChargeService {
     }
     const views = await this.ledger.chargeViews(charge.studentId);
     const view = views.find((v) => v.charge.id === chargeId)!;
-    const netFils = toFils(view.net);
-    if (netFils <= 0) throw new BadRequestException('Charge has no positive net to schedule');
+    // Schedule only what is still OUTSTANDING (net − already paid). On a replace, the superseded
+    // plan's paid installments are retained for history, so re-scheduling the full net would
+    // double-count what has already been paid (BR-11). For a first plan, paid = 0 ⇒ outstanding = net.
+    const outstandingFils = toFils(view.balance);
+    if (outstandingFils <= 0) {
+      throw new BadRequestException('Charge has no outstanding balance to schedule');
+    }
 
-    const lines = this.schedule.generate(netFils, {
+    const lines = this.schedule.generate(outstandingFils, {
       cadence: dto.cadence,
       installments: dto.installments,
       firstDueDate: dto.firstDueDate,
