@@ -556,7 +556,9 @@ BEGIN
         USING ("tenantId" = app_current_tenant() OR app_is_platform())
         WITH CHECK ("tenantId" = app_current_tenant() OR app_is_platform())
     $f$, t);
-    -- Runtime role privileges (explicit; complements ALTER DEFAULT PRIVILEGES).
-    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON %I TO munaxa_app', t);
+    -- Runtime role privileges are granted centrally by infra/postgres/app-role.sql
+    -- (GRANT ... ON ALL TABLES) which runs after migrations, mirroring every other
+    -- table in the schema. Granting here would fail: munaxa_app does not yet exist
+    -- when migrations run (CI/compose create it post-migrate).
   END LOOP;
 END $$;
