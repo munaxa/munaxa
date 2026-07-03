@@ -14,6 +14,9 @@ next-env.d.ts
 .open-next/
 .wrangler/
 .dev.vars
+# Root wrangler.jsonc is generated at deploy time by scripts/cf-emit-root-wrangler.mjs
+# (per-app configs live in <app>/wrangler.jsonc). Never commit the generated root one.
+/wrangler.jsonc
 
 # Turborepo
 .turbo/
