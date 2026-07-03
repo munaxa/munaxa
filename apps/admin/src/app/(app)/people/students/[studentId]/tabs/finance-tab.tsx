@@ -683,6 +683,8 @@ function ChargeNode({
   onPlan: () => void;
   onDiscount: () => void;
 }) {
+  const [showHistory, setShowHistory] = useState(false);
+  const history = cv.history ?? [];
   return (
     <div className="rounded-lg border border-border">
       <button
@@ -756,6 +758,55 @@ function ChargeNode({
               ))}
             </TBody>
           </Table>
+
+          {history.length > 0 && (
+            <div className="mt-4 border-t border-border pt-3">
+              <button
+                type="button"
+                onClick={() => setShowHistory((v) => !v)}
+                className="text-sm font-medium text-muted-foreground"
+              >
+                {showHistory ? '▼' : '▶'} Plan history ({history.length} superseded)
+              </button>
+              {showHistory &&
+                history.map((h) => (
+                  <div key={h.id} className="mt-3">
+                    <div className="mb-1 flex items-center gap-2 text-sm">
+                      <Badge tone="muted">{h.status}</Badge>
+                      <span className="text-muted-foreground">
+                        {h.cadence} × {h.count} · paid {num(h.paid)} of {num(h.scheduled)}
+                      </span>
+                    </div>
+                    <Table>
+                      <THead>
+                        <TR>
+                          <TH>#</TH>
+                          <TH>Due</TH>
+                          <TH>Amount</TH>
+                          <TH>Paid</TH>
+                          <TH>Balance</TH>
+                          <TH>Status</TH>
+                        </TR>
+                      </THead>
+                      <TBody>
+                        {h.lines.map((inst) => (
+                          <TR key={inst.id}>
+                            <TD>{inst.seq}</TD>
+                            <TD>{dateStr(inst.dueDate)}</TD>
+                            <TD>{num(inst.amount)}</TD>
+                            <TD>{num(inst.paid)}</TD>
+                            <TD>{num(inst.balance)}</TD>
+                            <TD>
+                              <Badge tone={installmentTone(inst)}>{inst.status}</Badge>
+                            </TD>
+                          </TR>
+                        ))}
+                      </TBody>
+                    </Table>
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       )}
     </div>

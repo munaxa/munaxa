@@ -26,6 +26,19 @@ export interface InstallmentView {
   overdue: boolean; // derived (BR-16), never stored
 }
 
+/** A superseded/completed plan retained for history (never in the default schedule). */
+export interface PlanHistoryView {
+  id: string;
+  cadence: string;
+  count: number; // plan.installments (the planned count)
+  firstDueDate: Date;
+  balloonFinal: boolean;
+  status: string;
+  scheduled: string; // Σ retained (non-cancelled) installment amounts on this plan
+  paid: string; // Σ paid to this plan's installments
+  lines: InstallmentView[];
+}
+
 /** Per-charge derived figures + its plan/installments (LR-1, LR-3). */
 export interface ChargeView {
   charge: Charge;
@@ -34,6 +47,7 @@ export interface ChargeView {
   net: string;
   paid: string;
   balance: string;
+  /** The single ACTIVE plan (BR-11) — at most one per charge. */
   plan: {
     id: string;
     cadence: string;
@@ -42,7 +56,10 @@ export interface ChargeView {
     balloonFinal: boolean;
     status: string;
   } | null;
+  /** Only the ACTIVE plan's installments (the default schedule view). */
   installments: InstallmentView[];
+  /** Superseded/completed plans + their retained installments, for a history/audit view. */
+  history: PlanHistoryView[];
 }
 
 /** Account-level derived figures — the numbers behind the statement (LR-4..6). */
@@ -221,7 +238,7 @@ export class LedgerRepository extends TenantRepository {
         where: { studentId },
         orderBy: { createdAt: 'asc' },
         include: {
-          plans: { where: { status: 'ACTIVE' }, take: 1 },
+          plans: { orderBy: { createdAt: 'desc' } },
           installments: { orderBy: { seq: 'asc' } },
         },
       });
@@ -234,35 +251,84 @@ export class LedgerRepository extends TenantRepository {
           });
           const discount = discountAgg._sum.amount ?? ZERO;
           const net = c.amount.minus(discount);
-          const installments: InstallmentView[] = [];
+          const activePlan = c.plans.find((p) => p.status === 'ACTIVE') ?? null;
           const paidBy = await this.paidByInstallment(
             tx,
             c.installments.map((i) => i.id),
           );
-          let paid = ZERO;
-          for (const inst of c.installments) {
-            // Superseded/cancelled installments are retained in the DB for history but never
-            // shown in the schedule view (no stale/flat list — §16 UI rule).
-            if (inst.status === 'CANCELLED') continue;
+          const toView = (
+            inst: Installment,
+          ): { view: InstallmentView; instPaid: Prisma.Decimal } => {
             const instPaid = paidBy.get(inst.id) ?? ZERO;
             const balance = floorZero(inst.amount.minus(instPaid));
-            paid = paid.plus(instPaid);
-            installments.push({
-              id: inst.id,
-              seq: inst.seq,
-              dueDate: inst.dueDate,
-              amount: inst.amount.toFixed(3),
-              paid: instPaid.toFixed(3),
-              balance: balance.toFixed(3),
-              status: inst.status,
-              overdue:
-                inst.status !== 'WAIVED' &&
-                balance.greaterThan(ZERO) &&
-                inst.dueDate != null &&
-                new Date(inst.dueDate) < today,
-            });
+            return {
+              instPaid,
+              view: {
+                id: inst.id,
+                seq: inst.seq,
+                dueDate: inst.dueDate,
+                amount: inst.amount.toFixed(3),
+                paid: instPaid.toFixed(3),
+                balance: balance.toFixed(3),
+                status: inst.status,
+                overdue:
+                  inst.status !== 'WAIVED' &&
+                  balance.greaterThan(ZERO) &&
+                  inst.dueDate != null &&
+                  new Date(inst.dueDate) < today,
+              },
+            };
+          };
+
+          // Charge-level `paid` sums allocations across EVERY non-cancelled installment (all
+          // plans) so retained payments on a superseded plan still count toward the balance.
+          // The default schedule shows ONLY the active plan's installments; installments that
+          // belong to a superseded/completed plan are surfaced under `history` (BR-11, §16).
+          let paid = ZERO;
+          const installments: InstallmentView[] = [];
+          const historyLines = new Map<
+            string,
+            { view: InstallmentView; instPaid: Prisma.Decimal }[]
+          >();
+          for (const inst of c.installments) {
+            if (inst.status === 'CANCELLED') continue;
+            const built = toView(inst);
+            paid = paid.plus(built.instPaid);
+            const belongsToActive = activePlan
+              ? inst.planId === activePlan.id
+              : inst.planId == null;
+            if (belongsToActive) {
+              installments.push(built.view);
+            } else if (inst.planId) {
+              const list = historyLines.get(inst.planId) ?? [];
+              list.push(built);
+              historyLines.set(inst.planId, list);
+            }
           }
-          const plan = c.plans[0] ?? null;
+
+          const history: PlanHistoryView[] = c.plans
+            .filter((p) => p.id !== activePlan?.id)
+            .map((p) => {
+              const built = historyLines.get(p.id) ?? [];
+              const scheduled = built.reduce(
+                (s, b) => s.plus(new Prisma.Decimal(b.view.amount)),
+                ZERO,
+              );
+              const planPaid = built.reduce((s, b) => s.plus(b.instPaid), ZERO);
+              return {
+                id: p.id,
+                cadence: p.cadence,
+                count: p.installments,
+                firstDueDate: p.firstDueDate,
+                balloonFinal: p.balloonFinal,
+                status: p.status,
+                scheduled: scheduled.toFixed(3),
+                paid: planPaid.toFixed(3),
+                lines: built.map((b) => b.view),
+              };
+            })
+            .filter((h) => h.lines.length > 0);
+
           return {
             charge: c,
             gross: c.amount.toFixed(3),
@@ -270,17 +336,18 @@ export class LedgerRepository extends TenantRepository {
             net: net.toFixed(3),
             paid: paid.toFixed(3),
             balance: floorZero(net.minus(paid)).toFixed(3),
-            plan: plan
+            plan: activePlan
               ? {
-                  id: plan.id,
-                  cadence: plan.cadence,
-                  installments: plan.installments,
-                  firstDueDate: plan.firstDueDate,
-                  balloonFinal: plan.balloonFinal,
-                  status: plan.status,
+                  id: activePlan.id,
+                  cadence: activePlan.cadence,
+                  installments: activePlan.installments,
+                  firstDueDate: activePlan.firstDueDate,
+                  balloonFinal: activePlan.balloonFinal,
+                  status: activePlan.status,
                 }
               : null,
             installments,
+            history,
           };
         }),
       );

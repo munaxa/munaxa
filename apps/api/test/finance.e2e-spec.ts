@@ -34,14 +34,23 @@ interface InstallmentView {
   balance: string;
   status: string;
 }
+interface PlanHistoryView {
+  id: string;
+  status: string;
+  count: number;
+  scheduled: string;
+  paid: string;
+  lines: InstallmentView[];
+}
 interface ChargeView {
   charge: { id: string; description: string; status: string };
   gross: string;
   net: string;
   paid: string;
   balance: string;
-  plan: { id: string; installments: number } | null;
+  plan: { id: string; installments: number; status: string } | null;
   installments: InstallmentView[];
+  history: PlanHistoryView[];
 }
 interface Statement {
   charges: ChargeView[];
@@ -232,6 +241,56 @@ describe('Finance AR (e2e)', () => {
     const sum = view.installments.reduce((t, i) => t + Number(i.amount), 0);
     expect(sum.toFixed(3)).toBe('900.000');
     expect(view.plan?.installments).toBe(9);
+  });
+
+  // ── Replace plan: supersede the old plan; the new plan covers ONLY the outstanding (BR-11) ──
+  it('replaces a partly-paid plan: new plan = outstanding, old plan → history, one active plan', async () => {
+    const studentId = await makeStudent('replan');
+    const charge = await createCharge(studentId, 'Annual Tuition', 900);
+    // First plan: 3 × 300.
+    const firstPlan = (
+      await http()
+        .post(`/api/v1/finance/charges/${charge.id}/plan`)
+        .set(auth(financeToken))
+        .send({ cadence: 'MONTHLY', installments: 3, firstDueDate: '2026-09-01' })
+        .expect(201)
+    ).body as { id: string };
+    // Pay 300 (FIFO settles the first installment).
+    await recordAndVerifyPayment(studentId, 300);
+
+    // Replace with a new 6-installment plan.
+    const secondPlan = (
+      await http()
+        .post(`/api/v1/finance/charges/${charge.id}/plan`)
+        .set(auth(financeToken))
+        .send({ cadence: 'MONTHLY', installments: 6, firstDueDate: '2026-10-01' })
+        .expect(201)
+    ).body as { id: string };
+
+    const s = await statement(studentId);
+    const view = s.charges.find((c) => c.charge.id === charge.id)!;
+
+    // Exactly one ACTIVE plan — the new one.
+    expect(view.plan?.id).toBe(secondPlan.id);
+    expect(view.plan?.status).toBe('ACTIVE');
+    expect(secondPlan.id).not.toBe(firstPlan.id);
+
+    // The active schedule covers ONLY the outstanding 600 (900 − 300 paid), not the full 900.
+    expect(view.installments).toHaveLength(6);
+    const activeSum = view.installments.reduce((t, i) => t + Number(i.amount), 0);
+    expect(activeSum.toFixed(3)).toBe('600.000');
+    expect(view.installments.every((i) => i.status === 'SCHEDULED')).toBe(true);
+
+    // Charge-level figures stay reconciled: paid retained, balance == outstanding.
+    expect(view.paid).toBe('300.000');
+    expect(view.balance).toBe('600.000');
+
+    // The superseded plan is retained in history with its one paid installment.
+    expect(view.history).toHaveLength(1);
+    expect(view.history[0]!.id).toBe(firstPlan.id);
+    expect(view.history[0]!.status).toBe('SUPERSEDED');
+    expect(view.history[0]!.paid).toBe('300.000');
+    expect(view.history[0]!.lines.every((i) => i.status === 'PAID')).toBe(true);
   });
 
   // ── Manual allocation to a specific installment ──────────────────────────────
