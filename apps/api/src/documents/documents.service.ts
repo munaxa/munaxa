@@ -177,13 +177,16 @@ export class DocumentsService {
   ): Promise<{ to: string[]; cc: string[]; bcc: string[] }> {
     // Primary parent is the default recipient unless the caller specified another recipient.
     const otherSpecified =
-      (dto.to?.length ?? 0) > 0 || Boolean(dto.includeSecondaryParent) || Boolean(dto.includeGuardian);
+      (dto.to?.length ?? 0) > 0 ||
+      Boolean(dto.includeSecondaryParent) ||
+      Boolean(dto.includeGuardian);
     const includePrimary = dto.includePrimaryParent ?? !otherSpecified;
 
     const needRoles = includePrimary || dto.includeSecondaryParent || dto.includeGuardian;
-    const roles = needRoles && meta.studentId
-      ? await this.repo.recipientEmails(meta.studentId)
-      : { primary: null, secondary: null, guardian: null };
+    const roles =
+      needRoles && meta.studentId
+        ? await this.repo.recipientEmails(meta.studentId)
+        : { primary: null, secondary: null, guardian: null };
 
     const to = new Set<string>();
     if (includePrimary && roles.primary) to.add(roles.primary);
@@ -197,8 +200,9 @@ export class DocumentsService {
   }
 
   private escapeHtml(s: string): string {
-    return s.replace(/[&<>"']/g, (c) =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c,
+    return s.replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] ?? c,
     );
   }
 }

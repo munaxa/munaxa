@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState } from "react";
+import { useState } from 'react';
 import {
   type ColumnDef,
   type SortingState,
@@ -8,10 +8,10 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
-} from "@tanstack/react-table";
-import { ArrowUpDown } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+} from '@tanstack/react-table';
+import { ArrowUpDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -19,61 +19,56 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from '@/components/ui/table';
 
 type Row = {
   name: string;
   grade: string;
-  status: "Active" | "Pending" | "Inactive";
+  status: 'Active' | 'Pending' | 'Inactive';
   attendance: number;
 };
 
 const rows: Row[] = [
-  { name: "Lina Haddad", grade: "Grade 9", status: "Active", attendance: 98 },
-  { name: "Omar Saleh", grade: "Grade 7", status: "Pending", attendance: 86 },
-  { name: "Maya Khoury", grade: "Grade 11", status: "Active", attendance: 94 },
-  { name: "Yousef Ali", grade: "Grade 8", status: "Inactive", attendance: 71 },
-  { name: "Sara Nasser", grade: "Grade 10", status: "Active", attendance: 90 },
+  { name: 'Lina Haddad', grade: 'Grade 9', status: 'Active', attendance: 98 },
+  { name: 'Omar Saleh', grade: 'Grade 7', status: 'Pending', attendance: 86 },
+  { name: 'Maya Khoury', grade: 'Grade 11', status: 'Active', attendance: 94 },
+  { name: 'Yousef Ali', grade: 'Grade 8', status: 'Inactive', attendance: 71 },
+  { name: 'Sara Nasser', grade: 'Grade 10', status: 'Active', attendance: 90 },
 ];
 
-const statusVariant: Record<Row["status"], "default" | "secondary" | "outline"> =
-  {
-    Active: "default",
-    Pending: "secondary",
-    Inactive: "outline",
-  };
+const statusVariant: Record<Row['status'], 'default' | 'secondary' | 'outline'> = {
+  Active: 'default',
+  Pending: 'secondary',
+  Inactive: 'outline',
+};
 
 const columns: ColumnDef<Row>[] = [
   {
-    accessorKey: "name",
+    accessorKey: 'name',
     header: ({ column }) => (
       <Button
         variant="ghost"
         size="sm"
         className="-ml-2"
-        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
       >
         Student <ArrowUpDown />
       </Button>
     ),
   },
-  { accessorKey: "grade", header: "Grade" },
+  { accessorKey: 'grade', header: 'Grade' },
   {
-    accessorKey: "status",
-    header: "Status",
+    accessorKey: 'status',
+    header: 'Status',
     cell: ({ row }) => {
       const s = row.original.status;
       return <Badge variant={statusVariant[s]}>{s}</Badge>;
     },
   },
   {
-    accessorKey: "attendance",
+    accessorKey: 'attendance',
     header: () => <div className="text-right">Attendance</div>,
-    cell: ({ row }) => (
-      <div className="text-right tabular-nums">
-        {row.original.attendance}%
-      </div>
-    ),
+    cell: ({ row }) => <div className="text-right tabular-nums">{row.original.attendance}%</div>,
   },
 ];
 
@@ -96,9 +91,7 @@ export function StudentsTable() {
             <TableRow key={hg.id}>
               {hg.headers.map((h) => (
                 <TableHead key={h.id}>
-                  {h.isPlaceholder
-                    ? null
-                    : flexRender(h.column.columnDef.header, h.getContext())}
+                  {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                 </TableHead>
               ))}
             </TableRow>

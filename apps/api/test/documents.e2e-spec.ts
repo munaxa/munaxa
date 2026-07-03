@@ -130,7 +130,10 @@ describe('Documents / Document Engine (e2e)', () => {
 
   it('stores no PDF bytea for a DYNAMIC document', async () => {
     const row = await withPlatform(prisma, (tx) =>
-      tx.generatedDocument.findFirst({ where: { id: documentId }, select: { pdf: true, params: true } }),
+      tx.generatedDocument.findFirst({
+        where: { id: documentId },
+        select: { pdf: true, params: true },
+      }),
     );
     expect(row?.pdf ?? null).toBeNull();
     expect(row?.params).toBeTruthy(); // re-render params are persisted instead
@@ -214,6 +217,9 @@ describe('Documents / Document Engine (e2e)', () => {
       .set(auth(teacherToken))
       .send({ type: 'ACCOUNT_STATEMENT', studentId })
       .expect(403);
-    await http().get(`/api/v1/documents?studentId=${studentId}`).set(auth(teacherToken)).expect(403);
+    await http()
+      .get(`/api/v1/documents?studentId=${studentId}`)
+      .set(auth(teacherToken))
+      .expect(403);
   });
 });

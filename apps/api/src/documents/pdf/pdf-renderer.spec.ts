@@ -24,7 +24,14 @@ describe('PdfRenderer', () => {
       meta: [{ label: 'No.', value: 'DOC-000001' }],
       blocks: [
         { kind: 'heading', text: 'Section' },
-        { kind: 'fields', columns: 2, rows: [{ label: 'A', value: '1' }, { label: 'B', value: '2' }] },
+        {
+          kind: 'fields',
+          columns: 2,
+          rows: [
+            { label: 'A', value: '1' },
+            { label: 'B', value: '2' },
+          ],
+        },
         {
           kind: 'table',
           columns: [

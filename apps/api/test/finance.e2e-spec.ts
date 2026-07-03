@@ -189,7 +189,13 @@ describe('Finance AR (e2e)', () => {
     const created = await http()
       .post('/api/v1/finance/payments')
       .set(auth(parentToken))
-      .send({ studentId, amount: 750, method: 'CLIQ', reference: 'CLIQ1', receiptKey: presign.body.fileKey })
+      .send({
+        studentId,
+        amount: 750,
+        method: 'CLIQ',
+        reference: 'CLIQ1',
+        receiptKey: presign.body.fileKey,
+      })
       .expect(201);
     expect(created.body.status).toBe('PENDING');
 
@@ -246,7 +252,10 @@ describe('Finance AR (e2e)', () => {
         .send({ studentId, amount: 100, method: 'CASH' })
         .expect(201)
     ).body as { id: string };
-    await http().post(`/api/v1/finance/payments/${created.id}/verify`).set(auth(financeToken)).expect(200);
+    await http()
+      .post(`/api/v1/finance/payments/${created.id}/verify`)
+      .set(auth(financeToken))
+      .expect(200);
 
     const s = await statement(studentId);
     const view = s.charges.find((c) => c.charge.id === charge.id)!;

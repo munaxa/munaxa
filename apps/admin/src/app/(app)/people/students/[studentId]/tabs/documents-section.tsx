@@ -271,7 +271,11 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                     <TD className="font-mono text-xs">AGR-{docNo(a.agreementNo)}</TD>
                     <TD className="font-mono text-xs">v{a.version}</TD>
                     <TD>
-                      <Badge tone={a.status === 'COMMITTED' || a.status === 'SIGNED' ? 'success' : 'muted'}>
+                      <Badge
+                        tone={
+                          a.status === 'COMMITTED' || a.status === 'SIGNED' ? 'success' : 'muted'
+                        }
+                      >
                         {a.status}
                       </Badge>
                     </TD>
@@ -333,7 +337,10 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
             <Field label={t('studentProfile.language')}>
-              <Select value={language} onChange={(e) => setLanguage(e.target.value as DocumentLanguage)}>
+              <Select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value as DocumentLanguage)}
+              >
                 {LANGUAGES.map((l) => (
                   <option key={l} value={l}>
                     {l}
@@ -410,7 +417,10 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                 <TR key={d.id}>
                   <TD>
                     {typeLabel(d.type)}
-                    <Badge tone={d.persistence === 'SNAPSHOT' ? 'success' : 'muted'} className="ms-2">
+                    <Badge
+                      tone={d.persistence === 'SNAPSHOT' ? 'success' : 'muted'}
+                      className="ms-2"
+                    >
                       {d.persistence}
                     </Badge>
                     {d.status !== 'ARCHIVED' ? (
@@ -431,7 +441,9 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                         size="sm"
                         variant="ghost"
                         disabled={busy !== null}
-                        onClick={() => void withBusy(`dl-${d.id}`, () => documentsApi.download(d.id))}
+                        onClick={() =>
+                          void withBusy(`dl-${d.id}`, () => documentsApi.download(d.id))
+                        }
                       >
                         {t('studentProfile.download')}
                       </Button>
@@ -487,7 +499,9 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
             <Checkbox
               label={t('studentProfile.primaryParent')}
               checked={emailForm.includePrimaryParent}
-              onChange={(e) => setEmailForm({ ...emailForm, includePrimaryParent: e.target.checked })}
+              onChange={(e) =>
+                setEmailForm({ ...emailForm, includePrimaryParent: e.target.checked })
+              }
             />
             <Checkbox
               label={t('studentProfile.secondaryParent')}
@@ -510,7 +524,10 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
             />
           </Field>
           <Field label="CC">
-            <Input value={emailForm.cc} onChange={(e) => setEmailForm({ ...emailForm, cc: e.target.value })} />
+            <Input
+              value={emailForm.cc}
+              onChange={(e) => setEmailForm({ ...emailForm, cc: e.target.value })}
+            />
           </Field>
           <Field label={t('studentProfile.subject')}>
             <Input

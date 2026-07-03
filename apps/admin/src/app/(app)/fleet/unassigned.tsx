@@ -50,8 +50,7 @@ export function UnassignedStudents({
     [unassignedRows],
   );
   const genders = useMemo(
-    () =>
-      [...new Set(unassignedRows.map((r) => r.student.gender).filter(Boolean))] as string[],
+    () => [...new Set(unassignedRows.map((r) => r.student.gender).filter(Boolean))] as string[],
     [unassignedRows],
   );
 

@@ -9,11 +9,7 @@ import { useI18n } from '@/components/i18n-provider';
 import { FeeModifiedBadge } from '@/components/fee-modified-badge';
 import { loadStudentOptions } from '@/lib/pickers';
 import { FinanceTab } from '@/app/(app)/people/students/[studentId]/tabs/finance-tab';
-import {
-  financeApi,
-  type CollectionsProfile,
-  type HouseholdMember,
-} from '@/lib/finance';
+import { financeApi, type CollectionsProfile, type HouseholdMember } from '@/lib/finance';
 import {
   Badge,
   Button,
@@ -51,20 +47,23 @@ export default function FinancePage() {
   const [busy, setBusy] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const loadMeta = useCallback(async (id = studentId) => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const [c, h] = await Promise.all([
-        financeApi.collections(id).catch(() => null),
-        financeApi.household(id).catch(() => [] as HouseholdMember[]),
-      ]);
-      setCollections(c);
-      setHousehold(h);
-    } finally {
-      setLoading(false);
-    }
-  }, [studentId]);
+  const loadMeta = useCallback(
+    async (id = studentId) => {
+      if (!id) return;
+      setLoading(true);
+      try {
+        const [c, h] = await Promise.all([
+          financeApi.collections(id).catch(() => null),
+          financeApi.household(id).catch(() => [] as HouseholdMember[]),
+        ]);
+        setCollections(c);
+        setHousehold(h);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [studentId],
+  );
 
   // Deep link from Admissions: ?studentId=<id> opens that student's account.
   useEffect(() => {
@@ -91,7 +90,11 @@ export default function FinancePage() {
   }
 
   const isLegal = collections?.collectionsStatus === 'LEGAL';
-  const tagTone = isLegal ? 'danger' : collections?.collectionsStatus === 'FINANCIAL_ISSUE' ? 'warning' : 'success';
+  const tagTone = isLegal
+    ? 'danger'
+    : collections?.collectionsStatus === 'FINANCIAL_ISSUE'
+      ? 'warning'
+      : 'success';
   const tagLabel = isLegal
     ? 'Legal Collections'
     : collections?.collectionsStatus === 'FINANCIAL_ISSUE'
@@ -146,7 +149,8 @@ export default function FinancePage() {
                 <div className="flex items-center gap-3">
                   <Badge tone={tagTone}>{tagLabel}</Badge>
                   <span className="text-sm text-muted-foreground">
-                    Outstanding <strong className="font-mono">{jod(collections.snapshot.outstanding)}</strong>
+                    Outstanding{' '}
+                    <strong className="font-mono">{jod(collections.snapshot.outstanding)}</strong>
                     {Number(collections.snapshot.overdue) > 0 ? (
                       <>
                         {' · '}Overdue{' '}

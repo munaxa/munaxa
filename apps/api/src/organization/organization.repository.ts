@@ -19,7 +19,10 @@ export class OrganizationRepository extends TenantRepository {
     return this.run(async (tx, tenantId) => this.ensure(tx, tenantId));
   }
 
-  private async ensure(tx: Prisma.TransactionClient, tenantId: string): Promise<OrganizationSettings> {
+  private async ensure(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+  ): Promise<OrganizationSettings> {
     const existing = await tx.organizationSettings.findFirst({
       where: { tenantId, deletedAt: null },
     });

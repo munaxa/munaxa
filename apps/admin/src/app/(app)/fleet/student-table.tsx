@@ -2,17 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
-import {
-  Checkbox,
-  EmptyState,
-  Pagination,
-  Table,
-  TBody,
-  TD,
-  TH,
-  THead,
-  TR,
-} from '@/components/ui';
+import { Checkbox, EmptyState, Pagination, Table, TBody, TD, TH, THead, TR } from '@/components/ui';
 import { TripBadge } from './components';
 import type { StudentRow } from './lib';
 
@@ -49,10 +39,7 @@ export function StudentTable({
     if (page > pageCount) setPage(1);
   }, [page, pageCount]);
 
-  const visible = useMemo(
-    () => rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [rows, page],
-  );
+  const visible = useMemo(() => rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), [rows, page]);
   const visibleIds = useMemo(() => visible.map((r) => r.student.id), [visible]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
   const someVisibleSelected = visibleIds.some((id) => selected.has(id));
@@ -124,9 +111,7 @@ export function StudentTable({
                         <TripBadge round={row.assignment?.tripRound} />
                       </TD>
                       <TD className="text-xs text-muted-foreground">
-                        {row.assignedAt
-                          ? new Date(row.assignedAt).toLocaleDateString()
-                          : '—'}
+                        {row.assignedAt ? new Date(row.assignedAt).toLocaleDateString() : '—'}
                       </TD>
                     </>
                   ) : (

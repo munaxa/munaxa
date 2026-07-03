@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 import { Shell, usePrincipal } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
-import { Button, ErrorState, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
+import {
+  Button,
+  ErrorState,
+  Spinner,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui';
 import { organizationApi, type OrganizationSettings } from '@/lib/organization';
 import {
   AcademicSection,
@@ -104,11 +112,7 @@ export default function OrganizationSettingsPage() {
             </TabsList>
             {TABS.map(({ key, perm, Section }) => (
               <TabsContent key={key} value={key}>
-                <Section
-                  settings={settings}
-                  onSaved={onSaved}
-                  canEdit={has(perm)}
-                />
+                <Section settings={settings} onSaved={onSaved} canEdit={has(perm)} />
               </TabsContent>
             ))}
           </Tabs>

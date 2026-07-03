@@ -1,4 +1,4 @@
-import type { DocumentLanguage} from '@prisma/client';
+import type { DocumentLanguage } from '@prisma/client';
 import { FeeItemKind } from '@prisma/client';
 import { L } from './util';
 

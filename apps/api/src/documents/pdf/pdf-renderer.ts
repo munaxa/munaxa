@@ -66,21 +66,33 @@ export class PdfRenderer {
       }
     }
 
-    doc.fillColor(INK).font('Helvetica-Bold').fontSize(15).text(b.nameEn, textX, top, {
-      width: right - textX,
-    });
-    if (b.nameAr) {
-      doc.font('Helvetica').fontSize(11).fillColor(INK).text(b.nameAr, textX, doc.y, {
+    doc
+      .fillColor(INK)
+      .font('Helvetica-Bold')
+      .fontSize(15)
+      .text(b.nameEn, textX, top, {
         width: right - textX,
       });
+    if (b.nameAr) {
+      doc
+        .font('Helvetica')
+        .fontSize(11)
+        .fillColor(INK)
+        .text(b.nameAr, textX, doc.y, {
+          width: right - textX,
+        });
     }
     const contact = [b.addressLines.join(', '), b.phone, b.email, b.website]
       .filter((s): s is string => Boolean(s && s.trim()))
       .join('  ·  ');
     if (contact) {
-      doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(contact, textX, doc.y + 1, {
-        width: right - textX,
-      });
+      doc
+        .font('Helvetica')
+        .fontSize(8)
+        .fillColor(MUTED)
+        .text(contact, textX, doc.y + 1, {
+          width: right - textX,
+        });
     }
 
     const headerBottom = Math.max(doc.y, top + (b.logo ? 64 : 0)) + 8;
@@ -99,9 +111,13 @@ export class PdfRenderer {
       width: titleWidth,
     });
     if (layout.subtitle) {
-      doc.font('Helvetica').fontSize(9).fillColor(MUTED).text(layout.subtitle, left, doc.y + 1, {
-        width: titleWidth,
-      });
+      doc
+        .font('Helvetica')
+        .fontSize(9)
+        .fillColor(MUTED)
+        .text(layout.subtitle, left, doc.y + 1, {
+          width: titleWidth,
+        });
     }
     const afterTitle = doc.y;
 
@@ -110,10 +126,14 @@ export class PdfRenderer {
       const boxX = right - boxW;
       let metaY = titleTop;
       for (const m of layout.meta) {
-        doc.font('Helvetica-Bold').fontSize(8).fillColor(MUTED).text(m.label.toUpperCase(), boxX, metaY, {
-          width: boxW,
-          align: 'right',
-        });
+        doc
+          .font('Helvetica-Bold')
+          .fontSize(8)
+          .fillColor(MUTED)
+          .text(m.label.toUpperCase(), boxX, metaY, {
+            width: boxW,
+            align: 'right',
+          });
         doc.font('Helvetica').fontSize(10).fillColor(INK).text(m.value, boxX, doc.y, {
           width: boxW,
           align: 'right',
@@ -182,12 +202,20 @@ export class PdfRenderer {
       if (col === 0) this.ensureSpace(doc, rowH);
       const x = left + col * colW;
       const y = doc.y;
-      doc.font('Helvetica').fontSize(7.5).fillColor(MUTED).text(row.label.toUpperCase(), x, y, {
-        width: colW - 8,
-      });
-      doc.font('Helvetica-Bold').fontSize(10).fillColor(INK).text(row.value || '—', x, y + 11, {
-        width: colW - 8,
-      });
+      doc
+        .font('Helvetica')
+        .fontSize(7.5)
+        .fillColor(MUTED)
+        .text(row.label.toUpperCase(), x, y, {
+          width: colW - 8,
+        });
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .fillColor(INK)
+        .text(row.value || '—', x, y + 11, {
+          width: colW - 8,
+        });
       i += 1;
       if (col === columns - 1) doc.y = y + rowH;
       else doc.y = y; // keep same row baseline for remaining columns
@@ -244,10 +272,12 @@ export class PdfRenderer {
       this.ensureSpace(doc, rowH);
       const y = doc.y;
       columns.forEach((c, i) => {
-        doc.fillColor(bold ? INK : '#1e293b').text(String(record[c.key] ?? ''), colX(i) + 4, y + 3, {
-          width: widths[i]! - 8,
-          align: c.align ?? 'left',
-        });
+        doc
+          .fillColor(bold ? INK : '#1e293b')
+          .text(String(record[c.key] ?? ''), colX(i) + 4, y + 3, {
+            width: widths[i]! - 8,
+            align: c.align ?? 'left',
+          });
       });
       doc.y = y + rowH;
       doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.5).strokeColor(LINE).stroke();
@@ -289,13 +319,21 @@ export class PdfRenderer {
         .lineWidth(0.7)
         .strokeColor(INK)
         .stroke();
-      doc.font('Helvetica-Bold').fontSize(9).fillColor(INK).text(blk.label, x, y + 5, {
-        width: colW - 24,
-      });
-      if (blk.name) {
-        doc.font('Helvetica').fontSize(8).fillColor(MUTED).text(blk.name, x, doc.y, {
+      doc
+        .font('Helvetica-Bold')
+        .fontSize(9)
+        .fillColor(INK)
+        .text(blk.label, x, y + 5, {
           width: colW - 24,
         });
+      if (blk.name) {
+        doc
+          .font('Helvetica')
+          .fontSize(8)
+          .fillColor(MUTED)
+          .text(blk.name, x, doc.y, {
+            width: colW - 24,
+          });
       }
     });
     doc.y = y + 50;
@@ -311,9 +349,13 @@ export class PdfRenderer {
       const right = doc.page.width - doc.page.margins.right;
       const y = doc.page.height - doc.page.margins.bottom + 8;
       doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(LINE).stroke();
-      doc.font('Helvetica').fontSize(7).fillColor(MUTED).text(note, left, y + 4, {
-        width: (right - left) * 0.75,
-      });
+      doc
+        .font('Helvetica')
+        .fontSize(7)
+        .fillColor(MUTED)
+        .text(note, left, y + 4, {
+          width: (right - left) * 0.75,
+        });
       doc.text(`Page ${i - range.start + 1} of ${range.count}`, left, y + 4, {
         width: right - left,
         align: 'right',

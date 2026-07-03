@@ -17,7 +17,9 @@ export class LedgerController {
 
   @Post('adjustments')
   @RequirePermissions(Permission.FINANCE_MANAGE)
-  @ApiOperation({ summary: 'Apply a deduction (discount/scholarship/waiver/write-off/credit-memo)' })
+  @ApiOperation({
+    summary: 'Apply a deduction (discount/scholarship/waiver/write-off/credit-memo)',
+  })
   applyAdjustment(@Body() dto: ApplyAdjustmentDto) {
     return this.service.applyAdjustment(dto);
   }

@@ -99,7 +99,11 @@ function Transport() {
         </TabsList>
 
         <TabsContent value="dashboard" className="pt-4">
-          {data.loading ? <CardSkeleton /> : <RouteDashboard data={data} onManage={setActiveRoute} />}
+          {data.loading ? (
+            <CardSkeleton />
+          ) : (
+            <RouteDashboard data={data} onManage={setActiveRoute} />
+          )}
         </TabsContent>
         <TabsContent value="areas" className="pt-4">
           {data.loading ? <CardSkeleton /> : <AreaPlanning data={data} onManage={setActiveRoute} />}

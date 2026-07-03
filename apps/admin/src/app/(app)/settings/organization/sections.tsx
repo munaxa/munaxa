@@ -39,8 +39,7 @@ function useDraft<T extends object>(initial: T) {
   useEffect(() => {
     setDraft(initial);
   }, [initial]);
-  const set = <K extends keyof T>(key: K, value: T[K]) =>
-    setDraft((d) => ({ ...d, [key]: value }));
+  const set = <K extends keyof T>(key: K, value: T[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial);
   const reset = () => setDraft(initial);
   return { draft, set, setDraft, dirty, reset };
@@ -129,7 +128,12 @@ function ToggleRow({
         <p className="text-sm font-medium">{label}</p>
         {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} disabled={disabled ?? false} aria-label={label} />
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        disabled={disabled ?? false}
+        aria-label={label}
+      />
     </div>
   );
 }
@@ -187,7 +191,12 @@ function AssetUploader({
       <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
         {currentUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={currentUrl} alt={label} className="max-h-full max-w-full object-contain" loading="lazy" />
+          <img
+            src={currentUrl}
+            alt={label}
+            className="max-h-full max-w-full object-contain"
+            loading="lazy"
+          />
         ) : (
           <span className="px-1 text-center text-[10px] text-muted-foreground">
             {t('organization.noImage')}
@@ -216,7 +225,12 @@ function AssetUploader({
             {currentUrl ? t('organization.replace') : t('organization.upload')}
           </Button>
           {currentUrl ? (
-            <Button variant="ghost" size="sm" onClick={() => void onRemove()} disabled={!canEdit || busy}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void onRemove()}
+              disabled={!canEdit || busy}
+            >
               {t('organization.remove')}
             </Button>
           ) : null}
@@ -255,26 +269,28 @@ export function GeneralSection({ settings, onSaved, canEdit }: SectionProps) {
   const { draft, set, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.general({
-      nameEn: NULLABLE(draft.nameEn),
-      nameAr: NULLABLE(draft.nameAr),
-      legalName: NULLABLE(draft.legalName),
-      shortName: NULLABLE(draft.shortName),
-      schoolCode: NULLABLE(draft.schoolCode),
-      ministryNumber: NULLABLE(draft.ministryNumber),
-      schoolType: draft.schoolType,
-      motto: NULLABLE(draft.motto),
-      mission: NULLABLE(draft.mission),
-      vision: NULLABLE(draft.vision),
-      establishedYear: draft.establishedYear ? Number(draft.establishedYear) : null,
-      description: NULLABLE(draft.description),
-      timezone: draft.timezone,
-      defaultLanguage: draft.defaultLanguage,
-      academicCalendar: NULLABLE(draft.academicCalendar),
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+    organizationApi
+      .general({
+        nameEn: NULLABLE(draft.nameEn),
+        nameAr: NULLABLE(draft.nameAr),
+        legalName: NULLABLE(draft.legalName),
+        shortName: NULLABLE(draft.shortName),
+        schoolCode: NULLABLE(draft.schoolCode),
+        ministryNumber: NULLABLE(draft.ministryNumber),
+        schoolType: draft.schoolType,
+        motto: NULLABLE(draft.motto),
+        mission: NULLABLE(draft.mission),
+        vision: NULLABLE(draft.vision),
+        establishedYear: draft.establishedYear ? Number(draft.establishedYear) : null,
+        description: NULLABLE(draft.description),
+        timezone: draft.timezone,
+        defaultLanguage: draft.defaultLanguage,
+        academicCalendar: NULLABLE(draft.academicCalendar),
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   return (
     <SectionShell
@@ -287,25 +303,55 @@ export function GeneralSection({ settings, onSaved, canEdit }: SectionProps) {
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t('organization.nameEn')}>
-          <Input value={draft.nameEn} onChange={(e) => set('nameEn', e.target.value)} disabled={!canEdit} dir="ltr" />
+          <Input
+            value={draft.nameEn}
+            onChange={(e) => set('nameEn', e.target.value)}
+            disabled={!canEdit}
+            dir="ltr"
+          />
         </Field>
         <Field label={t('organization.nameAr')}>
-          <Input value={draft.nameAr} onChange={(e) => set('nameAr', e.target.value)} disabled={!canEdit} dir="rtl" />
+          <Input
+            value={draft.nameAr}
+            onChange={(e) => set('nameAr', e.target.value)}
+            disabled={!canEdit}
+            dir="rtl"
+          />
         </Field>
         <Field label={t('organization.legalName')}>
-          <Input value={draft.legalName} onChange={(e) => set('legalName', e.target.value)} disabled={!canEdit} />
+          <Input
+            value={draft.legalName}
+            onChange={(e) => set('legalName', e.target.value)}
+            disabled={!canEdit}
+          />
         </Field>
         <Field label={t('organization.shortName')}>
-          <Input value={draft.shortName} onChange={(e) => set('shortName', e.target.value)} disabled={!canEdit} />
+          <Input
+            value={draft.shortName}
+            onChange={(e) => set('shortName', e.target.value)}
+            disabled={!canEdit}
+          />
         </Field>
         <Field label={t('organization.schoolCode')}>
-          <Input value={draft.schoolCode} onChange={(e) => set('schoolCode', e.target.value)} disabled={!canEdit} />
+          <Input
+            value={draft.schoolCode}
+            onChange={(e) => set('schoolCode', e.target.value)}
+            disabled={!canEdit}
+          />
         </Field>
         <Field label={t('organization.ministryNumber')}>
-          <Input value={draft.ministryNumber} onChange={(e) => set('ministryNumber', e.target.value)} disabled={!canEdit} />
+          <Input
+            value={draft.ministryNumber}
+            onChange={(e) => set('ministryNumber', e.target.value)}
+            disabled={!canEdit}
+          />
         </Field>
         <Field label={t('organization.schoolType')}>
-          <Select value={draft.schoolType} onChange={(e) => set('schoolType', e.target.value as typeof draft.schoolType)} disabled={!canEdit}>
+          <Select
+            value={draft.schoolType}
+            onChange={(e) => set('schoolType', e.target.value as typeof draft.schoolType)}
+            disabled={!canEdit}
+          >
             {SCHOOL_TYPES.map((s) => (
               <option key={s} value={s}>
                 {t(`organization.schoolType_${s}`)}
@@ -314,34 +360,70 @@ export function GeneralSection({ settings, onSaved, canEdit }: SectionProps) {
           </Select>
         </Field>
         <Field label={t('organization.establishedYear')}>
-          <Input type="number" value={draft.establishedYear} onChange={(e) => set('establishedYear', e.target.value)} disabled={!canEdit} />
+          <Input
+            type="number"
+            value={draft.establishedYear}
+            onChange={(e) => set('establishedYear', e.target.value)}
+            disabled={!canEdit}
+          />
         </Field>
         <Field label={t('organization.timezone')}>
-          <Input value={draft.timezone} onChange={(e) => set('timezone', e.target.value)} disabled={!canEdit} />
+          <Input
+            value={draft.timezone}
+            onChange={(e) => set('timezone', e.target.value)}
+            disabled={!canEdit}
+          />
         </Field>
         <Field label={t('organization.defaultLanguage')}>
-          <Select value={draft.defaultLanguage} onChange={(e) => set('defaultLanguage', e.target.value)} disabled={!canEdit}>
+          <Select
+            value={draft.defaultLanguage}
+            onChange={(e) => set('defaultLanguage', e.target.value)}
+            disabled={!canEdit}
+          >
             <option value="en">English</option>
             <option value="ar">العربية</option>
           </Select>
         </Field>
         <Field label={t('organization.academicCalendar')}>
-          <Input value={draft.academicCalendar} onChange={(e) => set('academicCalendar', e.target.value)} disabled={!canEdit} />
+          <Input
+            value={draft.academicCalendar}
+            onChange={(e) => set('academicCalendar', e.target.value)}
+            disabled={!canEdit}
+          />
         </Field>
       </div>
       <Field label={t('organization.motto')}>
-        <Input value={draft.motto} onChange={(e) => set('motto', e.target.value)} disabled={!canEdit} />
+        <Input
+          value={draft.motto}
+          onChange={(e) => set('motto', e.target.value)}
+          disabled={!canEdit}
+        />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t('organization.mission')}>
-          <Textarea value={draft.mission} onChange={(e) => set('mission', e.target.value)} disabled={!canEdit} rows={3} />
+          <Textarea
+            value={draft.mission}
+            onChange={(e) => set('mission', e.target.value)}
+            disabled={!canEdit}
+            rows={3}
+          />
         </Field>
         <Field label={t('organization.vision')}>
-          <Textarea value={draft.vision} onChange={(e) => set('vision', e.target.value)} disabled={!canEdit} rows={3} />
+          <Textarea
+            value={draft.vision}
+            onChange={(e) => set('vision', e.target.value)}
+            disabled={!canEdit}
+            rows={3}
+          />
         </Field>
       </div>
       <Field label={t('organization.description')}>
-        <Textarea value={draft.description} onChange={(e) => set('description', e.target.value)} disabled={!canEdit} rows={3} />
+        <Textarea
+          value={draft.description}
+          onChange={(e) => set('description', e.target.value)}
+          disabled={!canEdit}
+          rows={3}
+        />
       </Field>
     </SectionShell>
   );
@@ -394,27 +476,29 @@ export function BrandingSection({ settings, onSaved, canEdit }: SectionProps) {
   const { draft, set, setDraft, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.branding({
-      logoEnabled: draft.logoEnabled,
-      darkLogoEnabled: draft.darkLogoEnabled,
-      smallLogoEnabled: draft.smallLogoEnabled,
-      watermarkEnabled: draft.watermarkEnabled,
-      stampEnabled: draft.stampEnabled,
-      signatureEnabled: draft.signatureEnabled,
-      stampPlacement: draft.stampPlacement,
-      signaturePosition: draft.signaturePosition,
-      logoVisibility: draft.logoVisibility,
-      watermark: {
-        source: draft.watermarkSource as 'LOGO',
-        text: NULLABLE(draft.watermarkText) ?? undefined,
-        opacity: Number(draft.watermarkOpacity),
-        scale: Number(draft.watermarkScale),
-        rotation: Number(draft.watermarkRotation),
-      },
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+    organizationApi
+      .branding({
+        logoEnabled: draft.logoEnabled,
+        darkLogoEnabled: draft.darkLogoEnabled,
+        smallLogoEnabled: draft.smallLogoEnabled,
+        watermarkEnabled: draft.watermarkEnabled,
+        stampEnabled: draft.stampEnabled,
+        signatureEnabled: draft.signatureEnabled,
+        stampPlacement: draft.stampPlacement,
+        signaturePosition: draft.signaturePosition,
+        logoVisibility: draft.logoVisibility,
+        watermark: {
+          source: draft.watermarkSource as 'LOGO',
+          text: NULLABLE(draft.watermarkText) ?? undefined,
+          opacity: Number(draft.watermarkOpacity),
+          scale: Number(draft.watermarkScale),
+          rotation: Number(draft.watermarkRotation),
+        },
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   return (
     <SectionShell
@@ -436,14 +520,22 @@ export function BrandingSection({ settings, onSaved, canEdit }: SectionProps) {
         />
         {draft.logoEnabled ? (
           <>
-            <AssetUploader slot="logo" label={t('organization.logo')} currentUrl={settings.assetUrls.logo} onChanged={onSaved} canEdit={canEdit} />
+            <AssetUploader
+              slot="logo"
+              label={t('organization.logo')}
+              currentUrl={settings.assetUrls.logo}
+              onChanged={onSaved}
+              canEdit={canEdit}
+            />
             <div className="grid gap-2 sm:grid-cols-2">
               {LOGO_PLACEMENTS.map((p) => (
                 <ToggleRow
                   key={p}
                   label={t(`organization.showOn_${p}`)}
                   checked={draft.logoVisibility[p]}
-                  onChange={(v) => setDraft((d) => ({ ...d, logoVisibility: { ...d.logoVisibility, [p]: v } }))}
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, logoVisibility: { ...d.logoVisibility, [p]: v } }))
+                  }
                   disabled={!canEdit}
                 />
               ))}
@@ -454,27 +546,61 @@ export function BrandingSection({ settings, onSaved, canEdit }: SectionProps) {
 
       {/* Dark logo */}
       <div className="space-y-3 border-t border-border pt-4">
-        <ToggleRow label={t('organization.enableDarkLogo')} checked={draft.darkLogoEnabled} onChange={(v) => set('darkLogoEnabled', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.enableDarkLogo')}
+          checked={draft.darkLogoEnabled}
+          onChange={(v) => set('darkLogoEnabled', v)}
+          disabled={!canEdit}
+        />
         {draft.darkLogoEnabled ? (
-          <AssetUploader slot="darkLogo" label={t('organization.darkLogo')} currentUrl={settings.assetUrls.darkLogo} onChanged={onSaved} canEdit={canEdit} />
+          <AssetUploader
+            slot="darkLogo"
+            label={t('organization.darkLogo')}
+            currentUrl={settings.assetUrls.darkLogo}
+            onChanged={onSaved}
+            canEdit={canEdit}
+          />
         ) : null}
       </div>
 
       {/* Small logo */}
       <div className="space-y-3 border-t border-border pt-4">
-        <ToggleRow label={t('organization.enableSmallLogo')} hint={t('organization.smallLogoHint')} checked={draft.smallLogoEnabled} onChange={(v) => set('smallLogoEnabled', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.enableSmallLogo')}
+          hint={t('organization.smallLogoHint')}
+          checked={draft.smallLogoEnabled}
+          onChange={(v) => set('smallLogoEnabled', v)}
+          disabled={!canEdit}
+        />
         {draft.smallLogoEnabled ? (
-          <AssetUploader slot="smallLogo" label={t('organization.smallLogo')} currentUrl={settings.assetUrls.smallLogo} onChanged={onSaved} canEdit={canEdit} />
+          <AssetUploader
+            slot="smallLogo"
+            label={t('organization.smallLogo')}
+            currentUrl={settings.assetUrls.smallLogo}
+            onChanged={onSaved}
+            canEdit={canEdit}
+          />
         ) : null}
       </div>
 
       {/* Watermark */}
       <div className="space-y-3 border-t border-border pt-4">
-        <ToggleRow label={t('organization.enableWatermark')} checked={draft.watermarkEnabled} onChange={(v) => set('watermarkEnabled', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.enableWatermark')}
+          checked={draft.watermarkEnabled}
+          onChange={(v) => set('watermarkEnabled', v)}
+          disabled={!canEdit}
+        />
         {draft.watermarkEnabled ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t('organization.watermarkSource')}>
-              <Select value={draft.watermarkSource} onChange={(e) => set('watermarkSource', e.target.value as typeof draft.watermarkSource)} disabled={!canEdit}>
+              <Select
+                value={draft.watermarkSource}
+                onChange={(e) =>
+                  set('watermarkSource', e.target.value as typeof draft.watermarkSource)
+                }
+                disabled={!canEdit}
+              >
                 {WATERMARK_SOURCES.map((s) => (
                   <option key={s} value={s}>
                     {t(`organization.watermark_${s}`)}
@@ -483,16 +609,44 @@ export function BrandingSection({ settings, onSaved, canEdit }: SectionProps) {
               </Select>
             </Field>
             <Field label={t('organization.watermarkText')}>
-              <Input value={draft.watermarkText} onChange={(e) => set('watermarkText', e.target.value)} disabled={!canEdit} />
+              <Input
+                value={draft.watermarkText}
+                onChange={(e) => set('watermarkText', e.target.value)}
+                disabled={!canEdit}
+              />
             </Field>
             <Field label={t('organization.opacity')}>
-              <Input type="number" step="0.05" min="0" max="1" value={draft.watermarkOpacity} onChange={(e) => set('watermarkOpacity', e.target.value)} disabled={!canEdit} />
+              <Input
+                type="number"
+                step="0.05"
+                min="0"
+                max="1"
+                value={draft.watermarkOpacity}
+                onChange={(e) => set('watermarkOpacity', e.target.value)}
+                disabled={!canEdit}
+              />
             </Field>
             <Field label={t('organization.scale')}>
-              <Input type="number" step="0.1" min="0.1" max="5" value={draft.watermarkScale} onChange={(e) => set('watermarkScale', e.target.value)} disabled={!canEdit} />
+              <Input
+                type="number"
+                step="0.1"
+                min="0.1"
+                max="5"
+                value={draft.watermarkScale}
+                onChange={(e) => set('watermarkScale', e.target.value)}
+                disabled={!canEdit}
+              />
             </Field>
             <Field label={t('organization.rotation')}>
-              <Input type="number" step="1" min="-180" max="180" value={draft.watermarkRotation} onChange={(e) => set('watermarkRotation', e.target.value)} disabled={!canEdit} />
+              <Input
+                type="number"
+                step="1"
+                min="-180"
+                max="180"
+                value={draft.watermarkRotation}
+                onChange={(e) => set('watermarkRotation', e.target.value)}
+                disabled={!canEdit}
+              />
             </Field>
           </div>
         ) : null}
@@ -500,12 +654,29 @@ export function BrandingSection({ settings, onSaved, canEdit }: SectionProps) {
 
       {/* Stamp */}
       <div className="space-y-3 border-t border-border pt-4">
-        <ToggleRow label={t('organization.enableStamp')} checked={draft.stampEnabled} onChange={(v) => set('stampEnabled', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.enableStamp')}
+          checked={draft.stampEnabled}
+          onChange={(v) => set('stampEnabled', v)}
+          disabled={!canEdit}
+        />
         {draft.stampEnabled ? (
           <>
-            <AssetUploader slot="stamp" label={t('organization.stamp')} currentUrl={settings.assetUrls.stamp} onChanged={onSaved} canEdit={canEdit} />
+            <AssetUploader
+              slot="stamp"
+              label={t('organization.stamp')}
+              currentUrl={settings.assetUrls.stamp}
+              onChanged={onSaved}
+              canEdit={canEdit}
+            />
             <Field label={t('organization.placement')}>
-              <Select value={draft.stampPlacement} onChange={(e) => set('stampPlacement', e.target.value as typeof draft.stampPlacement)} disabled={!canEdit}>
+              <Select
+                value={draft.stampPlacement}
+                onChange={(e) =>
+                  set('stampPlacement', e.target.value as typeof draft.stampPlacement)
+                }
+                disabled={!canEdit}
+              >
                 {ALIGNMENTS.map((a) => (
                   <option key={a} value={a}>
                     {t(`organization.align_${a}`)}
@@ -519,12 +690,29 @@ export function BrandingSection({ settings, onSaved, canEdit }: SectionProps) {
 
       {/* Signature */}
       <div className="space-y-3 border-t border-border pt-4">
-        <ToggleRow label={t('organization.enableSignature')} checked={draft.signatureEnabled} onChange={(v) => set('signatureEnabled', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.enableSignature')}
+          checked={draft.signatureEnabled}
+          onChange={(v) => set('signatureEnabled', v)}
+          disabled={!canEdit}
+        />
         {draft.signatureEnabled ? (
           <>
-            <AssetUploader slot="signature" label={t('organization.signature')} currentUrl={settings.assetUrls.signature} onChanged={onSaved} canEdit={canEdit} />
+            <AssetUploader
+              slot="signature"
+              label={t('organization.signature')}
+              currentUrl={settings.assetUrls.signature}
+              onChanged={onSaved}
+              canEdit={canEdit}
+            />
             <Field label={t('organization.position')}>
-              <Select value={draft.signaturePosition} onChange={(e) => set('signaturePosition', e.target.value as typeof draft.signaturePosition)} disabled={!canEdit}>
+              <Select
+                value={draft.signaturePosition}
+                onChange={(e) =>
+                  set('signaturePosition', e.target.value as typeof draft.signaturePosition)
+                }
+                disabled={!canEdit}
+              >
                 {ALIGNMENTS.map((a) => (
                   <option key={a} value={a}>
                     {t(`organization.align_${a}`)}
@@ -567,27 +755,29 @@ export function ContactSection({ settings, onSaved, canEdit }: SectionProps) {
   const { draft, set, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.contact({
-      phone: NULLABLE(draft.phone),
-      mobile: NULLABLE(draft.mobile),
-      whatsapp: NULLABLE(draft.whatsapp),
-      email: NULLABLE(draft.email),
-      website: NULLABLE(draft.website),
-      country: NULLABLE(draft.country),
-      city: NULLABLE(draft.city),
-      district: NULLABLE(draft.district),
-      street: NULLABLE(draft.street),
-      building: NULLABLE(draft.building),
-      postalCode: NULLABLE(draft.postalCode),
-      googleMapsUrl: NULLABLE(draft.googleMapsUrl),
-      latitude: draft.latitude ? Number(draft.latitude) : null,
-      longitude: draft.longitude ? Number(draft.longitude) : null,
-      emergencyContact: NULLABLE(draft.emergencyContact),
-      officeHours: NULLABLE(draft.officeHours),
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+    organizationApi
+      .contact({
+        phone: NULLABLE(draft.phone),
+        mobile: NULLABLE(draft.mobile),
+        whatsapp: NULLABLE(draft.whatsapp),
+        email: NULLABLE(draft.email),
+        website: NULLABLE(draft.website),
+        country: NULLABLE(draft.country),
+        city: NULLABLE(draft.city),
+        district: NULLABLE(draft.district),
+        street: NULLABLE(draft.street),
+        building: NULLABLE(draft.building),
+        postalCode: NULLABLE(draft.postalCode),
+        googleMapsUrl: NULLABLE(draft.googleMapsUrl),
+        latitude: draft.latitude ? Number(draft.latitude) : null,
+        longitude: draft.longitude ? Number(draft.longitude) : null,
+        emergencyContact: NULLABLE(draft.emergencyContact),
+        officeHours: NULLABLE(draft.officeHours),
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   const fields: [keyof typeof draft, string][] = [
     ['phone', 'organization.phone'],
@@ -609,7 +799,14 @@ export function ContactSection({ settings, onSaved, canEdit }: SectionProps) {
   ];
 
   return (
-    <SectionShell title={t('organization.contact')} description={t('organization.contactDesc')} dirty={dirty} reset={reset} save={save} canEdit={canEdit}>
+    <SectionShell
+      title={t('organization.contact')}
+      description={t('organization.contactDesc')}
+      dirty={dirty}
+      reset={reset}
+      save={save}
+      canEdit={canEdit}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         {fields.map(([k, label]) => (
           <Field key={k} label={t(label)}>
@@ -656,46 +853,73 @@ export function DocumentsSection({ settings, onSaved, canEdit }: SectionProps) {
   const { draft, set, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.documents({
-      headerEnabled: draft.headerEnabled,
-      footerEnabled: draft.footerEnabled,
-      qrEnabled: draft.qrEnabled,
-      documents: {
-        headerHtml: draft.headerHtml,
-        headerAlign: draft.headerAlign as 'CENTER',
-        footerHtml: draft.footerHtml,
-        footerAlign: draft.footerAlign as 'CENTER',
-        logoPosition: draft.logoPosition as 'LEFT',
-        paperSize: draft.paperSize as 'A4',
-        margins: {
-          top: Number(draft.marginTop),
-          bottom: Number(draft.marginBottom),
-          left: Number(draft.marginLeft),
-          right: Number(draft.marginRight),
+    organizationApi
+      .documents({
+        headerEnabled: draft.headerEnabled,
+        footerEnabled: draft.footerEnabled,
+        qrEnabled: draft.qrEnabled,
+        documents: {
+          headerHtml: draft.headerHtml,
+          headerAlign: draft.headerAlign as 'CENTER',
+          footerHtml: draft.footerHtml,
+          footerAlign: draft.footerAlign as 'CENTER',
+          logoPosition: draft.logoPosition as 'LEFT',
+          paperSize: draft.paperSize as 'A4',
+          margins: {
+            top: Number(draft.marginTop),
+            bottom: Number(draft.marginBottom),
+            left: Number(draft.marginLeft),
+            right: Number(draft.marginRight),
+          },
+          headerHeight: Number(draft.headerHeight),
+          footerHeight: Number(draft.footerHeight),
+          qrContent: draft.qrContent as 'VERIFICATION_URL',
+          qrCustomText: draft.qrCustomText,
         },
-        headerHeight: Number(draft.headerHeight),
-        footerHeight: Number(draft.footerHeight),
-        qrContent: draft.qrContent as 'VERIFICATION_URL',
-        qrCustomText: draft.qrCustomText,
-      },
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   return (
-    <SectionShell title={t('organization.documents')} description={t('organization.documentsDesc')} dirty={dirty} reset={reset} save={save} canEdit={canEdit}>
+    <SectionShell
+      title={t('organization.documents')}
+      description={t('organization.documentsDesc')}
+      dirty={dirty}
+      reset={reset}
+      save={save}
+      canEdit={canEdit}
+    >
       {/* Header */}
       <div className="space-y-3">
-        <ToggleRow label={t('organization.enableHeader')} checked={draft.headerEnabled} onChange={(v) => set('headerEnabled', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.enableHeader')}
+          checked={draft.headerEnabled}
+          onChange={(v) => set('headerEnabled', v)}
+          disabled={!canEdit}
+        />
         {draft.headerEnabled ? (
           <div className="grid gap-4">
             <Field label={t('organization.headerContent')}>
-              <Textarea value={draft.headerHtml} onChange={(e) => set('headerHtml', e.target.value)} disabled={!canEdit} rows={3} />
+              <Textarea
+                value={draft.headerHtml}
+                onChange={(e) => set('headerHtml', e.target.value)}
+                disabled={!canEdit}
+                rows={3}
+              />
             </Field>
             <Field label={t('organization.alignment')}>
-              <Select value={draft.headerAlign} onChange={(e) => set('headerAlign', e.target.value as 'CENTER')} disabled={!canEdit}>
-                {ALIGNMENTS.map((a) => <option key={a} value={a}>{t(`organization.align_${a}`)}</option>)}
+              <Select
+                value={draft.headerAlign}
+                onChange={(e) => set('headerAlign', e.target.value as 'CENTER')}
+                disabled={!canEdit}
+              >
+                {ALIGNMENTS.map((a) => (
+                  <option key={a} value={a}>
+                    {t(`organization.align_${a}`)}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>
@@ -704,15 +928,33 @@ export function DocumentsSection({ settings, onSaved, canEdit }: SectionProps) {
 
       {/* Footer */}
       <div className="space-y-3 border-t border-border pt-4">
-        <ToggleRow label={t('organization.enableFooter')} checked={draft.footerEnabled} onChange={(v) => set('footerEnabled', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.enableFooter')}
+          checked={draft.footerEnabled}
+          onChange={(v) => set('footerEnabled', v)}
+          disabled={!canEdit}
+        />
         {draft.footerEnabled ? (
           <div className="grid gap-4">
             <Field label={t('organization.footerContent')}>
-              <Textarea value={draft.footerHtml} onChange={(e) => set('footerHtml', e.target.value)} disabled={!canEdit} rows={3} />
+              <Textarea
+                value={draft.footerHtml}
+                onChange={(e) => set('footerHtml', e.target.value)}
+                disabled={!canEdit}
+                rows={3}
+              />
             </Field>
             <Field label={t('organization.alignment')}>
-              <Select value={draft.footerAlign} onChange={(e) => set('footerAlign', e.target.value as 'CENTER')} disabled={!canEdit}>
-                {ALIGNMENTS.map((a) => <option key={a} value={a}>{t(`organization.align_${a}`)}</option>)}
+              <Select
+                value={draft.footerAlign}
+                onChange={(e) => set('footerAlign', e.target.value as 'CENTER')}
+                disabled={!canEdit}
+              >
+                {ALIGNMENTS.map((a) => (
+                  <option key={a} value={a}>
+                    {t(`organization.align_${a}`)}
+                  </option>
+                ))}
               </Select>
             </Field>
           </div>
@@ -722,36 +964,111 @@ export function DocumentsSection({ settings, onSaved, canEdit }: SectionProps) {
       {/* Layout */}
       <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
         <Field label={t('organization.logoPosition')}>
-          <Select value={draft.logoPosition} onChange={(e) => set('logoPosition', e.target.value as 'LEFT')} disabled={!canEdit}>
-            {ALIGNMENTS.map((a) => <option key={a} value={a}>{t(`organization.align_${a}`)}</option>)}
+          <Select
+            value={draft.logoPosition}
+            onChange={(e) => set('logoPosition', e.target.value as 'LEFT')}
+            disabled={!canEdit}
+          >
+            {ALIGNMENTS.map((a) => (
+              <option key={a} value={a}>
+                {t(`organization.align_${a}`)}
+              </option>
+            ))}
           </Select>
         </Field>
         <Field label={t('organization.paperSize')}>
-          <Select value={draft.paperSize} onChange={(e) => set('paperSize', e.target.value as 'A4')} disabled={!canEdit}>
-            {PAPER_SIZES.map((p) => <option key={p} value={p}>{p}</option>)}
+          <Select
+            value={draft.paperSize}
+            onChange={(e) => set('paperSize', e.target.value as 'A4')}
+            disabled={!canEdit}
+          >
+            {PAPER_SIZES.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
           </Select>
         </Field>
-        <Field label={t('organization.marginTop')}><Input type="number" value={draft.marginTop} onChange={(e) => set('marginTop', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.marginBottom')}><Input type="number" value={draft.marginBottom} onChange={(e) => set('marginBottom', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.marginLeft')}><Input type="number" value={draft.marginLeft} onChange={(e) => set('marginLeft', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.marginRight')}><Input type="number" value={draft.marginRight} onChange={(e) => set('marginRight', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.headerHeight')}><Input type="number" value={draft.headerHeight} onChange={(e) => set('headerHeight', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.footerHeight')}><Input type="number" value={draft.footerHeight} onChange={(e) => set('footerHeight', e.target.value)} disabled={!canEdit} /></Field>
+        <Field label={t('organization.marginTop')}>
+          <Input
+            type="number"
+            value={draft.marginTop}
+            onChange={(e) => set('marginTop', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.marginBottom')}>
+          <Input
+            type="number"
+            value={draft.marginBottom}
+            onChange={(e) => set('marginBottom', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.marginLeft')}>
+          <Input
+            type="number"
+            value={draft.marginLeft}
+            onChange={(e) => set('marginLeft', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.marginRight')}>
+          <Input
+            type="number"
+            value={draft.marginRight}
+            onChange={(e) => set('marginRight', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.headerHeight')}>
+          <Input
+            type="number"
+            value={draft.headerHeight}
+            onChange={(e) => set('headerHeight', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.footerHeight')}>
+          <Input
+            type="number"
+            value={draft.footerHeight}
+            onChange={(e) => set('footerHeight', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
       </div>
 
       {/* QR */}
       <div className="space-y-3 border-t border-border pt-4">
-        <ToggleRow label={t('organization.enableQr')} checked={draft.qrEnabled} onChange={(v) => set('qrEnabled', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.enableQr')}
+          checked={draft.qrEnabled}
+          onChange={(v) => set('qrEnabled', v)}
+          disabled={!canEdit}
+        />
         {draft.qrEnabled ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={t('organization.qrContent')}>
-              <Select value={draft.qrContent} onChange={(e) => set('qrContent', e.target.value as 'VERIFICATION_URL')} disabled={!canEdit}>
-                {QR_CONTENTS.map((q) => <option key={q} value={q}>{t(`organization.qr_${q}`)}</option>)}
+              <Select
+                value={draft.qrContent}
+                onChange={(e) => set('qrContent', e.target.value as 'VERIFICATION_URL')}
+                disabled={!canEdit}
+              >
+                {QR_CONTENTS.map((q) => (
+                  <option key={q} value={q}>
+                    {t(`organization.qr_${q}`)}
+                  </option>
+                ))}
               </Select>
             </Field>
             {draft.qrContent === 'CUSTOM_TEXT' ? (
               <Field label={t('organization.qrCustomText')}>
-                <Input value={draft.qrCustomText} onChange={(e) => set('qrCustomText', e.target.value)} disabled={!canEdit} />
+                <Input
+                  value={draft.qrCustomText}
+                  onChange={(e) => set('qrCustomText', e.target.value)}
+                  disabled={!canEdit}
+                />
               </Field>
             ) : null}
           </div>
@@ -780,35 +1097,97 @@ export function CommunicationSection({ settings, onSaved, canEdit }: SectionProp
   const { draft, set, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.communication({
-      senderName: NULLABLE(draft.senderName),
-      senderEmail: NULLABLE(draft.senderEmail),
-      replyToEmail: NULLABLE(draft.replyToEmail),
-      emailFooter: NULLABLE(draft.emailFooter),
-      notificationDisplayName: NULLABLE(draft.notificationDisplayName),
-      smsSender: NULLABLE(draft.smsSender),
-      whatsappDisplayName: NULLABLE(draft.whatsappDisplayName),
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+    organizationApi
+      .communication({
+        senderName: NULLABLE(draft.senderName),
+        senderEmail: NULLABLE(draft.senderEmail),
+        replyToEmail: NULLABLE(draft.replyToEmail),
+        emailFooter: NULLABLE(draft.emailFooter),
+        notificationDisplayName: NULLABLE(draft.notificationDisplayName),
+        smsSender: NULLABLE(draft.smsSender),
+        whatsappDisplayName: NULLABLE(draft.whatsappDisplayName),
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   return (
-    <SectionShell title={t('organization.communication')} description={t('organization.communicationDesc')} dirty={dirty} reset={reset} save={save} canEdit={canEdit}>
+    <SectionShell
+      title={t('organization.communication')}
+      description={t('organization.communicationDesc')}
+      dirty={dirty}
+      reset={reset}
+      save={save}
+      canEdit={canEdit}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t('organization.senderName')}><Input value={draft.senderName} onChange={(e) => set('senderName', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.senderEmail')}><Input value={draft.senderEmail} onChange={(e) => set('senderEmail', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.replyToEmail')}><Input value={draft.replyToEmail} onChange={(e) => set('replyToEmail', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.notificationDisplayName')}><Input value={draft.notificationDisplayName} onChange={(e) => set('notificationDisplayName', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.smsSender')}><Input value={draft.smsSender} onChange={(e) => set('smsSender', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.whatsappDisplayName')}><Input value={draft.whatsappDisplayName} onChange={(e) => set('whatsappDisplayName', e.target.value)} disabled={!canEdit} /></Field>
+        <Field label={t('organization.senderName')}>
+          <Input
+            value={draft.senderName}
+            onChange={(e) => set('senderName', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.senderEmail')}>
+          <Input
+            value={draft.senderEmail}
+            onChange={(e) => set('senderEmail', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.replyToEmail')}>
+          <Input
+            value={draft.replyToEmail}
+            onChange={(e) => set('replyToEmail', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.notificationDisplayName')}>
+          <Input
+            value={draft.notificationDisplayName}
+            onChange={(e) => set('notificationDisplayName', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.smsSender')}>
+          <Input
+            value={draft.smsSender}
+            onChange={(e) => set('smsSender', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.whatsappDisplayName')}>
+          <Input
+            value={draft.whatsappDisplayName}
+            onChange={(e) => set('whatsappDisplayName', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
       </div>
       <Field label={t('organization.emailFooter')}>
-        <Textarea value={draft.emailFooter} onChange={(e) => set('emailFooter', e.target.value)} disabled={!canEdit} rows={3} />
+        <Textarea
+          value={draft.emailFooter}
+          onChange={(e) => set('emailFooter', e.target.value)}
+          disabled={!canEdit}
+          rows={3}
+        />
       </Field>
       <div className="grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
-        <AssetUploader slot="pushIcon" label={t('organization.pushIcon')} currentUrl={settings.assetUrls.pushIcon} onChanged={onSaved} canEdit={canEdit} />
-        <AssetUploader slot="notificationImage" label={t('organization.notificationImage')} currentUrl={settings.assetUrls.notificationImage} onChanged={onSaved} canEdit={canEdit} />
+        <AssetUploader
+          slot="pushIcon"
+          label={t('organization.pushIcon')}
+          currentUrl={settings.assetUrls.pushIcon}
+          onChanged={onSaved}
+          canEdit={canEdit}
+        />
+        <AssetUploader
+          slot="notificationImage"
+          label={t('organization.notificationImage')}
+          currentUrl={settings.assetUrls.notificationImage}
+          onChanged={onSaved}
+          canEdit={canEdit}
+        />
       </div>
     </SectionShell>
   );
@@ -833,38 +1212,99 @@ export function AcademicSection({ settings, onSaved, canEdit }: SectionProps) {
   const { draft, set, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.academic({
-      schoolType: draft.schoolType,
-      curriculum: NULLABLE(draft.curriculum),
-      motto: NULLABLE(draft.motto),
-      mission: NULLABLE(draft.mission),
-      vision: NULLABLE(draft.vision),
-      academicYearFormat: NULLABLE(draft.academicYearFormat),
-      colorTheme: NULLABLE(draft.colorTheme),
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+    organizationApi
+      .academic({
+        schoolType: draft.schoolType,
+        curriculum: NULLABLE(draft.curriculum),
+        motto: NULLABLE(draft.motto),
+        mission: NULLABLE(draft.mission),
+        vision: NULLABLE(draft.vision),
+        academicYearFormat: NULLABLE(draft.academicYearFormat),
+        colorTheme: NULLABLE(draft.colorTheme),
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   return (
-    <SectionShell title={t('organization.academic')} description={t('organization.academicDesc')} dirty={dirty} reset={reset} save={save} canEdit={canEdit}>
+    <SectionShell
+      title={t('organization.academic')}
+      description={t('organization.academicDesc')}
+      dirty={dirty}
+      reset={reset}
+      save={save}
+      canEdit={canEdit}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t('organization.schoolType')}>
-          <Select value={draft.schoolType} onChange={(e) => set('schoolType', e.target.value as typeof draft.schoolType)} disabled={!canEdit}>
-            {SCHOOL_TYPES.map((s) => <option key={s} value={s}>{t(`organization.schoolType_${s}`)}</option>)}
+          <Select
+            value={draft.schoolType}
+            onChange={(e) => set('schoolType', e.target.value as typeof draft.schoolType)}
+            disabled={!canEdit}
+          >
+            {SCHOOL_TYPES.map((s) => (
+              <option key={s} value={s}>
+                {t(`organization.schoolType_${s}`)}
+              </option>
+            ))}
           </Select>
         </Field>
-        <Field label={t('organization.curriculum')}><Input value={draft.curriculum} onChange={(e) => set('curriculum', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.academicYearFormat')}><Input value={draft.academicYearFormat} onChange={(e) => set('academicYearFormat', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.colorTheme')}><Input value={draft.colorTheme} onChange={(e) => set('colorTheme', e.target.value)} disabled={!canEdit} /></Field>
+        <Field label={t('organization.curriculum')}>
+          <Input
+            value={draft.curriculum}
+            onChange={(e) => set('curriculum', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.academicYearFormat')}>
+          <Input
+            value={draft.academicYearFormat}
+            onChange={(e) => set('academicYearFormat', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.colorTheme')}>
+          <Input
+            value={draft.colorTheme}
+            onChange={(e) => set('colorTheme', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
       </div>
-      <Field label={t('organization.motto')}><Input value={draft.motto} onChange={(e) => set('motto', e.target.value)} disabled={!canEdit} /></Field>
+      <Field label={t('organization.motto')}>
+        <Input
+          value={draft.motto}
+          onChange={(e) => set('motto', e.target.value)}
+          disabled={!canEdit}
+        />
+      </Field>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={t('organization.mission')}><Textarea value={draft.mission} onChange={(e) => set('mission', e.target.value)} disabled={!canEdit} rows={3} /></Field>
-        <Field label={t('organization.vision')}><Textarea value={draft.vision} onChange={(e) => set('vision', e.target.value)} disabled={!canEdit} rows={3} /></Field>
+        <Field label={t('organization.mission')}>
+          <Textarea
+            value={draft.mission}
+            onChange={(e) => set('mission', e.target.value)}
+            disabled={!canEdit}
+            rows={3}
+          />
+        </Field>
+        <Field label={t('organization.vision')}>
+          <Textarea
+            value={draft.vision}
+            onChange={(e) => set('vision', e.target.value)}
+            disabled={!canEdit}
+            rows={3}
+          />
+        </Field>
       </div>
       <div className="border-t border-border pt-4">
-        <AssetUploader slot="banner" label={t('organization.banner')} currentUrl={settings.assetUrls.banner} onChanged={onSaved} canEdit={canEdit} />
+        <AssetUploader
+          slot="banner"
+          label={t('organization.banner')}
+          currentUrl={settings.assetUrls.banner}
+          onChanged={onSaved}
+          canEdit={canEdit}
+        />
       </div>
     </SectionShell>
   );
@@ -890,32 +1330,82 @@ export function ComplianceSection({ settings, onSaved, canEdit }: SectionProps) 
   const { draft, set, setDraft, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.compliance({
-      complianceEnabled: draft.complianceEnabled,
-      legalName: NULLABLE(draft.legalName),
-      commercialRegistration: NULLABLE(draft.commercialRegistration),
-      licenseNumber: NULLABLE(draft.licenseNumber),
-      ministryLicense: NULLABLE(draft.ministryLicense),
-      taxNumber: NULLABLE(draft.taxNumber),
-      vatNumber: NULLABLE(draft.vatNumber),
-      otherGovIds: draft.otherGovIds.filter((g) => g.label.trim() && g.value.trim()),
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+    organizationApi
+      .compliance({
+        complianceEnabled: draft.complianceEnabled,
+        legalName: NULLABLE(draft.legalName),
+        commercialRegistration: NULLABLE(draft.commercialRegistration),
+        licenseNumber: NULLABLE(draft.licenseNumber),
+        ministryLicense: NULLABLE(draft.ministryLicense),
+        taxNumber: NULLABLE(draft.taxNumber),
+        vatNumber: NULLABLE(draft.vatNumber),
+        otherGovIds: draft.otherGovIds.filter((g) => g.label.trim() && g.value.trim()),
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   return (
-    <SectionShell title={t('organization.compliance')} description={t('organization.complianceDesc')} dirty={dirty} reset={reset} save={save} canEdit={canEdit}>
-      <ToggleRow label={t('organization.enableCompliance')} checked={draft.complianceEnabled} onChange={(v) => set('complianceEnabled', v)} disabled={!canEdit} />
+    <SectionShell
+      title={t('organization.compliance')}
+      description={t('organization.complianceDesc')}
+      dirty={dirty}
+      reset={reset}
+      save={save}
+      canEdit={canEdit}
+    >
+      <ToggleRow
+        label={t('organization.enableCompliance')}
+        checked={draft.complianceEnabled}
+        onChange={(v) => set('complianceEnabled', v)}
+        disabled={!canEdit}
+      />
       {draft.complianceEnabled ? (
         <>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label={t('organization.legalName')}><Input value={draft.legalName} onChange={(e) => set('legalName', e.target.value)} disabled={!canEdit} /></Field>
-            <Field label={t('organization.commercialRegistration')}><Input value={draft.commercialRegistration} onChange={(e) => set('commercialRegistration', e.target.value)} disabled={!canEdit} /></Field>
-            <Field label={t('organization.licenseNumber')}><Input value={draft.licenseNumber} onChange={(e) => set('licenseNumber', e.target.value)} disabled={!canEdit} /></Field>
-            <Field label={t('organization.ministryLicense')}><Input value={draft.ministryLicense} onChange={(e) => set('ministryLicense', e.target.value)} disabled={!canEdit} /></Field>
-            <Field label={t('organization.taxNumber')}><Input value={draft.taxNumber} onChange={(e) => set('taxNumber', e.target.value)} disabled={!canEdit} /></Field>
-            <Field label={t('organization.vatNumber')}><Input value={draft.vatNumber} onChange={(e) => set('vatNumber', e.target.value)} disabled={!canEdit} /></Field>
+            <Field label={t('organization.legalName')}>
+              <Input
+                value={draft.legalName}
+                onChange={(e) => set('legalName', e.target.value)}
+                disabled={!canEdit}
+              />
+            </Field>
+            <Field label={t('organization.commercialRegistration')}>
+              <Input
+                value={draft.commercialRegistration}
+                onChange={(e) => set('commercialRegistration', e.target.value)}
+                disabled={!canEdit}
+              />
+            </Field>
+            <Field label={t('organization.licenseNumber')}>
+              <Input
+                value={draft.licenseNumber}
+                onChange={(e) => set('licenseNumber', e.target.value)}
+                disabled={!canEdit}
+              />
+            </Field>
+            <Field label={t('organization.ministryLicense')}>
+              <Input
+                value={draft.ministryLicense}
+                onChange={(e) => set('ministryLicense', e.target.value)}
+                disabled={!canEdit}
+              />
+            </Field>
+            <Field label={t('organization.taxNumber')}>
+              <Input
+                value={draft.taxNumber}
+                onChange={(e) => set('taxNumber', e.target.value)}
+                disabled={!canEdit}
+              />
+            </Field>
+            <Field label={t('organization.vatNumber')}>
+              <Input
+                value={draft.vatNumber}
+                onChange={(e) => set('vatNumber', e.target.value)}
+                disabled={!canEdit}
+              />
+            </Field>
           </div>
           <div className="space-y-2 border-t border-border pt-4">
             <p className="text-sm font-medium">{t('organization.otherGovIds')}</p>
@@ -945,12 +1435,32 @@ export function ComplianceSection({ settings, onSaved, canEdit }: SectionProps) 
                   }
                   disabled={!canEdit}
                 />
-                <Button variant="ghost" size="sm" onClick={() => setDraft((d) => ({ ...d, otherGovIds: d.otherGovIds.filter((_, j) => j !== i) }))} disabled={!canEdit}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setDraft((d) => ({
+                      ...d,
+                      otherGovIds: d.otherGovIds.filter((_, j) => j !== i),
+                    }))
+                  }
+                  disabled={!canEdit}
+                >
                   {t('organization.remove')}
                 </Button>
               </div>
             ))}
-            <Button variant="outline" size="sm" onClick={() => setDraft((d) => ({ ...d, otherGovIds: [...d.otherGovIds, { label: '', value: '' }] }))} disabled={!canEdit}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setDraft((d) => ({
+                  ...d,
+                  otherGovIds: [...d.otherGovIds, { label: '', value: '' }],
+                }))
+              }
+              disabled={!canEdit}
+            >
               {t('organization.addGovId')}
             </Button>
           </div>
@@ -962,7 +1472,15 @@ export function ComplianceSection({ settings, onSaved, canEdit }: SectionProps) 
 
 // ── Social & website ─────────────────────────────────────────────────────────
 
-const SOCIAL_FIELDS = ['website', 'facebook', 'instagram', 'linkedin', 'youtube', 'tiktok', 'x'] as const;
+const SOCIAL_FIELDS = [
+  'website',
+  'facebook',
+  'instagram',
+  'linkedin',
+  'youtube',
+  'tiktok',
+  'x',
+] as const;
 
 export function SocialSection({ settings, onSaved, canEdit }: SectionProps) {
   const { t } = useI18n();
@@ -984,30 +1502,50 @@ export function SocialSection({ settings, onSaved, canEdit }: SectionProps) {
   const { draft, set, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.social({
-      socialEnabled: draft.socialEnabled,
-      social: {
-        website: NULLABLE(draft.website) ?? undefined,
-        facebook: NULLABLE(draft.facebook) ?? undefined,
-        instagram: NULLABLE(draft.instagram) ?? undefined,
-        linkedin: NULLABLE(draft.linkedin) ?? undefined,
-        youtube: NULLABLE(draft.youtube) ?? undefined,
-        tiktok: NULLABLE(draft.tiktok) ?? undefined,
-        x: NULLABLE(draft.x) ?? undefined,
-      },
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+    organizationApi
+      .social({
+        socialEnabled: draft.socialEnabled,
+        social: {
+          website: NULLABLE(draft.website) ?? undefined,
+          facebook: NULLABLE(draft.facebook) ?? undefined,
+          instagram: NULLABLE(draft.instagram) ?? undefined,
+          linkedin: NULLABLE(draft.linkedin) ?? undefined,
+          youtube: NULLABLE(draft.youtube) ?? undefined,
+          tiktok: NULLABLE(draft.tiktok) ?? undefined,
+          x: NULLABLE(draft.x) ?? undefined,
+        },
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   return (
-    <SectionShell title={t('organization.social')} description={t('organization.socialDesc')} dirty={dirty} reset={reset} save={save} canEdit={canEdit}>
-      <ToggleRow label={t('organization.enableSocial')} hint={t('organization.enableSocialHint')} checked={draft.socialEnabled} onChange={(v) => set('socialEnabled', v)} disabled={!canEdit} />
+    <SectionShell
+      title={t('organization.social')}
+      description={t('organization.socialDesc')}
+      dirty={dirty}
+      reset={reset}
+      save={save}
+      canEdit={canEdit}
+    >
+      <ToggleRow
+        label={t('organization.enableSocial')}
+        hint={t('organization.enableSocialHint')}
+        checked={draft.socialEnabled}
+        onChange={(v) => set('socialEnabled', v)}
+        disabled={!canEdit}
+      />
       {draft.socialEnabled ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {SOCIAL_FIELDS.map((f) => (
             <Field key={f} label={t(`organization.social_${f}`)}>
-              <Input value={draft[f]} onChange={(e) => set(f, e.target.value)} disabled={!canEdit} dir="ltr" />
+              <Input
+                value={draft[f]}
+                onChange={(e) => set(f, e.target.value)}
+                disabled={!canEdit}
+                dir="ltr"
+              />
             </Field>
           ))}
         </div>
@@ -1040,51 +1578,124 @@ export function AdvancedSection({ settings, onSaved, canEdit }: SectionProps) {
   const { draft, set, dirty, reset } = useDraft(initial);
 
   const save = () =>
-    organizationApi.advanced({
-      defaultReportLanguage: draft.defaultReportLanguage,
-      defaultCertificateLanguage: draft.defaultCertificateLanguage,
-      documentNumberPrefix: NULLABLE(draft.documentNumberPrefix),
-      defaultFont: NULLABLE(draft.defaultFont),
-      defaultReportTheme: NULLABLE(draft.defaultReportTheme),
-      defaultLogoVariant: draft.defaultLogoVariant,
-      documentCompression: draft.documentCompression,
-      pdfQuality: Number(draft.pdfQuality),
-      imageQuality: Number(draft.imageQuality),
-      storageOptimization: draft.storageOptimization,
-    }).then((next) => {
-      onSaved(next);
-      return next;
-    });
+    organizationApi
+      .advanced({
+        defaultReportLanguage: draft.defaultReportLanguage,
+        defaultCertificateLanguage: draft.defaultCertificateLanguage,
+        documentNumberPrefix: NULLABLE(draft.documentNumberPrefix),
+        defaultFont: NULLABLE(draft.defaultFont),
+        defaultReportTheme: NULLABLE(draft.defaultReportTheme),
+        defaultLogoVariant: draft.defaultLogoVariant,
+        documentCompression: draft.documentCompression,
+        pdfQuality: Number(draft.pdfQuality),
+        imageQuality: Number(draft.imageQuality),
+        storageOptimization: draft.storageOptimization,
+      })
+      .then((next) => {
+        onSaved(next);
+        return next;
+      });
 
   return (
-    <SectionShell title={t('organization.advanced')} description={t('organization.advancedDesc')} dirty={dirty} reset={reset} save={save} canEdit={canEdit}>
+    <SectionShell
+      title={t('organization.advanced')}
+      description={t('organization.advancedDesc')}
+      dirty={dirty}
+      reset={reset}
+      save={save}
+      canEdit={canEdit}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t('organization.defaultReportLanguage')}>
-          <Select value={draft.defaultReportLanguage} onChange={(e) => set('defaultReportLanguage', e.target.value)} disabled={!canEdit}>
+          <Select
+            value={draft.defaultReportLanguage}
+            onChange={(e) => set('defaultReportLanguage', e.target.value)}
+            disabled={!canEdit}
+          >
             <option value="en">English</option>
             <option value="ar">العربية</option>
           </Select>
         </Field>
         <Field label={t('organization.defaultCertificateLanguage')}>
-          <Select value={draft.defaultCertificateLanguage} onChange={(e) => set('defaultCertificateLanguage', e.target.value)} disabled={!canEdit}>
+          <Select
+            value={draft.defaultCertificateLanguage}
+            onChange={(e) => set('defaultCertificateLanguage', e.target.value)}
+            disabled={!canEdit}
+          >
             <option value="en">English</option>
             <option value="ar">العربية</option>
           </Select>
         </Field>
-        <Field label={t('organization.documentNumberPrefix')}><Input value={draft.documentNumberPrefix} onChange={(e) => set('documentNumberPrefix', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.defaultFont')}><Input value={draft.defaultFont} onChange={(e) => set('defaultFont', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.defaultReportTheme')}><Input value={draft.defaultReportTheme} onChange={(e) => set('defaultReportTheme', e.target.value)} disabled={!canEdit} /></Field>
+        <Field label={t('organization.documentNumberPrefix')}>
+          <Input
+            value={draft.documentNumberPrefix}
+            onChange={(e) => set('documentNumberPrefix', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.defaultFont')}>
+          <Input
+            value={draft.defaultFont}
+            onChange={(e) => set('defaultFont', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.defaultReportTheme')}>
+          <Input
+            value={draft.defaultReportTheme}
+            onChange={(e) => set('defaultReportTheme', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
         <Field label={t('organization.defaultLogoVariant')}>
-          <Select value={draft.defaultLogoVariant} onChange={(e) => set('defaultLogoVariant', e.target.value as typeof draft.defaultLogoVariant)} disabled={!canEdit}>
-            {LOGO_VARIANTS.map((v) => <option key={v} value={v}>{t(`organization.logoVariant_${v}`)}</option>)}
+          <Select
+            value={draft.defaultLogoVariant}
+            onChange={(e) =>
+              set('defaultLogoVariant', e.target.value as typeof draft.defaultLogoVariant)
+            }
+            disabled={!canEdit}
+          >
+            {LOGO_VARIANTS.map((v) => (
+              <option key={v} value={v}>
+                {t(`organization.logoVariant_${v}`)}
+              </option>
+            ))}
           </Select>
         </Field>
-        <Field label={t('organization.pdfQuality')}><Input type="number" min="10" max="100" value={draft.pdfQuality} onChange={(e) => set('pdfQuality', e.target.value)} disabled={!canEdit} /></Field>
-        <Field label={t('organization.imageQuality')}><Input type="number" min="10" max="100" value={draft.imageQuality} onChange={(e) => set('imageQuality', e.target.value)} disabled={!canEdit} /></Field>
+        <Field label={t('organization.pdfQuality')}>
+          <Input
+            type="number"
+            min="10"
+            max="100"
+            value={draft.pdfQuality}
+            onChange={(e) => set('pdfQuality', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
+        <Field label={t('organization.imageQuality')}>
+          <Input
+            type="number"
+            min="10"
+            max="100"
+            value={draft.imageQuality}
+            onChange={(e) => set('imageQuality', e.target.value)}
+            disabled={!canEdit}
+          />
+        </Field>
       </div>
       <div className="space-y-3 border-t border-border pt-4">
-        <ToggleRow label={t('organization.documentCompression')} checked={draft.documentCompression} onChange={(v) => set('documentCompression', v)} disabled={!canEdit} />
-        <ToggleRow label={t('organization.storageOptimization')} checked={draft.storageOptimization} onChange={(v) => set('storageOptimization', v)} disabled={!canEdit} />
+        <ToggleRow
+          label={t('organization.documentCompression')}
+          checked={draft.documentCompression}
+          onChange={(v) => set('documentCompression', v)}
+          disabled={!canEdit}
+        />
+        <ToggleRow
+          label={t('organization.storageOptimization')}
+          checked={draft.storageOptimization}
+          onChange={(v) => set('storageOptimization', v)}
+          disabled={!canEdit}
+        />
       </div>
     </SectionShell>
   );

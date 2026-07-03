@@ -229,7 +229,9 @@ export function FinanceTab({ studentId }: { studentId: string }) {
             />
             {collections && collections.collectionsStatus !== 'NONE' && (
               <Badge tone={collections.collectionsStatus === 'LEGAL' ? 'danger' : 'warning'}>
-                {collections.collectionsStatus === 'LEGAL' ? 'Legal Collections' : 'Financial Issue'}
+                {collections.collectionsStatus === 'LEGAL'
+                  ? 'Legal Collections'
+                  : 'Financial Issue'}
               </Badge>
             )}
           </div>
@@ -443,7 +445,9 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                       <>
                         <Button
                           size="sm"
-                          onClick={() => void run(() => financeApi.verify(p.id), 'Payment verified')}
+                          onClick={() =>
+                            void run(() => financeApi.verify(p.id), 'Payment verified')
+                          }
                           disabled={busy}
                         >
                           Verify
@@ -451,7 +455,9 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => void run(() => financeApi.reject(p.id), 'Payment rejected')}
+                          onClick={() =>
+                            void run(() => financeApi.reject(p.id), 'Payment rejected')
+                          }
                           disabled={busy}
                         >
                           Reject
@@ -460,7 +466,11 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                     )}
                     {p.status === 'VERIFIED' && (
                       <>
-                        <Button size="sm" variant="ghost" onClick={() => void downloadReceipt(p.id)}>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void downloadReceipt(p.id)}
+                        >
                           Receipt
                         </Button>
                         {!p.parentNotifiedAt && (
@@ -563,7 +573,9 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                     {r.status === 'PENDING' && (
                       <Button
                         size="sm"
-                        onClick={() => void run(() => financeApi.verifyRefund(r.id), 'Refund verified')}
+                        onClick={() =>
+                          void run(() => financeApi.verifyRefund(r.id), 'Refund verified')
+                        }
                         disabled={busy}
                       >
                         Verify

@@ -107,7 +107,9 @@ export class DocumentsController {
 
   @Post(':id/print')
   @RequirePermissions(Permission.DOCUMENT_READ)
-  @ApiOperation({ summary: 'Reprint the PDF (records a PRINT action); re-rendered live if DYNAMIC' })
+  @ApiOperation({
+    summary: 'Reprint the PDF (records a PRINT action); re-rendered live if DYNAMIC',
+  })
   async print(
     @Param('id') id: string,
     @Req() req: Request,
@@ -119,7 +121,9 @@ export class DocumentsController {
 
   @Post(':id/email')
   @RequirePermissions(Permission.DOCUMENT_GENERATE)
-  @ApiOperation({ summary: 'Email the document as a PDF attachment (audited; recipients resolved)' })
+  @ApiOperation({
+    summary: 'Email the document as a PDF attachment (audited; recipients resolved)',
+  })
   email(@Param('id') id: string, @Body() dto: EmailDocumentDto, @Req() req: Request) {
     return this.service.email(id, dto, this.ctx(req));
   }

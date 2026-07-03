@@ -243,9 +243,12 @@ export class DocumentRepository extends TenantRepository {
    * Load a document for serving: its metadata, persistence strategy, the stored PDF (SNAPSHOT only)
    * and the re-render params (DYNAMIC only). No side effects — the caller records the access action.
    */
-  async documentForServe(
-    id: string,
-  ): Promise<{ meta: DocumentMeta; persistence: DocumentPersistence; pdf: Buffer | null; params: unknown }> {
+  async documentForServe(id: string): Promise<{
+    meta: DocumentMeta;
+    persistence: DocumentPersistence;
+    pdf: Buffer | null;
+    params: unknown;
+  }> {
     return this.run(async (tx) => {
       const doc = await tx.generatedDocument.findFirst({ where: { id } });
       if (!doc) throw new NotFoundException('Document not found');
@@ -365,7 +368,9 @@ export class DocumentRepository extends TenantRepository {
       const prior = await tx.registrationAgreement.findFirst({
         where: {
           enrollmentId: input.enrollmentId,
-          status: { in: [RegistrationAgreementStatus.COMMITTED, RegistrationAgreementStatus.SIGNED] },
+          status: {
+            in: [RegistrationAgreementStatus.COMMITTED, RegistrationAgreementStatus.SIGNED],
+          },
         },
         orderBy: { version: 'desc' },
       });

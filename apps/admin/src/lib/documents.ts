@@ -159,7 +159,8 @@ export const documentsApi = {
 
   download: (id: string) => authFetch(`/documents/${id}/download`).then(openPdf),
 
-  print: (id: string) => authFetch(`/documents/${id}/print`, { method: 'POST', body: '{}' }).then(openPdf),
+  print: (id: string) =>
+    authFetch(`/documents/${id}/print`, { method: 'POST', body: '{}' }).then(openPdf),
 
   email: (id: string, input: EmailDocumentInput) =>
     authFetch(`/documents/${id}/email`, {

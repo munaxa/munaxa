@@ -80,7 +80,10 @@ export class AccountRepository extends TenantRepository {
     return this.run((tx) => tx.payer.findFirst({ where: { id } }));
   }
 
-  setStatus(studentId: string, status: StudentFinancialAccount['status']): Promise<StudentFinancialAccount> {
+  setStatus(
+    studentId: string,
+    status: StudentFinancialAccount['status'],
+  ): Promise<StudentFinancialAccount> {
     return this.run(async (tx, tenantId) => {
       const account = await tx.studentFinancialAccount.update({
         where: { studentId },

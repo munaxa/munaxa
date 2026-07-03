@@ -288,9 +288,9 @@ export class LedgerRepository extends TenantRepository {
   }
 
   /** All open installments (with a positive balance) for a student — for collections/aging. */
-  openInstallments(studentId: string): Promise<
-    Array<{ id: string; dueDate: Date | null; balance: Prisma.Decimal }>
-  > {
+  openInstallments(
+    studentId: string,
+  ): Promise<Array<{ id: string; dueDate: Date | null; balance: Prisma.Decimal }>> {
     return this.run(async (tx) => {
       const installments = await tx.installment.findMany({
         where: {
@@ -397,9 +397,7 @@ export class LedgerRepository extends TenantRepository {
   }
 
   /** Credit lots with their remaining balance (CR-1). */
-  listCredits(
-    studentId: string,
-  ): Promise<Array<Credit & { remaining: string }>> {
+  listCredits(studentId: string): Promise<Array<Credit & { remaining: string }>> {
     return this.run(async (tx) => {
       const credits = await tx.credit.findMany({
         where: { account: { studentId } },
@@ -686,11 +684,16 @@ export class LedgerRepository extends TenantRepository {
 
   // ─────────────────────────────────────────────────────────── lookups
 
-  chargeById(id: string): Promise<(Charge & { plans: PaymentPlan[]; installments: Installment[] }) | null> {
+  chargeById(
+    id: string,
+  ): Promise<(Charge & { plans: PaymentPlan[]; installments: Installment[] }) | null> {
     return this.run((tx) =>
       tx.charge.findFirst({
         where: { id },
-        include: { plans: { where: { status: 'ACTIVE' } }, installments: { orderBy: { seq: 'asc' } } },
+        include: {
+          plans: { where: { status: 'ACTIVE' } },
+          installments: { orderBy: { seq: 'asc' } },
+        },
       }),
     );
   }

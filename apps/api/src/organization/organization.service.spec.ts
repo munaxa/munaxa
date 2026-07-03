@@ -30,17 +30,13 @@ function setup(current: Partial<OrganizationSettings> = {}) {
   // Echo the changes back merged onto the current row so the service's view is realistic.
   const update = jest
     .fn<Promise<OrganizationSettings>, [string, Record<string, unknown>]>()
-    .mockImplementation((_action, changes) =>
-      Promise.resolve({ ...row, ...changes }),
-    );
+    .mockImplementation((_action, changes) => Promise.resolve({ ...row, ...changes }));
   const repo = { getOrCreate, update } as unknown as OrganizationRepository;
 
   const buildKey = jest.fn(
     (tid: string, prefix: string, name: string) => `tenants/${tid}/${prefix}/x-${name}`,
   );
-  const presignImageUpload = jest
-    .fn()
-    .mockResolvedValue({ uploadUrl: 'https://up', fileKey: 'k' });
+  const presignImageUpload = jest.fn().mockResolvedValue({ uploadUrl: 'https://up', fileKey: 'k' });
   const presignDownload = jest.fn().mockResolvedValue('https://download');
   const assertKeyInTenant = jest.fn();
   const assertImageAllowed = jest.fn();
@@ -133,7 +129,9 @@ describe('OrganizationService', () => {
       });
       expect(assertKeyInTenant).toHaveBeenCalledWith('tenants/t1/organization/x-l.png');
       expect(assertImageAllowed).toHaveBeenCalled();
-      expect(update.mock.calls[0]![1]).toMatchObject({ logoKey: 'tenants/t1/organization/x-l.png' });
+      expect(update.mock.calls[0]![1]).toMatchObject({
+        logoKey: 'tenants/t1/organization/x-l.png',
+      });
     });
 
     it('rejects an unknown asset slot on removal', async () => {

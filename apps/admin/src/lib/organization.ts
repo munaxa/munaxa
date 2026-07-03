@@ -12,11 +12,7 @@ export type SchoolType =
   | 'OTHER';
 export type HAlign = 'LEFT' | 'CENTER' | 'RIGHT';
 export type PaperSize = 'A4' | 'LETTER' | 'LEGAL';
-export type QrContent =
-  | 'DOCUMENT_NUMBER'
-  | 'STUDENT_NUMBER'
-  | 'VERIFICATION_URL'
-  | 'CUSTOM_TEXT';
+export type QrContent = 'DOCUMENT_NUMBER' | 'STUDENT_NUMBER' | 'VERIFICATION_URL' | 'CUSTOM_TEXT';
 export type WatermarkSource = 'LOGO' | 'SCHOOL_NAME' | 'CONFIDENTIAL';
 export type LogoVariant = 'PRIMARY' | 'DARK' | 'SMALL';
 

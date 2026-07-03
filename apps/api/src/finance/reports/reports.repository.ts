@@ -21,10 +21,20 @@ const DIMENSION_SQL: Record<
   FinanceDimension,
   { column: string; joinTable: string; joinAlias: string; labelExpr: string }
 > = {
-  academicYear: { column: 'academicYearId', joinTable: 'AcademicYear', joinAlias: 'ay', labelExpr: 'ay.name' },
+  academicYear: {
+    column: 'academicYearId',
+    joinTable: 'AcademicYear',
+    joinAlias: 'ay',
+    labelExpr: 'ay.name',
+  },
   grade: { column: 'gradeId', joinTable: 'Grade', joinAlias: 'g', labelExpr: 'g."nameEn"' },
   campus: { column: 'campusId', joinTable: 'Campus', joinAlias: 'cm', labelExpr: 'cm.name' },
-  category: { column: 'feeItemId', joinTable: 'FeeItem', joinAlias: 'fi', labelExpr: 'fi."nameEn"' },
+  category: {
+    column: 'feeItemId',
+    joinTable: 'FeeItem',
+    joinAlias: 'fi',
+    labelExpr: 'fi."nameEn"',
+  },
 };
 
 /**
