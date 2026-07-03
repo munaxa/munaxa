@@ -28,7 +28,8 @@ export class BrandingService {
     ].filter((s): s is string => Boolean(s && s.trim()));
 
     const footerNote =
-      (o.footerEnabled && this.stripHtml((o.documents as Record<string, unknown> | null)?.footerHtml)) ||
+      (o.footerEnabled &&
+        this.stripHtml((o.documents as Record<string, unknown> | null)?.footerHtml)) ||
       o.emailFooter ||
       o.legalName ||
       o.nameEn ||
@@ -74,6 +75,11 @@ export class BrandingService {
 
   private stripHtml(value: unknown): string | undefined {
     if (typeof value !== 'string' || !value.trim()) return undefined;
-    return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || undefined;
+    return (
+      value
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim() || undefined
+    );
   }
 }

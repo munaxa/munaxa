@@ -73,7 +73,9 @@ export function Setup({ data, canManage }: { data: TransportData; canManage: boo
         canManage={canManage}
         onSaved={(a) =>
           data.setAreaMaster((prev) =>
-            prev.some((x) => x.id === a.id) ? prev.map((x) => (x.id === a.id ? a : x)) : [...prev, a],
+            prev.some((x) => x.id === a.id)
+              ? prev.map((x) => (x.id === a.id ? a : x))
+              : [...prev, a],
           )
         }
       />

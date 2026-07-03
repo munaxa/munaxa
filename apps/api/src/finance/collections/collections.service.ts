@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, type ReminderChannel, type StudentBillingProfile } from '@prisma/client';
-import { BillingRepository } from '../ledger/billing.repository';
+import { LedgerRepository } from '../ledger/ledger.repository';
 import { CollectionsRepository } from './collections.repository';
 import { SmsService } from './sms.service';
 import { MailService } from '../../mail/mail.service';
@@ -100,7 +100,7 @@ export interface PushOutstandingResult {
 export class CollectionsService {
   constructor(
     private readonly repo: CollectionsRepository,
-    private readonly billing: BillingRepository,
+    private readonly ledger: LedgerRepository,
     private readonly sms: SmsService,
     private readonly notifications: NotificationEventBus,
     private readonly mail: MailService,
@@ -155,11 +155,11 @@ export class CollectionsService {
 
   // --------------------------------------------------------------- reminders
 
-  /** Compute this-month-due / overdue / outstanding from the charge balances + due dates. */
+  /** Compute this-month-due / overdue / outstanding from the OPEN INSTALLMENTS + due dates (§12). */
   async snapshot(studentId: string): Promise<ReminderSnapshot> {
-    const [balances, summary] = await Promise.all([
-      this.billing.chargeBalances(studentId),
-      this.billing.accountSummary(studentId),
+    const [installments, summary] = await Promise.all([
+      this.ledger.openInstallments(studentId),
+      this.ledger.accountSummary(studentId),
     ]);
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -170,10 +170,10 @@ export class CollectionsService {
     let dueThisMonth = ZERO;
     let overdueCount = 0;
     let oldestOverdue: Date | null = null;
-    for (const b of balances) {
-      const balance = new Prisma.Decimal(b.balance);
-      if (balance.lessThanOrEqualTo(ZERO) || !b.charge.dueDate) continue;
-      const due = new Date(b.charge.dueDate);
+    for (const inst of installments) {
+      const balance = inst.balance;
+      if (balance.lessThanOrEqualTo(ZERO) || !inst.dueDate) continue;
+      const due = new Date(inst.dueDate);
       if (due < startOfDay) {
         overdue = overdue.plus(balance);
         overdueCount += 1;
@@ -198,9 +198,9 @@ export class CollectionsService {
 
   // --------------------------------------------------------- aging / reports
 
-  /** Bucket a single student's outstanding balance by the age of each charge's due date. */
+  /** Bucket a student's outstanding balance by the age of each open installment's due date (§12). */
   async aging(studentId: string): Promise<AgingBuckets> {
-    const balances = await this.billing.chargeBalances(studentId);
+    const installments = await this.ledger.openInstallments(studentId);
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     let current = ZERO;
@@ -208,10 +208,10 @@ export class CollectionsService {
     let d31_60 = ZERO;
     let d61_90 = ZERO;
     let d90plus = ZERO;
-    for (const b of balances) {
-      const bal = new Prisma.Decimal(b.balance);
+    for (const inst of installments) {
+      const bal = inst.balance;
       if (bal.lessThanOrEqualTo(ZERO)) continue;
-      const due = b.charge.dueDate ? new Date(b.charge.dueDate) : null;
+      const due = inst.dueDate ? new Date(inst.dueDate) : null;
       if (!due || due >= startOfDay) {
         current = current.plus(bal);
         continue;

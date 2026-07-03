@@ -128,20 +128,24 @@ describe('Reporting (e2e)', () => {
       });
 
       // Finance: charged 100.000, paid (verified) 30.000 → outstanding 70.000.
-      const charge = await tx.charge.create({
+      const repAccount = await tx.studentFinancialAccount.create({
+        data: { tenantId: TENANT, studentId: student.id },
+      });
+      await tx.charge.create({
         data: {
           tenantId: TENANT,
+          accountId: repAccount.id,
           studentId: student.id,
           description: 'Term fee',
           amount: '100.000',
           status: 'PENDING',
         },
       });
-      await tx.transaction.create({
+      await tx.payment.create({
         data: {
           tenantId: TENANT,
+          accountId: repAccount.id,
           studentId: student.id,
-          chargeId: charge.id,
           amount: '30.000',
           method: 'CASH',
           status: 'VERIFIED',

@@ -2,12 +2,13 @@ import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   type CollectionsStatus,
-  type PaymentReminder,
+  type DunningEvent,
   type ReminderChannel,
   type StudentBillingProfile,
 } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 import { TenantContextStore } from '../../prisma/tenant-context';
+import type { TxClient } from '../../prisma/tenant.helpers';
 
 export interface ParentContact {
   userId: string | null;
@@ -16,10 +17,37 @@ export interface ParentContact {
   name: string;
 }
 
+/** Map the cached profile status to the case workflow status (§12, ADR-010). */
+function caseStatusFor(s: CollectionsStatus): 'OPEN' | 'LEGAL' | 'RESOLVED' {
+  if (s === 'LEGAL') return 'LEGAL';
+  if (s === 'NONE') return 'RESOLVED';
+  return 'OPEN';
+}
+
 @Injectable()
 export class CollectionsRepository extends TenantRepository {
+  private actor(): string | null {
+    return TenantContextStore.get()?.actorUserId ?? null;
+  }
+
   getProfile(studentId: string): Promise<StudentBillingProfile | null> {
     return this.run((tx) => tx.studentBillingProfile.findUnique({ where: { studentId } }));
+  }
+
+  /** Find-or-open the account's CollectionsCase; returns its id (null if the account is missing). */
+  private async ensureCaseId(
+    tx: TxClient,
+    tenantId: string,
+    studentId: string,
+  ): Promise<string | null> {
+    const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
+    if (!account) return null;
+    const existing = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+    if (existing) return existing.id;
+    const created = await tx.collectionsCase.create({
+      data: { tenantId, accountId: account.id, status: 'OPEN', openedById: this.actor() },
+    });
+    return created.id;
   }
 
   setCollectionsStatus(
@@ -28,7 +56,6 @@ export class CollectionsRepository extends TenantRepository {
     legalNote: string | null,
   ): Promise<StudentBillingProfile> {
     return this.run(async (tx, tenantId) => {
-      const actor = TenantContextStore.get()?.actorUserId ?? null;
       const flagged = status !== 'NONE';
       const profile = await tx.studentBillingProfile.upsert({
         where: { studentId },
@@ -37,15 +64,58 @@ export class CollectionsRepository extends TenantRepository {
           studentId,
           collectionsStatus: status,
           legalNote,
-          ...(flagged ? { flaggedById: actor, flaggedAt: new Date() } : {}),
+          ...(flagged ? { flaggedById: this.actor(), flaggedAt: new Date() } : {}),
         },
         update: {
           collectionsStatus: status,
           legalNote,
-          flaggedById: flagged ? actor : null,
+          flaggedById: flagged ? this.actor() : null,
           flaggedAt: flagged ? new Date() : null,
         },
       });
+      const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
+      if (account) {
+        const caseStatus = caseStatusFor(status);
+        const existing = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+        if (existing) {
+          await tx.collectionsCase.update({
+            where: { id: existing.id },
+            data: {
+              status: caseStatus,
+              lawyerRef: status === 'LEGAL' ? legalNote : existing.lawyerRef,
+              ...(caseStatus === 'RESOLVED' ? { resolvedAt: new Date() } : { resolvedAt: null }),
+            },
+          });
+          await tx.dunningEvent.create({
+            data: {
+              tenantId,
+              caseId: existing.id,
+              type: 'STATUS_CHANGE',
+              detail: status,
+              actorId: this.actor(),
+            },
+          });
+        } else if (status !== 'NONE') {
+          const created = await tx.collectionsCase.create({
+            data: {
+              tenantId,
+              accountId: account.id,
+              status: caseStatus,
+              lawyerRef: status === 'LEGAL' ? legalNote : null,
+              openedById: this.actor(),
+            },
+          });
+          await tx.dunningEvent.create({
+            data: {
+              tenantId,
+              caseId: created.id,
+              type: 'STATUS_CHANGE',
+              detail: status,
+              actorId: this.actor(),
+            },
+          });
+        }
+      }
       await this.writeAudit(tx, tenantId, {
         action: 'finance.collections.set',
         entityType: 'StudentBillingProfile',
@@ -56,7 +126,6 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
-  /** The student's linked parents (user id for in-app, phone for SMS). */
   parentsOf(studentId: string): Promise<ParentContact[]> {
     return this.run(async (tx) => {
       const links = await tx.parentStudent.findMany({
@@ -86,7 +155,6 @@ export class CollectionsRepository extends TenantRepository {
   studentsWithUnpaidCharges(): Promise<string[]> {
     return this.run(async (tx) => {
       const rows = await tx.charge.findMany({
-        // Exclude soft-deleted students so withdrawn pupils drop out of collections/aging.
         where: { status: { in: ['PENDING', 'PARTIAL'] }, student: { deletedAt: null } },
         select: { studentId: true },
         distinct: ['studentId'],
@@ -99,8 +167,11 @@ export class CollectionsRepository extends TenantRepository {
   tenantChargedAndPaid(): Promise<{ charged: Prisma.Decimal; paid: Prisma.Decimal }> {
     return this.run(async (tx) => {
       const [chargeAgg, paidAgg] = await Promise.all([
-        tx.charge.aggregate({ where: { status: { not: 'CANCELLED' } }, _sum: { amount: true } }),
-        tx.transaction.aggregate({ where: { status: 'VERIFIED' }, _sum: { amount: true } }),
+        tx.charge.aggregate({
+          where: { status: { notIn: ['CANCELLED', 'WRITTEN_OFF'] } },
+          _sum: { amount: true },
+        }),
+        tx.payment.aggregate({ where: { status: 'VERIFIED' }, _sum: { amount: true } }),
       ]);
       return {
         charged: chargeAgg._sum.amount ?? new Prisma.Decimal(0),
@@ -109,7 +180,6 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
-  /** Overdue-installment threshold for transport suspension (defaults to a high cap when unset). */
   suspendThreshold(): Promise<number> {
     return this.run(async (tx, tenantId) => {
       const policy = await tx.billingPolicy.findUnique({ where: { tenantId } });
@@ -117,7 +187,6 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
-  /** Student ids whose transport is currently suspended (to reconcile/restore in bulk). */
   suspendedStudentIds(): Promise<string[]> {
     return this.run(async (tx) => {
       const rows = await tx.studentBillingProfile.findMany({
@@ -128,7 +197,6 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
-  /** Flip a student's transport-suspension flag; audited. Stamps/clears the suspension timestamp. */
   setTransportSuspended(studentId: string, suspended: boolean): Promise<StudentBillingProfile> {
     return this.run(async (tx, tenantId) => {
       const profile = await tx.studentBillingProfile.upsert({
@@ -154,7 +222,6 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
-  /** Profiles for a set of students (to filter out LEGAL-tagged in bulk). */
   profilesFor(studentIds: string[]): Promise<StudentBillingProfile[]> {
     if (studentIds.length === 0) return Promise.resolve([]);
     return this.run((tx) =>
@@ -169,7 +236,6 @@ export class CollectionsRepository extends TenantRepository {
     );
   }
 
-  /** Bilingual display names for a student (for the reminder body). */
   studentNames(studentId: string): Promise<{ en: string; ar: string } | null> {
     return this.run(async (tx) => {
       const s = await tx.student.findFirst({
@@ -184,7 +250,6 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
-  /** Write in-app notifications to the given users (notification center is the source of truth). */
   createNotifications(userIds: string[], data: { title: string; body: string }): Promise<number> {
     if (userIds.length === 0) return Promise.resolve(0);
     return this.run(async (tx, tenantId) => {
@@ -202,6 +267,7 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
+  /** Record a reminder as a DunningEvent under the account's CollectionsCase (§12). */
   logReminder(data: {
     studentId: string;
     channels: ReminderChannel[];
@@ -210,10 +276,23 @@ export class CollectionsRepository extends TenantRepository {
     overdue: Prisma.Decimal;
     recipientCount: number;
     smsSentCount: number;
-  }): Promise<PaymentReminder> {
+  }): Promise<DunningEvent | null> {
     return this.run(async (tx, tenantId) => {
-      const reminder = await tx.paymentReminder.create({
-        data: { tenantId, ...data, sentById: TenantContextStore.get()?.actorUserId ?? null },
+      const caseId = await this.ensureCaseId(tx, tenantId, data.studentId);
+      if (!caseId) return null;
+      const event = await tx.dunningEvent.create({
+        data: {
+          tenantId,
+          caseId,
+          type: 'REMINDER',
+          channels: data.channels,
+          outstanding: data.outstanding,
+          dueThisMonth: data.dueThisMonth,
+          overdue: data.overdue,
+          recipientCount: data.recipientCount,
+          smsSentCount: data.smsSentCount,
+          actorId: this.actor(),
+        },
       });
       await tx.studentBillingProfile.upsert({
         where: { studentId: data.studentId },
@@ -222,8 +301,8 @@ export class CollectionsRepository extends TenantRepository {
       });
       await this.writeAudit(tx, tenantId, {
         action: 'finance.reminder.sent',
-        entityType: 'PaymentReminder',
-        entityId: reminder.id,
+        entityType: 'DunningEvent',
+        entityId: event.id,
         metadata: {
           studentId: data.studentId,
           channels: data.channels,
@@ -231,17 +310,21 @@ export class CollectionsRepository extends TenantRepository {
           recipients: data.recipientCount,
         },
       });
-      return reminder;
+      return event;
     });
   }
 
-  listReminders(studentId: string): Promise<PaymentReminder[]> {
-    return this.run((tx) =>
-      tx.paymentReminder.findMany({
-        where: { studentId },
+  listReminders(studentId: string): Promise<DunningEvent[]> {
+    return this.run(async (tx) => {
+      const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
+      if (!account) return [];
+      const kase = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+      if (!kase) return [];
+      return tx.dunningEvent.findMany({
+        where: { caseId: kase.id, type: 'REMINDER' },
         orderBy: { createdAt: 'desc' },
         take: 50,
-      }),
-    );
+      });
+    });
   }
 }

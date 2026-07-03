@@ -192,13 +192,20 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.CLINIC_MANAGE]: 'Record and manage clinic visits and health records.',
   [Permission.CLINIC_READ]: 'View clinic visits and health records.',
 
-  [Permission.ORGANIZATION_READ]: 'View the school organization profile, branding, and document settings.',
-  [Permission.ORGANIZATION_UPDATE]: 'Edit the school identity, contact, and general organization settings.',
-  [Permission.ORGANIZATION_BRANDING]: 'Manage branding assets (logos, stamp, signature, watermark) and their toggles.',
-  [Permission.ORGANIZATION_DOCUMENTS]: 'Configure printed document layout (header, footer, margins, QR, paper size).',
-  [Permission.ORGANIZATION_COMMUNICATION]: 'Configure organization communication identity (sender, footer, display names).',
-  [Permission.ORGANIZATION_COMPLIANCE]: 'Manage legal and compliance identifiers (registration, license, tax/VAT).',
-  [Permission.ORGANIZATION_ADVANCED]: 'Configure advanced document defaults (language, fonts, quality, optimization).',
+  [Permission.ORGANIZATION_READ]:
+    'View the school organization profile, branding, and document settings.',
+  [Permission.ORGANIZATION_UPDATE]:
+    'Edit the school identity, contact, and general organization settings.',
+  [Permission.ORGANIZATION_BRANDING]:
+    'Manage branding assets (logos, stamp, signature, watermark) and their toggles.',
+  [Permission.ORGANIZATION_DOCUMENTS]:
+    'Configure printed document layout (header, footer, margins, QR, paper size).',
+  [Permission.ORGANIZATION_COMMUNICATION]:
+    'Configure organization communication identity (sender, footer, display names).',
+  [Permission.ORGANIZATION_COMPLIANCE]:
+    'Manage legal and compliance identifiers (registration, license, tax/VAT).',
+  [Permission.ORGANIZATION_ADVANCED]:
+    'Configure advanced document defaults (language, fonts, quality, optimization).',
 
   [Permission.REPORT_READ]: 'View reports and dashboards.',
   [Permission.REPORT_EXPORT]: 'Export reports.',

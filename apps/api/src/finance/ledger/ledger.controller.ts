@@ -1,19 +1,13 @@
-import { Body, Controller, Param, ParseUUIDPipe, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { LedgerService } from './ledger.service';
-import {
-  AllocateFifoDto,
-  AllocatePaymentDto,
-  ApplyAdjustmentDto,
-  CreateRefundDto,
-  RejectDto,
-} from './ledger.dto';
+import { AllocatePaymentDto, ApplyAdjustmentDto, CreateRefundDto, RejectDto } from './ledger.dto';
 
 /**
- * Student billing ledger endpoints (Phase 17): deductions, payment allocation, and refunds.
- * All writes require `finance:manage`. Reads are folded into the student statement.
+ * AR ledger endpoints: deductions, manual payment→installment allocation, credits and refunds.
+ * All writes require `finance:manage`; reads fold into the statement.
  */
 @ApiTags('finance')
 @ApiBearerAuth()
@@ -21,38 +15,36 @@ import {
 export class LedgerController {
   constructor(private readonly service: LedgerService) {}
 
-  // ---- Deductions -----------------------------------------------------------
-
   @Post('adjustments')
   @RequirePermissions(Permission.FINANCE_MANAGE)
-  @ApiOperation({ summary: 'Apply a deduction (scholarship/discount/waiver/credit memo)' })
+  @ApiOperation({
+    summary: 'Apply a deduction (discount/scholarship/waiver/write-off/credit-memo)',
+  })
   applyAdjustment(@Body() dto: ApplyAdjustmentDto) {
     return this.service.applyAdjustment(dto);
   }
 
   @Post('adjustments/:id/reverse')
+  @HttpCode(200)
   @RequirePermissions(Permission.FINANCE_MANAGE)
   reverseAdjustment(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.reverseAdjustment(id);
   }
 
-  // ---- Allocation -----------------------------------------------------------
-
   @Post('allocate')
   @RequirePermissions(Permission.FINANCE_MANAGE)
-  @ApiOperation({ summary: 'Apply a verified payment to one or more charges' })
+  @ApiOperation({ summary: 'Apply a verified payment to one or more installments' })
   allocate(@Body() dto: AllocatePaymentDto) {
     return this.service.allocate(dto);
   }
 
-  @Post('allocate/fifo')
-  @RequirePermissions(Permission.FINANCE_MANAGE)
-  @ApiOperation({ summary: 'Cascade a verified payment across open charges (earliest due first)' })
-  allocateFifo(@Body() dto: AllocateFifoDto) {
-    return this.service.allocateFifo(dto.transactionId);
+  @Get('credits')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiQuery({ name: 'studentId', required: true })
+  @ApiOperation({ summary: 'Credit lots (with remaining balance) for a student' })
+  credits(@Query('studentId') studentId: string) {
+    return this.service.listCredits(studentId);
   }
-
-  // ---- Refunds --------------------------------------------------------------
 
   @Post('refunds')
   @RequirePermissions(Permission.FINANCE_MANAGE)
@@ -62,12 +54,14 @@ export class LedgerController {
   }
 
   @Post('refunds/:id/verify')
+  @HttpCode(200)
   @RequirePermissions(Permission.FINANCE_MANAGE)
   verifyRefund(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.verifyRefund(id);
   }
 
   @Post('refunds/:id/reject')
+  @HttpCode(200)
   @RequirePermissions(Permission.FINANCE_MANAGE)
   rejectRefund(@Param('id', ParseUUIDPipe) id: string, @Body() dto: RejectDto) {
     return this.service.rejectRefund(id, dto.note);

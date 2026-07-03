@@ -143,7 +143,7 @@ export class EInvoicingService {
       invoiceNumber: dto.invoiceNumber.replace(/\//g, '_'),
       uuid: randomUUID(),
       chargeId: dto.chargeId ?? null,
-      transactionId: dto.transactionId ?? null,
+      paymentId: dto.paymentId ?? null,
       studentId: dto.studentId ?? null,
       buyerName: dto.buyerName ?? null,
       buyerIdScheme: dto.buyerIdScheme ?? null,

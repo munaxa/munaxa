@@ -1,4 +1,4 @@
-import type { DocumentLanguage} from '@prisma/client';
+import type { DocumentLanguage } from '@prisma/client';
 import { QuotePaymentMode } from '@prisma/client';
 import type { DocumentLayout, LayoutBlock } from '../pdf/document-layout';
 import { L, amount, dateStr, docNumber, money } from './util';

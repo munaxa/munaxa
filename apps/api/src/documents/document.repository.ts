@@ -28,7 +28,7 @@ const META_SELECT = {
   parentId: true,
   academicYearId: true,
   enrollmentId: true,
-  transactionId: true,
+  paymentId: true,
   checksum: true,
   byteSize: true,
   printedCount: true,
@@ -56,7 +56,7 @@ export interface ArchiveDocumentInput {
   parentId?: string | null;
   academicYearId?: string | null;
   enrollmentId?: string | null;
-  transactionId?: string | null;
+  paymentId?: string | null;
   version?: number;
   dataSnapshot?: Prisma.InputJsonValue;
   pdf: Buffer;
@@ -73,7 +73,7 @@ export interface DynamicMetadataInput {
   parentId?: string | null;
   academicYearId?: string | null;
   enrollmentId?: string | null;
-  transactionId?: string | null;
+  paymentId?: string | null;
   params: Prisma.InputJsonValue;
 }
 
@@ -85,7 +85,7 @@ export class DocumentRepository extends TenantRepository {
 
   /**
    * Allocate the next gapless number for a per-tenant scope (row-locked, lazily created) — identical
-   * to the FinanceReceiptCounter / JoFotara ICV pattern, so numbers are sequential with no gaps.
+   * to the PaymentReceiptCounter / JoFotara ICV pattern, so numbers are sequential with no gaps.
    */
   private async nextNumber(tx: TxClient, tenantId: string, scope: string): Promise<number> {
     await tx.$executeRaw`
@@ -124,7 +124,7 @@ export class DocumentRepository extends TenantRepository {
         parentId: input.parentId ?? null,
         academicYearId: input.academicYearId ?? null,
         enrollmentId: input.enrollmentId ?? null,
-        transactionId: input.transactionId ?? null,
+        paymentId: input.paymentId ?? null,
         dataSnapshot: input.dataSnapshot ?? Prisma.JsonNull,
         // Normalise to a plain Uint8Array<ArrayBuffer> for the Prisma Bytes column (Node 22's
         // Buffer<ArrayBufferLike> is not directly assignable).
@@ -161,7 +161,7 @@ export class DocumentRepository extends TenantRepository {
           parentId: input.parentId ?? null,
           academicYearId: input.academicYearId ?? null,
           enrollmentId: input.enrollmentId ?? null,
-          transactionId: input.transactionId ?? null,
+          paymentId: input.paymentId ?? null,
           params: input.params,
           generatedById: this.actor(),
         },
@@ -243,9 +243,12 @@ export class DocumentRepository extends TenantRepository {
    * Load a document for serving: its metadata, persistence strategy, the stored PDF (SNAPSHOT only)
    * and the re-render params (DYNAMIC only). No side effects — the caller records the access action.
    */
-  async documentForServe(
-    id: string,
-  ): Promise<{ meta: DocumentMeta; persistence: DocumentPersistence; pdf: Buffer | null; params: unknown }> {
+  async documentForServe(id: string): Promise<{
+    meta: DocumentMeta;
+    persistence: DocumentPersistence;
+    pdf: Buffer | null;
+    params: unknown;
+  }> {
     return this.run(async (tx) => {
       const doc = await tx.generatedDocument.findFirst({ where: { id } });
       if (!doc) throw new NotFoundException('Document not found');
@@ -365,7 +368,9 @@ export class DocumentRepository extends TenantRepository {
       const prior = await tx.registrationAgreement.findFirst({
         where: {
           enrollmentId: input.enrollmentId,
-          status: { in: [RegistrationAgreementStatus.COMMITTED, RegistrationAgreementStatus.SIGNED] },
+          status: {
+            in: [RegistrationAgreementStatus.COMMITTED, RegistrationAgreementStatus.SIGNED],
+          },
         },
         orderBy: { version: 'desc' },
       });
@@ -487,14 +492,15 @@ export class DocumentRepository extends TenantRepository {
     });
   }
 
-  /** Verified payments allocated to the charges of a given installment plan / student in a year. */
-  transactionContext(transactionId: string) {
+  /** A verified payment with its allocations (→ installment → charge) for the receipt. */
+  paymentContext(paymentId: string) {
     return this.run((tx) =>
-      tx.transaction.findFirst({
-        where: { id: transactionId },
+      tx.payment.findFirst({
+        where: { id: paymentId },
         include: {
-          charge: { select: { description: true } },
-          allocations: { include: { charge: { select: { description: true } } } },
+          allocations: {
+            include: { installment: { include: { charge: { select: { description: true } } } } },
+          },
           student: {
             include: { parentLinks: { include: { parent: true }, orderBy: { isPrimary: 'desc' } } },
           },
@@ -523,11 +529,11 @@ export class DocumentRepository extends TenantRepository {
     );
   }
 
-  /** Sum of verified payments allocated to the charges of one installment plan (paid toward a year). */
-  async paidAllocatedToPlan(installmentPlanId: string): Promise<string> {
+  /** Sum of verified payments allocated to the installments of an enrollment's charges (paid/year). */
+  async paidForEnrollment(enrollmentId: string): Promise<string> {
     return this.run(async (tx) => {
       const agg = await tx.paymentAllocation.aggregate({
-        where: { reversedAt: null, charge: { installmentPlanId } },
+        where: { reversedAt: null, installment: { charge: { enrollmentId } } },
         _sum: { amount: true },
       });
       return (agg._sum.amount ?? new Prisma.Decimal(0)).toFixed(3);

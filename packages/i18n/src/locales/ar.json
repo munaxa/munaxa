@@ -169,7 +169,7 @@
     "attendance": "الحضور",
     "academics": "الشؤون الأكاديمية",
     "finance": "المالية",
-    "feePlans": "خطط الرسوم",
+    "financeReports": "التقارير المالية",
     "feeConfig": "إعداد الرسوم",
     "collections": "التحصيل",
     "communication": "التواصل",
@@ -421,17 +421,6 @@
     "debit": "مدين",
     "runningBalance": "الرصيد الجاري",
     "viewProfile": "عرض الملف"
-  },
-  "feePlans": {
-    "create": "إنشاء خطة رسوم",
-    "name": "الاسم",
-    "recurrence": "التكرار",
-    "amountJod": "المبلغ (دينار)",
-    "createButton": "إنشاء خطة الرسوم",
-    "editTitle": "تعديل خطة الرسوم",
-    "saveButton": "حفظ التغييرات",
-    "noPlans": "لا توجد خطط رسوم بعد.",
-    "description": "الوصف"
   },
   "people": {
     "parentProfile": "ملف ولي الأمر",

@@ -1,17 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useI18n } from '@/components/i18n-provider';
 import { useToast } from '@/components/toast';
-import { TransactionStatusBadge } from '@/components/domain';
+import { ChargeStatusBadge, TransactionStatusBadge } from '@/components/domain';
+import { FeeModifiedBadge } from '@/components/fee-modified-badge';
 import { DocumentsSection } from './documents-section';
 import { documentsApi } from '@/lib/documents';
 import {
   financeApi,
-  type AgingBuckets,
+  type ChargeView,
   type CollectionsProfile,
-  type InstallmentPlan,
+  type Installment,
   type Statement,
 } from '@/lib/finance';
 import {
@@ -35,79 +35,82 @@ import {
 } from '@/components/ui';
 
 const PAYMENT_METHODS = ['CASH', 'CLIQ', 'EWALLET', 'BANK_TRANSFER'] as const;
+const CADENCES = ['MONTHLY', 'WEEKLY', 'QUARTERLY'] as const;
+const ADJUSTMENT_TYPES = [
+  'DISCOUNT',
+  'SCHOLARSHIP',
+  'SIBLING_DISCOUNT',
+  'STAFF_DISCOUNT',
+  'WAIVER',
+  'WRITE_OFF',
+] as const;
 
 const num = (v: string | number) => Number(v).toFixed(3);
 const dateStr = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : '—');
-/** Official receipt number → padded display form (e.g. 156 → RCPT-000156). */
 const receiptLabel = (n: number) => `RCPT-${String(n).padStart(6, '0')}`;
 
-/** Whole days `due` is in the past relative to today (0 if not yet due). */
-function daysOverdue(due?: string | null): number {
-  if (!due) return 0;
-  const ms = Date.now() - new Date(due).getTime();
-  return ms > 0 ? Math.floor(ms / 86_400_000) : 0;
+function installmentTone(inst: Installment): 'success' | 'warning' | 'danger' | 'muted' {
+  if (inst.status === 'PAID' || inst.status === 'WAIVED') return 'success';
+  if (inst.overdue) return 'danger';
+  if (inst.status === 'PARTIAL') return 'warning';
+  return 'muted';
 }
-
-type InstallmentStatus = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING';
-
-/** Derive a richer schedule status than the raw charge status (adds OVERDUE / PARTIAL). */
-function installmentStatus(paid: number, balance: number, due?: string | null): InstallmentStatus {
-  if (balance <= 0) return 'PAID';
-  if (due && new Date(due).getTime() < Date.now()) return 'OVERDUE';
-  if (paid > 0) return 'PARTIAL';
-  return 'UPCOMING';
-}
-
-const STATUS_TONE: Record<InstallmentStatus, 'success' | 'warning' | 'danger' | 'muted'> = {
-  PAID: 'success',
-  PARTIAL: 'warning',
-  OVERDUE: 'danger',
-  UPCOMING: 'muted',
-};
 
 /**
- * Premium per-student finance workspace. Read-first: it composes the existing finance APIs
- * (statement, installment plan, collections snapshot, aging) into a KPI summary, fee-category
- * breakdown, fee plan, installment schedule, payment history and a derived statement of account.
+ * Student Financial Account workspace — the hierarchical AR view (Finance Domain Spec v1.0 §16):
  *
- * Write operations stay with the canonical Finance logic: a lightweight Record Payment reuses
- * `recordPayment` + `verify` (identical to the Finance page), and advanced operations (discounts,
- * credit notes, refunds, collections flags, plan management) deep-link to /finance to avoid
- * duplicating that logic here.
+ *   Student Financial Account (Outstanding · Paid · Credits · Refunds · Collections)
+ *     ▼ Charge (obligation)  gross · discount · net · outstanding
+ *         Payment Plan (cadence × N)
+ *           Installment 1..N (due · amount · paid · balance · status)
+ *     ▶ Charge …
+ *   Payments · Credits · Refunds · Adjustments · Documents
+ *
+ * Every figure comes from the ledger (single source of truth). No duplicated charges, no flat
+ * installment list — installments live only inside their plan. Munaxa Design System only.
  */
 export function FinanceTab({ studentId }: { studentId: string }) {
-  const { t } = useI18n();
+  useI18n();
   const toast = useToast();
   const [statement, setStatement] = useState<Statement | null>(null);
-  const [plan, setPlan] = useState<InstallmentPlan | null>(null);
   const [collections, setCollections] = useState<CollectionsProfile | null>(null);
-  const [aging, setAging] = useState<AgingBuckets | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState(false);
 
-  // Installment schedule controls.
-  const [statusFilter, setStatusFilter] = useState<'' | InstallmentStatus>('');
-  const [sortAsc, setSortAsc] = useState(true);
-
-  // Inline Record Payment.
-  const [paying, setPaying] = useState(false);
-  const [payForm, setPayForm] = useState({ amount: '', method: 'CASH', reference: '', chargeId: '' });
-  const [submitting, setSubmitting] = useState(false);
+  // Inline forms.
+  const [payForm, setPayForm] = useState({ amount: '', method: 'CASH', reference: '' });
+  const [planForm, setPlanForm] = useState<{
+    chargeId: string;
+    cadence: string;
+    installments: string;
+    firstDueDate: string;
+  } | null>(null);
+  const [adjForm, setAdjForm] = useState<{
+    chargeId: string;
+    type: string;
+    amount: string;
+    reason: string;
+  } | null>(null);
+  const [refundForm, setRefundForm] = useState({ amount: '', method: 'CASH', reason: '' });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [s, p, c, a] = await Promise.all([
+      const [s, c] = await Promise.all([
         financeApi.statement(studentId),
-        financeApi.installmentPlan(studentId).catch(() => null),
         financeApi.collections(studentId).catch(() => null),
-        financeApi.studentAging(studentId).catch(() => null),
       ]);
       setStatement(s);
-      setPlan(p);
       setCollections(c);
-      setAging(a);
+      setExpanded((prev) => {
+        const next = { ...prev };
+        for (const cv of s.charges)
+          if (next[cv.charge.id] === undefined) next[cv.charge.id] = Number(cv.balance) > 0;
+        return next;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load finance');
     } finally {
@@ -119,702 +122,642 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     void load();
   }, [load]);
 
-  // Most recent verified payment date for the KPI strip (transactions come newest-first).
-  const lastPaymentDate = useMemo(() => {
-    const last = (statement?.transactions ?? []).find(
-      (tx) => tx.status === 'VERIFIED' && tx.createdAt,
-    );
-    return last?.createdAt ?? null;
-  }, [statement]);
+  const totals = statement?.totals;
+  const activeCharges = useMemo(
+    () => (statement?.charges ?? []).filter((c) => c.charge.status !== 'CANCELLED'),
+    [statement],
+  );
 
-  // Next upcoming installment (earliest unpaid by due date) for the KPI strip.
-  const nextInstallment = useMemo(() => {
-    const open = (plan?.charges ?? [])
-      .filter((c) => Number(c.balance) > 0 && c.dueDate)
-      .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
-    return open[0] ?? null;
-  }, [plan]);
-
-  // Derived statement of account (running ledger) from charges + payments + ledger movements.
-  const ledger = useMemo(() => {
-    if (!statement) return [];
-    type Entry = { date: string | null; description: string; debit: number; credit: number };
-    const entries: Entry[] = [];
-    for (const b of statement.chargeBalances) {
-      entries.push({
-        date: b.charge.dueDate ?? null,
-        description: b.charge.description,
-        debit: Number(b.net),
-        credit: 0,
-      });
+  async function run(action: () => Promise<unknown>, ok: string) {
+    setBusy(true);
+    try {
+      await action();
+      toast.success(ok);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setBusy(false);
     }
-    for (const tx of statement.transactions) {
-      if (tx.status === 'REJECTED') continue;
-      entries.push({
-        date: tx.createdAt ?? null,
-        description: `${t('finance.payments')} · ${tx.method}${
-          tx.receiptNo != null ? ` · ${receiptLabel(tx.receiptNo)}` : ''
-        }`,
-        debit: 0,
-        credit: Number(tx.amount),
-      });
-    }
-    for (const a of statement.adjustments) {
-      if (a.status !== 'APPLIED') continue;
-      entries.push({
-        date: a.createdAt,
-        description: `${a.type.replace(/_/g, ' ')}${a.reason ? ` · ${a.reason}` : ''}`,
-        debit: 0,
-        credit: Number(a.amount),
-      });
-    }
-    for (const r of statement.refunds) {
-      entries.push({
-        date: r.createdAt,
-        description: `${t('finance.refunds')}${r.reason ? ` · ${r.reason}` : ''}`,
-        debit: Number(r.amount),
-        credit: 0,
-      });
-    }
-    // Dated entries first (chronological), then undated; compute the running balance.
-    entries.sort((a, b) => {
-      if (a.date && b.date) return new Date(a.date).getTime() - new Date(b.date).getTime();
-      if (a.date) return -1;
-      if (b.date) return 1;
-      return 0;
-    });
-    let running = 0;
-    return entries.map((e) => {
-      running += e.debit - e.credit;
-      return { ...e, running };
-    });
-  }, [statement, t]);
-
-  const schedule = useMemo(() => {
-    const rows = (plan?.charges ?? []).map((c) => {
-      const paid = Number(c.paid);
-      const balance = Number(c.balance);
-      return {
-        id: c.id,
-        dueDate: c.dueDate ?? null,
-        amount: Number(c.amount),
-        paid,
-        balance,
-        status: installmentStatus(paid, balance, c.dueDate),
-        overdue: balance > 0 ? daysOverdue(c.dueDate) : 0,
-      };
-    });
-    const filtered = statusFilter ? rows.filter((r) => r.status === statusFilter) : rows;
-    return filtered.sort((a, b) => {
-      const av = a.dueDate ? new Date(a.dueDate).getTime() : 0;
-      const bv = b.dueDate ? new Date(b.dueDate).getTime() : 0;
-      return sortAsc ? av - bv : bv - av;
-    });
-  }, [plan, statusFilter, sortAsc]);
+  }
 
   async function submitPayment() {
     const amount = Number(payForm.amount);
-    if (!amount || amount <= 0) {
-      toast.error(t('finance.amountJod'));
-      return;
-    }
-    setSubmitting(true);
-    try {
-      // Same flow as the Finance page: record the payment then verify so it allocates immediately.
-      const isInstallment = plan?.charges.some((c) => c.id === payForm.chargeId) ?? false;
-      if (isInstallment && payForm.chargeId) {
-        await financeApi.payInstallment({
-          studentId,
-          chargeId: payForm.chargeId,
-          amount,
-          method: payForm.method,
-          ...(payForm.reference ? { reference: payForm.reference } : {}),
-        });
-      } else {
-        const txn = await financeApi.recordPayment({
-          studentId,
-          ...(payForm.chargeId ? { chargeId: payForm.chargeId } : {}),
-          amount,
-          method: payForm.method,
-          ...(payForm.reference ? { reference: payForm.reference } : {}),
-        });
-        await financeApi.verify(txn.id);
-      }
-      toast.success(t('finance.recordPayment'));
-      setPaying(false);
-      setPayForm({ amount: '', method: 'CASH', reference: '', chargeId: '' });
-      await load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Payment failed');
-    } finally {
-      setSubmitting(false);
-    }
+    if (!amount || amount <= 0) return toast.error('Enter an amount in JOD');
+    await run(async () => {
+      const p = await financeApi.recordPayment({
+        studentId,
+        amount,
+        method: payForm.method,
+        ...(payForm.reference ? { reference: payForm.reference } : {}),
+      });
+      await financeApi.verify(p.id); // record + verify (auto-allocates FIFO to installments)
+      setPayForm({ amount: '', method: 'CASH', reference: '' });
+    }, 'Payment recorded and allocated');
   }
 
-  /** Generate (if needed) and open the official PDF receipt for a verified payment. */
-  async function printReceipt(transactionId: string) {
+  async function submitPlan() {
+    if (!planForm) return;
+    const installments = Number(planForm.installments);
+    if (!installments || installments < 1) return toast.error('Enter a number of installments');
+    if (!planForm.firstDueDate) return toast.error('Choose a first due date');
+    await run(async () => {
+      await financeApi.createPlan(planForm.chargeId, {
+        cadence: planForm.cadence as 'MONTHLY',
+        installments,
+        firstDueDate: planForm.firstDueDate,
+      });
+      setPlanForm(null);
+    }, 'Payment plan created');
+  }
+
+  async function submitAdjustment() {
+    if (!adjForm) return;
+    const amount = Number(adjForm.amount);
+    if (!amount || amount <= 0) return toast.error('Enter a discount amount');
+    if (!adjForm.reason.trim()) return toast.error('A reason is required');
+    await run(async () => {
+      await financeApi.applyAdjustment({
+        studentId,
+        chargeId: adjForm.chargeId,
+        type: adjForm.type,
+        amount,
+        reason: adjForm.reason,
+      });
+      setAdjForm(null);
+    }, 'Adjustment applied');
+  }
+
+  async function submitRefund() {
+    const amount = Number(refundForm.amount);
+    if (!amount || amount <= 0) return toast.error('Enter a refund amount');
+    if (!refundForm.reason.trim()) return toast.error('A reason is required');
+    await run(async () => {
+      await financeApi.createRefund({
+        studentId,
+        amount,
+        method: refundForm.method,
+        reason: refundForm.reason,
+      });
+      setRefundForm({ amount: '', method: 'CASH', reason: '' });
+    }, 'Refund requested (pending verification)');
+  }
+
+  async function downloadReceipt(paymentId: string) {
     try {
-      const doc = await documentsApi.generate({ type: 'PAYMENT_RECEIPT', studentId, transactionId });
+      const doc = await documentsApi.generate({ type: 'PAYMENT_RECEIPT', studentId, paymentId });
       await documentsApi.download(doc.id);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not generate receipt');
+      toast.error(e instanceof Error ? e.message : 'Could not generate the receipt');
     }
   }
 
-  function exportLedgerCsv() {
-    const header = [
-      t('finance.date'),
-      t('common.description'),
-      t('finance.debit'),
-      t('finance.credit'),
-      t('finance.runningBalance'),
-    ];
-    const rows = ledger.map((e) => [
-      e.date ? new Date(e.date).toISOString().slice(0, 10) : '',
-      e.description,
-      e.debit ? num(e.debit) : '',
-      e.credit ? num(e.credit) : '',
-      num(e.running),
-    ]);
-    const csv = [header, ...rows]
-      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `statement-${studentId}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <p className="text-sm text-destructive" role="alert">
-        {error}
-      </p>
-    );
-  }
-
-  if (!statement) {
-    return <EmptyState title={t('finance.noCharges')} />;
-  }
-
-  const outstanding = Number(statement.totals.outstanding);
-  const overdue = Number(collections?.snapshot.overdue ?? 0);
-  const credit = Number(statement.totals.creditBalance);
+  if (loading) return <Spinner />;
+  if (error) return <EmptyState title="Finance unavailable" description={error} />;
+  if (!statement || !totals) return <EmptyState title="No financial account" />;
 
   return (
-    <div className="space-y-6">
-      {/* Quick actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-lg font-semibold">{t('nav.finance')}</h2>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => setPaying((p) => !p)}>
-            {t('finance.recordPayment')}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => window.print()}>
-            {t('studentProfile.printStatement')}
-          </Button>
-          <Button size="sm" variant="outline" onClick={exportLedgerCsv}>
-            {t('common.export')}
-          </Button>
-          <Link href={{ pathname: '/finance', query: { studentId } }}>
-            <Button size="sm" variant="ghost">
-              {t('studentProfile.openInFinance')}
-            </Button>
-          </Link>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6">
+      {/* ── Student Financial Account header ── */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Student Financial Account</CardTitle>
+          <div className="flex items-center gap-2">
+            <FeeModifiedBadge
+              feeModified={collections?.feeModified ?? false}
+              customArrangement={collections?.customArrangement ?? false}
+            />
+            {collections && collections.collectionsStatus !== 'NONE' && (
+              <Badge tone={collections.collectionsStatus === 'LEGAL' ? 'danger' : 'warning'}>
+                {collections.collectionsStatus === 'LEGAL'
+                  ? 'Legal Collections'
+                  : 'Financial Issue'}
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            <Stat
+              label="Outstanding"
+              value={num(totals.outstanding)}
+              tone={Number(totals.outstanding) > 0 ? 'text-coral' : ''}
+            />
+            <Stat label="Paid" value={num(totals.paid)} />
+            <Stat label="Discounts" value={num(totals.discounts)} />
+            <Stat label="Credits" value={num(totals.creditBalance)} />
+            <Stat label="Refunded" value={num(totals.refunded)} />
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Inline Record Payment (reuses the canonical recordPayment + verify flow) */}
-      {paying ? (
-        <Card className="border-primary/30">
-          <CardContent className="flex flex-wrap items-end gap-3 p-4">
-            <Field label={t('finance.amountJod')}>
-              <Input
-                type="number"
-                step="0.001"
-                value={payForm.amount}
-                onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
-              />
-            </Field>
-            <Field label={t('finance.method')}>
+      {/* ── Charges → Plans → Installments hierarchy ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Charges</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {activeCharges.length === 0 && (
+            <EmptyState title="No charges" description="This student has no charges yet." />
+          )}
+          {activeCharges.map((cv) => (
+            <ChargeNode
+              key={cv.charge.id}
+              cv={cv}
+              open={!!expanded[cv.charge.id]}
+              busy={busy}
+              onToggle={() => setExpanded((p) => ({ ...p, [cv.charge.id]: !p[cv.charge.id] }))}
+              onPlan={() =>
+                setPlanForm({
+                  chargeId: cv.charge.id,
+                  cadence: 'MONTHLY',
+                  installments: '9',
+                  firstDueDate: '',
+                })
+              }
+              onDiscount={() =>
+                setAdjForm({ chargeId: cv.charge.id, type: 'DISCOUNT', amount: '', reason: '' })
+              }
+            />
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Create-plan inline form */}
+      {planForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create / replace payment plan</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field label="Cadence">
               <Select
-                value={payForm.method}
-                onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
+                value={planForm.cadence}
+                onChange={(e) => setPlanForm({ ...planForm, cadence: e.target.value })}
               >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
+                {CADENCES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
                   </option>
                 ))}
               </Select>
             </Field>
-            <Field label={t('studentProfile.allocateToCharge')}>
-              <Select
-                value={payForm.chargeId}
-                onChange={(e) => setPayForm({ ...payForm, chargeId: e.target.value })}
-              >
-                <option value="">{t('studentProfile.unallocated')}</option>
-                {statement.chargeBalances
-                  .filter((b) => Number(b.balance) > 0)
-                  .map((b) => (
-                    <option key={b.charge.id} value={b.charge.id}>
-                      {b.charge.description} · {num(b.balance)}
-                    </option>
-                  ))}
-              </Select>
-            </Field>
-            <Field label={t('finance.reference')} className="flex-1">
+            <Field label="Installments">
               <Input
-                value={payForm.reference}
-                onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
+                type="number"
+                min={1}
+                value={planForm.installments}
+                onChange={(e) => setPlanForm({ ...planForm, installments: e.target.value })}
               />
             </Field>
-            <Button size="sm" onClick={() => void submitPayment()} disabled={submitting}>
-              {submitting ? t('common.recording') : t('finance.pay')}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setPaying(false)}>
-              {t('common.cancel')}
-            </Button>
+            <Field label="First due date">
+              <Input
+                type="date"
+                value={planForm.firstDueDate}
+                onChange={(e) => setPlanForm({ ...planForm, firstDueDate: e.target.value })}
+              />
+            </Field>
+            <div className="flex items-end gap-2">
+              <Button onClick={() => void submitPlan()} disabled={busy}>
+                Create plan
+              </Button>
+              <Button variant="ghost" onClick={() => setPlanForm(null)}>
+                Cancel
+              </Button>
+            </div>
           </CardContent>
         </Card>
-      ) : null}
+      )}
 
-      {/* Financial summary KPIs */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Kpi label={t('studentProfile.totalFees')} value={num(statement.totals.charged)} />
-        <Kpi label={t('finance.paid')} value={num(statement.totals.paid)} tone="text-aqua" />
-        <Kpi
-          label={t('finance.outstanding')}
-          value={num(statement.totals.outstanding)}
-          tone={outstanding > 0 ? 'text-coral' : undefined}
-          sub={
-            overdue > 0 ? (
-              <span className="text-destructive">
-                {t('finance.overdue')} {num(overdue)}
-              </span>
-            ) : null
-          }
-        />
-        <Kpi
-          label={t('finance.credit')}
-          value={num(statement.totals.creditBalance)}
-          tone={credit > 0 ? 'text-aqua' : undefined}
-        />
-        <Kpi
-          label={t('studentProfile.nextInstallment')}
-          value={nextInstallment ? num(nextInstallment.amount) : '—'}
-          sub={
-            nextInstallment ? (
-              <span className="text-muted-foreground">{dateStr(nextInstallment.dueDate)}</span>
-            ) : null
-          }
-        />
-        <Kpi
-          label={t('studentProfile.lastPayment')}
-          value={lastPaymentDate ? dateStr(lastPaymentDate) : '—'}
-          sub={
-            collections && collections.snapshot.oldestOverdueDays > 0 ? (
-              <span className="text-coral">
-                {t('studentProfile.oldestOverdue')} {collections.snapshot.oldestOverdueDays}d
-              </span>
-            ) : null
-          }
-        />
-      </div>
+      {/* Apply-adjustment inline form */}
+      {adjForm && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Apply adjustment</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field label="Type">
+              <Select
+                value={adjForm.type}
+                onChange={(e) => setAdjForm({ ...adjForm, type: e.target.value })}
+              >
+                {ADJUSTMENT_TYPES.map((ty) => (
+                  <option key={ty} value={ty}>
+                    {ty.replace(/_/g, ' ')}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Amount (JOD)">
+              <Input
+                type="number"
+                value={adjForm.amount}
+                onChange={(e) => setAdjForm({ ...adjForm, amount: e.target.value })}
+              />
+            </Field>
+            <Field label="Reason">
+              <Input
+                value={adjForm.reason}
+                onChange={(e) => setAdjForm({ ...adjForm, reason: e.target.value })}
+              />
+            </Field>
+            <div className="flex items-end gap-2">
+              <Button onClick={() => void submitAdjustment()} disabled={busy}>
+                Apply
+              </Button>
+              <Button variant="ghost" onClick={() => setAdjForm(null)}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Fee categories */}
+      {/* ── Record payment ── */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('studentProfile.feeCategories')}</CardTitle>
+          <CardTitle>Record payment</CardTitle>
         </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <THead>
-              <TR>
-                <TH>{t('studentProfile.category')}</TH>
-                <TH className="text-end">{t('studentProfile.originalAmount')}</TH>
-                <TH className="text-end">{t('finance.discount')}</TH>
-                <TH className="text-end">{t('finance.paid')}</TH>
-                <TH className="text-end">{t('finance.outstanding')}</TH>
-                <TH className="w-40">{t('studentProfile.progress')}</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {statement.chargeBalances.map((b) => {
-                const net = Number(b.net);
-                const paid = Number(b.allocated);
-                const pct = net > 0 ? Math.min(100, Math.round((paid / net) * 100)) : 100;
-                return (
-                  <TR key={b.charge.id}>
-                    <TD>
-                      {b.charge.description}
-                      {b.charge.dueDate ? (
-                        <span className="block font-mono text-[11px] text-muted-foreground">
-                          {dateStr(b.charge.dueDate)}
-                        </span>
-                      ) : null}
-                    </TD>
-                    <TD className="text-end font-mono">{num(b.gross)}</TD>
-                    <TD className="text-end font-mono">{num(b.discount)}</TD>
-                    <TD className="text-end font-mono text-aqua">{num(b.allocated)}</TD>
-                    <TD className="text-end font-mono">{num(b.balance)}</TD>
-                    <TD>
-                      <Progress pct={pct} />
-                    </TD>
-                  </TR>
-                );
-              })}
-              {statement.chargeBalances.length === 0 ? (
-                <TR>
-                  <TD colSpan={6}>
-                    <EmptyState title={t('finance.noCharges')} />
-                  </TD>
-                </TR>
-              ) : (
-                <TR className="font-medium">
-                  <TD>{t('studentProfile.total')}</TD>
-                  <TD className="text-end font-mono">{num(statement.totals.charged)}</TD>
-                  <TD className="text-end font-mono">{num(statement.totals.discounts)}</TD>
-                  <TD className="text-end font-mono text-aqua">{num(statement.totals.paid)}</TD>
-                  <TD className="text-end font-mono text-coral">
-                    {num(statement.totals.outstanding)}
-                  </TD>
-                  <TD />
-                </TR>
-              )}
-            </TBody>
-          </Table>
+        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+          <Field label="Amount (JOD)">
+            <Input
+              type="number"
+              value={payForm.amount}
+              onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+            />
+          </Field>
+          <Field label="Method">
+            <Select
+              value={payForm.method}
+              onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Reference">
+            <Input
+              value={payForm.reference}
+              onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
+            />
+          </Field>
+          <div className="flex items-end">
+            <Button onClick={() => void submitPayment()} disabled={busy}>
+              Record &amp; verify
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Fee plan + aging */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('studentProfile.feePlan')}</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <Detail
-              label={t('studentProfile.planName')}
-              value={plan ? t('finance.installmentPlan') : t('studentProfile.oneTime')}
-            />
-            <Detail
-              label={t('studentProfile.installments')}
-              value={plan ? String(plan.charges.length) : '—'}
-            />
-            <Detail label={t('finance.discounts')} value={num(statement.totals.discounts)} mono />
-            <Detail label={t('finance.credit')} value={num(statement.totals.creditBalance)} mono />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('studentProfile.aging')}</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {aging ? (
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>{t('studentProfile.current')}</TH>
-                    <TH>1–30</TH>
-                    <TH>31–60</TH>
-                    <TH>61–90</TH>
-                    <TH>90+</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  <TR className="font-mono">
-                    <TD>{num(aging.current)}</TD>
-                    <TD>{num(aging.d1_30)}</TD>
-                    <TD>{num(aging.d31_60)}</TD>
-                    <TD className="text-coral">{num(aging.d61_90)}</TD>
-                    <TD className="text-destructive">{num(aging.d90plus)}</TD>
-                  </TR>
-                </TBody>
-              </Table>
-            ) : (
-              <div className="p-4">
-                <EmptyState title="—" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Installment schedule */}
-      {plan && plan.charges.length > 0 ? (
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <CardTitle>{t('studentProfile.installmentSchedule')}</CardTitle>
-              <div className="flex items-end gap-2">
-              <Field label={t('common.status')}>
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as '' | InstallmentStatus)}
-                >
-                  <option value="">{t('common.all')}</option>
-                  {(['PAID', 'PARTIAL', 'OVERDUE', 'UPCOMING'] as const).map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <Button size="sm" variant="ghost" onClick={() => setSortAsc((v) => !v)}>
-                {t('finance.dueDate')} {sortAsc ? '↑' : '↓'}
-              </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <THead>
-                <TR>
-                  <TH>#</TH>
-                  <TH>{t('finance.dueDate')}</TH>
-                  <TH className="text-end">{t('studentProfile.originalAmount')}</TH>
-                  <TH className="text-end">{t('studentProfile.amountPaid')}</TH>
-                  <TH className="text-end">{t('finance.outstanding')}</TH>
-                  <TH className="text-end">{t('studentProfile.daysOverdue')}</TH>
-                  <TH>{t('common.status')}</TH>
-                  <TH className="text-end">{t('common.actions')}</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {schedule.map((r, i) => (
-                  <TR key={r.id}>
-                    <TD className="font-mono text-muted-foreground">{i + 1}</TD>
-                    <TD className="whitespace-nowrap font-mono text-xs">{dateStr(r.dueDate)}</TD>
-                    <TD className="text-end font-mono">{num(r.amount)}</TD>
-                    <TD className="text-end font-mono text-aqua">
-                      {r.paid > 0 ? num(r.paid) : '—'}
-                    </TD>
-                    <TD className="text-end font-mono">{num(r.balance)}</TD>
-                    <TD className="text-end font-mono">
-                      {r.overdue > 0 ? (
-                        <span className="text-destructive">{r.overdue}</span>
-                      ) : (
-                        '—'
-                      )}
-                    </TD>
-                    <TD>
-                      <Badge tone={STATUS_TONE[r.status]}>{r.status}</Badge>
-                    </TD>
-                    <TD className="text-end">
-                      {r.balance > 0 ? (
+      {/* ── Payments ── */}
+      <SectionTable title="Payments">
+        {statement.payments.length === 0 ? (
+          <EmptyState title="No payments" />
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>Receipt</TH>
+                <TH>Date</TH>
+                <TH>Method</TH>
+                <TH>Amount</TH>
+                <TH>Status</TH>
+                <TH>Invoice</TH>
+                <TH> </TH>
+              </TR>
+            </THead>
+            <TBody>
+              {statement.payments.map((p) => (
+                <TR key={p.id}>
+                  <TD>{p.receiptNo != null ? receiptLabel(p.receiptNo) : '—'}</TD>
+                  <TD>{dateStr(p.createdAt)}</TD>
+                  <TD>{p.method}</TD>
+                  <TD>{num(p.amount)}</TD>
+                  <TD>
+                    <TransactionStatusBadge status={p.status} />
+                  </TD>
+                  <TD>{p.einvoice ? p.einvoice.invoiceNumber : '—'}</TD>
+                  <TD className="flex gap-2">
+                    {p.status === 'PENDING' && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            void run(() => financeApi.verify(p.id), 'Payment verified')
+                          }
+                          disabled={busy}
+                        >
+                          Verify
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            setPaying(true);
-                            setPayForm({
-                              amount: num(r.balance),
-                              method: 'CASH',
-                              reference: '',
-                              chargeId: r.id,
-                            });
-                          }}
+                          onClick={() =>
+                            void run(() => financeApi.reject(p.id), 'Payment rejected')
+                          }
+                          disabled={busy}
                         >
-                          {t('finance.pay')}
+                          Reject
                         </Button>
-                      ) : null}
-                    </TD>
-                  </TR>
-                ))}
-                {schedule.length === 0 ? (
-                  <TR>
-                    <TD colSpan={8}>
-                      <EmptyState title={t('finance.noCharges')} />
-                    </TD>
-                  </TR>
-                ) : null}
-              </TBody>
-            </Table>
-          </CardContent>
-        </Card>
-      ) : null}
-
-      {/* Payment history */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{t('studentProfile.paymentHistory')}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <THead>
-              <TR>
-                <TH>{t('studentProfile.receiptNo')}</TH>
-                <TH>{t('finance.date')}</TH>
-                <TH className="text-end">{t('finance.amount')}</TH>
-                <TH>{t('finance.method')}</TH>
-                <TH>{t('studentProfile.cashier')}</TH>
-                <TH>{t('studentProfile.jofotara')}</TH>
-                <TH>{t('common.status')}</TH>
-                <TH className="text-end">{t('common.actions')}</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {statement.transactions.map((tx) => (
-                <TR key={tx.id}>
-                  <TD className="whitespace-nowrap font-mono text-xs">
-                    {tx.receiptNo != null ? receiptLabel(tx.receiptNo) : '—'}
-                    {tx.reference ? (
-                      <span className="block text-[10px] text-muted-foreground">{tx.reference}</span>
-                    ) : null}
-                  </TD>
-                  <TD className="whitespace-nowrap font-mono text-xs">{dateStr(tx.createdAt)}</TD>
-                  <TD className="text-end font-mono">{num(tx.amount)}</TD>
-                  <TD>{tx.method}</TD>
-                  <TD className="text-muted-foreground">{tx.recordedByName ?? '—'}</TD>
-                  <TD className="font-mono text-xs">
-                    {tx.einvoice ? (
-                      <span className="inline-flex items-center gap-1">
-                        {tx.einvoice.invoiceNumber}
-                        <Badge tone={tx.einvoice.status === 'ACCEPTED' ? 'success' : 'muted'}>
-                          {tx.einvoice.status}
-                        </Badge>
-                      </span>
-                    ) : (
-                      '—'
+                      </>
+                    )}
+                    {p.status === 'VERIFIED' && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => void downloadReceipt(p.id)}
+                        >
+                          Receipt
+                        </Button>
+                        {!p.parentNotifiedAt && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              void run(() => financeApi.notifyParent(p.id), 'Parent notified')
+                            }
+                            disabled={busy}
+                          >
+                            Notify parent
+                          </Button>
+                        )}
+                      </>
                     )}
                   </TD>
-                  <TD>
-                    <TransactionStatusBadge status={tx.status} />
-                  </TD>
-                  <TD className="text-end">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={tx.receiptNo == null}
-                      onClick={() => void printReceipt(tx.id)}
-                    >
-                      {t('studentProfile.printReceipt')}
-                    </Button>
-                  </TD>
                 </TR>
               ))}
-              {statement.transactions.length === 0 ? (
-                <TR>
-                  <TD colSpan={8}>
-                    <EmptyState title={t('finance.noPayments')} />
-                  </TD>
-                </TR>
-              ) : null}
             </TBody>
           </Table>
-        </CardContent>
-      </Card>
+        )}
+      </SectionTable>
 
-      {/* Statement of account (running ledger) */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <CardTitle>{t('studentProfile.statementOfAccount')}</CardTitle>
-            <Button size="sm" variant="ghost" onClick={exportLedgerCsv}>
-              {t('common.export')}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
+      {/* ── Credits ── */}
+      {statement.credits.length > 0 && (
+        <SectionTable title="Credits">
           <Table>
             <THead>
               <TR>
-                <TH>{t('finance.date')}</TH>
-                <TH>{t('common.description')}</TH>
-                <TH className="text-end">{t('finance.debit')}</TH>
-                <TH className="text-end">{t('finance.credit')}</TH>
-                <TH className="text-end">{t('finance.runningBalance')}</TH>
+                <TH>Source</TH>
+                <TH>Amount</TH>
+                <TH>Remaining</TH>
+                <TH>Created</TH>
               </TR>
             </THead>
             <TBody>
-              {ledger.map((e, i) => (
-                <TR key={i}>
-                  <TD className="whitespace-nowrap font-mono text-xs">{dateStr(e.date)}</TD>
-                  <TD>{e.description}</TD>
-                  <TD className="text-end font-mono">{e.debit ? num(e.debit) : '—'}</TD>
-                  <TD className="text-end font-mono text-aqua">{e.credit ? num(e.credit) : '—'}</TD>
-                  <TD className="text-end font-mono">{num(e.running)}</TD>
+              {statement.credits.map((c) => (
+                <TR key={c.id}>
+                  <TD>{c.source.replace(/_/g, ' ')}</TD>
+                  <TD>{num(c.amount)}</TD>
+                  <TD>{num(c.remaining)}</TD>
+                  <TD>{dateStr(c.createdAt)}</TD>
                 </TR>
               ))}
-              {ledger.length === 0 ? (
-                <TR>
-                  <TD colSpan={5}>
-                    <EmptyState title={t('finance.noCharges')} />
-                  </TD>
-                </TR>
-              ) : null}
             </TBody>
           </Table>
-        </CardContent>
-      </Card>
+        </SectionTable>
+      )}
 
-      {/* Documents — Enterprise Document Engine (agreements, receipts, certificates, statements) */}
-      <div>
-        <h2 className="mb-3 font-display text-lg font-semibold">{t('studentProfile.documents')}</h2>
-        <DocumentsSection studentId={studentId} />
-      </div>
+      {/* ── Refunds ── */}
+      <SectionTable
+        title="Refunds"
+        action={
+          <div className="flex items-end gap-2">
+            <Input
+              className="w-28"
+              type="number"
+              placeholder="Amount"
+              value={refundForm.amount}
+              onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })}
+            />
+            <Input
+              className="w-40"
+              placeholder="Reason"
+              value={refundForm.reason}
+              onChange={(e) => setRefundForm({ ...refundForm, reason: e.target.value })}
+            />
+            <Button size="sm" onClick={() => void submitRefund()} disabled={busy}>
+              Refund credit
+            </Button>
+          </div>
+        }
+      >
+        {statement.refunds.length === 0 ? (
+          <EmptyState title="No refunds" />
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>Date</TH>
+                <TH>Amount</TH>
+                <TH>Method</TH>
+                <TH>Reason</TH>
+                <TH>Status</TH>
+                <TH> </TH>
+              </TR>
+            </THead>
+            <TBody>
+              {statement.refunds.map((r) => (
+                <TR key={r.id}>
+                  <TD>{dateStr(r.createdAt)}</TD>
+                  <TD>{num(r.amount)}</TD>
+                  <TD>{r.method}</TD>
+                  <TD>{r.reason}</TD>
+                  <TD>
+                    <TransactionStatusBadge status={r.status} />
+                  </TD>
+                  <TD>
+                    {r.status === 'PENDING' && (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          void run(() => financeApi.verifyRefund(r.id), 'Refund verified')
+                        }
+                        disabled={busy}
+                      >
+                        Verify
+                      </Button>
+                    )}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </SectionTable>
+
+      {/* ── Adjustments ── */}
+      {statement.adjustments.length > 0 && (
+        <SectionTable title="Adjustments">
+          <Table>
+            <THead>
+              <TR>
+                <TH>Type</TH>
+                <TH>Amount</TH>
+                <TH>Reason</TH>
+                <TH>Status</TH>
+                <TH> </TH>
+              </TR>
+            </THead>
+            <TBody>
+              {statement.adjustments.map((a) => (
+                <TR key={a.id}>
+                  <TD>{a.type.replace(/_/g, ' ')}</TD>
+                  <TD>{num(a.amount)}</TD>
+                  <TD>{a.reason}</TD>
+                  <TD>
+                    <Badge tone={a.status === 'APPLIED' ? 'success' : 'muted'}>{a.status}</Badge>
+                  </TD>
+                  <TD>
+                    {a.status === 'APPLIED' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          void run(() => financeApi.reverseAdjustment(a.id), 'Adjustment reversed')
+                        }
+                        disabled={busy}
+                      >
+                        Reverse
+                      </Button>
+                    )}
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </SectionTable>
+      )}
+
+      {/* ── Documents ── */}
+      <DocumentsSection studentId={studentId} />
     </div>
   );
 }
 
-function Kpi({
-  label,
-  value,
-  tone,
-  sub,
+function Stat({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className={`text-lg font-semibold ${tone}`}>{value}</span>
+    </div>
+  );
+}
+
+function SectionTable({
+  title,
+  action,
+  children,
 }: {
-  label: string;
-  value: string;
-  tone?: string | undefined;
-  sub?: React.ReactNode;
+  title: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-          {label}
-        </div>
-        <div className={`font-display text-xl font-semibold tabular-nums ${tone ?? ''}`}>
-          {value}
-        </div>
-        {sub ? <div className="mt-0.5 font-mono text-[11px]">{sub}</div> : null}
-      </CardContent>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>{title}</CardTitle>
+        {action}
+      </CardHeader>
+      <CardContent>{children}</CardContent>
     </Card>
   );
 }
 
-/** Slim progress bar built from DS tokens (no progress primitive in the design system). */
-function Progress({ pct }: { pct: number }) {
-  const tone = pct >= 100 ? 'bg-aqua' : pct > 0 ? 'bg-primary' : 'bg-muted-foreground/30';
+/** A single charge (obligation) node: header + expandable plan/installments. */
+function ChargeNode({
+  cv,
+  open,
+  busy,
+  onToggle,
+  onPlan,
+  onDiscount,
+}: {
+  cv: ChargeView;
+  open: boolean;
+  busy: boolean;
+  onToggle: () => void;
+  onPlan: () => void;
+  onDiscount: () => void;
+}) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full ${tone}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="w-9 text-end font-mono text-[11px] text-muted-foreground">{pct}%</span>
-    </div>
-  );
-}
+    <div className="rounded-lg border border-border">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground">{open ? '▼' : '▶'}</span>
+          <span className="font-medium">{cv.charge.description}</span>
+          <ChargeStatusBadge status={cv.charge.status} />
+        </div>
+        <div className="flex items-center gap-4 text-sm">
+          <span className="text-muted-foreground">Net {num(cv.net)}</span>
+          <span className={Number(cv.balance) > 0 ? 'font-semibold text-coral' : 'font-semibold'}>
+            Out {num(cv.balance)}
+          </span>
+        </div>
+      </button>
 
-function Detail({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className={`text-sm ${mono ? 'font-mono' : ''}`}>{value || '—'}</div>
+      {open && (
+        <div className="border-t border-border px-4 py-3">
+          <div className="mb-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <Stat label="Gross" value={num(cv.gross)} />
+            <Stat label="Discount" value={num(cv.discount)} />
+            <Stat label="Net" value={num(cv.net)} />
+            <Stat label="Paid" value={num(cv.paid)} />
+          </div>
+
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium">
+              {cv.plan
+                ? `Payment Plan · ${cv.plan.cadence} × ${cv.plan.installments}`
+                : 'No payment plan'}
+            </span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" onClick={onDiscount} disabled={busy}>
+                Adjust
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
+                {cv.plan ? 'Replace plan' : 'Create plan'}
+              </Button>
+            </div>
+          </div>
+
+          <Table>
+            <THead>
+              <TR>
+                <TH>#</TH>
+                <TH>Due</TH>
+                <TH>Amount</TH>
+                <TH>Paid</TH>
+                <TH>Balance</TH>
+                <TH>Status</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {cv.installments.map((inst) => (
+                <TR key={inst.id}>
+                  <TD>{inst.seq}</TD>
+                  <TD>{dateStr(inst.dueDate)}</TD>
+                  <TD>{num(inst.amount)}</TD>
+                  <TD>{num(inst.paid)}</TD>
+                  <TD>{num(inst.balance)}</TD>
+                  <TD>
+                    <Badge tone={installmentTone(inst)}>
+                      {inst.overdue ? 'OVERDUE' : inst.status}
+                    </Badge>
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

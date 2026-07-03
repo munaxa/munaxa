@@ -51,7 +51,7 @@ export class DashboardRepository extends TenantRepository {
     );
   }
 
-  /** Outstanding balance = SUM(active charges) − SUM(verified transactions). */
+  /** Outstanding balance = SUM(active charges) − SUM(verified payments). */
   async outstandingBalance(studentId: string): Promise<string> {
     const [charges, paid] = await this.run((tx) =>
       Promise.all([
@@ -59,7 +59,7 @@ export class DashboardRepository extends TenantRepository {
           _sum: { amount: true },
           where: { studentId, status: { notIn: ['CANCELLED', 'WAIVED'] } },
         }),
-        tx.transaction.aggregate({
+        tx.payment.aggregate({
           _sum: { amount: true },
           where: { studentId, status: 'VERIFIED' },
         }),

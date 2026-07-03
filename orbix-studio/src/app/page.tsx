@@ -1,18 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { motion } from "motion/react";
-import {
-  Activity,
-  ArrowRight,
-  Check,
-  Github,
-  Moon,
-  Search,
-  Sparkles,
-  Sun,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
+import { Activity, ArrowRight, Check, Github, Moon, Search, Sparkles, Sun } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -20,35 +11,35 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { RevenueChart } from "@/components/demos/revenue-chart";
-import { StudentsTable } from "@/components/demos/students-table";
-import { EnrollForm } from "@/components/demos/enroll-form";
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { RevenueChart } from '@/components/demos/revenue-chart';
+import { StudentsTable } from '@/components/demos/students-table';
+import { EnrollForm } from '@/components/demos/enroll-form';
 
 const SWATCHES = [
-  { name: "background", fg: "foreground" },
-  { name: "card", fg: "card-foreground" },
-  { name: "primary", fg: "primary-foreground" },
-  { name: "secondary", fg: "secondary-foreground" },
-  { name: "muted", fg: "muted-foreground" },
-  { name: "accent", fg: "accent-foreground" },
-  { name: "destructive", fg: "primary-foreground" },
-  { name: "sidebar", fg: "sidebar-foreground" },
+  { name: 'background', fg: 'foreground' },
+  { name: 'card', fg: 'card-foreground' },
+  { name: 'primary', fg: 'primary-foreground' },
+  { name: 'secondary', fg: 'secondary-foreground' },
+  { name: 'muted', fg: 'muted-foreground' },
+  { name: 'accent', fg: 'accent-foreground' },
+  { name: 'destructive', fg: 'primary-foreground' },
+  { name: 'sidebar', fg: 'sidebar-foreground' },
 ] as const;
 
-const CHARTS = ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"] as const;
+const CHARTS = ['chart-1', 'chart-2', 'chart-3', 'chart-4', 'chart-5'] as const;
 
 export default function Page() {
   const [dark, setDark] = useState(false);
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.classList.toggle('dark', dark);
   }, [dark]);
 
   return (
@@ -82,7 +73,7 @@ export default function Page() {
         <motion.section
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
           className="flex flex-col items-start gap-6"
         >
           <Badge variant="outline" className="gap-1.5">
@@ -92,9 +83,8 @@ export default function Page() {
             The Orbix Studio design system, cloned as a living showcase.
           </h1>
           <p className="max-w-xl text-lg text-muted-foreground">
-            A cool teal-cyan primary, cool-gray neutrals, and a tight 0.45rem
-            radius — the exact shadcn/ui theme, rendered with Next.js 15 in light
-            and dark.
+            A cool teal-cyan primary, cool-gray neutrals, and a tight 0.45rem radius — the exact
+            shadcn/ui theme, rendered with Next.js 15 in light and dark.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <Button size="lg">
@@ -156,10 +146,7 @@ export default function Page() {
           </div>
         </Section>
 
-        <Section
-          title="Dashboard data"
-          subtitle="Recharts area chart + TanStack data table"
-        >
+        <Section title="Dashboard data" subtitle="Recharts area chart + TanStack data table">
           <div className="grid gap-6 lg:grid-cols-5">
             <Card className="lg:col-span-3">
               <CardHeader>
@@ -182,10 +169,7 @@ export default function Page() {
           </div>
         </Section>
 
-        <Section
-          title="Forms & controls"
-          subtitle="React Hook Form + Zod, inputs, switches, tabs"
-        >
+        <Section title="Forms & controls" subtitle="React Hook Form + Zod, inputs, switches, tabs">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
@@ -216,9 +200,7 @@ export default function Page() {
                       </Avatar>
                       <div className="text-sm">
                         <div className="font-medium">Orbix Team</div>
-                        <div className="text-muted-foreground">
-                          12 members · 3 projects
-                        </div>
+                        <div className="text-muted-foreground">12 members · 3 projects</div>
                       </div>
                     </div>
                   </TabsContent>
@@ -259,9 +241,8 @@ export default function Page() {
 
         <Separator />
         <footer className="pb-8 text-sm text-muted-foreground">
-          Orbix Studio design system clone · shadcn/ui preset{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5">b7BFbeatk</code> ·
-          Next.js 15
+          Orbix Studio design system clone · shadcn/ui preset{' '}
+          <code className="rounded bg-muted px-1.5 py-0.5">b7BFbeatk</code> · Next.js 15
         </footer>
       </main>
     </div>
@@ -281,8 +262,8 @@ function Section({
     <motion.section
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-80px" }}
-      transition={{ duration: 0.4, ease: "easeOut" }}
+      viewport={{ once: true, margin: '-80px' }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
       className="space-y-5"
     >
       <div className="space-y-1">

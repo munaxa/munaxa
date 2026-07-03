@@ -99,14 +99,14 @@ describe('Student App (e2e)', () => {
       });
       studentId = student.id;
 
-      // 5 consecutive PRESENT days → streak of 5.
+      // 5 recent PRESENT days (relative to now, so they always fall inside the 30-day window).
       for (let d = 1; d <= 5; d += 1) {
         await tx.studentAttendance.create({
           data: {
             tenantId: TENANT,
             studentId: student.id,
             sectionId: section.id,
-            date: new Date(`2026-06-0${d}`),
+            date: new Date(Date.now() - d * 86_400_000),
             periodIndex: 0,
             status: 'PRESENT',
           },

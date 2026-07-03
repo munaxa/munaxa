@@ -11,18 +11,8 @@ import {
   CardTitle,
   EmptyState,
 } from '@/components/ui';
-import {
-  CapacityMeter,
-  RouteStatusBadge,
-  SuggestAssignmentsDialog,
-} from './components';
-import {
-  UNZONED,
-  exportRowsCsv,
-  type AreaVM,
-  type RouteVM,
-  type TransportData,
-} from './lib';
+import { CapacityMeter, RouteStatusBadge, SuggestAssignmentsDialog } from './components';
+import { UNZONED, exportRowsCsv, type AreaVM, type RouteVM, type TransportData } from './lib';
 
 /**
  * Area Planning — the primary, geographic workflow. Coordinators pick an area, see the
@@ -45,15 +35,14 @@ export function AreaPlanning({
 
   if (data.areas.length === 0) {
     return (
-      <EmptyState
-        title={t('transport.area.empty')}
-        description={t('transport.area.emptyDesc')}
-      />
+      <EmptyState title={t('transport.area.empty')} description={t('transport.area.emptyDesc')} />
     );
   }
 
   if (area) {
-    return <AreaDetail data={data} area={area} onBack={() => setActiveArea(null)} onManage={onManage} />;
+    return (
+      <AreaDetail data={data} area={area} onBack={() => setActiveArea(null)} onManage={onManage} />
+    );
   }
 
   return (

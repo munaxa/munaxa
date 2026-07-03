@@ -9,15 +9,27 @@ describe('allocatePaidAcrossCategories (Annual Tuition Certificate)', () => {
   ];
 
   it('attributes payment to tuition first, capped at the tuition net', () => {
-    const { allocations, grandTotal } = allocatePaidAcrossCategories(categories, '700.000', new Set());
+    const { allocations, grandTotal } = allocatePaidAcrossCategories(
+      categories,
+      '700.000',
+      new Set(),
+    );
     expect(allocations).toEqual([{ kind: FeeItemKind.TUITION, paid: '700.000', net: '1000.000' }]);
     expect(grandTotal).toBe('700.000');
   });
 
   it('caps tuition at its net and never spills into unselected categories', () => {
-    const { allocations, grandTotal } = allocatePaidAcrossCategories(categories, '1300.000', new Set());
+    const { allocations, grandTotal } = allocatePaidAcrossCategories(
+      categories,
+      '1300.000',
+      new Set(),
+    );
     expect(allocations).toHaveLength(1);
-    expect(allocations[0]).toEqual({ kind: FeeItemKind.TUITION, paid: '1000.000', net: '1000.000' });
+    expect(allocations[0]).toEqual({
+      kind: FeeItemKind.TUITION,
+      paid: '1000.000',
+      net: '1000.000',
+    });
     expect(grandTotal).toBe('1000.000');
   });
 

@@ -157,10 +157,7 @@ export class OrganizationService {
   }
 
   /** Shallow-merge a partial object into an existing JSON column value. */
-  private mergeJson(
-    existing: Prisma.JsonValue | null,
-    patch: object,
-  ): Prisma.InputJsonValue {
+  private mergeJson(existing: Prisma.JsonValue | null, patch: object): Prisma.InputJsonValue {
     const base =
       existing && typeof existing === 'object' && !Array.isArray(existing)
         ? (existing as Record<string, unknown>)

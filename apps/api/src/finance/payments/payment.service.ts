@@ -6,23 +6,25 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import type { Transaction } from '@prisma/client';
-import { TransactionRepository } from './transaction.repository';
+import type { Payment } from '@prisma/client';
+import { PaymentRepository } from './payment.repository';
 import { StorageService, type PresignedUpload } from '../../common/storage.service';
 import { MailService } from '../../mail/mail.service';
 import type { Env } from '../../config/env.validation';
 import { requireTenantId } from '../../common/tenant.util';
 import { LedgerService } from '../ledger/ledger.service';
-import type {
-  CreateTransactionDto,
-  PresignReceiptDto,
-  RejectTransactionDto,
-} from './transaction.dto';
+import type { CreatePaymentDto, PresignReceiptDto, RejectPaymentDto } from './payment.dto';
 
+/**
+ * Payment context: recording money received (CliQ/e-wallet receipt upload → verify/reject),
+ * gapless receipt numbering, and parent settlement notifications. On verify, the ledger
+ * auto-allocates the money to the account's open installments FIFO (residue → over-payment
+ * credit) — see LedgerService.allocateOnVerify (BR-17..24).
+ */
 @Injectable()
-export class TransactionService {
+export class PaymentService {
   constructor(
-    private readonly repo: TransactionRepository,
+    private readonly repo: PaymentRepository,
     private readonly storage: StorageService,
     private readonly ledger: LedgerService,
     private readonly mail: MailService,
@@ -34,60 +36,50 @@ export class TransactionService {
     return this.storage.presignUpload(key, dto.contentType, dto.size);
   }
 
-  async create(dto: CreateTransactionDto): Promise<Transaction> {
+  async create(dto: CreatePaymentDto): Promise<Payment> {
     if (!(await this.repo.studentExists(dto.studentId))) {
       throw new BadRequestException('Student not found in this tenant');
     }
-    // CliQ / e-wallet payments require a receipt or reference for verification.
     if ((dto.method === 'CLIQ' || dto.method === 'EWALLET') && !dto.receiptKey && !dto.reference) {
       throw new BadRequestException('CliQ/e-wallet payments require a receipt or a reference');
     }
-    // Reject a receiptKey pointing at another tenant's S3 object.
     if (dto.receiptKey) this.storage.assertKeyInTenant(dto.receiptKey);
     return this.repo.create({
       studentId: dto.studentId,
-      chargeId: dto.chargeId ?? null,
       amount: dto.amount,
       method: dto.method,
       reference: dto.reference ?? null,
       receiptKey: dto.receiptKey ?? null,
       note: dto.note ?? null,
-      status: 'PENDING',
     });
   }
 
-  async verify(id: string): Promise<Transaction> {
-    const txn = await this.requirePending(id);
-    const verified = await this.repo.setStatus(txn.id, 'VERIFIED');
-    // If the payment targeted a specific charge, apply it there automatically so the
-    // per-charge status (PARTIAL/PAID) reflects reality. Unallocated payments become credit.
-    if (verified.chargeId) {
-      await this.ledger.autoAllocateOnVerify(verified.id, verified.chargeId);
-    }
+  async verify(id: string): Promise<Payment> {
+    const payment = await this.requirePending(id);
+    const verified = await this.repo.setStatus(payment.id, 'VERIFIED');
+    // Auto-allocate FIFO across the account's open installments; residue → over-payment credit.
+    await this.ledger.allocateOnVerify(verified);
     return verified;
   }
 
-  async reject(id: string, dto: RejectTransactionDto): Promise<Transaction> {
-    const txn = await this.requirePending(id);
-    return this.repo.setStatus(txn.id, 'REJECTED', dto.note);
+  async reject(id: string, dto: RejectPaymentDto): Promise<Payment> {
+    const payment = await this.requirePending(id);
+    return this.repo.setStatus(payment.id, 'REJECTED', dto.note);
   }
 
-  /**
-   * Email the student's parent that a settled (verified) payment was received, and record on the
-   * transaction that the notification was sent. Staff trigger this from Finance after verifying.
-   */
-  async notifyParent(id: string): Promise<Transaction> {
-    const txn = await this.repo.findById(id);
-    if (!txn) throw new NotFoundException('Transaction not found');
-    if (txn.status !== 'VERIFIED') {
+  /** Email the parent that a settled payment was received, and record it (staff-triggered). */
+  async notifyParent(id: string): Promise<Payment> {
+    const payment = await this.repo.findById(id);
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status !== 'VERIFIED') {
       throw new ConflictException('Only a settled (verified) payment can be notified');
     }
-    const { studentNameEn, parentEmail } = await this.repo.studentNotifyContact(txn.studentId);
+    const { studentNameEn, parentEmail } = await this.repo.studentNotifyContact(payment.studentId);
     if (!parentEmail) {
       throw new BadRequestException('No parent email on file for this student');
     }
     const schoolName = await this.repo.tenantName();
-    const amount = `${txn.amount.toFixed(3)} JOD`;
+    const amount = `${payment.amount.toFixed(3)} JOD`;
     const subject = `${schoolName}: payment received`;
     const html =
       `<p>Dear parent,</p>` +
@@ -97,8 +89,6 @@ export class TransactionService {
     const text =
       `Dear parent,\n\nWe confirm we have received a payment of ${amount}` +
       `${studentNameEn ? ` for ${studentNameEn}` : ''}.\n\nThank you,\n${schoolName}`;
-    // Send as THIS school (auto-derived <slug>@<verified-domain>, or the school's own override
-    // from Notification Settings) rather than a single global finance address.
     const domain = this.config.get('EMAIL_SENDER_DOMAIN', { infer: true });
     const fallbackFrom = this.config.get('EMAIL_FROM_FINANCE', { infer: true });
     const { from, replyTo } = await this.repo.financeSender(domain, fallbackFrom);
@@ -116,16 +106,16 @@ export class TransactionService {
     return this.repo.setParentNotified(id);
   }
 
-  listForStudent(studentId: string): Promise<Transaction[]> {
+  listForStudent(studentId: string): Promise<Payment[]> {
     return this.repo.findByStudent(studentId);
   }
 
-  private async requirePending(id: string): Promise<Transaction> {
-    const txn = await this.repo.findById(id);
-    if (!txn) throw new NotFoundException('Transaction not found');
-    if (txn.status !== 'PENDING') {
-      throw new ConflictException(`Transaction is already ${txn.status}`);
+  private async requirePending(id: string): Promise<Payment> {
+    const payment = await this.repo.findById(id);
+    if (!payment) throw new NotFoundException('Payment not found');
+    if (payment.status !== 'PENDING') {
+      throw new ConflictException(`Payment is already ${payment.status}`);
     }
-    return txn;
+    return payment;
   }
 }

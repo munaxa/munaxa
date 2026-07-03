@@ -55,7 +55,7 @@ export class DocumentEngineService {
         parentId: built.parentId ?? null,
         academicYearId: built.academicYearId ?? null,
         enrollmentId: built.enrollmentId ?? null,
-        transactionId: built.transactionId ?? null,
+        paymentId: built.paymentId ?? null,
         params: params as unknown as Prisma.InputJsonValue,
       });
     }
@@ -70,7 +70,7 @@ export class DocumentEngineService {
       parentId: built.parentId ?? null,
       academicYearId: built.academicYearId ?? null,
       enrollmentId: built.enrollmentId ?? null,
-      transactionId: built.transactionId ?? null,
+      paymentId: built.paymentId ?? null,
       ...(built.dataSnapshot !== undefined ? { dataSnapshot: built.dataSnapshot } : {}),
       pdf: rendered.buffer,
       checksum: rendered.checksum,

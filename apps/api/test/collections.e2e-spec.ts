@@ -102,14 +102,27 @@ describe('Fee collections & reminders (e2e)', () => {
       const lastMonth = new Date();
       lastMonth.setMonth(lastMonth.getMonth() - 1);
       for (const studentId of [sOverdue, sLegal]) {
-        await tx.charge.create({
+        const account = await tx.studentFinancialAccount.create({
+          data: { tenantId: TENANT, studentId },
+        });
+        const charge = await tx.charge.create({
           data: {
             tenantId: TENANT,
+            accountId: account.id,
             studentId,
             description: 'Tuition',
             amount: '500.000',
             dueDate: lastMonth,
             status: 'PENDING',
+          },
+        });
+        await tx.installment.create({
+          data: {
+            tenantId: TENANT,
+            chargeId: charge.id,
+            seq: 1,
+            dueDate: lastMonth,
+            amount: '500.000',
           },
         });
       }

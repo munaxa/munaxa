@@ -8,8 +8,8 @@ import {
   type AgreementSnapshot,
 } from './templates/agreement-template';
 import { fullNameAr, fullNameEn } from './templates/util';
+import { splitFils, toFils } from '../finance/shared/money';
 
-const toFils = (n: number | string): number => Math.round(Number(n) * 1000);
 function addMonths(base: Date, n: number): Date {
   const dt = new Date(base);
   const day = dt.getDate();
@@ -118,14 +118,12 @@ export class RegistrationAgreementService {
       schedule.push({ index: 1, dueDate: this.iso(quote.firstDueDate), amount: grandTotal });
     } else {
       const months = quote.installments;
-      const totalFils = toFils(grandTotal);
-      const per = Math.floor(totalFils / months);
+      const parts = splitFils(toFils(grandTotal), months); // shared single source
       for (let i = 0; i < months; i += 1) {
-        const fils = i === months - 1 ? totalFils - per * (months - 1) : per;
         schedule.push({
           index: i + 1,
           dueDate: this.iso(addMonths(base, i)),
-          amount: (fils / 1000).toFixed(3),
+          amount: (parts[i]! / 1000).toFixed(3),
         });
       }
     }

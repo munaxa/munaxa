@@ -7,7 +7,7 @@ import { ConfirmDocumentDto, PresignDocumentDto } from './document.dto';
 
 @ApiTags('parent-portal')
 @ApiBearerAuth()
-@Controller({ path: 'documents', version: '1' })
+@Controller({ path: 'parent-portal/documents', version: '1' })
 @RequirePermissions(Permission.DOCUMENT_MANAGE)
 export class DocumentController {
   constructor(private readonly service: DocumentService) {}

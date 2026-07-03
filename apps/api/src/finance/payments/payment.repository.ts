@@ -1,86 +1,115 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Transaction } from '@prisma/client';
+import { Prisma, type Payment } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+import { PrismaService } from '../../prisma/prisma.service';
+import { TenantConnectionManager } from '../../prisma/tenant-connection.service';
 import { TenantContextStore } from '../../prisma/tenant-context';
+import { AccountRepository } from '../account/account.repository';
 
-/** A payment row enriched for the statement: who recorded it + its linked JoFotara document. */
-export interface DetailedTransaction extends Transaction {
-  /** Display name of the cashier who recorded the payment (null when unknown). */
+/** A payment enriched for the statement: who recorded it + its linked JoFotara document. */
+export interface DetailedPayment extends Payment {
   recordedByName: string | null;
-  /** The linked e-invoice (JoFotara) document, if one was issued. */
   einvoice: { invoiceNumber: string; status: string; docType: string } | null;
 }
 
 @Injectable()
-export class TransactionRepository extends TenantRepository {
-  create(data: Omit<Prisma.TransactionUncheckedCreateInput, 'tenantId'>): Promise<Transaction> {
+export class PaymentRepository extends TenantRepository {
+  constructor(
+    prisma: PrismaService,
+    connections: TenantConnectionManager,
+    private readonly accounts: AccountRepository,
+  ) {
+    super(prisma, connections);
+  }
+
+  private actor(): string | null {
+    return TenantContextStore.get()?.actorUserId ?? null;
+  }
+
+  /** Record a payment (PENDING) against the student's account (money received, BR-17). */
+  create(data: {
+    studentId: string;
+    amount: number;
+    method: Payment['method'];
+    reference: string | null;
+    receiptKey: string | null;
+    note: string | null;
+  }): Promise<Payment> {
     return this.run(async (tx, tenantId) => {
-      const txn = await tx.transaction.create({
-        data: { ...data, tenantId, recordedById: TenantContextStore.get()?.actorUserId ?? null },
-      });
-      await this.writeAudit(tx, tenantId, {
-        action: 'finance.transaction.create',
-        entityType: 'Transaction',
-        entityId: txn.id,
-        metadata: {
-          studentId: txn.studentId,
-          amount: txn.amount.toString(),
-          method: txn.method,
+      const account = await this.accounts.ensureAccountTx(tx, tenantId, data.studentId);
+      const payment = await tx.payment.create({
+        data: {
+          tenantId,
+          accountId: account.id,
+          studentId: data.studentId,
+          payerId: account.payerId,
+          amount: new Prisma.Decimal(data.amount),
+          method: data.method,
+          reference: data.reference,
+          receiptKey: data.receiptKey,
+          note: data.note,
+          status: 'PENDING',
+          recordedById: this.actor(),
         },
       });
-      return txn;
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.payment.create',
+        entityType: 'Payment',
+        entityId: payment.id,
+        metadata: {
+          studentId: payment.studentId,
+          amount: payment.amount.toString(),
+          method: payment.method,
+        },
+      });
+      return payment;
     });
   }
 
-  /** Set a PENDING transaction to VERIFIED or REJECTED, with an audit entry. */
-  setStatus(id: string, status: 'VERIFIED' | 'REJECTED', note?: string): Promise<Transaction> {
+  /**
+   * Set a PENDING payment to VERIFIED or REJECTED. On VERIFY, allocate the gapless per-tenant
+   * receipt number from the row-locked PaymentReceiptCounter in the same transaction (BR-18, MT-3).
+   */
+  setStatus(id: string, status: 'VERIFIED' | 'REJECTED', note?: string): Promise<Payment> {
     return this.run(async (tx, tenantId) => {
-      const actor = TenantContextStore.get()?.actorUserId ?? null;
-      // A receipt = confirmed money, so allocate the gapless per-tenant receipt number only on
-      // VERIFY. Row-lock the counter (lazily created) in this same transaction — identical to the
-      // JoFotara ICV allocation — so numbers are sequential with no gaps or duplicates.
       let receiptNo: number | undefined;
       if (status === 'VERIFIED') {
-        await tx.$executeRaw`INSERT INTO "FinanceReceiptCounter" ("id","tenantId") VALUES (gen_random_uuid(), ${tenantId}::uuid) ON CONFLICT ("tenantId") DO NOTHING`;
+        await tx.$executeRaw`INSERT INTO "PaymentReceiptCounter" ("id","tenantId") VALUES (gen_random_uuid(), ${tenantId}::uuid) ON CONFLICT ("tenantId") DO NOTHING`;
         const rows = await tx.$queryRaw<{ next: number }[]>`
-          UPDATE "FinanceReceiptCounter" SET "nextReceiptNo" = "nextReceiptNo" + 1
+          UPDATE "PaymentReceiptCounter" SET "nextReceiptNo" = "nextReceiptNo" + 1
           WHERE "tenantId" = ${tenantId}::uuid
           RETURNING "nextReceiptNo" - 1 AS "next"`;
         receiptNo = rows[0]!.next;
       }
-      const txn = await tx.transaction.update({
+      const payment = await tx.payment.update({
         where: { id },
         data: {
           status,
-          verifiedById: actor,
+          verifiedById: this.actor(),
           verifiedAt: new Date(),
           ...(receiptNo !== undefined ? { receiptNo } : {}),
           ...(note !== undefined ? { note } : {}),
         },
       });
       await this.writeAudit(tx, tenantId, {
-        action: status === 'VERIFIED' ? 'finance.transaction.verify' : 'finance.transaction.reject',
-        entityType: 'Transaction',
-        entityId: txn.id,
-        metadata: { amount: txn.amount.toString(), status },
+        action: status === 'VERIFIED' ? 'finance.payment.verify' : 'finance.payment.reject',
+        entityType: 'Payment',
+        entityId: payment.id,
+        metadata: { amount: payment.amount.toString(), status },
       });
-      return txn;
+      return payment;
     });
   }
 
-  findByStudent(studentId: string): Promise<Transaction[]> {
+  findByStudent(studentId: string): Promise<Payment[]> {
     return this.run((tx) =>
-      tx.transaction.findMany({ where: { studentId }, orderBy: { createdAt: 'desc' } }),
+      tx.payment.findMany({ where: { studentId }, orderBy: { createdAt: 'desc' } }),
     );
   }
 
-  /**
-   * Payments for the statement, enriched with the cashier's display name and the linked JoFotara
-   * document. Cashier names are batch-resolved (recordedById is a plain ref, not a FK relation).
-   */
-  findDetailedByStudent(studentId: string): Promise<DetailedTransaction[]> {
+  findDetailedByStudent(studentId: string): Promise<DetailedPayment[]> {
     return this.run(async (tx) => {
-      const txns = await tx.transaction.findMany({
+      const payments = await tx.payment.findMany({
         where: { studentId },
         orderBy: { createdAt: 'desc' },
         include: {
@@ -91,7 +120,9 @@ export class TransactionRepository extends TenantRepository {
           },
         },
       });
-      const recordedIds = [...new Set(txns.map((t) => t.recordedById).filter(Boolean))] as string[];
+      const recordedIds = [
+        ...new Set(payments.map((p) => p.recordedById).filter(Boolean)),
+      ] as string[];
       const users = recordedIds.length
         ? await tx.user.findMany({
             where: { id: { in: recordedIds } },
@@ -104,9 +135,9 @@ export class TransactionRepository extends TenantRepository {
           [u.firstNameEn, u.lastNameEn].filter(Boolean).join(' ').trim() || u.email,
         ]),
       );
-      return txns.map(({ einvoiceDocuments, ...t }) => ({
-        ...t,
-        recordedByName: t.recordedById ? (nameById.get(t.recordedById) ?? null) : null,
+      return payments.map(({ einvoiceDocuments, ...p }) => ({
+        ...p,
+        recordedByName: p.recordedById ? (nameById.get(p.recordedById) ?? null) : null,
         einvoice: einvoiceDocuments[0]
           ? {
               invoiceNumber: einvoiceDocuments[0].invoiceNumber,
@@ -118,11 +149,10 @@ export class TransactionRepository extends TenantRepository {
     });
   }
 
-  findById(id: string): Promise<Transaction | null> {
-    return this.run((tx) => tx.transaction.findFirst({ where: { id } }));
+  findById(id: string): Promise<Payment | null> {
+    return this.run((tx) => tx.payment.findFirst({ where: { id } }));
   }
 
-  /** Student display name + the best parent email (primary first) for settlement notifications. */
   studentNotifyContact(
     studentId: string,
   ): Promise<{ studentNameEn: string; parentEmail: string | null }> {
@@ -144,7 +174,6 @@ export class TransactionRepository extends TenantRepository {
     });
   }
 
-  /** The tenant's display name, for email subject/signature. */
   tenantName(): Promise<string> {
     return this.run(async (tx, tenantId) => {
       const t = await tx.tenant.findFirst({ where: { id: tenantId }, select: { name: true } });
@@ -152,13 +181,6 @@ export class TransactionRepository extends TenantRepository {
     });
   }
 
-  /**
-   * Resolve THIS school's parent-notification sender identity:
-   *  - if the school customised its sender in Notification Settings, use that ("Name <email>");
-   *  - otherwise auto-derive a per-school address on the shared verified domain
-   *    (`<tenant-slug>@<domain>`), so every school sends as itself with no per-school DNS.
-   * `fallbackFrom` is used only when the tenant record is missing.
-   */
   financeSender(
     domain: string,
     fallbackFrom: string,
@@ -169,45 +191,31 @@ export class TransactionRepository extends TenantRepository {
         tx.notificationSettings.findUnique({ where: { tenantId } }),
       ]);
       if (!tenant) return { from: fallbackFrom, replyTo: settings?.replyToEmail ?? null };
-
-      // "Customised" = the admin changed the sender away from the built-in defaults.
       const emailOverridden = Boolean(
         settings && settings.senderEmail && settings.senderEmail !== 'notification@munaxa.com',
       );
       const nameCustom = Boolean(
         settings && settings.senderName && settings.senderName !== 'Munaxa Notifications',
       );
-
       const name = nameCustom ? settings!.senderName : tenant.name;
       const email = emailOverridden ? settings!.senderEmail : `${tenant.slug}@${domain}`;
       return { from: `${name} <${email}>`, replyTo: settings?.replyToEmail ?? null };
     });
   }
 
-  /** Mark that the parent was emailed about this settled payment (audited). */
-  setParentNotified(id: string): Promise<Transaction> {
+  setParentNotified(id: string): Promise<Payment> {
     return this.run(async (tx, tenantId) => {
-      const txn = await tx.transaction.update({
+      const payment = await tx.payment.update({
         where: { id },
         data: { parentNotifiedAt: new Date() },
       });
       await this.writeAudit(tx, tenantId, {
-        action: 'finance.transaction.notifyParent',
-        entityType: 'Transaction',
-        entityId: txn.id,
-        metadata: { studentId: txn.studentId },
+        action: 'finance.payment.notifyParent',
+        entityType: 'Payment',
+        entityId: payment.id,
+        metadata: { studentId: payment.studentId },
       });
-      return txn;
-    });
-  }
-
-  sumVerifiedForStudent(studentId: string): Promise<Prisma.Decimal> {
-    return this.run(async (tx) => {
-      const result = await tx.transaction.aggregate({
-        where: { studentId, status: 'VERIFIED' },
-        _sum: { amount: true },
-      });
-      return result._sum.amount ?? new Prisma.Decimal(0);
+      return payment;
     });
   }
 

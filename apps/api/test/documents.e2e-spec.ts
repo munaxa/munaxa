@@ -54,8 +54,21 @@ describe('Documents / Document Engine (e2e)', () => {
         },
       });
       studentId = student.id;
-      await tx.charge.create({
-        data: { tenantId: TENANT, studentId, description: 'Tuition', amount: 500, status: 'PENDING' },
+      const docAccount = await tx.studentFinancialAccount.create({
+        data: { tenantId: TENANT, studentId },
+      });
+      const docCharge = await tx.charge.create({
+        data: {
+          tenantId: TENANT,
+          accountId: docAccount.id,
+          studentId,
+          description: 'Tuition',
+          amount: 500,
+          status: 'PENDING',
+        },
+      });
+      await tx.installment.create({
+        data: { tenantId: TENANT, chargeId: docCharge.id, seq: 1, amount: 500 },
       });
 
       const finance = await tx.user.create({
@@ -117,7 +130,10 @@ describe('Documents / Document Engine (e2e)', () => {
 
   it('stores no PDF bytea for a DYNAMIC document', async () => {
     const row = await withPlatform(prisma, (tx) =>
-      tx.generatedDocument.findFirst({ where: { id: documentId }, select: { pdf: true, params: true } }),
+      tx.generatedDocument.findFirst({
+        where: { id: documentId },
+        select: { pdf: true, params: true },
+      }),
     );
     expect(row?.pdf ?? null).toBeNull();
     expect(row?.params).toBeTruthy(); // re-render params are persisted instead
@@ -201,6 +217,9 @@ describe('Documents / Document Engine (e2e)', () => {
       .set(auth(teacherToken))
       .send({ type: 'ACCOUNT_STATEMENT', studentId })
       .expect(403);
-    await http().get(`/api/v1/documents?studentId=${studentId}`).set(auth(teacherToken)).expect(403);
+    await http()
+      .get(`/api/v1/documents?studentId=${studentId}`)
+      .set(auth(teacherToken))
+      .expect(403);
   });
 });

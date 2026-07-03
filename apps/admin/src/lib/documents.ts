@@ -42,7 +42,7 @@ export interface DocumentMeta {
   studentId?: string | null;
   academicYearId?: string | null;
   enrollmentId?: string | null;
-  transactionId?: string | null;
+  paymentId?: string | null;
   checksum?: string | null;
   byteSize?: number | null;
   printedCount: number;
@@ -100,7 +100,7 @@ export interface GenerateDocumentInput {
   studentId: string;
   language?: DocumentLanguage;
   academicYearId?: string;
-  transactionId?: string;
+  paymentId?: string;
   includeKinds?: FeeItemKind[];
 }
 
@@ -159,7 +159,8 @@ export const documentsApi = {
 
   download: (id: string) => authFetch(`/documents/${id}/download`).then(openPdf),
 
-  print: (id: string) => authFetch(`/documents/${id}/print`, { method: 'POST', body: '{}' }).then(openPdf),
+  print: (id: string) =>
+    authFetch(`/documents/${id}/print`, { method: 'POST', body: '{}' }).then(openPdf),
 
   email: (id: string, input: EmailDocumentInput) =>
     authFetch(`/documents/${id}/email`, {

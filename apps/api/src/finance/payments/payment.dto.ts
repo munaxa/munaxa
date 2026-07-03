@@ -12,19 +12,14 @@ import {
   Min,
 } from 'class-validator';
 
-export class CreateTransactionDto {
+export class CreatePaymentDto {
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   studentId!: string;
 
-  @ApiPropertyOptional({ format: 'uuid', description: 'Charge this payment is toward' })
-  @IsOptional()
-  @IsUUID()
-  chargeId?: string;
-
-  @ApiProperty({ example: 750, description: 'Amount in JOD' })
+  @ApiProperty({ example: 750, description: 'Amount received in JOD' })
   @IsNumber({ maxDecimalPlaces: 3 })
-  @Min(0)
+  @Min(0.001)
   @Max(100000000)
   amount!: number;
 
@@ -69,7 +64,7 @@ export class PresignReceiptDto {
   size!: number;
 }
 
-export class RejectTransactionDto {
+export class RejectPaymentDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

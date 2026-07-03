@@ -3,12 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { useI18n } from '@/components/i18n-provider';
 import { Badge, Button, Dialog, Field, Select } from '@/components/ui';
-import {
-  TRIP_OPTIONS,
-  type Capacity,
-  type RouteVM,
-  type TripValue,
-} from './lib';
+import { TRIP_OPTIONS, type Capacity, type RouteVM, type TripValue } from './lib';
 
 // ---------------------------------------------------------------------------
 // Capacity / status visuals — warnings only, never blocking.
@@ -75,7 +70,12 @@ export function TripBadge({ round }: { round: number | null | undefined }) {
   const { t } = useI18n();
   if (round == null) return <span className="text-muted-foreground">—</span>;
   const tone = round === 3 ? 'default' : 'muted';
-  const key = round === 1 ? 'transport.trip.first' : round === 2 ? 'transport.trip.second' : 'transport.trip.both';
+  const key =
+    round === 1
+      ? 'transport.trip.first'
+      : round === 2
+        ? 'transport.trip.second'
+        : 'transport.trip.both';
   return <Badge tone={tone}>{t(key)}</Badge>;
 }
 
@@ -137,7 +137,9 @@ export function AssignDialog({
   const target = routes.find((r) => r.route.id === routeId);
   // Project the post‑assignment load so coordinators see the consequence.
   const projected = target ? target.capacity.assigned + count : 0;
-  const willExceed = target ? target.capacity.capacity > 0 && projected > target.capacity.capacity : false;
+  const willExceed = target
+    ? target.capacity.capacity > 0 && projected > target.capacity.capacity
+    : false;
 
   async function confirm() {
     if (!routeId) return;
@@ -176,9 +178,7 @@ export function AssignDialog({
             {routes.map((r) => (
               <option key={r.route.id} value={r.route.id}>
                 {r.route.name}
-                {r.capacity.capacity > 0
-                  ? ` — ${r.capacity.assigned}/${r.capacity.capacity}`
-                  : ''}
+                {r.capacity.capacity > 0 ? ` — ${r.capacity.assigned}/${r.capacity.capacity}` : ''}
               </option>
             ))}
           </Select>
