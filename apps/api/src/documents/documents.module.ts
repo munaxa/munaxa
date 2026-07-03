@@ -42,6 +42,6 @@ import { RegistrationAgreementService } from './registration-agreement.service';
     PaymentRepository,
     LedgerRepository,
   ],
-  exports: [RegistrationAgreementService, DocumentEngineService],
+  exports: [RegistrationAgreementService, DocumentEngineService, FinanceDocumentsService],
 })
 export class DocumentsModule {}

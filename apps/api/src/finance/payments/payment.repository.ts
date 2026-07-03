@@ -198,7 +198,10 @@ export class PaymentRepository extends TenantRepository {
         settings && settings.senderName && settings.senderName !== 'Munaxa Notifications',
       );
       const name = nameCustom ? settings!.senderName : tenant.name;
-      const email = emailOverridden ? settings!.senderEmail : `${tenant.slug}@${domain}`;
+      // Finance/payment mail uses each school's own `<slug>.payments@<domain>` mailbox
+      // (e.g. demo.payments@mail.munaxa.com), unless the tenant has explicitly overridden
+      // the sender in NotificationSettings.
+      const email = emailOverridden ? settings!.senderEmail : `${tenant.slug}.payments@${domain}`;
       return { from: `${name} <${email}>`, replyTo: settings?.replyToEmail ?? null };
     });
   }

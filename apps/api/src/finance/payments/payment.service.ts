@@ -13,6 +13,9 @@ import { MailService } from '../../mail/mail.service';
 import type { Env } from '../../config/env.validation';
 import { requireTenantId } from '../../common/tenant.util';
 import { LedgerService } from '../ledger/ledger.service';
+import { FinanceDocumentsService } from '../../documents/finance-documents.service';
+import { DocumentEngineService } from '../../documents/document-engine.service';
+import { docNumber } from '../../documents/templates/util';
 import type { CreatePaymentDto, PresignReceiptDto, RejectPaymentDto } from './payment.dto';
 
 /**
@@ -28,6 +31,8 @@ export class PaymentService {
     private readonly storage: StorageService,
     private readonly ledger: LedgerService,
     private readonly mail: MailService,
+    private readonly financeDocs: FinanceDocumentsService,
+    private readonly documents: DocumentEngineService,
     private readonly config: ConfigService<Env, true>,
   ) {}
 
@@ -81,14 +86,21 @@ export class PaymentService {
     const schoolName = await this.repo.tenantName();
     const amount = `${payment.amount.toFixed(3)} JOD`;
     const subject = `${schoolName}: payment received`;
+
+    // Render the official payment receipt (re-rendered from the live ledger) and attach it as a PDF.
+    const receipt = await this.financeDocs.paymentReceipt(payment.id, 'EN');
+    const { buffer } = await this.documents.renderBuilt(receipt);
+    const filename = `receipt-${payment.receiptNo != null ? docNumber('RCPT', payment.receiptNo) : payment.id}.pdf`;
+
     const html =
       `<p>Dear parent,</p>` +
       `<p>We confirm we have received a payment of <strong>${amount}</strong>` +
       `${studentNameEn ? ` for <strong>${studentNameEn}</strong>` : ''}.</p>` +
+      `<p>Your receipt is attached as a PDF.</p>` +
       `<p>Thank you,<br/>${schoolName}</p>`;
     const text =
       `Dear parent,\n\nWe confirm we have received a payment of ${amount}` +
-      `${studentNameEn ? ` for ${studentNameEn}` : ''}.\n\nThank you,\n${schoolName}`;
+      `${studentNameEn ? ` for ${studentNameEn}` : ''}.\n\nYour receipt is attached as a PDF.\n\nThank you,\n${schoolName}`;
     const domain = this.config.get('EMAIL_SENDER_DOMAIN', { infer: true });
     const fallbackFrom = this.config.get('EMAIL_FROM_FINANCE', { infer: true });
     const { from, replyTo } = await this.repo.financeSender(domain, fallbackFrom);
@@ -98,6 +110,7 @@ export class PaymentService {
       html,
       text,
       from,
+      attachments: [{ filename, content: buffer }],
       ...(replyTo ? { replyTo } : {}),
     });
     if (!sent) {
