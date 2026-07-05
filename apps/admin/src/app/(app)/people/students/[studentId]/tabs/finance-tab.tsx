@@ -277,10 +277,27 @@ export function FinanceTab({ studentId }: { studentId: string }) {
   }
 
   async function sendReminder(level: string) {
-    await run(
-      () => financeApi.remind(studentId, ['IN_APP'], level || undefined),
-      'Reminder sent to the parent(s)',
-    );
+    setBusy(true);
+    try {
+      const r = await financeApi.remind(studentId, ['IN_APP', 'EMAIL'], level || undefined);
+      const reached = r.recipients + r.emailsSent;
+      if (reached === 0) {
+        toast.error(
+          'No reminder delivered — the parent has no app account or email on file. Add a parent email, or log a call in the Communication Log.',
+        );
+      } else {
+        toast.success(
+          `Reminder sent (${r.recipients} in-app, ${r.emailsSent} email${
+            r.emailsSent === 1 ? '' : 's'
+          }).`,
+        );
+      }
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not send the reminder');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function suspendTransport() {

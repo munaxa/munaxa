@@ -422,7 +422,7 @@ export const financeApi = {
     authFetch(`/finance/collections/students/${studentId}/reminders`, {
       method: 'POST',
       body: JSON.stringify({ channels, ...(level ? { level } : {}) }),
-    }).then((r) => json<{ recipients: number; smsSent: number }>(r)),
+    }).then((r) => json<{ recipients: number; smsSent: number; emailsSent: number }>(r)),
   suspendTransport: (studentId: string, reason: string) =>
     authFetch(`/finance/collections/students/${studentId}/transport/suspend`, {
       method: 'POST',

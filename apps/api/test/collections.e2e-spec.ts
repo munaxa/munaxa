@@ -176,6 +176,7 @@ describe('Fee collections & reminders (e2e)', () => {
       .expect(201);
     expect(res.body.recipients).toBe(1); // one linked parent with an account
     expect(res.body.smsSent).toBe(0); // SMS provider not configured → no-op
+    expect(res.body.emailsSent).toBe(0); // no EMAIL channel requested here
 
     // The parent actually received a notification.
     const notes = await withTenant(prisma, TENANT, (tx) =>
