@@ -14,6 +14,15 @@ import {
   type Installment,
   type Statement,
 } from '@/lib/finance';
+
+const mediumLabel: Record<string, string> = {
+  PHONE: 'Phone call',
+  WHATSAPP: 'WhatsApp',
+  SMS: 'SMS',
+  EMAIL: 'Email',
+  MEETING: 'Meeting',
+  NOTE: 'Note',
+};
 import {
   Badge,
   Button,
@@ -36,6 +45,14 @@ import {
 
 const PAYMENT_METHODS = ['CASH', 'CLIQ', 'EWALLET', 'BANK_TRANSFER'] as const;
 const CADENCES = ['MONTHLY', 'WEEKLY', 'QUARTERLY'] as const;
+const COMM_MEDIUMS = ['PHONE', 'WHATSAPP', 'SMS', 'EMAIL', 'MEETING', 'NOTE'] as const;
+
+function promiseTone(status: string): 'success' | 'warning' | 'danger' | 'muted' {
+  if (status === 'KEPT') return 'success';
+  if (status === 'BROKEN') return 'danger';
+  if (status === 'OVERDUE') return 'warning';
+  return 'muted';
+}
 const ADJUSTMENT_TYPES = [
   'DISCOUNT',
   'SCHOLARSHIP',
@@ -96,6 +113,11 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     reason: string;
   } | null>(null);
   const [refundForm, setRefundForm] = useState({ amount: '', method: 'CASH', reason: '' });
+  const [promiseForm, setPromiseForm] = useState({ amount: '', promiseBy: '', note: '' });
+  const [commForm, setCommForm] = useState<{ medium: string; note: string }>({
+    medium: 'PHONE',
+    note: '',
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -221,6 +243,35 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     }, 'Refund requested (pending verification)');
   }
 
+  async function submitPromise() {
+    const amount = Number(promiseForm.amount);
+    if (!amount || amount <= 0) return toast.error('Enter a promised amount');
+    if (!promiseForm.promiseBy) return toast.error('Choose an expected payment date');
+    await run(async () => {
+      await financeApi.recordPromise(studentId, {
+        amount: amount.toFixed(3),
+        promiseBy: promiseForm.promiseBy,
+        ...(promiseForm.note ? { note: promiseForm.note } : {}),
+      });
+      setPromiseForm({ amount: '', promiseBy: '', note: '' });
+    }, 'Promise to pay recorded');
+  }
+
+  async function submitCommunication() {
+    if (!commForm.note.trim()) return toast.error('Enter what was discussed');
+    await run(async () => {
+      await financeApi.logCommunication(studentId, {
+        medium: commForm.medium as 'PHONE',
+        note: commForm.note.trim(),
+      });
+      setCommForm({ medium: commForm.medium, note: '' });
+    }, 'Communication logged');
+  }
+
+  async function sendReminder() {
+    await run(() => financeApi.remind(studentId, ['IN_APP']), 'Reminder sent to the parent(s)');
+  }
+
   async function downloadReceipt(paymentId: string) {
     try {
       const doc = await documentsApi.generate({ type: 'PAYMENT_RECEIPT', studentId, paymentId });
@@ -268,6 +319,24 @@ export function FinanceTab({ studentId }: { studentId: string }) {
           </div>
         </CardContent>
       </Card>
+
+      {/* ── Collections workspace: overdue snapshot · promises · communication ── */}
+      {collections && (
+        <CollectionsPanel
+          profile={collections}
+          busy={busy}
+          promiseForm={promiseForm}
+          setPromiseForm={setPromiseForm}
+          commForm={commForm}
+          setCommForm={setCommForm}
+          onRecordPromise={() => void submitPromise()}
+          onResolvePromise={(id, kept) =>
+            void run(() => financeApi.resolvePromise(id, kept), 'Promise updated')
+          }
+          onLogCommunication={() => void submitCommunication()}
+          onSendReminder={() => void sendReminder()}
+        />
+      )}
 
       {/* ── Charges → Plans → Installments hierarchy ── */}
       <Card>
@@ -706,6 +775,197 @@ function SectionTable({
         {action}
       </CardHeader>
       <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Collections workspace — the operational surface a finance officer works in daily: the overdue
+ * snapshot, transport status, promises-to-pay (record + resolve) and the communication log. The
+ * primary actions are collect / promise / remind / log — NOT replacing the plan.
+ */
+function CollectionsPanel({
+  profile,
+  busy,
+  promiseForm,
+  setPromiseForm,
+  commForm,
+  setCommForm,
+  onRecordPromise,
+  onResolvePromise,
+  onLogCommunication,
+  onSendReminder,
+}: {
+  profile: CollectionsProfile;
+  busy: boolean;
+  promiseForm: { amount: string; promiseBy: string; note: string };
+  setPromiseForm: (v: { amount: string; promiseBy: string; note: string }) => void;
+  commForm: { medium: string; note: string };
+  setCommForm: (v: { medium: string; note: string }) => void;
+  onRecordPromise: () => void;
+  onResolvePromise: (id: string, kept: boolean) => void;
+  onLogCommunication: () => void;
+  onSendReminder: () => void;
+}) {
+  const s = profile.snapshot;
+  const overdue = Number(s.overdue) > 0;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Collections</CardTitle>
+        <div className="flex items-center gap-2">
+          {profile.transportSuspended && <Badge tone="danger">Transport suspended</Badge>}
+          <Button size="sm" variant="ghost" onClick={onSendReminder} disabled={busy}>
+            Send reminder
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-5">
+        {/* Overdue snapshot — the numbers the officer works from. */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+          <Stat label="Outstanding" value={num(s.outstanding)} />
+          <Stat label="Overdue" value={num(s.overdue)} tone={overdue ? 'text-coral' : ''} />
+          <Stat label="Overdue items" value={String(s.overdueCount)} />
+          <Stat
+            label="Oldest overdue"
+            value={s.oldestOverdueDays ? `${s.oldestOverdueDays}d` : '—'}
+          />
+          <Stat label="Due this month" value={num(s.dueThisMonth)} />
+        </div>
+
+        {/* Promise to Pay — prominent. */}
+        <div>
+          <div className="mb-2 text-sm font-medium">Promise to pay</div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field label="Amount">
+              <Input
+                type="number"
+                min={0}
+                placeholder="0.000"
+                value={promiseForm.amount}
+                onChange={(e) => setPromiseForm({ ...promiseForm, amount: e.target.value })}
+              />
+            </Field>
+            <Field label="Expected date">
+              <Input
+                type="date"
+                value={promiseForm.promiseBy}
+                onChange={(e) => setPromiseForm({ ...promiseForm, promiseBy: e.target.value })}
+              />
+            </Field>
+            <Field label="Note" className="sm:col-span-1">
+              <Input
+                placeholder="optional"
+                value={promiseForm.note}
+                onChange={(e) => setPromiseForm({ ...promiseForm, note: e.target.value })}
+              />
+            </Field>
+            <div className="flex items-end">
+              <Button onClick={onRecordPromise} disabled={busy}>
+                Record promise
+              </Button>
+            </div>
+          </div>
+          {profile.promises.length > 0 && (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Amount</TH>
+                  <TH>By</TH>
+                  <TH>Note</TH>
+                  <TH>Status</TH>
+                  <TH />
+                </TR>
+              </THead>
+              <TBody>
+                {profile.promises.map((p) => (
+                  <TR key={p.id}>
+                    <TD>{num(p.amount)}</TD>
+                    <TD>{dateStr(p.promiseBy)}</TD>
+                    <TD>{p.note ?? '—'}</TD>
+                    <TD>
+                      <Badge tone={promiseTone(p.status)}>{p.status}</Badge>
+                    </TD>
+                    <TD>
+                      {(p.status === 'OPEN' || p.status === 'OVERDUE') && (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onResolvePromise(p.id, true)}
+                            disabled={busy}
+                          >
+                            Kept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onResolvePromise(p.id, false)}
+                            disabled={busy}
+                          >
+                            Broken
+                          </Button>
+                        </div>
+                      )}
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </div>
+
+        {/* Communication log. */}
+        <div>
+          <div className="mb-2 text-sm font-medium">Communication log</div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field label="Medium">
+              <Select
+                value={commForm.medium}
+                onChange={(e) => setCommForm({ ...commForm, medium: e.target.value })}
+              >
+                {COMM_MEDIUMS.map((m) => (
+                  <option key={m} value={m}>
+                    {mediumLabel[m]}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="What was discussed" className="sm:col-span-2">
+              <Input
+                placeholder="e.g. Called father — will pay 2 installments Sunday"
+                value={commForm.note}
+                onChange={(e) => setCommForm({ ...commForm, note: e.target.value })}
+              />
+            </Field>
+            <div className="flex items-end">
+              <Button onClick={onLogCommunication} disabled={busy}>
+                Log contact
+              </Button>
+            </div>
+          </div>
+          {profile.communications.length > 0 && (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>When</TH>
+                  <TH>Medium</TH>
+                  <TH>Note</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {profile.communications.map((c) => (
+                  <TR key={c.id}>
+                    <TD>{dateStr(c.createdAt)}</TD>
+                    <TD>{c.medium ? mediumLabel[c.medium] : '—'}</TD>
+                    <TD>{c.detail ?? '—'}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </div>
+      </CardContent>
     </Card>
   );
 }
