@@ -1,5 +1,10 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CollectionsStatus, CommunicationMedium, ReminderChannel } from '@prisma/client';
+import {
+  CollectionsStatus,
+  CommunicationMedium,
+  ReminderChannel,
+  ReminderLevel,
+} from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -73,6 +78,25 @@ export class SendReminderDto {
   @ArrayMinSize(1)
   @IsEnum(ReminderChannel, { each: true })
   channels!: ReminderChannel[];
+
+  @ApiPropertyOptional({
+    enum: ReminderLevel,
+    description:
+      'Escalation tone (friendly → suspension notice). Defaults to a neutral reminder. Encourages ' +
+      'escalating reminders before any plan change.',
+  })
+  @IsOptional()
+  @IsEnum(ReminderLevel)
+  level?: ReminderLevel;
+}
+
+/** Manually suspend transport for non-payment (records the reason + who). */
+export class SuspendTransportDto {
+  @ApiProperty({ example: 'Overdue > 60 days despite reminders', minLength: 1 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(500)
+  reason!: string;
 }
 
 /**

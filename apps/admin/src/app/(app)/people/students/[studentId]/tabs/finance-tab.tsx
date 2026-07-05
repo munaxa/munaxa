@@ -46,6 +46,14 @@ import {
 const PAYMENT_METHODS = ['CASH', 'CLIQ', 'EWALLET', 'BANK_TRANSFER'] as const;
 const CADENCES = ['MONTHLY', 'WEEKLY', 'QUARTERLY'] as const;
 const COMM_MEDIUMS = ['PHONE', 'WHATSAPP', 'SMS', 'EMAIL', 'MEETING', 'NOTE'] as const;
+const REMINDER_LEVELS = [
+  { value: '', label: 'Reminder…' },
+  { value: 'FRIENDLY', label: 'Friendly' },
+  { value: 'OVERDUE', label: 'Overdue' },
+  { value: 'FINAL', label: 'Final' },
+  { value: 'TRANSPORT_WARNING', label: 'Transport warning' },
+  { value: 'SUSPENSION_NOTICE', label: 'Suspension notice' },
+] as const;
 
 function promiseTone(status: string): 'success' | 'warning' | 'danger' | 'muted' {
   if (status === 'KEPT') return 'success';
@@ -268,8 +276,21 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     }, 'Communication logged');
   }
 
-  async function sendReminder() {
-    await run(() => financeApi.remind(studentId, ['IN_APP']), 'Reminder sent to the parent(s)');
+  async function sendReminder(level: string) {
+    await run(
+      () => financeApi.remind(studentId, ['IN_APP'], level || undefined),
+      'Reminder sent to the parent(s)',
+    );
+  }
+
+  async function suspendTransport() {
+    const reason = window.prompt('Reason for suspending transport?');
+    if (!reason || !reason.trim()) return;
+    await run(() => financeApi.suspendTransport(studentId, reason.trim()), 'Transport suspended');
+  }
+
+  async function reinstateTransport() {
+    await run(() => financeApi.reinstateTransport(studentId), 'Transport reinstated');
   }
 
   async function downloadReceipt(paymentId: string) {
@@ -334,7 +355,9 @@ export function FinanceTab({ studentId }: { studentId: string }) {
             void run(() => financeApi.resolvePromise(id, kept), 'Promise updated')
           }
           onLogCommunication={() => void submitCommunication()}
-          onSendReminder={() => void sendReminder()}
+          onSendReminder={(level) => void sendReminder(level)}
+          onSuspendTransport={() => void suspendTransport()}
+          onReinstateTransport={() => void reinstateTransport()}
         />
       )}
 
@@ -795,6 +818,8 @@ function CollectionsPanel({
   onResolvePromise,
   onLogCommunication,
   onSendReminder,
+  onSuspendTransport,
+  onReinstateTransport,
 }: {
   profile: CollectionsProfile;
   busy: boolean;
@@ -805,19 +830,38 @@ function CollectionsPanel({
   onRecordPromise: () => void;
   onResolvePromise: (id: string, kept: boolean) => void;
   onLogCommunication: () => void;
-  onSendReminder: () => void;
+  onSendReminder: (level: string) => void;
+  onSuspendTransport: () => void;
+  onReinstateTransport: () => void;
 }) {
   const s = profile.snapshot;
   const overdue = Number(s.overdue) > 0;
+  const [level, setLevel] = useState('');
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Collections</CardTitle>
         <div className="flex items-center gap-2">
           {profile.transportSuspended && <Badge tone="danger">Transport suspended</Badge>}
-          <Button size="sm" variant="ghost" onClick={onSendReminder} disabled={busy}>
+          <Select value={level} onChange={(e) => setLevel(e.target.value)} disabled={busy}>
+            {REMINDER_LEVELS.map((l) => (
+              <option key={l.value} value={l.value}>
+                {l.label}
+              </option>
+            ))}
+          </Select>
+          <Button size="sm" variant="ghost" onClick={() => onSendReminder(level)} disabled={busy}>
             Send reminder
           </Button>
+          {profile.transportSuspended ? (
+            <Button size="sm" variant="ghost" onClick={onReinstateTransport} disabled={busy}>
+              Reinstate transport
+            </Button>
+          ) : (
+            <Button size="sm" variant="ghost" onClick={onSuspendTransport} disabled={busy}>
+              Suspend transport
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
@@ -832,6 +876,23 @@ function CollectionsPanel({
           />
           <Stat label="Due this month" value={num(s.dueThisMonth)} />
         </div>
+
+        {/* Transport status detail. */}
+        {(profile.transportSuspended || profile.transportReinstatedAt) && (
+          <div className="rounded-md border border-border px-3 py-2 text-sm">
+            {profile.transportSuspended ? (
+              <span>
+                <span className="font-medium text-coral">Transport suspended</span>
+                {profile.transportSuspendedAt ? ` on ${dateStr(profile.transportSuspendedAt)}` : ''}
+                {profile.transportSuspendedReason ? ` — ${profile.transportSuspendedReason}` : ''}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">
+                Transport active. Last reinstated {dateStr(profile.transportReinstatedAt)}.
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Promise to Pay — prominent. */}
         <div>

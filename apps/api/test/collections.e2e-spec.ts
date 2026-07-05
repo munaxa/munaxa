@@ -332,4 +332,60 @@ describe('Fee collections & reminders (e2e)', () => {
   it('blocks the dashboard for a non-finance role', async () => {
     await http().get(`${C}/dashboard`).set(auth(teacherToken)).expect(403);
   });
+
+  // -- Reminder levels --------------------------------------------------------
+  it('sends a reminder at an escalation level and records the level on the dunning event', async () => {
+    await http()
+      .post(`${C}/students/${sOverdue}/reminders`)
+      .set(auth(financeToken))
+      .send({ channels: ['IN_APP'], level: 'FINAL' })
+      .expect(201);
+    const events = await withTenant(prisma, TENANT, (tx) =>
+      tx.dunningEvent.findMany({
+        where: { type: 'REMINDER', level: 'FINAL' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      }),
+    );
+    expect(events.length).toBe(1);
+    expect(events[0]!.level).toBe('FINAL');
+  });
+
+  // -- Manual transport suspend / reinstate -----------------------------------
+  it('manually suspends and reinstates transport with a reason (audited) and surfaces it', async () => {
+    await http()
+      .post(`${C}/students/${sOverdue}/transport/suspend`)
+      .set(auth(financeToken))
+      .send({ reason: 'Overdue > 60 days despite reminders' })
+      .expect(201);
+
+    let profile = await http().get(`${C}/students/${sOverdue}`).set(auth(financeToken)).expect(200);
+    expect(profile.body.transportSuspended).toBe(true);
+    expect(profile.body.transportSuspendedReason).toContain('Overdue');
+    expect(profile.body.transportSuspendedById).toBeTruthy();
+
+    await http()
+      .post(`${C}/students/${sOverdue}/transport/reinstate`)
+      .set(auth(financeToken))
+      .expect(201);
+
+    profile = await http().get(`${C}/students/${sOverdue}`).set(auth(financeToken)).expect(200);
+    expect(profile.body.transportSuspended).toBe(false);
+    expect(profile.body.transportReinstatedAt).toBeTruthy();
+
+    const audits = await withTenant(prisma, TENANT, (tx) =>
+      tx.auditLog.findMany({
+        where: { action: { in: ['finance.transport.suspend', 'finance.transport.restore'] } },
+      }),
+    );
+    expect(audits.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('blocks manual transport suspension for a finance:read-only role', async () => {
+    await http()
+      .post(`${C}/students/${sOverdue}/transport/suspend`)
+      .set(auth(teacherToken))
+      .send({ reason: 'x' })
+      .expect(403);
+  });
 });

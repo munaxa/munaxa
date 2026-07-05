@@ -782,6 +782,8 @@ function PolicyForm() {
     maxInstallments: '9',
     fullPaymentDiscountPct: '0',
     suspendTransportAfterOverdue: '2',
+    suspendTransportAfterDays: '',
+    suspendTransportAfterAmount: '',
     allowSelfFeeApproval: false,
   });
   const [busy, setBusy] = useState(false);
@@ -797,6 +799,12 @@ function PolicyForm() {
           maxInstallments: String(p.maxInstallments),
           fullPaymentDiscountPct: String(Number(p.fullPaymentDiscountPct)),
           suspendTransportAfterOverdue: String(p.suspendTransportAfterOverdue),
+          suspendTransportAfterDays: p.suspendTransportAfterDays
+            ? String(p.suspendTransportAfterDays)
+            : '',
+          suspendTransportAfterAmount: p.suspendTransportAfterAmount
+            ? String(Number(p.suspendTransportAfterAmount))
+            : '',
           allowSelfFeeApproval: p.allowSelfFeeApproval,
         });
       })
@@ -812,6 +820,12 @@ function PolicyForm() {
         maxInstallments: Number(form.maxInstallments) || 9,
         fullPaymentDiscountPct: Number(form.fullPaymentDiscountPct) || 0,
         suspendTransportAfterOverdue: Number(form.suspendTransportAfterOverdue) || 2,
+        ...(form.suspendTransportAfterDays
+          ? { suspendTransportAfterDays: Number(form.suspendTransportAfterDays) }
+          : {}),
+        ...(form.suspendTransportAfterAmount
+          ? { suspendTransportAfterAmount: Number(form.suspendTransportAfterAmount) }
+          : {}),
         allowSelfFeeApproval: form.allowSelfFeeApproval,
       });
       setPolicy(saved);
@@ -860,6 +874,23 @@ function PolicyForm() {
               type="number"
               value={form.suspendTransportAfterOverdue}
               onChange={(e) => setForm({ ...form, suspendTransportAfterOverdue: e.target.value })}
+              dir="ltr"
+            />
+          </Field>
+          <Field label="…or after N days overdue" hint="Optional — leave blank to disable">
+            <Input
+              type="number"
+              value={form.suspendTransportAfterDays}
+              onChange={(e) => setForm({ ...form, suspendTransportAfterDays: e.target.value })}
+              dir="ltr"
+            />
+          </Field>
+          <Field label="…or overdue amount (JOD)" hint="Optional — leave blank to disable">
+            <Input
+              type="number"
+              step="0.001"
+              value={form.suspendTransportAfterAmount}
+              onChange={(e) => setForm({ ...form, suspendTransportAfterAmount: e.target.value })}
               dir="ltr"
             />
           </Field>

@@ -2694,6 +2694,16 @@ enum CommunicationMedium {
   NOTE
 }
 
+/// Escalation level of a late-payment reminder (additive; nullable on DunningEvent — set on
+/// REMINDER events). Encourages a gentle→firm progression before any plan change.
+enum ReminderLevel {
+  FRIENDLY
+  OVERDUE
+  FINAL
+  TRANSPORT_WARNING
+  SUSPENSION_NOTICE
+}
+
 enum ReminderChannel {
   IN_APP
   SMS
@@ -2752,6 +2762,8 @@ model DunningEvent {
   channels       ReminderChannel[]
   /// Contact medium — only set on COMMUNICATION events (the Communication Log).
   medium         CommunicationMedium?
+  /// Escalation level — only set on REMINDER events (friendly → suspension notice).
+  level          ReminderLevel?
   outstanding    Decimal?          @db.Decimal(12, 3)
   dueThisMonth   Decimal?          @db.Decimal(12, 3)
   overdue        Decimal?          @db.Decimal(12, 3)
@@ -2783,6 +2795,10 @@ model StudentBillingProfile {
   /// Persisted state so boarding/transport flows can consult it; auto-restored when caught up.
   transportSuspended   Boolean           @default(false)
   transportSuspendedAt DateTime?         @db.Timestamptz(6)
+  /// Why/who/when for the current or last transport suspension (additive — audit-friendly display).
+  transportSuspendedReason String?
+  transportSuspendedById   String?       @db.Uuid
+  transportReinstatedAt    DateTime?     @db.Timestamptz(6)
   /// Set true when this student's fees deviate from the standard school plan (registrar override),
   /// driving the permanent "Fee Modified" badge. customArrangement marks a bespoke schedule.
   feeModified          Boolean           @default(false)
@@ -3078,6 +3094,10 @@ model BillingPolicy {
   /// where the same person registers and approves.
   allowSelfFeeApproval                Boolean  @default(false)
   suspendTransportAfterOverdue        Int      @default(2) // # overdue installments
+  /// Optional alternative thresholds (additive): suspend once the oldest overdue installment is
+  /// older than N days, or once the overdue amount exceeds this. Any satisfied threshold suspends.
+  suspendTransportAfterDays           Int? // days the oldest overdue is aged
+  suspendTransportAfterAmount         Decimal? @db.Decimal(12, 3) // overdue amount (JOD)
   createdById                         String?  @db.Uuid
   updatedById                         String?  @db.Uuid
   createdAt                           DateTime @default(now()) @db.Timestamptz(6)
