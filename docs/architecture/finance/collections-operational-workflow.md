@@ -60,14 +60,22 @@ Schema: one additive, nullable column `DunningEvent.medium` + a `CommunicationMe
 `COMMUNICATION` `DunningEventType` value (migration `20260704120000_collections_communication_log`).
 No ledger/plan/data-migration changes.
 
-### Replace Plan → exceptional administrative action
+### Renegotiate Payment Plan → exceptional administrative action
 `POST /finance/charges/:chargeId/plan` accepts an optional `reason`. When an active plan already
-exists the write is audited as **`finance.plan.replace`** (with `reason`, `replaced: true`,
+exists the write is audited as **`finance.plan.renegotiate`** (with `reason`, `replaced: true`,
 `supersededCount`); a first plan is `finance.plan.create`. The previous plan is superseded and the
-new plan is scheduled for the **outstanding balance only** (existing behaviour, retained).
+new plan is scheduled from the **current Ledger Outstanding Balance ONLY** (`net − paid`, from
+`chargeViews`) — never the original charge amount, the original plan total, or a historical schedule.
 
-In the **Student Finance** UI, Replace Plan is removed from the primary action row and placed under a
-per-charge **Advanced actions** disclosure, which requires a reason and a confirmation dialog.
+**Hard invariant (BR-11):** `Σ(new installments) == ledger outstanding` to the last fils (0.001 JOD);
+if the generated schedule would not equal the outstanding, the operation is rejected (fail-closed).
+Previously verified payments stay attached to the superseded plan (history) and never appear inside
+the new plan. Verified scenarios: 1705 debt −190 paid → 1515.000; 1705 −700 (6 mo) → 1005.000;
+1705 −0 → 1705.000; partial/odd payments still take the basis from the ledger to the fils.
+
+In the **Student Finance** UI the action is **Renegotiate Payment Plan** — removed from the primary
+action row and placed under a per-charge **Advanced actions** disclosure, requiring a reason + a
+confirmation dialog.
 
 ## Enriched collections profile
 

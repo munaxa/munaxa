@@ -272,9 +272,9 @@ describe('Finance AR (e2e)', () => {
         .expect(201)
     ).body as { id: string };
 
-    // The replace is audited as finance.plan.replace with the reason.
+    // The replace is audited as finance.plan.renegotiate with the reason.
     const replaceAudits = await withPlatform(prisma, (tx) =>
-      tx.auditLog.findMany({ where: { tenantId: TENANT, action: 'finance.plan.replace' } }),
+      tx.auditLog.findMany({ where: { tenantId: TENANT, action: 'finance.plan.renegotiate' } }),
     );
     expect(replaceAudits.length).toBeGreaterThanOrEqual(1);
     expect(
@@ -307,6 +307,39 @@ describe('Finance AR (e2e)', () => {
     expect(view.history[0]!.status).toBe('SUPERSEDED');
     expect(view.history[0]!.paid).toBe('300.000');
     expect(view.history[0]!.lines.every((i) => i.status === 'PAID')).toBe(true);
+  });
+
+  // ── Renegotiate uses the LEDGER OUTSTANDING as the sole basis (BR-11 invariant) ──
+  it('renegotiate schedules exactly the ledger outstanding, never the original debt', async () => {
+    // Helper: charge → plan(months) → pay → renegotiate(months); return Σ(new installments).
+    const renegotiate = async (debt: number, pay: number, months: number): Promise<string> => {
+      const studentId = await makeStudent(`reneg-${debt}-${pay}-${months}`);
+      const charge = await createCharge(studentId, 'Tuition', debt);
+      await http()
+        .post(`/api/v1/finance/charges/${charge.id}/plan`)
+        .set(auth(financeToken))
+        .send({ cadence: 'MONTHLY', installments: months, firstDueDate: '2026-09-01' })
+        .expect(201);
+      if (pay > 0) await recordAndVerifyPayment(studentId, pay);
+      await http()
+        .post(`/api/v1/finance/charges/${charge.id}/plan`)
+        .set(auth(financeToken))
+        .send({ cadence: 'MONTHLY', installments: months, firstDueDate: '2026-10-01', reason: 'x' })
+        .expect(201);
+      const s = await statement(studentId);
+      const view = s.charges.find((c) => c.charge.id === charge.id)!;
+      const sum = view.installments.reduce((t, i) => t + Number(i.amount), 0).toFixed(3);
+      // Invariant: the active schedule sums to the ledger outstanding, to the fils.
+      expect(sum).toBe(view.balance);
+      expect(view.plan?.status).toBe('ACTIVE');
+      return sum;
+    };
+
+    expect(await renegotiate(1705, 190, 9)).toBe('1515.000'); // scenario 1
+    expect(await renegotiate(1705, 700, 6)).toBe('1005.000'); // scenario 2
+    expect(await renegotiate(1705, 0, 9)).toBe('1705.000'); // scenario 3
+    // scenario 4: an odd partial payment — outstanding still comes from the ledger, to the fils.
+    expect(await renegotiate(1000, 333.333, 7)).toBe('666.667');
   });
 
   // ── Manual allocation to a specific installment ──────────────────────────────
