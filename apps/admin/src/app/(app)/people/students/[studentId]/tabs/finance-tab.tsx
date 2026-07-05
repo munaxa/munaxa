@@ -194,10 +194,10 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     if (!installments || installments < 1) return toast.error('Enter a number of installments');
     if (!planForm.firstDueDate) return toast.error('Choose a first due date');
     if (planForm.isReplace) {
-      if (!planForm.reason.trim()) return toast.error('A reason is required to replace a plan');
+      if (!planForm.reason.trim()) return toast.error('A reason is required to renegotiate a plan');
       if (
         !window.confirm(
-          'Replace the active payment plan?\n\nThe current plan will be superseded (kept for ' +
+          'Renegotiate the active payment plan?\n\nThe current plan will be superseded (kept for ' +
             'history), and a new plan will be generated for the OUTSTANDING balance only. Existing ' +
             'payments and allocations are preserved. This is an exceptional administrative action.',
         )
@@ -215,7 +215,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
         });
         setPlanForm(null);
       },
-      planForm.isReplace ? 'Payment plan replaced' : 'Payment plan created',
+      planForm.isReplace ? 'Payment plan renegotiated' : 'Payment plan created',
     );
   }
 
@@ -417,7 +417,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
         <Card>
           <CardHeader>
             <CardTitle>
-              {planForm.isReplace ? 'Replace payment plan' : 'Create payment plan'}
+              {planForm.isReplace ? 'Renegotiate payment plan' : 'Create payment plan'}
             </CardTitle>
           </CardHeader>
           {planForm.isReplace && (
@@ -471,7 +471,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                 onClick={() => void submitPlan()}
                 disabled={busy}
               >
-                {planForm.isReplace ? 'Replace plan' : 'Create plan'}
+                {planForm.isReplace ? 'Renegotiate plan' : 'Create plan'}
               </Button>
               <Button variant="ghost" onClick={() => setPlanForm(null)}>
                 Cancel
@@ -1207,7 +1207,7 @@ function ChargeNode({
               {showAdvanced && (
                 <div className="mt-2 flex items-center gap-3">
                   <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
-                    Replace payment plan
+                    Renegotiate payment plan
                   </Button>
                   <span className="text-xs text-muted-foreground">
                     Supersedes the current plan and re-schedules the outstanding balance. Requires a

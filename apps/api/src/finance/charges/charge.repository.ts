@@ -140,7 +140,7 @@ export class ChargeRepository extends TenantRepository {
       }
       const replaced = supersededResult.count > 0;
       await this.writeAudit(tx, tenantId, {
-        action: replaced ? 'finance.plan.replace' : 'finance.plan.create',
+        action: replaced ? 'finance.plan.renegotiate' : 'finance.plan.create',
         entityType: 'PaymentPlan',
         entityId: plan.id,
         metadata: {
