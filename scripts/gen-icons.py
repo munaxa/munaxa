@@ -16,12 +16,11 @@ Usage:  python3 scripts/gen-icons.py   (requires Pillow)
 Then wire mobile icons with:  cd apps/mobile && dart run flutter_launcher_icons
 """
 import os
-from PIL import Image, ImageDraw
+from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "docs/design-system/logo.png")
 INK = (9, 11, 12, 255)  # brand ink-900 #090B0C (munaxadesignsystem)
-BRAND = (0, 184, 219)  # brand teal #00B8DB — used for the badge ring
 
 logo = Image.open(SRC).convert("RGBA")
 ratio = logo.width / logo.height
@@ -33,21 +32,6 @@ def square(size, height_frac, bg=None):
     w = max(1, int(h * ratio))
     canvas.alpha_composite(logo.resize((w, h), Image.LANCZOS), ((size - w) // 2, (size - h) // 2))
     return canvas.convert("RGB") if bg else canvas
-
-
-def badge(size, height_frac=0.62):
-    """Circular brand badge: the mark on a deep-ink disk with a thin teal ring.
-    Rendered at 4x and downscaled for clean anti-aliased edges. Transparent outside the disk."""
-    s = size * 4
-    canvas = Image.new("RGBA", (s, s), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(canvas)
-    draw.ellipse([0, 0, s - 1, s - 1], fill=INK)
-    ring = max(2, int(s * 0.012))
-    draw.ellipse([ring, ring, s - 1 - ring, s - 1 - ring], outline=BRAND + (235,), width=ring)
-    h = max(1, int(s * height_frac))
-    w = max(1, int(h * ratio))
-    canvas.alpha_composite(logo.resize((w, h), Image.LANCZOS), ((s - w) // 2, (s - h) // 2))
-    return canvas.resize((size, size), Image.LANCZOS)
 
 
 def write(img, *paths, **kw):
