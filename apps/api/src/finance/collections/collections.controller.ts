@@ -65,6 +65,17 @@ export class CollectionsController {
     return this.service.pushOutstanding(dto);
   }
 
+  @Get('dashboard')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({
+    summary:
+      'Operational finance dashboard: promises due today, missed promises, transport suspensions, ' +
+      'largest outstanding balances, and collection workload counts',
+  })
+  dashboard() {
+    return this.service.dashboard();
+  }
+
   @Get('aging')
   @RequirePermissions(Permission.FINANCE_READ)
   @ApiOperation({
