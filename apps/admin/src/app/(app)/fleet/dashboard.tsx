@@ -44,7 +44,11 @@ export function RouteDashboard({
     let list = data.routeVMs.filter((v) => {
       if (area !== 'all' && v.area !== area) return false;
       if (status !== 'all' && v.capacity.state !== status) return false;
-      if (q && !v.route.name.toLowerCase().includes(q) && !(v.busLabel ?? '').toLowerCase().includes(q))
+      if (
+        q &&
+        !v.route.name.toLowerCase().includes(q) &&
+        !(v.busLabel ?? '').toLowerCase().includes(q)
+      )
         return false;
       return true;
     });
@@ -137,7 +141,11 @@ function Stat({
   tone?: 'default' | 'danger' | 'muted';
 }) {
   const color =
-    tone === 'danger' ? 'text-destructive' : tone === 'muted' ? 'text-muted-foreground' : 'text-foreground';
+    tone === 'danger'
+      ? 'text-destructive'
+      : tone === 'muted'
+        ? 'text-muted-foreground'
+        : 'text-foreground';
   return (
     <Card>
       <CardContent className="pt-5">
@@ -169,7 +177,8 @@ function RouteCard({
           <div>
             <CardTitle className="text-base">{vm.route.name}</CardTitle>
             <p className="text-xs text-muted-foreground">
-              {yearName ?? t('fleet.noYear')} · {vm.area === UNZONED ? t('transport.area.unzoned') : vm.area}
+              {yearName ?? t('fleet.noYear')} ·{' '}
+              {vm.area === UNZONED ? t('transport.area.unzoned') : vm.area}
             </p>
           </div>
           <RouteStatusBadge capacity={vm.capacity} />

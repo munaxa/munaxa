@@ -1,14 +1,75 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, type Charge } from '@prisma/client';
+import { Prisma, type Charge, type Installment, type PaymentPlan } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+import { PrismaService } from '../../prisma/prisma.service';
+import { TenantConnectionManager } from '../../prisma/tenant-connection.service';
 import { TenantContextStore } from '../../prisma/tenant-context';
+import { AccountRepository } from '../account/account.repository';
+import { fromFils } from '../shared/money';
+import type { ScheduleLine } from './installment-schedule.service';
+
+/** Dimensions carried onto a charge for reporting (RR-2). */
+export interface ChargeDimensions {
+  academicYearId?: string | null;
+  gradeId?: string | null;
+  campusId?: string | null;
+  feeItemId?: string | null;
+  enrollmentId?: string | null;
+}
 
 @Injectable()
 export class ChargeRepository extends TenantRepository {
-  create(data: Omit<Prisma.ChargeUncheckedCreateInput, 'tenantId'>): Promise<Charge> {
+  constructor(
+    prisma: PrismaService,
+    connections: TenantConnectionManager,
+    private readonly accounts: AccountRepository,
+  ) {
+    super(prisma, connections);
+  }
+
+  private actor(): string | null {
+    return TenantContextStore.get()?.actorUserId ?? null;
+  }
+
+  /**
+   * Create a charge (the obligation) with its account, plus one **implicit installment**
+   * (seq 1, amount = net = amount, due = dueDate) so all money always allocates to an
+   * installment — one uniform path (BR-8).
+   */
+  create(data: {
+    studentId: string;
+    description: string;
+    amount: number;
+    dueDate: Date | null;
+    dimensions?: ChargeDimensions;
+  }): Promise<Charge> {
     return this.run(async (tx, tenantId) => {
+      const account = await this.accounts.ensureAccountTx(tx, tenantId, data.studentId);
       const charge = await tx.charge.create({
-        data: { ...data, tenantId, createdById: TenantContextStore.get()?.actorUserId ?? null },
+        data: {
+          tenantId,
+          accountId: account.id,
+          studentId: data.studentId,
+          description: data.description,
+          amount: new Prisma.Decimal(data.amount),
+          dueDate: data.dueDate,
+          academicYearId: data.dimensions?.academicYearId ?? null,
+          gradeId: data.dimensions?.gradeId ?? null,
+          campusId: data.dimensions?.campusId ?? null,
+          feeItemId: data.dimensions?.feeItemId ?? null,
+          enrollmentId: data.dimensions?.enrollmentId ?? null,
+          createdById: this.actor(),
+        },
+      });
+      await tx.installment.create({
+        data: {
+          tenantId,
+          chargeId: charge.id,
+          planId: null,
+          seq: 1,
+          dueDate: data.dueDate,
+          amount: charge.amount,
+        },
       });
       await this.writeAudit(tx, tenantId, {
         action: 'finance.charge.create',
@@ -20,31 +81,94 @@ export class ChargeRepository extends TenantRepository {
     });
   }
 
-  findByStudent(studentId: string): Promise<Charge[]> {
-    return this.run((tx) =>
-      tx.charge.findMany({ where: { studentId }, orderBy: { createdAt: 'desc' } }),
-    );
-  }
-
-  /** Active (non-cancelled) installment charges for a student, earliest due first. */
-  installmentCharges(studentId: string): Promise<Charge[]> {
-    return this.run((tx) =>
-      tx.charge.findMany({
-        where: { studentId, installmentPlanId: { not: null }, status: { not: 'CANCELLED' } },
-        orderBy: { dueDate: 'asc' },
-      }),
-    );
-  }
-
-  /** Cancel a pending installment and detach it from its plan (no payments to preserve). */
-  cancelInstallment(id: string): Promise<Charge> {
+  /**
+   * Create (or replace) a payment plan for a charge: supersede any active plan, cancel unsettled
+   * installments (paid ones are retained), and materialise the new schedule. Σ lines == charge.net
+   * is guaranteed by the caller (InstallmentScheduleService) (BR-9, BR-11, IR-6).
+   */
+  createPlan(data: {
+    chargeId: string;
+    cadence: PaymentPlan['cadence'];
+    installments: number;
+    firstDueDate: Date;
+    balloonFinal: boolean;
+    lines: ScheduleLine[];
+    reason?: string | null;
+  }): Promise<PaymentPlan> {
     return this.run(async (tx, tenantId) => {
-      const charge = await tx.charge.update({
-        where: { id },
-        data: { status: 'CANCELLED', installmentPlanId: null },
+      const supersededResult = await tx.paymentPlan.updateMany({
+        where: { chargeId: data.chargeId, status: 'ACTIVE' },
+        data: { status: 'SUPERSEDED' },
+      });
+      const installments = await tx.installment.findMany({
+        where: { chargeId: data.chargeId, status: { not: 'CANCELLED' } },
+      });
+      for (const inst of installments) {
+        const alloc = await tx.paymentAllocation.aggregate({
+          where: { installmentId: inst.id, reversedAt: null },
+          _sum: { amount: true },
+        });
+        if ((alloc._sum.amount ?? new Prisma.Decimal(0)).equals(0)) {
+          await tx.installment.update({
+            where: { id: inst.id },
+            data: { status: 'CANCELLED', amount: 0 },
+          });
+        }
+      }
+      const plan = await tx.paymentPlan.create({
+        data: {
+          tenantId,
+          chargeId: data.chargeId,
+          cadence: data.cadence,
+          installments: data.installments,
+          firstDueDate: data.firstDueDate,
+          balloonFinal: data.balloonFinal,
+          createdById: this.actor(),
+        },
+      });
+      for (const line of data.lines) {
+        await tx.installment.create({
+          data: {
+            tenantId,
+            chargeId: data.chargeId,
+            planId: plan.id,
+            seq: line.seq,
+            dueDate: line.dueDate,
+            amount: fromFils(line.amountFils),
+          },
+        });
+      }
+      const replaced = supersededResult.count > 0;
+      await this.writeAudit(tx, tenantId, {
+        action: replaced ? 'finance.plan.replace' : 'finance.plan.create',
+        entityType: 'PaymentPlan',
+        entityId: plan.id,
+        metadata: {
+          chargeId: data.chargeId,
+          cadence: data.cadence,
+          installments: data.installments,
+          replaced,
+          supersededCount: supersededResult.count,
+          reason: data.reason ?? null,
+        },
+      });
+      return plan;
+    });
+  }
+
+  cancelCharge(id: string): Promise<Charge> {
+    return this.run(async (tx, tenantId) => {
+      const charge = await tx.charge.update({ where: { id }, data: { status: 'CANCELLED' } });
+      await tx.installment.updateMany({
+        where: { chargeId: id, status: { notIn: ['PAID', 'PARTIAL'] } },
+        data: { status: 'CANCELLED' },
+      });
+      await tx.paymentPlan.updateMany({
+        where: { chargeId: id, status: 'ACTIVE' },
+        data: { status: 'CANCELLED' },
       });
       await this.writeAudit(tx, tenantId, {
-        action: 'finance.installment.cancel',
+        action: 'finance.charge.cancel',
         entityType: 'Charge',
         entityId: id,
       });
@@ -52,31 +176,57 @@ export class ChargeRepository extends TenantRepository {
     });
   }
 
-  /** Detach a paid/partly-paid installment from its plan, keeping the charge & its payments. */
-  detachInstallment(id: string): Promise<Charge> {
-    return this.run((tx) => tx.charge.update({ where: { id }, data: { installmentPlanId: null } }));
+  /** Reschedule a single installment's due date/amount, re-asserting Σ == net (BR-15, IR-4). */
+  rescheduleInstallment(
+    id: string,
+    dueDate: Date | null,
+    amount: number | null,
+  ): Promise<Installment> {
+    return this.run(async (tx, tenantId) => {
+      const inst = await tx.installment.findFirstOrThrow({ where: { id } });
+      const data: Prisma.InstallmentUpdateInput = {};
+      if (dueDate !== null) data.dueDate = dueDate;
+      if (amount !== null) data.amount = new Prisma.Decimal(amount);
+      const updated = await tx.installment.update({ where: { id }, data });
+      const [sumAgg, charge, discountAgg] = await Promise.all([
+        tx.installment.aggregate({
+          where: { chargeId: inst.chargeId, status: { not: 'CANCELLED' } },
+          _sum: { amount: true },
+        }),
+        tx.charge.findFirstOrThrow({ where: { id: inst.chargeId } }),
+        tx.feeAdjustment.aggregate({
+          where: { chargeId: inst.chargeId, status: 'APPLIED' },
+          _sum: { amount: true },
+        }),
+      ]);
+      const net = charge.amount.minus(discountAgg._sum.amount ?? new Prisma.Decimal(0));
+      if (!(sumAgg._sum.amount ?? new Prisma.Decimal(0)).equals(net)) {
+        throw new Error('Reschedule would break Σ installments == charge net (BR-9)');
+      }
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.installment.reschedule',
+        entityType: 'Installment',
+        entityId: id,
+        metadata: { chargeId: inst.chargeId },
+      });
+      return updated;
+    });
   }
 
-  sumForStudent(studentId: string): Promise<Prisma.Decimal> {
-    return this.run(async (tx) => {
-      const result = await tx.charge.aggregate({
-        where: { studentId, status: { notIn: ['CANCELLED', 'WAIVED'] } },
-        _sum: { amount: true },
-      });
-      return result._sum.amount ?? new Prisma.Decimal(0);
-    });
+  findByStudent(studentId: string): Promise<Charge[]> {
+    return this.run((tx) =>
+      tx.charge.findMany({ where: { studentId }, orderBy: { createdAt: 'desc' } }),
+    );
+  }
+
+  chargeById(id: string): Promise<Charge | null> {
+    return this.run((tx) => tx.charge.findFirst({ where: { id } }));
   }
 
   studentExists(studentId: string): Promise<boolean> {
     return this.run(
       async (tx) =>
         (await tx.student.findFirst({ where: { id: studentId, deletedAt: null } })) !== null,
-    );
-  }
-
-  feePlanExists(feePlanId: string): Promise<boolean> {
-    return this.run(
-      async (tx) => (await tx.feePlan.findFirst({ where: { id: feePlanId } })) !== null,
     );
   }
 }

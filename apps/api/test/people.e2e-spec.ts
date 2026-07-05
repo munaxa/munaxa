@@ -192,7 +192,13 @@ describe('People management (e2e)', () => {
     const parent = await http()
       .post('/api/v1/parents')
       .set(auth(adminAToken))
-      .send({ firstNameEn: 'Sami', lastNameEn: 'Hadid', firstNameAr: 'سامي', lastNameAr: 'حديد' })
+      .send({
+        firstNameEn: 'Sami',
+        lastNameEn: 'Hadid',
+        firstNameAr: 'سامي',
+        lastNameAr: 'حديد',
+        phone: '0790000123',
+      })
       .expect(201);
 
     await http()

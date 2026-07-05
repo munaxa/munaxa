@@ -43,6 +43,16 @@ const en = {
     requests: 'Demo requests',
     accounts: 'Demo accounts',
   },
+  notFound: {
+    code: '404',
+    badge: 'Page not found',
+    title: 'This page is out of session',
+    description:
+      'The page you were looking for may have been moved, renamed, or never existed. ' +
+      'Let’s get you back to where your school runs smoothly.',
+    ctaHome: 'Back to home',
+    illustrationAlt: 'Munaxa 404 — page not found',
+  },
 };
 
 const ar: typeof en = {
@@ -74,6 +84,16 @@ const ar: typeof en = {
     teacherPortal: 'بوابة المعلم',
     requests: 'طلبات العرض',
     accounts: 'حسابات العرض',
+  },
+  notFound: {
+    code: '404',
+    badge: 'الصفحة غير موجودة',
+    title: 'هذه الصفحة خارج الدوام',
+    description:
+      'ربما تم نقل الصفحة التي تبحث عنها أو تغيير اسمها أو أنها لم تكن موجودة أصلاً. ' +
+      'دعنا نعيدك إلى حيث تسير مدرستك بسلاسة.',
+    ctaHome: 'العودة إلى الرئيسية',
+    illustrationAlt: 'Munaxa 404 — الصفحة غير موجودة',
   },
 };
 

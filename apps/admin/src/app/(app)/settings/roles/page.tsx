@@ -224,12 +224,15 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-const RoleEditor = forwardRef<RoleEditorHandle, {
-  role: RoleSummary;
-  catalog: PermissionCatalogEntry[];
-  onSaved: (r: RoleSummary) => void;
-  onDeleted: (id: string) => void;
-}>(function RoleEditor({ role, catalog, onSaved, onDeleted }, ref) {
+const RoleEditor = forwardRef<
+  RoleEditorHandle,
+  {
+    role: RoleSummary;
+    catalog: PermissionCatalogEntry[];
+    onSaved: (r: RoleSummary) => void;
+    onDeleted: (id: string) => void;
+  }
+>(function RoleEditor({ role, catalog, onSaved, onDeleted }, ref) {
   const toast = useToast();
   const { t } = useI18n();
   const confirm = useConfirm();
@@ -410,7 +413,10 @@ const RoleEditor = forwardRef<RoleEditorHandle, {
                         onChange={() => toggle(p.key)}
                       />
                       {p.description ? (
-                        <Tooltip content={p.description} className="w-56 whitespace-normal text-start">
+                        <Tooltip
+                          content={p.description}
+                          className="w-56 whitespace-normal text-start"
+                        >
                           <span className="font-mono text-xs">{p.key}</span>
                         </Tooltip>
                       ) : (

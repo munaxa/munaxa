@@ -181,7 +181,9 @@ export class CommitDto {
   @IsIn([1, 2])
   busTripRound?: number;
 
-  @ApiPropertyOptional({ description: "Geographic area the student lives in (drives Fleet's Area Planning)." })
+  @ApiPropertyOptional({
+    description: "Geographic area the student lives in (drives Fleet's Area Planning).",
+  })
   @IsOptional()
   @IsUUID()
   areaId?: string;

@@ -102,14 +102,27 @@ describe('Fee collections & reminders (e2e)', () => {
       const lastMonth = new Date();
       lastMonth.setMonth(lastMonth.getMonth() - 1);
       for (const studentId of [sOverdue, sLegal]) {
-        await tx.charge.create({
+        const account = await tx.studentFinancialAccount.create({
+          data: { tenantId: TENANT, studentId },
+        });
+        const charge = await tx.charge.create({
           data: {
             tenantId: TENANT,
+            accountId: account.id,
             studentId,
             description: 'Tuition',
             amount: '500.000',
             dueDate: lastMonth,
             status: 'PENDING',
+          },
+        });
+        await tx.installment.create({
+          data: {
+            tenantId: TENANT,
+            chargeId: charge.id,
+            seq: 1,
+            dueDate: lastMonth,
+            amount: '500.000',
           },
         });
       }
@@ -163,6 +176,7 @@ describe('Fee collections & reminders (e2e)', () => {
       .expect(201);
     expect(res.body.recipients).toBe(1); // one linked parent with an account
     expect(res.body.smsSent).toBe(0); // SMS provider not configured → no-op
+    expect(res.body.emailsSent).toBe(0); // no EMAIL channel requested here
 
     // The parent actually received a notification.
     const notes = await withTenant(prisma, TENANT, (tx) =>
@@ -210,6 +224,169 @@ describe('Fee collections & reminders (e2e)', () => {
       .post(`${C}/students/${sOverdue}/reminders`)
       .set(auth(teacherToken))
       .send({ channels: ['IN_APP'] })
+      .expect(403);
+  });
+
+  // -- Promise to Pay ---------------------------------------------------------
+  it('records a promise-to-pay, exposes it on the profile, and resolves it', async () => {
+    const created = await http()
+      .post(`${C}/students/${sOverdue}/promises`)
+      .set(auth(financeToken))
+      .send({ amount: '300.000', promiseBy: '2099-01-15', note: 'Father will pay after salary' })
+      .expect(201);
+    expect(created.body.amount).toBe('300.000');
+    expect(created.body.status).toBe('OPEN'); // future date, unresolved
+
+    // Appears on the finance card + the case moved to PROMISE_TO_PAY.
+    const profile = await http()
+      .get(`${C}/students/${sOverdue}`)
+      .set(auth(financeToken))
+      .expect(200);
+    expect(profile.body.promises).toHaveLength(1);
+    expect(profile.body.promises[0].id).toBe(created.body.id);
+
+    const list = await http()
+      .get(`${C}/students/${sOverdue}/promises`)
+      .set(auth(financeToken))
+      .expect(200);
+    expect(list.body).toHaveLength(1);
+
+    // Resolve as kept.
+    const resolved = await http()
+      .post(`${C}/promises/${created.body.id}/resolve`)
+      .set(auth(financeToken))
+      .send({ kept: true })
+      .expect(201);
+    expect(resolved.body.status).toBe('KEPT');
+  });
+
+  // -- Communication Log ------------------------------------------------------
+  it('logs a parent communication and lists it (timestamped + audited)', async () => {
+    const logged = await http()
+      .post(`${C}/students/${sOverdue}/communications`)
+      .set(auth(financeToken))
+      .send({ medium: 'PHONE', note: 'Called father, discussed the overdue installment' })
+      .expect(201);
+    expect(logged.body.medium).toBe('PHONE');
+    expect(logged.body.type).toBe('COMMUNICATION');
+
+    const comms = await http()
+      .get(`${C}/students/${sOverdue}/communications`)
+      .set(auth(financeToken))
+      .expect(200);
+    expect(comms.body).toHaveLength(1);
+    expect(comms.body[0].detail).toContain('Called father');
+
+    // Also surfaced on the finance card.
+    const profile = await http()
+      .get(`${C}/students/${sOverdue}`)
+      .set(auth(financeToken))
+      .expect(200);
+    expect(profile.body.communications).toHaveLength(1);
+
+    // The audit trail recorded it.
+    const audits = await withTenant(prisma, TENANT, (tx) =>
+      tx.auditLog.findMany({ where: { action: 'finance.communication.log' } }),
+    );
+    expect(audits.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('blocks promises and communications for a finance:read-only role', async () => {
+    await http()
+      .post(`${C}/students/${sOverdue}/promises`)
+      .set(auth(teacherToken))
+      .send({ amount: '100.000', promiseBy: '2099-01-01' })
+      .expect(403);
+    await http()
+      .post(`${C}/students/${sOverdue}/communications`)
+      .set(auth(teacherToken))
+      .send({ medium: 'NOTE', note: 'x' })
+      .expect(403);
+  });
+
+  // -- Operational dashboard --------------------------------------------------
+  it('serves the operational finance dashboard (workload + largest outstanding)', async () => {
+    // A promise due today → surfaces in promisesDueToday.
+    const today = new Date().toISOString().slice(0, 10);
+    await http()
+      .post(`${C}/students/${sOverdue}/promises`)
+      .set(auth(financeToken))
+      .send({ amount: '150.000', promiseBy: today })
+      .expect(201);
+
+    const res = await http().get(`${C}/dashboard`).set(auth(financeToken)).expect(200);
+    const d = res.body;
+    expect(Array.isArray(d.promisesDueToday)).toBe(true);
+    expect(Array.isArray(d.transportSuspensions)).toBe(true);
+    // The overdue students (500 each) are among the largest outstanding balances.
+    expect(d.topOutstanding.length).toBeGreaterThanOrEqual(1);
+    expect(d.topOutstanding.some((r: { studentId: string }) => r.studentId === sOverdue)).toBe(
+      true,
+    );
+    // Workload counts are populated.
+    expect(d.workload.overdueStudents).toBeGreaterThanOrEqual(1);
+    expect(d.promisesDueToday.some((p: { studentId: string }) => p.studentId === sOverdue)).toBe(
+      true,
+    );
+  });
+
+  it('blocks the dashboard for a non-finance role', async () => {
+    await http().get(`${C}/dashboard`).set(auth(teacherToken)).expect(403);
+  });
+
+  // -- Reminder levels --------------------------------------------------------
+  it('sends a reminder at an escalation level and records the level on the dunning event', async () => {
+    await http()
+      .post(`${C}/students/${sOverdue}/reminders`)
+      .set(auth(financeToken))
+      .send({ channels: ['IN_APP'], level: 'FINAL' })
+      .expect(201);
+    const events = await withTenant(prisma, TENANT, (tx) =>
+      tx.dunningEvent.findMany({
+        where: { type: 'REMINDER', level: 'FINAL' },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      }),
+    );
+    expect(events.length).toBe(1);
+    expect(events[0]!.level).toBe('FINAL');
+  });
+
+  // -- Manual transport suspend / reinstate -----------------------------------
+  it('manually suspends and reinstates transport with a reason (audited) and surfaces it', async () => {
+    await http()
+      .post(`${C}/students/${sOverdue}/transport/suspend`)
+      .set(auth(financeToken))
+      .send({ reason: 'Overdue > 60 days despite reminders' })
+      .expect(201);
+
+    let profile = await http().get(`${C}/students/${sOverdue}`).set(auth(financeToken)).expect(200);
+    expect(profile.body.transportSuspended).toBe(true);
+    expect(profile.body.transportSuspendedReason).toContain('Overdue');
+    expect(profile.body.transportSuspendedById).toBeTruthy();
+
+    await http()
+      .post(`${C}/students/${sOverdue}/transport/reinstate`)
+      .set(auth(financeToken))
+      .expect(201);
+
+    profile = await http().get(`${C}/students/${sOverdue}`).set(auth(financeToken)).expect(200);
+    expect(profile.body.transportSuspended).toBe(false);
+    expect(profile.body.transportReinstatedAt).toBeTruthy();
+
+    const audits = await withTenant(prisma, TENANT, (tx) =>
+      tx.auditLog.findMany({
+        where: { action: { in: ['finance.transport.suspend', 'finance.transport.restore'] } },
+      }),
+    );
+    expect(audits.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('blocks manual transport suspension for a finance:read-only role', async () => {
+    await http()
+      .post(`${C}/students/${sOverdue}/transport/suspend`)
+      .set(auth(teacherToken))
+      .send({ reason: 'x' })
       .expect(403);
   });
 });

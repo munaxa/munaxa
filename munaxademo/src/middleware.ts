@@ -1,6 +1,19 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { verifySession } from '@/lib/auth/token';
 import { cookieName } from '@/lib/auth/session';
+import { isIndexablePath } from '@/lib/seo';
+
+/**
+ * Tags every response as noindex/nofollow except the explicitly public, indexable pages
+ * (e.g. /request-demo). This X-Robots-Tag header is defence-in-depth alongside the
+ * per-route `robots` metadata, guaranteeing authenticated screens never leak into search.
+ */
+function withRobots(res: NextResponse, pathname: string): NextResponse {
+  if (!isIndexablePath(pathname)) {
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
+  return res;
+}
 
 /**
  * Access gate. The demo is NOT publicly accessible: every route except the login
@@ -10,6 +23,7 @@ import { cookieName } from '@/lib/auth/session';
 const PUBLIC_PATHS = [
   '/login',
   '/request-demo',
+  '/sitemap.xml',
   '/api/auth/login',
   '/api/auth/logout',
   '/api/auth/session',
@@ -22,7 +36,7 @@ function isPublic(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
-  if (isPublic(pathname)) return NextResponse.next();
+  if (isPublic(pathname)) return withRobots(NextResponse.next(), pathname);
 
   const token = req.cookies.get(cookieName())?.value;
   const claims = await verifySession(token);
@@ -49,7 +63,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return withRobots(NextResponse.next(), pathname);
 }
 
 export const config = {

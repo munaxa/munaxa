@@ -51,7 +51,7 @@ const doc = (over: Partial<EInvoiceDocument> = {}): EInvoiceDocument => ({
   uuid: '7f1c0a45-9f1e-4d4a-9a8e-0b1c2d3e4f5a',
   icv: BigInt(7),
   chargeId: null,
-  transactionId: null,
+  paymentId: null,
   studentId: null,
   buyerName: 'عمر خالد الحداد',
   buyerIdScheme: 'NIN',

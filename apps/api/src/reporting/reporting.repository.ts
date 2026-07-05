@@ -95,7 +95,7 @@ export class ReportingRepository extends TenantRepository {
 
   verifiedPaymentSums(studentIds: string[]) {
     return this.run((tx) =>
-      tx.transaction.groupBy({
+      tx.payment.groupBy({
         by: ['studentId'],
         where: { studentId: { in: studentIds }, status: 'VERIFIED' },
         _sum: { amount: true },

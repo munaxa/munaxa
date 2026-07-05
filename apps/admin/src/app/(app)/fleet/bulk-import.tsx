@@ -31,7 +31,8 @@ interface ParsedRow {
   error: string | null;
 }
 
-const TEMPLATE = 'Student ID,Route,Trip\n1001,Route A,1st Trip\n1002,Route A,Both Trips\n1003,Route B,2nd Trip\n';
+const TEMPLATE =
+  'Student ID,Route,Trip\n1001,Route A,1st Trip\n1002,Route A,Both Trips\n1003,Route B,2nd Trip\n';
 
 function parseTrip(raw: string): { round: number | undefined; ok: boolean } {
   const v = raw.trim().toLowerCase().replace(/\s+/g, ' ');

@@ -1,12 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  studentsApi,
-  fullNameEn,
-  fullNameAr,
-  type Student,
-} from '@/lib/people';
+import { studentsApi, fullNameEn, fullNameAr, type Student } from '@/lib/people';
 import {
   busApi,
   type Bus,
@@ -48,10 +43,7 @@ export interface BulkOutcome {
  * Run a per-id async action sequentially (keeps the server + audit log calm) and
  * report a summary. Capacity never blocks here — every id is attempted.
  */
-export async function runBulk<T>(
-  ids: T[],
-  action: (id: T) => Promise<void>,
-): Promise<BulkOutcome> {
+export async function runBulk<T>(ids: T[], action: (id: T) => Promise<void>): Promise<BulkOutcome> {
   let ok = 0;
   let failed = 0;
   for (const id of ids) {
@@ -305,10 +297,19 @@ export function useTransport(): TransportData {
       setBuses(b);
       setAssignments(a);
       // Optional, permission‑gated extras — never fatal.
-      studentsApi.list().then(setStudents).catch(() => undefined);
-      sectionsApi.list().then(setSections).catch(() => undefined);
+      studentsApi
+        .list()
+        .then(setStudents)
+        .catch(() => undefined);
+      sectionsApi
+        .list()
+        .then(setSections)
+        .catch(() => undefined);
       // Area master data (real geographic buckets). Best-effort; never fatal.
-      areasApi.list().then(setAreaMaster).catch(() => undefined);
+      areasApi
+        .list()
+        .then(setAreaMaster)
+        .catch(() => undefined);
       void (async () => {
         try {
           const schools = await schoolsApi.list();
@@ -328,7 +329,10 @@ export function useTransport(): TransportData {
       void (async () => {
         try {
           const entries = await Promise.all(
-            r.map(async (route) => [route.id, await busApi.listStops(route.id).catch(() => [])] as const),
+            r.map(
+              async (route) =>
+                [route.id, await busApi.listStops(route.id).catch(() => [])] as const,
+            ),
           );
           setStopsByRoute(Object.fromEntries(entries));
         } catch {

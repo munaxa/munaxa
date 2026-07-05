@@ -2,40 +2,78 @@
 
 import { authFetch } from './auth';
 
-export interface Transaction {
+// ─────────────────────────────────────────────────────────── Accounts Receivable
+
+export type PaymentStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
+export type ChargeStatus = 'PENDING' | 'PARTIAL' | 'PAID' | 'WAIVED' | 'WRITTEN_OFF' | 'CANCELLED';
+export type InstallmentStatus = 'SCHEDULED' | 'PARTIAL' | 'PAID' | 'WAIVED' | 'CANCELLED';
+export type PaymentPlanCadence = 'MONTHLY' | 'WEEKLY' | 'QUARTERLY' | 'CUSTOM';
+
+/** A payment (money received) enriched for the statement. */
+export interface Payment {
   id: string;
   amount: string;
   method: string;
-  status: string;
+  status: PaymentStatus;
   reference?: string | null;
-  chargeId?: string | null;
-  /** ISO timestamp when the parent was emailed about this settled payment (null = not sent). */
   parentNotifiedAt?: string | null;
-  /** ISO timestamp the payment was recorded (the receipt/payment date). */
   createdAt?: string | null;
-  /** Gapless official receipt number, allocated when the payment was verified (null until then). */
   receiptNo?: number | null;
-  /** Display name of the cashier who recorded the payment. */
   recordedByName?: string | null;
-  /** Linked JoFotara e-invoice document, if one was issued. */
   einvoice?: { invoiceNumber: string; status: string; docType: string } | null;
 }
 
-export interface Charge {
+export interface Installment {
   id: string;
-  description: string;
+  seq: number;
+  dueDate: string | null;
   amount: string;
-  status: string;
-  dueDate?: string | null;
+  paid: string;
+  balance: string;
+  status: InstallmentStatus;
+  overdue: boolean;
 }
 
-export interface ChargeBalance {
-  charge: Charge;
+export interface PaymentPlan {
+  id: string;
+  cadence: PaymentPlanCadence;
+  installments: number;
+  firstDueDate: string;
+  balloonFinal: boolean;
+  status: string;
+}
+
+/** A superseded/completed plan retained for history (shown only in the plan-history view). */
+export interface PlanHistory {
+  id: string;
+  cadence: PaymentPlanCadence;
+  count: number;
+  firstDueDate: string;
+  balloonFinal: boolean;
+  status: string;
+  scheduled: string;
+  paid: string;
+  lines: Installment[];
+}
+
+/** A charge (obligation) with its ACTIVE plan + installments and derived balances (the hierarchy). */
+export interface ChargeView {
+  charge: {
+    id: string;
+    description: string;
+    amount: string;
+    status: ChargeStatus;
+    dueDate?: string | null;
+  };
   gross: string;
   discount: string;
   net: string;
-  allocated: string;
+  paid: string;
   balance: string;
+  plan: PaymentPlan | null;
+  installments: Installment[];
+  /** Superseded/completed plans, hidden by default and shown in a history view. */
+  history?: PlanHistory[];
 }
 
 export interface Adjustment {
@@ -49,6 +87,16 @@ export interface Adjustment {
   createdAt: string;
 }
 
+export interface Credit {
+  id: string;
+  source: string;
+  amount: string;
+  remaining: string;
+  reason: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+}
+
 export interface Refund {
   id: string;
   amount: string;
@@ -58,40 +106,26 @@ export interface Refund {
   createdAt: string;
 }
 
+export interface AccountSummary {
+  charged: string;
+  discounts: string;
+  netCharged: string;
+  paid: string;
+  outstanding: string;
+  creditBalance: string;
+  refunded: string;
+}
+
+/** The hierarchical student statement: Account → Charges → Plans → Installments (+ money lists). */
 export interface Statement {
   studentId: string;
-  totals: {
-    charged: string;
-    paid: string;
-    outstanding: string;
-    discounts: string;
-    credits: string;
-    refunded: string;
-    creditBalance: string;
-  };
-  charges: Charge[];
-  transactions: Transaction[];
+  account: { id: string; currency: string; status: string; payerId: string | null };
+  charges: ChargeView[];
+  payments: Payment[];
   adjustments: Adjustment[];
+  credits: Credit[];
   refunds: Refund[];
-  chargeBalances: ChargeBalance[];
-}
-
-export interface InstallmentCharge {
-  id: string;
-  description: string;
-  dueDate?: string | null;
-  /** Scheduled amount for this installment. */
-  amount: string;
-  /** Amount paid/allocated against it so far. */
-  paid: string;
-  /** Remaining balance. */
-  balance: string;
-  status: string;
-}
-
-export interface InstallmentPlan {
-  planId: string;
-  charges: InstallmentCharge[];
+  totals: AccountSummary;
 }
 
 export interface HouseholdMember {
@@ -113,6 +147,9 @@ export interface CollectionsProfile {
   lastReminderAt: string | null;
   transportSuspended: boolean;
   transportSuspendedAt: string | null;
+  transportSuspendedReason: string | null;
+  transportSuspendedById: string | null;
+  transportReinstatedAt: string | null;
   feeModified: boolean;
   customArrangement: boolean;
   snapshot: {
@@ -124,21 +161,49 @@ export interface CollectionsProfile {
     delinquencyLevel: number;
     eligible: boolean;
   };
+  /** Dunning events (reminders) recorded on the account's collections case. */
   reminders: Array<{
     id: string;
+    type: string;
     channels: string[];
-    outstanding: string;
-    dueThisMonth: string;
-    overdue: string;
+    outstanding: string | null;
+    dueThisMonth: string | null;
+    overdue: string | null;
     recipientCount: number;
     smsSentCount: number;
     createdAt: string;
   }>;
+  /** Promises-to-pay (with derived status), newest first. */
+  promises: PromiseToPayView[];
+  /** Logged parent contacts (Communication Log), newest first. */
+  communications: CommunicationEntry[];
+}
+
+export type PromiseStatus = 'OPEN' | 'KEPT' | 'BROKEN' | 'OVERDUE';
+
+export interface PromiseToPayView {
+  id: string;
+  amount: string;
+  promiseBy: string;
+  note: string | null;
+  createdById: string | null;
+  createdAt: string;
+  status: PromiseStatus;
+}
+
+export type CommunicationMedium = 'PHONE' | 'WHATSAPP' | 'SMS' | 'EMAIL' | 'MEETING' | 'NOTE';
+
+export interface CommunicationEntry {
+  id: string;
+  type: string;
+  medium: CommunicationMedium | null;
+  detail: string | null;
+  actorId: string | null;
+  createdAt: string;
 }
 
 export interface AgingBuckets {
   studentId: string;
-  /** Resolved student display name (present on aging-report rows). */
   studentName?: string;
   current: string;
   d1_30: string;
@@ -148,6 +213,39 @@ export interface AgingBuckets {
   total: string;
 }
 
+export interface DashboardPromise {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: string;
+  promiseBy: string;
+}
+
+export interface FinanceDashboard {
+  promisesDueToday: DashboardPromise[];
+  promisesMissed: DashboardPromise[];
+  transportSuspensions: Array<{
+    studentId: string;
+    studentName: string;
+    suspendedAt: string | null;
+  }>;
+  topOutstanding: Array<{
+    studentId: string;
+    studentName: string;
+    outstanding: string;
+    overdue: string;
+  }>;
+  workload: {
+    studentsWithOutstanding: number;
+    overdueStudents: number;
+    openCases: number;
+    promisesOpen: number;
+    transportSuspended: number;
+  };
+  totalOutstanding: string;
+  collectedPct: string;
+}
+
 export interface AgingReport {
   rows: AgingBuckets[];
   totals: Omit<AgingBuckets, 'studentId' | 'studentName'>;
@@ -155,15 +253,10 @@ export interface AgingReport {
 }
 
 export interface PushOutstandingInput {
-  /** Only balances overdue by more than this many days. */
   minAgeDays?: 30 | 60 | 90;
-  /** Only accounts whose total outstanding is ≥ this amount (JOD). */
   minAmount?: string;
-  /** Combine the age + amount filters (default ALL). */
   match?: 'ALL' | 'ANY';
-  /** Bypass parents' notification preferences (school-enforced finance notice). */
   mandatory?: boolean;
-  /** Also email the assigned parent(s) beside the push (default true). */
   email?: boolean;
 }
 
@@ -186,6 +279,18 @@ export interface TransportEvaluation {
   changed: boolean;
 }
 
+/** One row of the dimensional finance report (revenue/outstanding by year/grade/campus/category). */
+export interface FinanceDimensionRow {
+  dimId: string | null;
+  label: string;
+  gross: string;
+  discount: string;
+  net: string;
+  paid: string;
+  outstanding: string;
+  chargeCount: number;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
@@ -196,72 +301,83 @@ async function json<T>(res: Response): Promise<T> {
 }
 
 export const financeApi = {
-  // Charges & payments
-  createCharge: (data: {
-    studentId: string;
-    description: string;
-    amount: number;
-    dueDate?: string;
-  }) =>
-    authFetch('/finance/charges', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
-      json(r),
+  // ── Account, charges, plans, installments ──
+  account: (studentId: string) =>
+    authFetch(`/finance/accounts/${studentId}`).then((r) =>
+      json<{ account: Statement['account']; summary: AccountSummary }>(r),
     ),
   statement: (studentId: string) =>
     authFetch(`/finance/students/${studentId}/statement`).then((r) => json<Statement>(r)),
   household: (studentId: string) =>
     authFetch(`/finance/students/${studentId}/household`).then((r) => json<HouseholdMember[]>(r)),
-  createInstallments: (data: {
+  charges: (studentId: string) =>
+    authFetch(`/finance/charges?studentId=${encodeURIComponent(studentId)}`).then((r) =>
+      json<ChargeView[]>(r),
+    ),
+  createCharge: (data: {
     studentId: string;
     description: string;
-    totalAmount: number;
-    months: number;
-    firstDueDate: string;
-  }) =>
-    authFetch('/finance/charges/installments', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }).then((r) => json(r)),
-  installmentPlan: (studentId: string) =>
-    authFetch(`/finance/charges/installments?studentId=${encodeURIComponent(studentId)}`).then(
-      (r) => json<InstallmentPlan | null>(r),
-    ),
-  deleteInstallmentPlan: (studentId: string) =>
-    authFetch(`/finance/charges/installments?studentId=${encodeURIComponent(studentId)}`, {
-      method: 'DELETE',
-    }).then(() => undefined),
-  recordPayment: (data: {
-    studentId: string;
-    chargeId?: string;
     amount: number;
-    method: string;
-    reference?: string;
+    dueDate?: string;
+    feeItemId?: string;
+    academicYearId?: string;
+    gradeId?: string;
   }) =>
-    authFetch('/finance/transactions', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+    authFetch('/finance/charges', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<{ id: string }>(r),
     ),
-  payInstallment: (data: {
+  /**
+   * Create or replace the payment plan for a charge (schedules the OUTSTANDING balance).
+   * `reason` is required by the UI for a REPLACE (advanced action) and is recorded in the audit log.
+   */
+  createPlan: (
+    chargeId: string,
+    data: {
+      cadence: PaymentPlanCadence;
+      installments: number;
+      firstDueDate: string;
+      balloonFinal?: boolean;
+      reason?: string;
+    },
+  ) =>
+    authFetch(`/finance/charges/${chargeId}/plan`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<PaymentPlan>(r)),
+  cancelCharge: (chargeId: string) =>
+    authFetch(`/finance/charges/${chargeId}/cancel`, { method: 'POST' }).then((r) => json(r)),
+  rescheduleInstallment: (installmentId: string, data: { dueDate?: string; amount?: number }) =>
+    authFetch(`/finance/installments/${installmentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json(r)),
+
+  // ── Payments (money received) ──
+  listPayments: (studentId: string) =>
+    authFetch(`/finance/payments?studentId=${encodeURIComponent(studentId)}`).then((r) =>
+      json<Payment[]>(r),
+    ),
+  recordPayment: (data: {
     studentId: string;
-    chargeId: string;
     amount: number;
     method: string;
     reference?: string;
   }) =>
-    authFetch('/finance/charges/installments/pay', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }).then((r) => json(r)),
+    authFetch('/finance/payments', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<{ id: string }>(r),
+    ),
   verify: (id: string) =>
-    authFetch(`/finance/transactions/${id}/verify`, { method: 'POST' }).then((r) => json(r)),
+    authFetch(`/finance/payments/${id}/verify`, { method: 'POST' }).then((r) => json(r)),
   reject: (id: string) =>
-    authFetch(`/finance/transactions/${id}/reject`, { method: 'POST', body: '{}' }).then((r) =>
+    authFetch(`/finance/payments/${id}/reject`, { method: 'POST', body: '{}' }).then((r) =>
       json(r),
     ),
   notifyParent: (id: string) =>
-    authFetch(`/finance/transactions/${id}/notify-parent`, { method: 'POST' }).then((r) =>
-      json<Transaction>(r),
+    authFetch(`/finance/payments/${id}/notify-parent`, { method: 'POST' }).then((r) =>
+      json<Payment>(r),
     ),
 
-  // Ledger — deductions, allocation, refunds
+  // ── Ledger — adjustments, allocation, credits, refunds ──
   applyAdjustment: (data: {
     studentId: string;
     chargeId?: string;
@@ -275,12 +391,16 @@ export const financeApi = {
     ),
   reverseAdjustment: (id: string) =>
     authFetch(`/finance/ledger/adjustments/${id}/reverse`, { method: 'POST' }).then((r) => json(r)),
-  /** Cascade a verified payment across open charges, earliest due first (down payment). */
-  allocateFifo: (transactionId: string) =>
-    authFetch('/finance/ledger/allocate/fifo', {
+  /** Apply a verified payment to one or more installments. */
+  allocate: (paymentId: string, allocations: Array<{ installmentId: string; amount: number }>) =>
+    authFetch('/finance/ledger/allocate', {
       method: 'POST',
-      body: JSON.stringify({ transactionId }),
+      body: JSON.stringify({ paymentId, allocations }),
     }).then((r) => json(r)),
+  credits: (studentId: string) =>
+    authFetch(`/finance/ledger/credits?studentId=${encodeURIComponent(studentId)}`).then((r) =>
+      json<Credit[]>(r),
+    ),
   createRefund: (data: { studentId: string; amount: number; method: string; reason: string }) =>
     authFetch('/finance/ledger/refunds', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json(r),
@@ -288,7 +408,7 @@ export const financeApi = {
   verifyRefund: (id: string) =>
     authFetch(`/finance/ledger/refunds/${id}/verify`, { method: 'POST' }).then((r) => json(r)),
 
-  // Collections & reminders
+  // ── Collections & reminders ──
   collections: (studentId: string) =>
     authFetch(`/finance/collections/students/${studentId}`).then((r) =>
       json<CollectionsProfile>(r),
@@ -298,26 +418,69 @@ export const financeApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }).then((r) => json(r)),
-  remind: (studentId: string, channels: string[]) =>
+  remind: (studentId: string, channels: string[], level?: string) =>
     authFetch(`/finance/collections/students/${studentId}/reminders`, {
       method: 'POST',
-      body: JSON.stringify({ channels }),
-    }).then((r) => json<{ recipients: number; smsSent: number }>(r)),
-  /** Push outstanding balances to parents, filtered by overdue age and/or minimum amount. */
+      body: JSON.stringify({ channels, ...(level ? { level } : {}) }),
+    }).then((r) => json<{ recipients: number; smsSent: number; emailsSent: number }>(r)),
+  suspendTransport: (studentId: string, reason: string) =>
+    authFetch(`/finance/collections/students/${studentId}/transport/suspend`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }).then((r) => json(r)),
+  reinstateTransport: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/transport/reinstate`, {
+      method: 'POST',
+    }).then((r) => json(r)),
   pushOutstanding: (data: PushOutstandingInput) =>
     authFetch('/finance/collections/reminders/push-outstanding', {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<PushOutstandingResult>(r)),
 
-  // Aging / collection effectiveness
+  // ── Promise to Pay ──
+  recordPromise: (studentId: string, data: { amount: string; promiseBy: string; note?: string }) =>
+    authFetch(`/finance/collections/students/${studentId}/promises`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<PromiseToPayView>(r)),
+  listPromises: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/promises`).then((r) =>
+      json<PromiseToPayView[]>(r),
+    ),
+  resolvePromise: (promiseId: string, kept: boolean) =>
+    authFetch(`/finance/collections/promises/${promiseId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ kept }),
+    }).then((r) => json<PromiseToPayView>(r)),
+
+  // ── Communication Log ──
+  logCommunication: (studentId: string, data: { medium: CommunicationMedium; note: string }) =>
+    authFetch(`/finance/collections/students/${studentId}/communications`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<CommunicationEntry>(r)),
+  listCommunications: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/communications`).then((r) =>
+      json<CommunicationEntry[]>(r),
+    ),
+
+  // ── Dimensional finance report (revenue/outstanding by year/grade/campus/category) ──
+  reportSummary: (dimension: 'academicYear' | 'grade' | 'campus' | 'category') =>
+    authFetch(`/finance/reports/summary?dimension=${dimension}`).then((r) =>
+      json<FinanceDimensionRow[]>(r),
+    ),
+
+  // ── Aging / collection effectiveness ──
   aging: () => authFetch('/finance/collections/aging').then((r) => json<AgingReport>(r)),
+  financeDashboard: () =>
+    authFetch('/finance/collections/dashboard').then((r) => json<FinanceDashboard>(r)),
   studentAging: (studentId: string) =>
     authFetch(`/finance/collections/students/${studentId}/aging`).then((r) =>
       json<AgingBuckets>(r),
     ),
 
-  // Transport suspension (non-payment)
+  // ── Transport suspension (non-payment) ──
   evaluateTransport: (studentId: string) =>
     authFetch(`/finance/collections/students/${studentId}/transport/evaluate`, {
       method: 'POST',
@@ -328,42 +491,7 @@ export const financeApi = {
     ),
 };
 
-// --------------------------------------------------------------------------- Fee plans
-
-export type FeeRecurrence = 'ONE_TIME' | 'MONTHLY' | 'TERM' | 'ANNUAL';
-
-export const FEE_RECURRENCES: FeeRecurrence[] = ['ONE_TIME', 'MONTHLY', 'TERM', 'ANNUAL'];
-
-export interface FeePlan {
-  id: string;
-  name: string;
-  description?: string | null;
-  amount: string;
-  recurrence: FeeRecurrence;
-  isActive: boolean;
-}
-
-export interface CreateFeePlanInput {
-  name: string;
-  description?: string;
-  amount: number;
-  recurrence?: FeeRecurrence;
-  isActive?: boolean;
-}
-
-export const feePlansApi = {
-  list: () => authFetch('/finance/fee-plans').then((r) => json<FeePlan[]>(r)),
-  create: (data: CreateFeePlanInput) =>
-    authFetch('/finance/fee-plans', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
-      json<FeePlan>(r),
-    ),
-  update: (id: string, data: Partial<CreateFeePlanInput>) =>
-    authFetch(`/finance/fee-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then(
-      (r) => json<FeePlan>(r),
-    ),
-};
-
-// ── Enrollment & billing configuration (Phase 1) ──
+// ── Enrollment & billing configuration ──
 export type DiscountType = 'FULL_PAYMENT' | 'SIBLING' | 'SCHOLARSHIP' | 'PROMOTIONAL' | 'MANUAL';
 export type DiscountCalc = 'FIXED' | 'PERCENT';
 export type TransportDirection = 'NONE' | 'ONE_WAY' | 'TWO_WAY';
@@ -382,7 +510,6 @@ export interface TransportFare {
   id: string;
   academicYearId: string;
   routeId: string | null;
-  /** Resolved fleet route (source of truth for the route's name + trip times + disabled state). */
   route: {
     id: string;
     name: string;
@@ -391,9 +518,7 @@ export interface TransportFare {
     round2Time: string | null;
     disabledAt: string | null;
   } | null;
-  /** Two-way (round trip) annual total. */
   amount: string;
-  /** One-way price as a percentage of the two-way total. */
   oneWayPct: string;
   isActive: boolean;
 }
@@ -415,6 +540,8 @@ export interface BillingPolicy {
   maxInstallments: number;
   fullPaymentDiscountPct: string;
   suspendTransportAfterOverdue: number;
+  suspendTransportAfterDays: number | null;
+  suspendTransportAfterAmount: string | null;
   allowSelfFeeApproval: boolean;
 }
 
@@ -524,6 +651,8 @@ export const feeConfigApi = {
     maxInstallments: number;
     fullPaymentDiscountPct: number;
     suspendTransportAfterOverdue: number;
+    suspendTransportAfterDays?: number;
+    suspendTransportAfterAmount?: number;
     allowSelfFeeApproval?: boolean;
   }) =>
     authFetch('/finance/fee-config/policy', {
@@ -532,7 +661,7 @@ export const feeConfigApi = {
     }).then((r) => json<BillingPolicy>(r)),
 };
 
-// ── Enrollment quote (Phase 2) ──
+// ── Enrollment quote ──
 export interface EnrollmentQuote {
   registrationFee: string;
   tuitionFee: string;

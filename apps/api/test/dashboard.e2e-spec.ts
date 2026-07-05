@@ -52,14 +52,21 @@ describe('Dashboard overview (e2e)', () => {
           qrCode: `QR-${TENANT}`,
         },
       });
-      await tx.charge.create({
+      const dashAccount = await tx.studentFinancialAccount.create({
+        data: { tenantId: TENANT, studentId: student.id },
+      });
+      const dashCharge = await tx.charge.create({
         data: {
           tenantId: TENANT,
+          accountId: dashAccount.id,
           studentId: student.id,
           description: 'Tuition',
           amount: '1000.000',
           status: 'PENDING',
         },
+      });
+      await tx.installment.create({
+        data: { tenantId: TENANT, chargeId: dashCharge.id, seq: 1, amount: '1000.000' },
       });
       const mk = async (email: string, role: RoleKey) => {
         const u = await tx.user.create({

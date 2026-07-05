@@ -17,11 +17,11 @@ export function middleware(request: NextRequest) {
 
   const csp = `
     default-src 'self';
-    script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com;
+    script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.clarity.ms;
     style-src 'self' 'nonce-${nonce}';
-    img-src 'self' data: blob:;
+    img-src 'self' data: blob: https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://c.clarity.ms;
     font-src 'self' data:;
-    connect-src 'self' https://challenges.cloudflare.com;
+    connect-src 'self' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://*.google-analytics.com https://*.analytics.google.com https://www.clarity.ms https://*.clarity.ms https://us.i.posthog.com https://eu.i.posthog.com;
     frame-src https://challenges.cloudflare.com;
     object-src 'none';
     base-uri 'self';

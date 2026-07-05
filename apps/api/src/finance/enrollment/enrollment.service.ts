@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FeeConfigRepository } from '../fee-config/fee-config.repository';
+import { splitFils } from '../shared/money';
 import type { QuoteDto } from './enrollment.dto';
 
 const ZERO = new Prisma.Decimal(0);
@@ -114,15 +115,14 @@ export class EnrollmentService {
         throw new BadRequestException(`Installments must be between ${minI} and ${maxI}.`);
       }
       const base = dto.firstDueDate ? new Date(dto.firstDueDate) : new Date();
-      // Split net tuition into integer-fils parts; last absorbs the remainder.
+      // Split net tuition into integer-fils parts (shared single source; last absorbs remainder).
       const totalFils = tuitionNet.mul(1000).toNearest(1).toNumber();
-      const per = Math.floor(totalFils / installments);
+      const parts = splitFils(totalFils, installments);
       for (let i = 0; i < installments; i += 1) {
-        const fils = i === installments - 1 ? totalFils - per * (installments - 1) : per;
         schedulePreview.push({
           index: i + 1,
           dueDate: this.addMonths(base, i).toISOString().slice(0, 10),
-          amount: d(fils).div(1000).toFixed(3),
+          amount: d(parts[i]!).div(1000).toFixed(3),
         });
       }
     } else {

@@ -85,15 +85,21 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/finance', labelKey: 'nav.finance', icon: 'finance', perm: 'finance:read' },
       {
+        href: '/finance/dashboard',
+        labelKey: 'nav.financeDashboard',
+        icon: 'dashboard',
+        perm: 'finance:read',
+      },
+      {
         href: '/finance/collections',
         labelKey: 'nav.collections',
         icon: 'collections',
         perm: 'finance:read',
       },
       {
-        href: '/finance/fee-plans',
-        labelKey: 'nav.feePlans',
-        icon: 'feePlans',
+        href: '/finance/reports',
+        labelKey: 'nav.financeReports',
+        icon: 'collections',
         perm: 'finance:read',
       },
       {
@@ -164,6 +170,12 @@ const NAV_GROUPS: NavGroup[] = [
   {
     titleKey: 'nav.section.settings',
     items: [
+      {
+        href: '/settings/organization',
+        labelKey: 'nav.organization',
+        icon: 'settings',
+        perm: 'organization:read',
+      },
       {
         href: '/structure/schools',
         labelKey: 'nav.structure',

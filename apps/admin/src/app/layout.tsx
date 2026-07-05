@@ -38,6 +38,14 @@ const plexArabic = localFont({
 export const metadata: Metadata = {
   title: 'Munaxa — School Operating System',
   description: 'Munaxa: a multi-tenant School Operating System for K-12 schools.',
+  // Authenticated product surface — never indexable. This is the app-wide default;
+  // the auth pages add self-canonicals on top (see their per-route layouts).
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: { index: false, follow: false, noimageindex: true },
+  },
 };
 
 /**

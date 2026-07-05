@@ -67,6 +67,9 @@ export const Permission = {
   PTM_BOOK: 'ptm:book',
   PTM_MANAGE: 'ptm:manage',
   DOCUMENT_MANAGE: 'document:manage',
+  // Enterprise Document Engine (Phase 23): official document generation & archive.
+  DOCUMENT_READ: 'document:read',
+  DOCUMENT_GENERATE: 'document:generate',
 
   // Student app (resources & gamification)
   RESOURCE_READ: 'resource:read',
@@ -86,6 +89,15 @@ export const Permission = {
   INVENTORY_READ: 'inventory:read',
   CLINIC_MANAGE: 'clinic:manage',
   CLINIC_READ: 'clinic:read',
+
+  // Organization identity & branding (Settings → Organization)
+  ORGANIZATION_READ: 'organization:read',
+  ORGANIZATION_UPDATE: 'organization:update',
+  ORGANIZATION_BRANDING: 'organization:branding',
+  ORGANIZATION_DOCUMENTS: 'organization:documents',
+  ORGANIZATION_COMMUNICATION: 'organization:communication',
+  ORGANIZATION_COMPLIANCE: 'organization:compliance',
+  ORGANIZATION_ADVANCED: 'organization:advanced',
 
   // Reporting & config
   REPORT_READ: 'report:read',
@@ -159,6 +171,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.PTM_BOOK]: 'Book parent-teacher meeting slots.',
   [Permission.PTM_MANAGE]: 'Create and manage parent-teacher meeting schedules.',
   [Permission.DOCUMENT_MANAGE]: 'Upload and manage shared documents.',
+  [Permission.DOCUMENT_READ]:
+    'View, download and reprint archived official documents (agreements, receipts, certificates, statements).',
+  [Permission.DOCUMENT_GENERATE]:
+    'Generate official documents (registration agreements, tuition/clearance/balance certificates, statements) and email them.',
 
   [Permission.RESOURCE_READ]: 'View shared learning resources.',
   [Permission.RESOURCE_MANAGE]: 'Upload and manage shared learning resources.',
@@ -175,6 +191,21 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.INVENTORY_READ]: 'View inventory items and stock levels.',
   [Permission.CLINIC_MANAGE]: 'Record and manage clinic visits and health records.',
   [Permission.CLINIC_READ]: 'View clinic visits and health records.',
+
+  [Permission.ORGANIZATION_READ]:
+    'View the school organization profile, branding, and document settings.',
+  [Permission.ORGANIZATION_UPDATE]:
+    'Edit the school identity, contact, and general organization settings.',
+  [Permission.ORGANIZATION_BRANDING]:
+    'Manage branding assets (logos, stamp, signature, watermark) and their toggles.',
+  [Permission.ORGANIZATION_DOCUMENTS]:
+    'Configure printed document layout (header, footer, margins, QR, paper size).',
+  [Permission.ORGANIZATION_COMMUNICATION]:
+    'Configure organization communication identity (sender, footer, display names).',
+  [Permission.ORGANIZATION_COMPLIANCE]:
+    'Manage legal and compliance identifiers (registration, license, tax/VAT).',
+  [Permission.ORGANIZATION_ADVANCED]:
+    'Configure advanced document defaults (language, fonts, quality, optimization).',
 
   [Permission.REPORT_READ]: 'View reports and dashboards.',
   [Permission.REPORT_EXPORT]: 'Export reports.',

@@ -144,7 +144,7 @@ export class CreateInvoiceDto {
   paymentKind?: EInvoicePaymentKind;
 
   @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() chargeId?: string;
-  @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() transactionId?: string;
+  @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() paymentId?: string;
   @ApiPropertyOptional({ format: 'uuid' }) @IsOptional() @IsUUID() studentId?: string;
 
   @ApiPropertyOptional({ description: 'Mandatory for receivable / cash > 10,000 JOD' })

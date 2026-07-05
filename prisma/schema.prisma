@@ -130,15 +130,42 @@ enum BehaviorType {
   NEUTRAL
 }
 
-enum FeeRecurrence {
-  ONE_TIME
-  MONTHLY
-  TERM
-  ANNUAL
+/// Lifecycle status of a StudentFinancialAccount (§3, BR-4).
+enum AccountStatus {
+  ACTIVE
+  CLOSED
+  WRITTEN_OFF
 }
 
+/// Charge lifecycle (§3.1, ADR-007). OVERDUE is derived, never stored.
 enum ChargeStatus {
   PENDING
+  PARTIAL
+  PAID
+  WAIVED // net driven to 0 by a granted discount/waiver
+  WRITTEN_OFF // bad debt written off
+  CANCELLED // voided / never owed
+}
+
+/// Cadence of a PaymentPlan schedule (IR-3). v1.0 ships MONTHLY as default.
+enum PaymentPlanCadence {
+  MONTHLY
+  WEEKLY
+  QUARTERLY
+  CUSTOM
+}
+
+/// PaymentPlan lifecycle (§3.4).
+enum PaymentPlanStatus {
+  ACTIVE
+  COMPLETED
+  SUPERSEDED
+  CANCELLED
+}
+
+/// Installment lifecycle (§3.3). OVERDUE is derived, never stored.
+enum InstallmentStatus {
+  SCHEDULED
   PARTIAL
   PAID
   WAIVED
@@ -152,7 +179,8 @@ enum PaymentMethod {
   BANK_TRANSFER
 }
 
-enum TransactionStatus {
+/// Payment lifecycle (§3.2).
+enum PaymentStatus {
   PENDING
   VERIFIED
   REJECTED
@@ -334,6 +362,17 @@ enum RoleKey {
   Student
 }
 
+// School type for the Organization identity profile (Settings → Organization → General).
+enum OrganizationSchoolType {
+  PRIVATE
+  INTERNATIONAL
+  NATIONAL
+  IB
+  BRITISH
+  AMERICAN
+  OTHER
+}
+
 // ----------------------------------------------------------------------------
 // Tenancy
 // ----------------------------------------------------------------------------
@@ -375,9 +414,12 @@ model Tenant {
   homeworkAttachments      HomeworkAttachment[]
   behaviorLogs             BehaviorLog[]
   gradeRecords             GradeRecord[]
-  feePlans                 FeePlan[]
+  payers                   Payer[]
+  financialAccounts        StudentFinancialAccount[]
   charges                  Charge[]
-  transactions             Transaction[]
+  paymentPlans             PaymentPlan[]
+  installments             Installment[]
+  payments                 Payment[]
   announcements            Announcement[]
   notifications            Notification[]
   notificationPreferences  NotificationPreference[]
@@ -385,6 +427,7 @@ model Tenant {
   notificationDeliveries   NotificationDelivery[]
   notificationAudits       NotificationAudit[]
   notificationSettings     NotificationSettings?
+  organizationSettings     OrganizationSettings?
   deviceTokens             DeviceToken[]
   featureFlags             FeatureFlag[]
   auditLogs                AuditLog[]
@@ -411,14 +454,18 @@ model Tenant {
   einvoiceSettings         EInvoiceSettings?
   einvoiceCredentials      EInvoiceCredential[]
   einvoiceCounter          EInvoiceCounter?
-  financeReceiptCounter    FinanceReceiptCounter?
+  paymentReceiptCounter    PaymentReceiptCounter?
   einvoiceDocuments        EInvoiceDocument[]
   einvoiceLogs             EInvoiceLog[]
   feeAdjustments           FeeAdjustment[]
   paymentAllocations       PaymentAllocation[]
+  credits                  Credit[]
   refunds                  Refund[]
+  refundConsumptions       RefundConsumption[]
   billingProfiles          StudentBillingProfile[]
-  paymentReminders         PaymentReminder[]
+  collectionsCases         CollectionsCase[]
+  promiseToPays            PromiseToPay[]
+  dunningEvents            DunningEvent[]
   presenceEvents           StudentPresenceEvent[]
   busAttendanceEvents      BusAttendanceEvent[]
   attendanceSourceConfig   AttendanceSourceConfig?
@@ -437,6 +484,11 @@ model Tenant {
   feeModificationApprovals FeeModificationApproval[]
   financialArrangements    FinancialArrangement[]
   registrationCommitments  RegistrationCommitment[]
+  generatedDocuments       GeneratedDocument[]
+  registrationAgreements   RegistrationAgreement[]
+  documentSequences        DocumentSequence[]
+  documentAccessLogs       DocumentAccessLog[]
+  documentEmailLogs        DocumentEmailLog[]
 
   @@index([status])
 }
@@ -504,8 +556,11 @@ model AcademicYear {
   feeSchedules     GradeFeeSchedule[]
   transportFares   TransportFare[]
   gradeFeeItems    GradeFeeItem[]
+  charges          Charge[]
   enrollmentQuotes EnrollmentQuote[]
   enrollments      Enrollment[]
+  generatedDocuments     GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
   busRoutes        BusRoute[]
   serviceAreas     Area[]
 
@@ -548,6 +603,7 @@ model Grade {
   resources        Resource[]
   feeSchedules     GradeFeeSchedule[]
   gradeFeeItems    GradeFeeItem[]
+  charges          Charge[]
   enrollmentQuotes EnrollmentQuote[]
   enrollments      Enrollment[]
 
@@ -646,8 +702,9 @@ model Student {
   attendance            StudentAttendance[]
   behaviorLogs          BehaviorLog[]
   gradeRecords          GradeRecord[]
+  financialAccount      StudentFinancialAccount?
   charges               Charge[]
-  transactions          Transaction[]
+  payments              Payment[]
   leaveRequests         LeaveRequest[]
   ptmBookings           PtmBooking[]
   documents             Document[]
@@ -661,7 +718,6 @@ model Student {
   adjustments           FeeAdjustment[]
   refunds               Refund[]
   billingProfile        StudentBillingProfile?
-  paymentReminders      PaymentReminder[]
   presenceEvents        StudentPresenceEvent[]
   busAttendanceEvents   BusAttendanceEvent[]
   cards                 StudentCard[]
@@ -669,6 +725,8 @@ model Student {
   enrollments           Enrollment[]
   enrollmentQuotes      EnrollmentQuote[]
   financialArrangements FinancialArrangement[]
+  generatedDocuments    GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
 
   @@unique([tenantId, moeStudentNumber])
   @@unique([tenantId, nationalId])
@@ -696,9 +754,12 @@ model Parent {
   updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt   DateTime? @db.Timestamptz(6)
 
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user         User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
-  studentLinks ParentStudent[]
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  studentLinks           ParentStudent[]
+  payers                 Payer[]
+  generatedDocuments     GeneratedDocument[]
+  registrationAgreements RegistrationAgreement[]
 
   // Uniqueness is enforced by PARTIAL unique indexes (WHERE "deletedAt" IS NULL) created in
   // migration 20260622160000_parent_unique_partial — NOT by Prisma @@unique — so that a
@@ -1237,89 +1298,200 @@ model GradeRecord {
 // Finance (no online gateway: payments are recorded; CliQ/e-wallet via receipt upload)
 // ----------------------------------------------------------------------------
 
-model FeePlan {
-  id          String        @id @default(uuid()) @db.Uuid
-  tenantId    String        @db.Uuid
-  name        String
-  description String?
-  amount      Decimal       @db.Decimal(12, 3) // JOD
-  recurrence  FeeRecurrence @default(ONE_TIME)
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+// ============================================================================
+// Accounts Receivable (AR) core — Finance Domain Specification v1.0.
+//   StudentFinancialAccount → Charge → PaymentPlan → Installment
+//                          ↳ Payment → PaymentAllocation (→ Installment)
+//                          ↳ Credit → RefundConsumption ← Refund
+//   A Charge is the financial OBLIGATION; a PaymentPlan is HOW it may be paid;
+//   an Installment is WHEN a portion is due; a Payment is money RECEIVED; an
+//   Allocation applies money to an Installment. These concepts never merge.
+// ============================================================================
 
-  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  charges Charge[]
+/// A billing party (guardian/company) that may be responsible for one or more
+/// student accounts and may hold payments/credits. Receivables stay owned by the
+/// student account (BR-3, ADR-003).
+model Payer {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  parentId    String?  @db.Uuid // link to the guardian person when the payer is a parent
+  nameEn      String
+  nameAr      String
+  phone       String?
+  email       String?
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   Parent?                   @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  accounts StudentFinancialAccount[]
+  payments Payment[]
+  credits  Credit[]
+  refunds  Refund[]
 
   @@index([tenantId])
+  @@index([tenantId, parentId])
 }
 
+/// The AR ledger owner for one student: currency, status, optional payer. Every
+/// financial row for the student hangs off this account (BR-1, BR-2, BR-4).
+model StudentFinancialAccount {
+  id        String        @id @default(uuid()) @db.Uuid
+  tenantId  String        @db.Uuid
+  studentId String        @unique @db.Uuid
+  payerId   String?       @db.Uuid
+  currency  String        @default("JOD")
+  status    AccountStatus @default(ACTIVE)
+  openedAt  DateTime      @default(now()) @db.Timestamptz(6)
+  closedAt  DateTime?     @db.Timestamptz(6)
+  createdAt DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime      @updatedAt @db.Timestamptz(6)
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student         Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  payer           Payer?            @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  charges         Charge[]
+  payments        Payment[]
+  adjustments     FeeAdjustment[]
+  credits         Credit[]
+  refunds         Refund[]
+  collectionsCase CollectionsCase?
+
+  @@index([tenantId])
+  @@index([tenantId, payerId])
+}
+
+/// A single financial OBLIGATION owed by one account (e.g. "Annual Tuition 2026/27").
+/// Never split into sub-charges; paid via 0..1 active PaymentPlan (BR-5..10, ADR-001).
 model Charge {
-  id                String       @id @default(uuid()) @db.Uuid
-  tenantId          String       @db.Uuid
-  studentId         String       @db.Uuid
-  feePlanId         String?      @db.Uuid
-  description       String
-  amount            Decimal      @db.Decimal(12, 3)
-  dueDate           DateTime?    @db.Date
-  status            ChargeStatus @default(PENDING)
-  // Groups the charges that belong to one parent installment plan (one active plan per student).
-  installmentPlanId String?      @db.Uuid
-  createdById       String?      @db.Uuid
-  createdAt         DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt         DateTime     @updatedAt @db.Timestamptz(6)
+  id             String       @id @default(uuid()) @db.Uuid
+  tenantId       String       @db.Uuid
+  accountId      String       @db.Uuid
+  studentId      String       @db.Uuid // denormalised for RLS-friendly filters + reporting
+  // Reporting dimensions (RR-2) — nullable when not derivable.
+  academicYearId String?      @db.Uuid
+  gradeId        String?      @db.Uuid
+  campusId       String?      @db.Uuid
+  feeItemId      String?      @db.Uuid
+  enrollmentId   String?      @db.Uuid
+  description    String
+  amount         Decimal      @db.Decimal(12, 3)
+  currency       String       @default("JOD")
+  dueDate        DateTime?    @db.Date // pay-in-full due when there is no plan
+  status         ChargeStatus @default(PENDING)
+  createdById    String?      @db.Uuid
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
 
-  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student           Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  feePlan           FeePlan?            @relation(fields: [feePlanId], references: [id], onDelete: SetNull)
-  transactions      Transaction[]
-  einvoiceDocuments EInvoiceDocument[]
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account           StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  student           Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear      AcademicYear?           @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  grade             Grade?                  @relation(fields: [gradeId], references: [id], onDelete: SetNull)
+  feeItem           FeeItem?                @relation(fields: [feeItemId], references: [id], onDelete: SetNull)
+  plans             PaymentPlan[] // one ACTIVE at a time (partial unique index); history retained
+  installments      Installment[]
   adjustments       FeeAdjustment[]
-  allocations       PaymentAllocation[]
+  einvoiceDocuments EInvoiceDocument[]
 
+  @@index([tenantId, accountId])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
-  @@index([tenantId, installmentPlanId])
+  @@index([tenantId, academicYearId])
+  @@index([tenantId, feeItemId])
 }
 
-// A payment toward a student's charges. CliQ/e-wallet payments are uploaded as receipts
-// (receiptKey in S3) and start PENDING until a FinanceOfficer verifies them.
-model Transaction {
-  id           String            @id @default(uuid()) @db.Uuid
-  tenantId     String            @db.Uuid
-  studentId    String            @db.Uuid
-  chargeId     String?           @db.Uuid
-  amount       Decimal           @db.Decimal(12, 3)
-  method       PaymentMethod
-  reference    String? // e.g. CliQ reference
-  receiptKey   String? // S3 object key for an uploaded receipt
-  // Gapless, per-tenant official receipt number — allocated when the payment is VERIFIED (a
-  // receipt represents confirmed money, so rejected/pending payments never burn a number).
-  receiptNo    Int?
-  status       TransactionStatus @default(PENDING)
-  note         String?
-  recordedById String?           @db.Uuid
-  verifiedById String?           @db.Uuid
-  verifiedAt   DateTime?         @db.Timestamptz(6)
-  // When a parent was notified by email that this settled payment was received (null = not sent).
-  parentNotifiedAt DateTime?     @db.Timestamptz(6)
-  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime          @updatedAt @db.Timestamptz(6)
+/// HOW a charge may be paid over time: cadence, count, terms, status. 0..1 active per
+/// charge; superseding regenerates the schedule for the remaining balance (BR-11..13, ADR-001).
+model PaymentPlan {
+  id           String             @id @default(uuid()) @db.Uuid
+  tenantId     String             @db.Uuid
+  chargeId     String             @db.Uuid
+  cadence      PaymentPlanCadence @default(MONTHLY)
+  installments Int
+  firstDueDate DateTime           @db.Date
+  balloonFinal Boolean            @default(false)
+  status       PaymentPlanStatus  @default(ACTIVE)
+  createdById  String?            @db.Uuid
+  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @db.Timestamptz(6)
 
-  tenant            Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student           Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  charge            Charge?             @relation(fields: [chargeId], references: [id], onDelete: SetNull)
-  einvoiceDocuments EInvoiceDocument[]
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  charge          Charge        @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  installmentRows Installment[]
+
+  // At most one ACTIVE plan per charge is enforced by a partial unique index (see migration).
+  @@index([tenantId, chargeId])
+  @@index([tenantId, status])
+}
+
+/// WHEN a scheduled portion of a charge's net is expected. A schedule line — never a
+/// charge, never invoiced. Σ installment.amount == charge.net (BR-9, BR-14, IR-2).
+model Installment {
+  id        String            @id @default(uuid()) @db.Uuid
+  tenantId  String            @db.Uuid
+  chargeId  String            @db.Uuid // denormalised for direct account/aging scans
+  planId    String?           @db.Uuid // null = the implicit single installment of a plan-less charge
+  seq       Int
+  dueDate   DateTime?         @db.Date
+  amount    Decimal           @db.Decimal(12, 3)
+  status    InstallmentStatus @default(SCHEDULED)
+  createdAt DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime          @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  charge      Charge              @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  plan        PaymentPlan?        @relation(fields: [planId], references: [id], onDelete: Cascade)
+  allocations PaymentAllocation[]
+
+  @@index([tenantId, chargeId])
+  @@index([tenantId, planId])
+  @@index([tenantId, dueDate])
+  @@index([tenantId, status])
+}
+
+/// Actual money RECEIVED. CliQ/e-wallet payments are uploaded as receipts (receiptKey in S3)
+/// and start PENDING until a FinanceOfficer verifies them; a gapless receiptNo is assigned
+/// once, at verify. Allocations apply the money to installments (BR-17..25).
+model Payment {
+  id               String              @id @default(uuid()) @db.Uuid
+  tenantId         String              @db.Uuid
+  accountId        String              @db.Uuid
+  studentId        String              @db.Uuid
+  payerId          String?             @db.Uuid
+  amount           Decimal             @db.Decimal(12, 3)
+  currency         String              @default("JOD")
+  method           PaymentMethod
+  reference        String? // e.g. CliQ reference
+  receiptKey       String? // S3 object key for an uploaded receipt
+  receiptNo        Int? // gapless per-tenant official receipt number (assigned at verify)
+  status           PaymentStatus       @default(PENDING)
+  note             String?
+  recordedById     String?             @db.Uuid
+  verifiedById     String?             @db.Uuid
+  verifiedAt       DateTime?           @db.Timestamptz(6)
+  parentNotifiedAt DateTime?           @db.Timestamptz(6)
+  createdAt        DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(6)
+
+  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account           StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  student           Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  payer             Payer?                  @relation(fields: [payerId], references: [id], onDelete: SetNull)
   allocations       PaymentAllocation[]
+  credits           Credit[]
+  einvoiceDocuments EInvoiceDocument[]
 
   @@unique([tenantId, receiptNo])
+  @@index([tenantId, accountId])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
 }
 
 /// Row-locked, per-tenant counter that hands out gapless receipt numbers for verified payments
-/// (same pattern as EInvoiceCounter / the JoFotara ICV). Created lazily on first use.
-model FinanceReceiptCounter {
+/// (same pattern as EInvoiceCounter / the JoFotara ICV). Created lazily on first use (BR-18, MT-3).
+model PaymentReceiptCounter {
   id            String @id @default(uuid()) @db.Uuid
   tenantId      String @unique @db.Uuid
   nextReceiptNo Int    @default(1)
@@ -1491,6 +1663,132 @@ model NotificationSettings {
   updatedAt    DateTime @updatedAt @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// Single source of truth for school identity, branding, document generation, communication,
+/// compliance, social presence, and advanced document defaults (Settings → Organization).
+/// One row per tenant. Every optional branding/document feature has its own enable toggle; when a
+/// toggle is off the corresponding asset/section is omitted from generated documents and the UI.
+/// Asset columns store S3 object keys (never the binary). Structured/optional sub-configs are kept
+/// in JSON columns (forward-compatible, mirrors EInvoiceSettings.templateConfig).
+model OrganizationSettings {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @unique @db.Uuid
+
+  // ── General / identity ──
+  nameEn           String?
+  nameAr           String?
+  legalName        String?
+  shortName        String?
+  schoolCode       String?
+  ministryNumber   String?
+  schoolType       OrganizationSchoolType @default(PRIVATE)
+  motto            String?
+  mission          String?
+  vision           String?
+  establishedYear  Int?
+  description       String?
+  timezone         String                 @default("Asia/Amman")
+  defaultLanguage  String                 @default("en")
+  academicCalendar String?
+
+  // ── Contact ──
+  phone            String?
+  mobile           String?
+  whatsapp         String?
+  email            String?
+  website          String?
+  country          String?
+  city             String?
+  district         String?
+  street           String?
+  building         String?
+  postalCode       String?
+  googleMapsUrl    String?
+  latitude         Decimal? @db.Decimal(10, 7)
+  longitude        Decimal? @db.Decimal(10, 7)
+  emergencyContact String?
+  officeHours      String?
+
+  // ── Branding feature toggles (every feature independently enabled) ──
+  logoEnabled      Boolean @default(false)
+  darkLogoEnabled  Boolean @default(false)
+  smallLogoEnabled Boolean @default(false)
+  watermarkEnabled Boolean @default(false)
+  stampEnabled     Boolean @default(false)
+  signatureEnabled Boolean @default(false)
+
+  // ── Branding assets (S3 object keys) ──
+  logoKey      String?
+  darkLogoKey  String?
+  smallLogoKey String?
+  stampKey     String?
+  signatureKey String?
+  bannerKey    String?
+
+  // ── Branding structured config ──
+  logoVisibility    Json? // { reports, certificates, studentCards, parentPortal, mobileApp, login }
+  watermark         Json? // { source: LOGO|SCHOOL_NAME|CONFIDENTIAL, text, opacity, scale, rotation }
+  stampPlacement    String @default("RIGHT") // LEFT | CENTER | RIGHT
+  signaturePosition String @default("RIGHT") // LEFT | CENTER | RIGHT
+
+  // ── Document settings ──
+  headerEnabled Boolean @default(false)
+  footerEnabled Boolean @default(false)
+  qrEnabled     Boolean @default(false)
+  documents     Json? // { headerHtml, headerAlign, footerHtml, footerAlign, logoPosition, paperSize, margins{top,bottom,left,right}, headerHeight, footerHeight, qrContent }
+
+  // ── Communication identity ──
+  senderName              String?
+  senderEmail             String?
+  replyToEmail            String?
+  emailFooter             String?
+  notificationDisplayName String?
+  smsSender               String?
+  whatsappDisplayName     String?
+  pushIconKey             String?
+  notificationImageKey    String?
+
+  // ── Social & website ──
+  socialEnabled Boolean @default(false)
+  social        Json? // { website, facebook, instagram, linkedin, youtube, tiktok, x }
+
+  // ── Academic identity ──
+  curriculum         String?
+  academicYearFormat String?
+  colorTheme         String?
+
+  // ── Compliance (optional) ──
+  complianceEnabled      Boolean @default(false)
+  commercialRegistration String?
+  licenseNumber          String?
+  ministryLicense        String?
+  taxNumber              String?
+  vatNumber              String?
+  otherGovIds            Json? // [{ label, value }]
+
+  // ── Advanced document defaults ──
+  defaultReportLanguage      String  @default("en")
+  defaultCertificateLanguage String  @default("en")
+  documentNumberPrefix       String?
+  defaultFont                String?
+  defaultReportTheme         String?
+  defaultLogoVariant         String  @default("PRIMARY") // PRIMARY | DARK | SMALL
+  documentCompression        Boolean @default(true)
+  pdfQuality                 Int     @default(90)
+  imageQuality               Int     @default(85)
+  storageOptimization        Boolean @default(true)
+
+  // ── Audit ──
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
 }
 
 model DeviceToken {
@@ -2122,9 +2420,9 @@ model EInvoiceDocument {
   invoiceNumber      String // merchant's own number (sanitised: no '/')
   uuid               String              @unique @db.Uuid // provider-side duplication key — stable across retries
   icv                BigInt? // allocated when queued; gapless per tenant
-  // Finance source (one of)
+  // Finance source (one of): a Charge (receivable invoice) or a Payment (receipt).
   chargeId           String?             @db.Uuid
-  transactionId      String?             @db.Uuid
+  paymentId          String?             @db.Uuid
   studentId          String?             @db.Uuid
   // Buyer snapshot (frozen at issue time — guardian or payer)
   buyerName          String?
@@ -2159,7 +2457,7 @@ model EInvoiceDocument {
 
   tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   charge      Charge?            @relation(fields: [chargeId], references: [id], onDelete: SetNull)
-  transaction Transaction?       @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  payment     Payment?           @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   student     Student?           @relation(fields: [studentId], references: [id], onDelete: SetNull)
   original    EInvoiceDocument?  @relation("CreditNoteOriginal", fields: [originalDocumentId], references: [id], onDelete: SetNull)
   creditNotes EInvoiceDocument[] @relation("CreditNoteOriginal")
@@ -2200,7 +2498,8 @@ enum AdjustmentType {
   DISCOUNT // general discount
   SIBLING_DISCOUNT
   STAFF_DISCOUNT
-  WAIVER // partial/full waive of a specific charge
+  WAIVER // partial/full waive of a specific charge (granted discount)
+  WRITE_OFF // bad debt written off (distinct from a granted waiver) — ADR-007
   CREDIT_MEMO // account-level credit not tied to a charge
   CORRECTION // fixes a billing error
 }
@@ -2216,10 +2515,21 @@ enum RefundStatus {
   REJECTED
 }
 
-/// A deduction: reduces a charge's net (chargeId set) or grants account credit (chargeId null).
+/// The provenance of a Credit asset lot (CR-1).
+enum CreditSource {
+  OVERPAYMENT // residual verified payment after all installments settled (AR-5)
+  CREDIT_MEMO // account-level CREDIT_MEMO adjustment
+  SCHOLARSHIP // scholarship converted to account credit
+  RETURN // returned goods/services
+}
+
+/// A deduction/correction against a charge's net (chargeId set) or the account (chargeId null,
+/// CREDIT_MEMO → grants a Credit). Types: discount/scholarship/waiver/write-off/correction/
+/// credit-memo (BR-26..30).
 model FeeAdjustment {
   id           String           @id @default(uuid()) @db.Uuid
   tenantId     String           @db.Uuid
+  accountId    String           @db.Uuid
   studentId    String           @db.Uuid
   chargeId     String?          @db.Uuid // null = account-level credit memo
   type         AdjustmentType
@@ -2233,39 +2543,74 @@ model FeeAdjustment {
   createdAt    DateTime         @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  charge  Charge? @relation(fields: [chargeId], references: [id], onDelete: SetNull)
+  tenant  Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  student Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  charge  Charge?                 @relation(fields: [chargeId], references: [id], onDelete: SetNull)
+  credit  Credit? // set when this adjustment granted a credit lot
 
+  @@index([tenantId, accountId])
   @@index([tenantId, studentId])
   @@index([tenantId, chargeId])
   @@index([tenantId, status])
 }
 
-/// Applies (part of) a verified payment to a specific charge. reversedAt null = active.
+/// Applies (part of) a verified payment to a specific INSTALLMENT. reversedAt null = active
+/// (AR-1, BR-22). Allocation never targets a charge directly.
 model PaymentAllocation {
   id            String    @id @default(uuid()) @db.Uuid
   tenantId      String    @db.Uuid
-  transactionId String    @db.Uuid
-  chargeId      String    @db.Uuid
+  paymentId     String    @db.Uuid
+  installmentId String    @db.Uuid
   amount        Decimal   @db.Decimal(12, 3)
   createdById   String?   @db.Uuid
   reversedAt    DateTime? @db.Timestamptz(6)
   createdAt     DateTime  @default(now()) @db.Timestamptz(6)
 
   tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  charge      Charge      @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  payment     Payment     @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  installment Installment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
 
-  @@index([tenantId, transactionId])
-  @@index([tenantId, chargeId])
+  @@index([tenantId, paymentId])
+  @@index([tenantId, installmentId])
 }
 
-/// A refund of available credit back to the payer. Same verify workflow as a payment.
+/// An independent asset lot the account holds (over-payment, credit-memo, …), with provenance
+/// and a derived remaining balance. Refunds and future credit-applications draw it down (CR-1..5).
+model Credit {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @db.Uuid
+  accountId    String       @db.Uuid
+  payerId      String?      @db.Uuid
+  source       CreditSource
+  amount       Decimal      @db.Decimal(12, 3)
+  adjustmentId String?      @unique @db.Uuid // provenance when granted by a CREDIT_MEMO
+  paymentId    String?      @db.Uuid // provenance when from an over-payment
+  reason       String?
+  expiresAt    DateTime?    @db.Date
+  createdById  String?      @db.Uuid
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account      StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  payer        Payer?                  @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  adjustment   FeeAdjustment?          @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
+  payment      Payment?                @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  consumptions RefundConsumption[]
+
+  @@index([tenantId, accountId])
+  @@index([tenantId, payerId])
+}
+
+/// A refund of available credit back to the payer. Consumes specific Credit lots FIFO. Same
+/// verify workflow as a payment (BR-33..35, CR-2).
 model Refund {
   id           String        @id @default(uuid()) @db.Uuid
   tenantId     String        @db.Uuid
+  accountId    String        @db.Uuid
   studentId    String        @db.Uuid
+  payerId      String?       @db.Uuid
   amount       Decimal       @db.Decimal(12, 3)
   method       PaymentMethod
   reference    String?
@@ -2278,23 +2623,85 @@ model Refund {
   createdAt    DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt    DateTime      @updatedAt @db.Timestamptz(6)
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account      StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  student      Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  payer        Payer?                  @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  consumptions RefundConsumption[]
 
+  @@index([tenantId, accountId])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
 }
 
+/// A single Credit lot drawn by a Refund (FIFO). Σ consumptions == refund.amount (BR-34).
+model RefundConsumption {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  refundId  String   @db.Uuid
+  creditId  String   @db.Uuid
+  amount    Decimal  @db.Decimal(12, 3)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  refund Refund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  credit Credit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, refundId])
+  @@index([tenantId, creditId])
+}
+
 // ----------------------------------------------------------------------------
-// Fee collections (Phase 18) — per-student collections/legal tagging and late-payment
-// reminders (in-app + SMS) to parents. Students tagged LEGAL ("contact the lawyer") are
-// excluded from automated reminders.
+// Collections & Dunning — the dunning workflow over an account's OVERDUE installments.
+//   CollectionsCase (aggregate root) + PromiseToPay + DunningEvent; StudentBillingProfile
+//   is a cached projection of the headline status + permanent flags (BR-40..42, ADR-010).
+//   Students in LEGAL are excluded from automated reminders.
 // ----------------------------------------------------------------------------
 
+/// Cached headline collections status on the profile projection (NONE until a case opens).
 enum CollectionsStatus {
   NONE
-  FINANCIAL_ISSUE // flagged: has financial issues, watch the account
+  FINANCIAL_ISSUE // watch: has an open collections case
   LEGAL // escalated to the lawyer — excluded from automated reminders
+}
+
+/// Workflow status of a CollectionsCase (§3.7).
+enum CollectionsCaseStatus {
+  OPEN
+  PROMISE_TO_PAY
+  LEGAL
+  RESOLVED
+}
+
+/// Type of a recorded dunning event within a case.
+enum DunningEventType {
+  REMINDER // an automated/manual late-payment reminder was sent
+  NOTE // a manual collection note
+  STATUS_CHANGE // the case status changed
+  PROMISE // a promise-to-pay was recorded
+  ESCALATION // escalated to legal/lawyer
+  COMMUNICATION // a logged parent contact (call/WhatsApp/meeting/…)
+}
+
+/// How a finance officer contacted the parent, for the Communication Log (additive; nullable
+/// on DunningEvent — only set on COMMUNICATION events).
+enum CommunicationMedium {
+  PHONE
+  WHATSAPP
+  SMS
+  EMAIL
+  MEETING
+  NOTE
+}
+
+/// Escalation level of a late-payment reminder (additive; nullable on DunningEvent — set on
+/// REMINDER events). Encourages a gentle→firm progression before any plan change.
+enum ReminderLevel {
+  FRIENDLY
+  OVERDUE
+  FINAL
+  TRANSPORT_WARNING
+  SUSPENSION_NOTICE
 }
 
 enum ReminderChannel {
@@ -2304,7 +2711,77 @@ enum ReminderChannel {
   EMAIL
 }
 
-/// One per student: collections/legal tag + reminder cadence bookkeeping.
+/// The dunning workflow over an account's overdue installments: status, promises, events,
+/// lawyer ref (ADR-010). At most one open case per account.
+model CollectionsCase {
+  id         String                @id @default(uuid()) @db.Uuid
+  tenantId   String                @db.Uuid
+  accountId  String                @unique @db.Uuid
+  status     CollectionsCaseStatus @default(OPEN)
+  lawyerRef  String?
+  notes      String?
+  openedById String?               @db.Uuid
+  openedAt   DateTime              @default(now()) @db.Timestamptz(6)
+  resolvedAt DateTime?             @db.Timestamptz(6)
+  createdAt  DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime              @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account  StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  promises PromiseToPay[]
+  events   DunningEvent[]
+
+  @@index([tenantId, status])
+}
+
+/// A recorded commitment (amount + date) within a collections case (BR: PromiseToPay).
+model PromiseToPay {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  caseId    String   @db.Uuid
+  amount    Decimal  @db.Decimal(12, 3)
+  promiseBy DateTime @db.Date
+  kept      Boolean? // null = open, true = kept, false = broken
+  note      String?
+  createdById String? @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  case   CollectionsCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, caseId])
+}
+
+/// Append-only log of a dunning action (reminder/note/status change/promise/escalation).
+/// Reminder events also snapshot the outstanding/overdue amounts at send time.
+model DunningEvent {
+  id             String            @id @default(uuid()) @db.Uuid
+  tenantId       String            @db.Uuid
+  caseId         String            @db.Uuid
+  type           DunningEventType
+  channels       ReminderChannel[]
+  /// Contact medium — only set on COMMUNICATION events (the Communication Log).
+  medium         CommunicationMedium?
+  /// Escalation level — only set on REMINDER events (friendly → suspension notice).
+  level          ReminderLevel?
+  outstanding    Decimal?          @db.Decimal(12, 3)
+  dueThisMonth   Decimal?          @db.Decimal(12, 3)
+  overdue        Decimal?          @db.Decimal(12, 3)
+  recipientCount Int               @default(0)
+  smsSentCount   Int               @default(0)
+  detail         String?
+  actorId        String?           @db.Uuid
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  case   CollectionsCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, caseId])
+  @@index([tenantId, createdAt])
+}
+
+/// One per student: cached collections headline + permanent financial flags + reminder cadence
+/// bookkeeping. Single-writer projection (Collections/Admissions) — never a money source (§4).
 model StudentBillingProfile {
   id                   String            @id @default(uuid()) @db.Uuid
   tenantId             String            @db.Uuid
@@ -2318,6 +2795,10 @@ model StudentBillingProfile {
   /// Persisted state so boarding/transport flows can consult it; auto-restored when caught up.
   transportSuspended   Boolean           @default(false)
   transportSuspendedAt DateTime?         @db.Timestamptz(6)
+  /// Why/who/when for the current or last transport suspension (additive — audit-friendly display).
+  transportSuspendedReason String?
+  transportSuspendedById   String?       @db.Uuid
+  transportReinstatedAt    DateTime?     @db.Timestamptz(6)
   /// Set true when this student's fees deviate from the standard school plan (registrar override),
   /// driving the permanent "Fee Modified" badge. customArrangement marks a bespoke schedule.
   feeModified          Boolean           @default(false)
@@ -2330,27 +2811,6 @@ model StudentBillingProfile {
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, collectionsStatus])
-}
-
-/// Audit log of a late-payment reminder sent for a student (snapshot of the amounts at send time).
-model PaymentReminder {
-  id             String            @id @default(uuid()) @db.Uuid
-  tenantId       String            @db.Uuid
-  studentId      String            @db.Uuid
-  channels       ReminderChannel[]
-  outstanding    Decimal           @db.Decimal(12, 3)
-  dueThisMonth   Decimal           @db.Decimal(12, 3)
-  overdue        Decimal           @db.Decimal(12, 3)
-  recipientCount Int
-  smsSentCount   Int               @default(0)
-  sentById       String?           @db.Uuid
-  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
-
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, studentId])
-  @@index([tenantId, createdAt])
 }
 
 // ----------------------------------------------------------------------------
@@ -2634,6 +3094,10 @@ model BillingPolicy {
   /// where the same person registers and approves.
   allowSelfFeeApproval                Boolean  @default(false)
   suspendTransportAfterOverdue        Int      @default(2) // # overdue installments
+  /// Optional alternative thresholds (additive): suspend once the oldest overdue installment is
+  /// older than N days, or once the overdue amount exceeds this. Any satisfied threshold suspends.
+  suspendTransportAfterDays           Int? // days the oldest overdue is aged
+  suspendTransportAfterAmount         Decimal? @db.Decimal(12, 3) // overdue amount (JOD)
   createdById                         String?  @db.Uuid
   updatedById                         String?  @db.Uuid
   createdAt                           DateTime @default(now()) @db.Timestamptz(6)
@@ -2701,6 +3165,7 @@ model FeeItem {
 
   tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   gradeFees GradeFeeItem[]
+  charges   Charge[]
 
   @@index([tenantId, isActive])
   @@index([tenantId, kind])
@@ -2802,7 +3267,6 @@ model Enrollment {
   transportDirection TransportDirection @default(NONE)
   status             EnrollmentStatus   @default(COMMITTED)
   paymentMode        QuotePaymentMode   @default(INSTALLMENTS)
-  installmentPlanId  String?            @db.Uuid
   feeModified        Boolean            @default(false)
   createdById        String?            @db.Uuid
   createdAt          DateTime           @default(now()) @db.Timestamptz(6)
@@ -2816,6 +3280,7 @@ model Enrollment {
   modifications FeeModification[]
   arrangements  FinancialArrangement[]
   commitment    RegistrationCommitment?
+  registrationAgreements RegistrationAgreement[]
 
   @@unique([tenantId, studentId, academicYearId])
   @@index([tenantId, academicYearId, gradeId])
@@ -2896,4 +3361,245 @@ model RegistrationCommitment {
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, committedAt])
+}
+
+// ----------------------------------------------------------------------------
+// Enterprise Document Engine (Phase 23)
+//   Reusable engine that generates every official school document (admissions
+//   agreements + finance documents) from a permanent JSON snapshot, stores the
+//   rendered PDF immutably, and archives + audits every generation/print/email.
+//   Consumes the existing ledger/admissions/organization data; never duplicates
+//   any financial record.
+// ----------------------------------------------------------------------------
+
+/// The catalog of official documents the engine can produce. New types are added here
+/// and given a template in the document module — no schema change needed per layout.
+enum DocumentType {
+  REGISTRATION_AGREEMENT
+  PAYMENT_RECEIPT
+  ANNUAL_TUITION_CERTIFICATE
+  OUTSTANDING_BALANCE_CERTIFICATE
+  CLEARANCE_CERTIFICATE
+  ACCOUNT_STATEMENT
+  PAYMENT_HISTORY
+  FEE_BREAKDOWN
+  STUDENT_FINANCIAL_SUMMARY
+}
+
+/// Document rendering language. BILINGUAL renders Arabic + English side-by-side.
+enum DocumentLanguage {
+  EN
+  AR
+  BILINGUAL
+}
+
+/// Lifecycle of an archived document. A document is immutable once ARCHIVED; a newer
+/// version of the same logical document SUPERSEDES it (the old PDF is retained).
+enum GeneratedDocumentStatus {
+  ARCHIVED
+  SUPERSEDED
+  CANCELLED
+}
+
+/// Lifecycle of a registration agreement (a legal commitment, never overwritten).
+enum RegistrationAgreementStatus {
+  DRAFT
+  COMMITTED
+  SIGNED
+  CANCELLED
+  ARCHIVED
+}
+
+/// Persistence strategy for a document type (Phase 23b). SNAPSHOT = legal record: the rendered PDF
+/// is stored immutably and reprints serve the stored bytes. DYNAMIC = operational report: only
+/// metadata is stored; the PDF is rendered on demand from live ledger data and discarded after.
+enum DocumentPersistence {
+  SNAPSHOT
+  DYNAMIC
+}
+
+/// An action recorded against a document for the access history (Phase 23b).
+enum DocumentAccessAction {
+  GENERATE
+  PRINT
+  DOWNLOAD
+  EMAIL
+  VIEW
+}
+
+/// Outcome of a document access action.
+enum DocumentAccessStatus {
+  SUCCESS
+  FAILED
+}
+
+/// Gapless, per-tenant, per-scope counter (one row per tenant+scope). Mirrors the
+/// PaymentReceiptCounter/EInvoiceCounter pattern so document/agreement numbers are
+/// sequential with no gaps or duplicates. `scope` is e.g. "AGREEMENT" or "DOC:PAYMENT_RECEIPT".
+model DocumentSequence {
+  id       String @id @default(uuid()) @db.Uuid
+  tenantId String @db.Uuid
+  scope    String
+  nextNo   Int    @default(1)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope])
+}
+
+/// An archived official document record (Phase 23 + 23b). For SNAPSHOT documents (legal records) the
+/// rendered PDF is stored in `pdf` (bytea) so reprints serve the exact stored snapshot. For DYNAMIC
+/// documents (operational reports) `pdf`/`checksum`/`byteSize` are NULL — only metadata is kept and
+/// the PDF is re-rendered on demand from live ledger data (using `params`) and discarded. `params`
+/// captures the inputs needed to re-render a DYNAMIC document; `dataSnapshot` captures the data a
+/// SNAPSHOT PDF was built from. Tenant-scoped (RLS); every action is recorded in DocumentAccessLog.
+model GeneratedDocument {
+  id           String                  @id @default(uuid()) @db.Uuid
+  tenantId     String                  @db.Uuid
+  documentNo   Int // gapless per tenant+type
+  type         DocumentType
+  persistence  DocumentPersistence     @default(SNAPSHOT)
+  title        String
+  language     DocumentLanguage        @default(EN)
+  status       GeneratedDocumentStatus @default(ARCHIVED)
+  version      Int                     @default(1)
+
+  // Optional subjects/links (all SetNull so the archive survives record deletion).
+  studentId      String? @db.Uuid
+  parentId       String? @db.Uuid
+  academicYearId String? @db.Uuid
+  enrollmentId   String? @db.Uuid
+  paymentId      String? @db.Uuid
+
+  // SNAPSHOT: the immutable data + rendered artifact. DYNAMIC: these are NULL.
+  dataSnapshot Json?
+  pdf          Bytes?
+  checksum     String? // sha256 hex of the stored PDF (SNAPSHOT only)
+  byteSize     Int?
+  // DYNAMIC: the inputs needed to re-render the PDF on demand from live data.
+  params       Json?
+
+  // Access counters (denormalised cache of DocumentAccessLog for fast listing/UI).
+  printedCount       Int       @default(0)
+  downloadCount      Int       @default(0)
+  emailCount         Int       @default(0)
+  lastPrintedAt      DateTime? @db.Timestamptz(6)
+  lastDownloadedAt   DateTime? @db.Timestamptz(6)
+  lastEmailedAt      DateTime? @db.Timestamptz(6)
+  lastPrintedById    String?   @db.Uuid
+  lastDownloadedById String?   @db.Uuid
+  lastEmailedById    String?   @db.Uuid
+  generatedById      String?   @db.Uuid
+  generatedAt        DateTime  @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student      Student?               @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  parent       Parent?                @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear?          @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
+  agreement    RegistrationAgreement?
+  accessLogs   DocumentAccessLog[]
+  emailLogs    DocumentEmailLog[]
+
+  @@unique([tenantId, type, documentNo])
+  @@index([tenantId, type])
+  @@index([tenantId, studentId])
+  @@index([tenantId, generatedAt])
+}
+
+/// Complete per-action access history for a document (Phase 23b): generation, print, download,
+/// email and view events, with the actor and request context. The counters on GeneratedDocument are
+/// a denormalised cache of these rows. Tenant-scoped (RLS); each row mirrors an AuditLog entry.
+model DocumentAccessLog {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @db.Uuid
+  documentId  String               @db.Uuid
+  documentType DocumentType
+  action      DocumentAccessAction
+  status      DocumentAccessStatus @default(SUCCESS)
+  actorUserId String?              @db.Uuid
+  ip          String?
+  userAgent   String?
+  device      String?
+  detail      String?
+  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId, createdAt])
+  @@index([tenantId, action])
+}
+
+/// Email-delivery history for a document (Phase 23b) — metadata only; the PDF attachment is never
+/// stored (re-attached from the snapshot or re-rendered for dynamic docs). Tenant-scoped (RLS).
+model DocumentEmailLog {
+  id               String               @id @default(uuid()) @db.Uuid
+  tenantId         String               @db.Uuid
+  documentId       String               @db.Uuid
+  sentById         String?              @db.Uuid
+  recipients       String[]
+  cc               String[]
+  bcc              String[]
+  subject          String?
+  providerResponse String?
+  status           DocumentAccessStatus @default(SUCCESS)
+  retryCount       Int                  @default(0)
+  sentAt           DateTime             @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, documentId, sentAt])
+}
+
+/// A registration agreement — the legal commitment between the school and the parent, created
+/// automatically right after a successful registration commit, from a permanent snapshot. Never
+/// overwritten: if fees change after commitment a new version is created and the prior version is
+/// ARCHIVED (full history preserved). The rendered PDF lives on the linked GeneratedDocument.
+model RegistrationAgreement {
+  id          String                      @id @default(uuid()) @db.Uuid
+  tenantId    String                      @db.Uuid
+  agreementNo Int // gapless per tenant
+  version     Int                         @default(1)
+  status      RegistrationAgreementStatus @default(COMMITTED)
+
+  enrollmentId   String  @db.Uuid
+  studentId      String  @db.Uuid
+  parentId       String? @db.Uuid
+  academicYearId String  @db.Uuid
+  campusId       String? @db.Uuid
+  gradeId        String? @db.Uuid
+  sectionId      String? @db.Uuid
+
+  registrationDate DateTime         @db.Date
+  paymentMode      QuotePaymentMode @default(INSTALLMENTS)
+  installments     Int              @default(1)
+  // Permanent financial snapshot at commit time (fee lines, discounts, schedule).
+  feeBreakdown        Json
+  installmentSchedule Json
+  grandTotal          Decimal @db.Decimal(12, 3)
+
+  // The archived PDF document for this version (the stored, reprintable snapshot).
+  documentId   String? @unique @db.Uuid
+  supersedesId String? @db.Uuid // prior version this one replaces
+
+  registrarId String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enrollment   Enrollment              @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  student      Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  parent       Parent?                 @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  academicYear AcademicYear            @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  document     GeneratedDocument?      @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  supersedes   RegistrationAgreement?  @relation("AgreementVersions", fields: [supersedesId], references: [id], onDelete: SetNull)
+  supersededBy RegistrationAgreement[] @relation("AgreementVersions")
+
+  @@unique([tenantId, agreementNo])
+  @@unique([tenantId, enrollmentId, version])
+  @@index([tenantId, studentId])
+  @@index([tenantId, enrollmentId])
 }

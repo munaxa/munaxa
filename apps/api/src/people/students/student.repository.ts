@@ -79,8 +79,7 @@ export class StudentRepository extends TenantRepository {
   // RLS scopes this to the active tenant, so a cross-tenant area id is simply not found.
   areaExists(areaId: string): Promise<boolean> {
     return this.run(
-      async (tx) =>
-        (await tx.area.findFirst({ where: { id: areaId, deletedAt: null } })) !== null,
+      async (tx) => (await tx.area.findFirst({ where: { id: areaId, deletedAt: null } })) !== null,
     );
   }
 

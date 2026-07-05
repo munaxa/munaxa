@@ -7,7 +7,16 @@ import { useConfirm } from '@/components/confirm';
 import { EntityPicker } from '@/components/entity-picker';
 import { loadParentOptions } from '@/lib/pickers';
 import { studentsApi, type Parent, type Student, type StudentParentLink } from '@/lib/people';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Field, Select } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Field,
+  Select,
+} from '@/components/ui';
 import { ParentProfileDialog, ParentEditDialog } from '@/components/domain';
 
 const PARENT_RELATIONS = ['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER'];

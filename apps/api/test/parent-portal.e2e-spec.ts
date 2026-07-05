@@ -291,14 +291,14 @@ describe('Parent Portal (e2e)', () => {
   // ---- Document vault --------------------------------------------------------
   it('runs the document vault flow scoped to the child', async () => {
     const presign = await http()
-      .post('/api/v1/documents/presign')
+      .post('/api/v1/parent-portal/documents/presign')
       .set(auth(parentToken))
       .send({ studentId: child1, fileName: 'report.pdf', contentType: 'application/pdf' })
       .expect(200);
     expect(presign.body.fileKey).toContain(`documents/${child1}`);
 
     const confirm = await http()
-      .post('/api/v1/documents')
+      .post('/api/v1/parent-portal/documents')
       .set(auth(parentToken))
       .send({
         studentId: child1,
@@ -313,7 +313,7 @@ describe('Parent Portal (e2e)', () => {
     const docId = confirm.body.id;
 
     const list = await http()
-      .get(`/api/v1/documents?studentId=${child1}`)
+      .get(`/api/v1/parent-portal/documents?studentId=${child1}`)
       .set(auth(parentToken))
       .expect(200);
     expect(list.body).toHaveLength(1);
@@ -321,12 +321,15 @@ describe('Parent Portal (e2e)', () => {
 
     // Non-linked child → 403.
     await http()
-      .post('/api/v1/documents/presign')
+      .post('/api/v1/parent-portal/documents/presign')
       .set(auth(parentToken))
       .send({ studentId: child3, fileName: 'x.pdf', contentType: 'application/pdf' })
       .expect(403);
 
-    await http().delete(`/api/v1/documents/${docId}`).set(auth(parentToken)).expect(204);
+    await http()
+      .delete(`/api/v1/parent-portal/documents/${docId}`)
+      .set(auth(parentToken))
+      .expect(204);
   });
 
   // ---- Dashboard -------------------------------------------------------------
