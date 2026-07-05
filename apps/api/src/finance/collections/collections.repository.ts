@@ -473,4 +473,64 @@ export class CollectionsRepository extends TenantRepository {
       });
     });
   }
+
+  // ─────────────────────────────────────────────────────── Dashboard feeds
+
+  /** Tenant-wide promises + transport suspensions (with student names) for the finance dashboard. */
+  dashboardFeeds(): Promise<{
+    promises: Array<{
+      id: string;
+      studentId: string;
+      studentName: string;
+      amount: Prisma.Decimal;
+      promiseBy: Date;
+      kept: boolean | null;
+    }>;
+    suspensions: Array<{ studentId: string; studentName: string; suspendedAt: Date | null }>;
+    openCaseCount: number;
+  }> {
+    return this.run(async (tx) => {
+      const [promises, suspensions, openCaseCount] = await Promise.all([
+        tx.promiseToPay.findMany({
+          include: { case: { select: { account: { select: { studentId: true } } } } },
+          orderBy: { promiseBy: 'asc' },
+          take: 300,
+        }),
+        tx.studentBillingProfile.findMany({
+          where: { transportSuspended: true },
+          select: { studentId: true, transportSuspendedAt: true },
+        }),
+        tx.collectionsCase.count({ where: { status: { notIn: ['RESOLVED'] } } }),
+      ]);
+      const ids = [
+        ...new Set([
+          ...promises.map((p) => p.case.account.studentId),
+          ...suspensions.map((s) => s.studentId),
+        ]),
+      ];
+      const students = await tx.student.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, firstNameEn: true, lastNameEn: true },
+      });
+      const nameOf = new Map(
+        students.map((s) => [s.id, `${s.firstNameEn} ${s.lastNameEn}`.trim()]),
+      );
+      return {
+        promises: promises.map((p) => ({
+          id: p.id,
+          studentId: p.case.account.studentId,
+          studentName: nameOf.get(p.case.account.studentId) ?? '—',
+          amount: p.amount,
+          promiseBy: p.promiseBy,
+          kept: p.kept,
+        })),
+        suspensions: suspensions.map((s) => ({
+          studentId: s.studentId,
+          studentName: nameOf.get(s.studentId) ?? '—',
+          suspendedAt: s.transportSuspendedAt,
+        })),
+        openCaseCount,
+      };
+    });
+  }
 }

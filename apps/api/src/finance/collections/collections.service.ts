@@ -55,6 +55,35 @@ function toPromiseView(p: PromiseToPay): PromiseView {
   };
 }
 
+export interface DashboardPromise {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: string;
+  promiseBy: Date;
+}
+
+export interface FinanceDashboard {
+  promisesDueToday: DashboardPromise[];
+  promisesMissed: DashboardPromise[];
+  transportSuspensions: Array<{ studentId: string; studentName: string; suspendedAt: Date | null }>;
+  topOutstanding: Array<{
+    studentId: string;
+    studentName: string;
+    outstanding: string;
+    overdue: string;
+  }>;
+  workload: {
+    studentsWithOutstanding: number;
+    overdueStudents: number;
+    openCases: number;
+    promisesOpen: number;
+    transportSuspended: number;
+  };
+  totalOutstanding: string;
+  collectedPct: string;
+}
+
 export interface ReminderSnapshot {
   outstanding: string;
   dueThisMonth: string;
@@ -360,6 +389,79 @@ export class CollectionsService {
         total: sum.total.toFixed(3),
       },
       collectedPct,
+    };
+  }
+
+  /**
+   * Operational finance dashboard: the collection workload a finance officer opens their day with —
+   * promises due today, recently missed promises, transport suspensions, the largest outstanding
+   * balances, and headline workload counts. Derived from the ledger + collections feeds.
+   */
+  async dashboard(): Promise<FinanceDashboard> {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const [feeds, aging] = await Promise.all([this.repo.dashboardFeeds(), this.agingReport()]);
+
+    const promisesDueToday: DashboardPromise[] = [];
+    const promisesMissed: DashboardPromise[] = [];
+    let promisesOpen = 0;
+    for (const p of feeds.promises) {
+      const by = new Date(p.promiseBy);
+      const row: DashboardPromise = {
+        id: p.id,
+        studentId: p.studentId,
+        studentName: p.studentName,
+        amount: p.amount.toFixed(3),
+        promiseBy: p.promiseBy,
+      };
+      if (p.kept === null) {
+        promisesOpen += 1;
+        if (by < startOfDay)
+          promisesMissed.push(row); // open + past due date = missed
+        else if (by.getTime() === startOfDay.getTime()) promisesDueToday.push(row);
+      } else if (p.kept === false) {
+        promisesMissed.push(row); // explicitly marked broken
+      }
+    }
+
+    // Largest outstanding balances (top 10) + overdue workload from the aging report.
+    const topOutstanding = aging.rows
+      .slice()
+      .sort((a, b) => Number(b.total) - Number(a.total))
+      .slice(0, 10)
+      .map((r) => ({
+        studentId: r.studentId,
+        studentName: r.studentName ?? '—',
+        outstanding: r.total,
+        overdue: (
+          Number(r.d1_30) +
+          Number(r.d31_60) +
+          Number(r.d61_90) +
+          Number(r.d90plus)
+        ).toFixed(3),
+      }));
+    const overdueStudents = aging.rows.filter(
+      (r) => Number(r.d1_30) + Number(r.d31_60) + Number(r.d61_90) + Number(r.d90plus) > 0,
+    ).length;
+
+    return {
+      promisesDueToday,
+      promisesMissed: promisesMissed.slice(0, 20),
+      transportSuspensions: feeds.suspensions.map((s) => ({
+        studentId: s.studentId,
+        studentName: s.studentName,
+        suspendedAt: s.suspendedAt,
+      })),
+      topOutstanding,
+      workload: {
+        studentsWithOutstanding: aging.rows.length,
+        overdueStudents,
+        openCases: feeds.openCaseCount,
+        promisesOpen,
+        transportSuspended: feeds.suspensions.length,
+      },
+      totalOutstanding: aging.totals.total,
+      collectedPct: aging.collectedPct,
     };
   }
 

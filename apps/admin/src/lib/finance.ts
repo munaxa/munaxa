@@ -210,6 +210,39 @@ export interface AgingBuckets {
   total: string;
 }
 
+export interface DashboardPromise {
+  id: string;
+  studentId: string;
+  studentName: string;
+  amount: string;
+  promiseBy: string;
+}
+
+export interface FinanceDashboard {
+  promisesDueToday: DashboardPromise[];
+  promisesMissed: DashboardPromise[];
+  transportSuspensions: Array<{
+    studentId: string;
+    studentName: string;
+    suspendedAt: string | null;
+  }>;
+  topOutstanding: Array<{
+    studentId: string;
+    studentName: string;
+    outstanding: string;
+    overdue: string;
+  }>;
+  workload: {
+    studentsWithOutstanding: number;
+    overdueStudents: number;
+    openCases: number;
+    promisesOpen: number;
+    transportSuspended: number;
+  };
+  totalOutstanding: string;
+  collectedPct: string;
+}
+
 export interface AgingReport {
   rows: AgingBuckets[];
   totals: Omit<AgingBuckets, 'studentId' | 'studentName'>;
@@ -428,6 +461,8 @@ export const financeApi = {
 
   // ── Aging / collection effectiveness ──
   aging: () => authFetch('/finance/collections/aging').then((r) => json<AgingReport>(r)),
+  financeDashboard: () =>
+    authFetch('/finance/collections/dashboard').then((r) => json<FinanceDashboard>(r)),
   studentAging: (studentId: string) =>
     authFetch(`/finance/collections/students/${studentId}/aging`).then((r) =>
       json<AgingBuckets>(r),

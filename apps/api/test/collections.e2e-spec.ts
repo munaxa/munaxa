@@ -302,4 +302,34 @@ describe('Fee collections & reminders (e2e)', () => {
       .send({ medium: 'NOTE', note: 'x' })
       .expect(403);
   });
+
+  // -- Operational dashboard --------------------------------------------------
+  it('serves the operational finance dashboard (workload + largest outstanding)', async () => {
+    // A promise due today → surfaces in promisesDueToday.
+    const today = new Date().toISOString().slice(0, 10);
+    await http()
+      .post(`${C}/students/${sOverdue}/promises`)
+      .set(auth(financeToken))
+      .send({ amount: '150.000', promiseBy: today })
+      .expect(201);
+
+    const res = await http().get(`${C}/dashboard`).set(auth(financeToken)).expect(200);
+    const d = res.body;
+    expect(Array.isArray(d.promisesDueToday)).toBe(true);
+    expect(Array.isArray(d.transportSuspensions)).toBe(true);
+    // The overdue students (500 each) are among the largest outstanding balances.
+    expect(d.topOutstanding.length).toBeGreaterThanOrEqual(1);
+    expect(d.topOutstanding.some((r: { studentId: string }) => r.studentId === sOverdue)).toBe(
+      true,
+    );
+    // Workload counts are populated.
+    expect(d.workload.overdueStudents).toBeGreaterThanOrEqual(1);
+    expect(d.promisesDueToday.some((p: { studentId: string }) => p.studentId === sOverdue)).toBe(
+      true,
+    );
+  });
+
+  it('blocks the dashboard for a non-finance role', async () => {
+    await http().get(`${C}/dashboard`).set(auth(teacherToken)).expect(403);
+  });
 });
