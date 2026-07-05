@@ -258,14 +258,30 @@ describe('Finance AR (e2e)', () => {
     // Pay 300 (FIFO settles the first installment).
     await recordAndVerifyPayment(studentId, 300);
 
-    // Replace with a new 6-installment plan.
+    // Replace with a new 6-installment plan, with a reason (advanced action).
     const secondPlan = (
       await http()
         .post(`/api/v1/finance/charges/${charge.id}/plan`)
         .set(auth(financeToken))
-        .send({ cadence: 'MONTHLY', installments: 6, firstDueDate: '2026-10-01' })
+        .send({
+          cadence: 'MONTHLY',
+          installments: 6,
+          firstDueDate: '2026-10-01',
+          reason: 'Financial hardship — approved renegotiation',
+        })
         .expect(201)
     ).body as { id: string };
+
+    // The replace is audited as finance.plan.replace with the reason.
+    const replaceAudits = await withPlatform(prisma, (tx) =>
+      tx.auditLog.findMany({ where: { tenantId: TENANT, action: 'finance.plan.replace' } }),
+    );
+    expect(replaceAudits.length).toBeGreaterThanOrEqual(1);
+    expect(
+      replaceAudits.some(
+        (a) => (a.metadata as { reason?: string } | null)?.reason?.includes('hardship') ?? false,
+      ),
+    ).toBe(true);
 
     const s = await statement(studentId);
     const view = s.charges.find((c) => c.charge.id === charge.id)!;

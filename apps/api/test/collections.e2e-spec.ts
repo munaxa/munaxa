@@ -225,4 +225,81 @@ describe('Fee collections & reminders (e2e)', () => {
       .send({ channels: ['IN_APP'] })
       .expect(403);
   });
+
+  // -- Promise to Pay ---------------------------------------------------------
+  it('records a promise-to-pay, exposes it on the profile, and resolves it', async () => {
+    const created = await http()
+      .post(`${C}/students/${sOverdue}/promises`)
+      .set(auth(financeToken))
+      .send({ amount: '300.000', promiseBy: '2099-01-15', note: 'Father will pay after salary' })
+      .expect(201);
+    expect(created.body.amount).toBe('300.000');
+    expect(created.body.status).toBe('OPEN'); // future date, unresolved
+
+    // Appears on the finance card + the case moved to PROMISE_TO_PAY.
+    const profile = await http()
+      .get(`${C}/students/${sOverdue}`)
+      .set(auth(financeToken))
+      .expect(200);
+    expect(profile.body.promises).toHaveLength(1);
+    expect(profile.body.promises[0].id).toBe(created.body.id);
+
+    const list = await http()
+      .get(`${C}/students/${sOverdue}/promises`)
+      .set(auth(financeToken))
+      .expect(200);
+    expect(list.body).toHaveLength(1);
+
+    // Resolve as kept.
+    const resolved = await http()
+      .post(`${C}/promises/${created.body.id}/resolve`)
+      .set(auth(financeToken))
+      .send({ kept: true })
+      .expect(201);
+    expect(resolved.body.status).toBe('KEPT');
+  });
+
+  // -- Communication Log ------------------------------------------------------
+  it('logs a parent communication and lists it (timestamped + audited)', async () => {
+    const logged = await http()
+      .post(`${C}/students/${sOverdue}/communications`)
+      .set(auth(financeToken))
+      .send({ medium: 'PHONE', note: 'Called father, discussed the overdue installment' })
+      .expect(201);
+    expect(logged.body.medium).toBe('PHONE');
+    expect(logged.body.type).toBe('COMMUNICATION');
+
+    const comms = await http()
+      .get(`${C}/students/${sOverdue}/communications`)
+      .set(auth(financeToken))
+      .expect(200);
+    expect(comms.body).toHaveLength(1);
+    expect(comms.body[0].detail).toContain('Called father');
+
+    // Also surfaced on the finance card.
+    const profile = await http()
+      .get(`${C}/students/${sOverdue}`)
+      .set(auth(financeToken))
+      .expect(200);
+    expect(profile.body.communications).toHaveLength(1);
+
+    // The audit trail recorded it.
+    const audits = await withTenant(prisma, TENANT, (tx) =>
+      tx.auditLog.findMany({ where: { action: 'finance.communication.log' } }),
+    );
+    expect(audits.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('blocks promises and communications for a finance:read-only role', async () => {
+    await http()
+      .post(`${C}/students/${sOverdue}/promises`)
+      .set(auth(teacherToken))
+      .send({ amount: '100.000', promiseBy: '2099-01-01' })
+      .expect(403);
+    await http()
+      .post(`${C}/students/${sOverdue}/communications`)
+      .set(auth(teacherToken))
+      .send({ medium: 'NOTE', note: 'x' })
+      .expect(403);
+  });
 });

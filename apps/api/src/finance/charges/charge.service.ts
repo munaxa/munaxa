@@ -76,6 +76,7 @@ export class ChargeService {
       firstDueDate: new Date(dto.firstDueDate),
       balloonFinal: dto.balloonFinal ?? false,
       lines,
+      reason: dto.reason ?? null,
     });
   }
 

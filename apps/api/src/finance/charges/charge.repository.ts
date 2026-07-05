@@ -93,9 +93,10 @@ export class ChargeRepository extends TenantRepository {
     firstDueDate: Date;
     balloonFinal: boolean;
     lines: ScheduleLine[];
+    reason?: string | null;
   }): Promise<PaymentPlan> {
     return this.run(async (tx, tenantId) => {
-      await tx.paymentPlan.updateMany({
+      const supersededResult = await tx.paymentPlan.updateMany({
         where: { chargeId: data.chargeId, status: 'ACTIVE' },
         data: { status: 'SUPERSEDED' },
       });
@@ -137,14 +138,18 @@ export class ChargeRepository extends TenantRepository {
           },
         });
       }
+      const replaced = supersededResult.count > 0;
       await this.writeAudit(tx, tenantId, {
-        action: 'finance.plan.create',
+        action: replaced ? 'finance.plan.replace' : 'finance.plan.create',
         entityType: 'PaymentPlan',
         entityId: plan.id,
         metadata: {
           chargeId: data.chargeId,
           cadence: data.cadence,
           installments: data.installments,
+          replaced,
+          supersededCount: supersededResult.count,
+          reason: data.reason ?? null,
         },
       });
       return plan;

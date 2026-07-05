@@ -170,6 +170,33 @@ export interface CollectionsProfile {
     smsSentCount: number;
     createdAt: string;
   }>;
+  /** Promises-to-pay (with derived status), newest first. */
+  promises: PromiseToPayView[];
+  /** Logged parent contacts (Communication Log), newest first. */
+  communications: CommunicationEntry[];
+}
+
+export type PromiseStatus = 'OPEN' | 'KEPT' | 'BROKEN' | 'OVERDUE';
+
+export interface PromiseToPayView {
+  id: string;
+  amount: string;
+  promiseBy: string;
+  note: string | null;
+  createdById: string | null;
+  createdAt: string;
+  status: PromiseStatus;
+}
+
+export type CommunicationMedium = 'PHONE' | 'WHATSAPP' | 'SMS' | 'EMAIL' | 'MEETING' | 'NOTE';
+
+export interface CommunicationEntry {
+  id: string;
+  type: string;
+  medium: CommunicationMedium | null;
+  detail: string | null;
+  actorId: string | null;
+  createdAt: string;
 }
 
 export interface AgingBuckets {
@@ -263,7 +290,10 @@ export const financeApi = {
     authFetch('/finance/charges', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<{ id: string }>(r),
     ),
-  /** Create or replace the payment plan for a charge (schedule its net into installments). */
+  /**
+   * Create or replace the payment plan for a charge (schedules the OUTSTANDING balance).
+   * `reason` is required by the UI for a REPLACE (advanced action) and is recorded in the audit log.
+   */
   createPlan: (
     chargeId: string,
     data: {
@@ -271,6 +301,7 @@ export const financeApi = {
       installments: number;
       firstDueDate: string;
       balloonFinal?: boolean;
+      reason?: string;
     },
   ) =>
     authFetch(`/finance/charges/${chargeId}/plan`, {
@@ -361,6 +392,33 @@ export const financeApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<PushOutstandingResult>(r)),
+
+  // ── Promise to Pay ──
+  recordPromise: (studentId: string, data: { amount: string; promiseBy: string; note?: string }) =>
+    authFetch(`/finance/collections/students/${studentId}/promises`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<PromiseToPayView>(r)),
+  listPromises: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/promises`).then((r) =>
+      json<PromiseToPayView[]>(r),
+    ),
+  resolvePromise: (promiseId: string, kept: boolean) =>
+    authFetch(`/finance/collections/promises/${promiseId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ kept }),
+    }).then((r) => json<PromiseToPayView>(r)),
+
+  // ── Communication Log ──
+  logCommunication: (studentId: string, data: { medium: CommunicationMedium; note: string }) =>
+    authFetch(`/finance/collections/students/${studentId}/communications`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<CommunicationEntry>(r)),
+  listCommunications: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/communications`).then((r) =>
+      json<CommunicationEntry[]>(r),
+    ),
 
   // ── Dimensional finance report (revenue/outstanding by year/grade/campus/category) ──
   reportSummary: (dimension: 'academicYear' | 'grade' | 'campus' | 'category') =>

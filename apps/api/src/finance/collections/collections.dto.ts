@@ -1,17 +1,56 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CollectionsStatus, ReminderChannel } from '@prisma/client';
+import { CollectionsStatus, CommunicationMedium, ReminderChannel } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsEnum,
   IsIn,
   IsNumberString,
   IsOptional,
   IsString,
   MaxLength,
+  MinLength,
 } from 'class-validator';
+
+/** Record a promise-to-pay: parent commits to pay `amount` by `promiseBy`. */
+export class RecordPromiseDto {
+  @ApiProperty({ example: '500.000', description: 'Committed amount (JOD)' })
+  @IsNumberString()
+  amount!: string;
+
+  @ApiProperty({ example: '2026-07-15', description: 'Expected payment date (ISO)' })
+  @IsDateString()
+  promiseBy!: string;
+
+  @ApiPropertyOptional({ description: 'Optional note (context of the arrangement)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  note?: string;
+}
+
+/** Resolve a promise-to-pay as kept or broken. */
+export class ResolvePromiseDto {
+  @ApiProperty({ description: 'true = kept (paid as promised); false = broken' })
+  @IsBoolean()
+  kept!: boolean;
+}
+
+/** Log a parent contact for the Communication Log. */
+export class LogCommunicationDto {
+  @ApiProperty({ enum: CommunicationMedium, example: 'PHONE' })
+  @IsEnum(CommunicationMedium)
+  medium!: CommunicationMedium;
+
+  @ApiProperty({ example: 'Called father — will pay 2 installments on Sunday', minLength: 1 })
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  note!: string;
+}
 
 export class SetCollectionsDto {
   @ApiProperty({
