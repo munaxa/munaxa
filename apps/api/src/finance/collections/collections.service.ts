@@ -138,6 +138,7 @@ export interface SendResult {
   studentId: string;
   recipients: number;
   smsSent: number;
+  emailsSent: number;
   snapshot: ReminderSnapshot;
 }
 
@@ -776,6 +777,7 @@ export class CollectionsService {
 
     let recipients = 0;
     let smsSent = 0;
+    let emailsSent = 0;
 
     if (channels.includes('IN_APP')) {
       const userIds = parents.map((p) => p.userId).filter((id): id is string => Boolean(id));
@@ -786,6 +788,23 @@ export class CollectionsService {
         .filter((p) => p.phone)
         .map((p) => ({ to: p.phone!, body: `${title} — ${body}` }));
       smsSent = await this.sms.send(messages);
+    }
+    // Email the parents on file (reaches guardians without a Munaxa app account — the common case).
+    if (channels.includes('EMAIL')) {
+      const emails = [
+        ...new Set(parents.map((p) => p.email).filter((e): e is string => Boolean(e))),
+      ];
+      if (emails.length > 0) {
+        const from = this.config.get('EMAIL_FROM_FINANCE', { infer: true });
+        const html = body
+          .split('\n')
+          .map((line) => `<p>${line}</p>`)
+          .join('');
+        for (const to of emails) {
+          const { sent } = await this.mail.send({ to, from, subject: title, html, text: body });
+          if (sent) emailsSent += 1;
+        }
+      }
     }
 
     await this.repo.logReminder({
@@ -799,7 +818,7 @@ export class CollectionsService {
       level,
     });
 
-    return { studentId, recipients, smsSent, snapshot };
+    return { studentId, recipients, smsSent, emailsSent, snapshot };
   }
 
   /** A short bilingual prefix that sets the reminder's tone by escalation level. */
