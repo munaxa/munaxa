@@ -6,6 +6,7 @@ import {
   type DunningEvent,
   type PromiseToPay,
   type ReminderChannel,
+  type ReminderLevel,
   type StudentBillingProfile,
 } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
@@ -182,10 +183,19 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
-  suspendThreshold(): Promise<number> {
+  /** The tenant's transport-suspension thresholds (installments always set; days/amount optional). */
+  transportPolicy(): Promise<{
+    installments: number;
+    days: number | null;
+    amount: Prisma.Decimal | null;
+  }> {
     return this.run(async (tx, tenantId) => {
       const policy = await tx.billingPolicy.findUnique({ where: { tenantId } });
-      return policy?.suspendTransportAfterOverdue ?? Number.MAX_SAFE_INTEGER;
+      return {
+        installments: policy?.suspendTransportAfterOverdue ?? Number.MAX_SAFE_INTEGER,
+        days: policy?.suspendTransportAfterDays ?? null,
+        amount: policy?.suspendTransportAfterAmount ?? null,
+      };
     });
   }
 
@@ -199,26 +209,40 @@ export class CollectionsRepository extends TenantRepository {
     });
   }
 
-  setTransportSuspended(studentId: string, suspended: boolean): Promise<StudentBillingProfile> {
+  setTransportSuspended(
+    studentId: string,
+    suspended: boolean,
+    opts: { reason?: string | null; manual?: boolean } = {},
+  ): Promise<StudentBillingProfile> {
     return this.run(async (tx, tenantId) => {
+      const now = new Date();
+      const suspendFields = {
+        transportSuspended: true,
+        transportSuspendedAt: now,
+        transportSuspendedReason: opts.reason ?? null,
+        transportSuspendedById: this.actor(),
+        transportReinstatedAt: null,
+      };
+      const restoreFields = {
+        transportSuspended: false,
+        // Keep the reason/at for the record; stamp when it was reinstated.
+        transportReinstatedAt: now,
+      };
+      const data = suspended ? suspendFields : restoreFields;
       const profile = await tx.studentBillingProfile.upsert({
         where: { studentId },
         create: {
           tenantId,
           studentId,
-          transportSuspended: suspended,
-          transportSuspendedAt: suspended ? new Date() : null,
+          ...(suspended ? suspendFields : { transportSuspended: false }),
         },
-        update: {
-          transportSuspended: suspended,
-          transportSuspendedAt: suspended ? new Date() : null,
-        },
+        update: data,
       });
       await this.writeAudit(tx, tenantId, {
         action: suspended ? 'finance.transport.suspend' : 'finance.transport.restore',
         entityType: 'StudentBillingProfile',
         entityId: profile.id,
-        metadata: { studentId },
+        metadata: { studentId, manual: opts.manual ?? false, reason: opts.reason ?? null },
       });
       return profile;
     });
@@ -278,6 +302,7 @@ export class CollectionsRepository extends TenantRepository {
     overdue: Prisma.Decimal;
     recipientCount: number;
     smsSentCount: number;
+    level?: ReminderLevel | null;
   }): Promise<DunningEvent | null> {
     return this.run(async (tx, tenantId) => {
       const caseId = await this.ensureCaseId(tx, tenantId, data.studentId);
@@ -288,6 +313,7 @@ export class CollectionsRepository extends TenantRepository {
           caseId,
           type: 'REMINDER',
           channels: data.channels,
+          level: data.level ?? null,
           outstanding: data.outstanding,
           dueThisMonth: data.dueThisMonth,
           overdue: data.overdue,

@@ -147,6 +147,9 @@ export interface CollectionsProfile {
   lastReminderAt: string | null;
   transportSuspended: boolean;
   transportSuspendedAt: string | null;
+  transportSuspendedReason: string | null;
+  transportSuspendedById: string | null;
+  transportReinstatedAt: string | null;
   feeModified: boolean;
   customArrangement: boolean;
   snapshot: {
@@ -415,11 +418,20 @@ export const financeApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     }).then((r) => json(r)),
-  remind: (studentId: string, channels: string[]) =>
+  remind: (studentId: string, channels: string[], level?: string) =>
     authFetch(`/finance/collections/students/${studentId}/reminders`, {
       method: 'POST',
-      body: JSON.stringify({ channels }),
+      body: JSON.stringify({ channels, ...(level ? { level } : {}) }),
     }).then((r) => json<{ recipients: number; smsSent: number }>(r)),
+  suspendTransport: (studentId: string, reason: string) =>
+    authFetch(`/finance/collections/students/${studentId}/transport/suspend`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }).then((r) => json(r)),
+  reinstateTransport: (studentId: string) =>
+    authFetch(`/finance/collections/students/${studentId}/transport/reinstate`, {
+      method: 'POST',
+    }).then((r) => json(r)),
   pushOutstanding: (data: PushOutstandingInput) =>
     authFetch('/finance/collections/reminders/push-outstanding', {
       method: 'POST',
@@ -528,6 +540,8 @@ export interface BillingPolicy {
   maxInstallments: number;
   fullPaymentDiscountPct: string;
   suspendTransportAfterOverdue: number;
+  suspendTransportAfterDays: number | null;
+  suspendTransportAfterAmount: string | null;
   allowSelfFeeApproval: boolean;
 }
 
@@ -637,6 +651,8 @@ export const feeConfigApi = {
     maxInstallments: number;
     fullPaymentDiscountPct: number;
     suspendTransportAfterOverdue: number;
+    suspendTransportAfterDays?: number;
+    suspendTransportAfterAmount?: number;
     allowSelfFeeApproval?: boolean;
   }) =>
     authFetch('/finance/fee-config/policy', {

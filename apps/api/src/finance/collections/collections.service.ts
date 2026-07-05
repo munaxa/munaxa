@@ -5,7 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma, type ReminderChannel, type StudentBillingProfile } from '@prisma/client';
+import {
+  Prisma,
+  type ReminderChannel,
+  type ReminderLevel,
+  type StudentBillingProfile,
+} from '@prisma/client';
 import { LedgerRepository } from '../ledger/ledger.repository';
 import { CollectionsRepository } from './collections.repository';
 import { SmsService } from './sms.service';
@@ -183,6 +188,9 @@ export class CollectionsService {
     lastReminderAt: Date | null;
     transportSuspended: boolean;
     transportSuspendedAt: Date | null;
+    transportSuspendedReason: string | null;
+    transportSuspendedById: string | null;
+    transportReinstatedAt: Date | null;
     feeModified: boolean;
     customArrangement: boolean;
     snapshot: ReminderSnapshot;
@@ -208,6 +216,9 @@ export class CollectionsService {
       lastReminderAt: profile?.lastReminderAt ?? null,
       transportSuspended: profile?.transportSuspended ?? false,
       transportSuspendedAt: profile?.transportSuspendedAt ?? null,
+      transportSuspendedReason: profile?.transportSuspendedReason ?? null,
+      transportSuspendedById: profile?.transportSuspendedById ?? null,
+      transportReinstatedAt: profile?.transportReinstatedAt ?? null,
       // Permanent financial flags (set by admissions registrar overrides / arrangements).
       feeModified: profile?.feeModified ?? false,
       customArrangement: profile?.customArrangement ?? false,
@@ -476,17 +487,31 @@ export class CollectionsService {
     if (!(await this.repo.studentExists(studentId))) {
       throw new NotFoundException('Student not found in this tenant');
     }
-    const [{ overdueCount }, threshold, profile] = await Promise.all([
+    const [snapshot, policy, profile] = await Promise.all([
       this.snapshot(studentId),
-      this.repo.suspendThreshold(),
+      this.repo.transportPolicy(),
       this.repo.getProfile(studentId),
     ]);
+    const overdueAmount = new Prisma.Decimal(snapshot.overdue);
+    // Any satisfied threshold suspends: overdue installments, overdue age (days), or overdue amount.
+    const reasons: string[] = [];
+    if (snapshot.overdueCount >= policy.installments) {
+      reasons.push(`${snapshot.overdueCount} overdue installment(s) ≥ ${policy.installments}`);
+    }
+    if (policy.days != null && snapshot.oldestOverdueDays >= policy.days) {
+      reasons.push(`overdue ${snapshot.oldestOverdueDays}d ≥ ${policy.days}d`);
+    }
+    if (policy.amount != null && overdueAmount.greaterThanOrEqualTo(policy.amount)) {
+      reasons.push(`overdue ${overdueAmount.toFixed(3)} ≥ ${policy.amount.toFixed(3)} JOD`);
+    }
+    const shouldSuspend = reasons.length > 0;
     const wasSuspended = profile?.transportSuspended ?? false;
-    const shouldSuspend = overdueCount >= threshold;
     let suspended = wasSuspended;
     let changed = false;
     if (shouldSuspend && !wasSuspended) {
-      await this.repo.setTransportSuspended(studentId, true);
+      await this.repo.setTransportSuspended(studentId, true, {
+        reason: `Auto: ${reasons.join('; ')}`,
+      });
       suspended = true;
       changed = true;
     } else if (!shouldSuspend && wasSuspended) {
@@ -494,7 +519,29 @@ export class CollectionsService {
       suspended = false;
       changed = true;
     }
-    return { studentId, overdueCount, threshold, suspended, changed };
+    return {
+      studentId,
+      overdueCount: snapshot.overdueCount,
+      threshold: policy.installments,
+      suspended,
+      changed,
+    };
+  }
+
+  /** Manually suspend a student's transport for non-payment (records the reason + who). */
+  async suspendTransport(studentId: string, reason: string): Promise<StudentBillingProfile> {
+    if (!(await this.repo.studentExists(studentId))) {
+      throw new NotFoundException('Student not found in this tenant');
+    }
+    return this.repo.setTransportSuspended(studentId, true, { reason, manual: true });
+  }
+
+  /** Manually reinstate a student's transport. */
+  async reinstateTransport(studentId: string): Promise<StudentBillingProfile> {
+    if (!(await this.repo.studentExists(studentId))) {
+      throw new NotFoundException('Student not found in this tenant');
+    }
+    return this.repo.setTransportSuspended(studentId, false, { manual: true });
   }
 
   /** Sweep every student with unpaid charges and reconcile their transport-suspension state. */
@@ -535,7 +582,7 @@ export class CollectionsService {
     if (!snapshot.eligible) {
       throw new BadRequestException('Nothing due this month or overdue for this student');
     }
-    return this.dispatch(studentId, dto.channels, snapshot);
+    return this.dispatch(studentId, dto.channels, snapshot, dto.level ?? null);
   }
 
   /** Bulk reminders to every student with dues this month / overdue, excluding LEGAL-tagged. */
@@ -565,7 +612,7 @@ export class CollectionsService {
         result.skippedNotDue += 1;
         continue;
       }
-      const sent = await this.dispatch(studentId, dto.channels, snapshot);
+      const sent = await this.dispatch(studentId, dto.channels, snapshot, dto.level ?? null);
       result.sent += 1;
       result.totalRecipients += sent.recipients;
       result.totalSms += sent.smsSent;
@@ -715,12 +762,17 @@ export class CollectionsService {
     studentId: string,
     channels: ReminderChannel[],
     snapshot: ReminderSnapshot,
+    level: ReminderLevel | null = null,
   ): Promise<SendResult> {
     const [names, parents] = await Promise.all([
       this.repo.studentNames(studentId),
       this.repo.parentsOf(studentId),
     ]);
-    const { title, body } = this.buildMessage(names ?? { en: 'your child', ar: 'ابنكم' }, snapshot);
+    const { title, body } = this.buildMessage(
+      names ?? { en: 'your child', ar: 'ابنكم' },
+      snapshot,
+      level,
+    );
 
     let recipients = 0;
     let smsSent = 0;
@@ -744,15 +796,35 @@ export class CollectionsService {
       overdue: new Prisma.Decimal(snapshot.overdue),
       recipientCount: recipients,
       smsSentCount: smsSent,
+      level,
     });
 
     return { studentId, recipients, smsSent, snapshot };
   }
 
-  /** Bilingual reminder bundling this month's due + overdue. */
+  /** A short bilingual prefix that sets the reminder's tone by escalation level. */
+  private levelPrefix(level: ReminderLevel | null): string {
+    switch (level) {
+      case 'FRIENDLY':
+        return 'Friendly reminder | تذكير ودّي\n';
+      case 'OVERDUE':
+        return 'Overdue notice | إشعار تأخّر\n';
+      case 'FINAL':
+        return 'Final reminder | تذكير أخير\n';
+      case 'TRANSPORT_WARNING':
+        return 'Transport suspension warning | تحذير إيقاف النقل\n';
+      case 'SUSPENSION_NOTICE':
+        return 'Service suspension notice | إشعار إيقاف الخدمة\n';
+      default:
+        return '';
+    }
+  }
+
+  /** Bilingual reminder bundling this month's due + overdue, prefixed by the escalation level. */
   private buildMessage(
     names: { en: string; ar: string },
     s: ReminderSnapshot,
+    level: ReminderLevel | null = null,
   ): { title: string; body: string } {
     const en =
       `Payment reminder for ${names.en}: ${s.outstanding} JOD outstanding` +
@@ -764,6 +836,7 @@ export class CollectionsService {
       (Number(s.dueThisMonth) > 0 ? `، منها ${s.dueThisMonth} دينار مستحقة هذا الشهر` : '') +
       (Number(s.overdue) > 0 ? `، و${s.overdue} دينار متأخرة` : '') +
       '. نرجو المبادرة بالسداد.';
-    return { title: 'Payment reminder | تذكير بالدفع', body: `${en}\n${ar}` };
+    const prefix = this.levelPrefix(level);
+    return { title: 'Payment reminder | تذكير بالدفع', body: `${prefix}${en}\n${ar}` };
   }
 }

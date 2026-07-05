@@ -10,6 +10,7 @@ import {
   ResolvePromiseDto,
   SendReminderDto,
   SetCollectionsDto,
+  SuspendTransportDto,
 } from './collections.dto';
 
 /**
@@ -154,5 +155,22 @@ export class CollectionsController {
   })
   evaluateTransportAll() {
     return this.service.evaluateTransportBatch();
+  }
+
+  @Post('students/:studentId/transport/suspend')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Manually suspend this student’s transport (records the reason + who)' })
+  suspendTransport(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body() dto: SuspendTransportDto,
+  ) {
+    return this.service.suspendTransport(studentId, dto.reason);
+  }
+
+  @Post('students/:studentId/transport/reinstate')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Manually reinstate this student’s transport' })
+  reinstateTransport(@Param('studentId', ParseUUIDPipe) studentId: string) {
+    return this.service.reinstateTransport(studentId);
   }
 }

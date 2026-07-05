@@ -153,6 +153,25 @@ export class UpsertBillingPolicyDto {
   @Max(99)
   suspendTransportAfterOverdue!: number;
 
+  @ApiPropertyOptional({
+    example: 60,
+    description: 'Also suspend once the oldest overdue installment is aged beyond this many days',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  suspendTransportAfterDays?: number;
+
+  @ApiPropertyOptional({
+    example: 1000,
+    description: 'Also suspend once the overdue amount reaches this (JOD)',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0)
+  suspendTransportAfterAmount?: number;
+
   @ApiProperty({
     required: false,
     description:

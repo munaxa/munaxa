@@ -76,11 +76,33 @@ per-charge **Advanced actions** disclosure, which requires a reason and a confir
 transport suspension state, reminder history, **promises** (with status), and the
 **communications** log.
 
-## Deferred (follow-up PRs — not required for the core reframing)
+## Student Finance collections workspace (finance tab)
 
-- Full Student Finance primary-action bar (Record Payment · Promise · Reminder · Log Communication ·
-  Discount · Credit · Suspend/Reinstate Transport · Statement · Invoice) and the promise/comm panels.
-- Operational Finance **dashboard** (promises due today · missed promises · suspensions · workload).
-- **Reminder levels** (friendly / overdue / final / transport-warning / suspension-notice).
-- **Transport policy** expansion (suspend after N days or amount, not only N installments) and the
-  reason / suspended-by / reinstated-date fields.
+A **Collections** panel above the charges hierarchy: the overdue snapshot (Outstanding · Overdue ·
+Overdue items · Oldest overdue · Due this month), transport status detail, **Promise to Pay**
+(record + resolve), the **Communication Log**, a **reminder level** selector + Send, and
+**Suspend / Reinstate transport**. Replace Plan is under a per-charge Advanced-actions disclosure.
+
+## Operational finance dashboard (`/finance/dashboard`)
+
+`GET /finance/collections/dashboard` (FINANCE_READ): promises due today, recently missed promises,
+transport suspensions, the largest outstanding balances (top 10), and workload counts (students with
+outstanding, overdue students, open cases, open promises, transport suspended) + total outstanding
+and collected %. The admin page routes each row to the student's finance tab.
+
+## Reminder levels
+
+`SendReminderDto.level ∈ { FRIENDLY, OVERDUE, FINAL, TRANSPORT_WARNING, SUSPENSION_NOTICE }` — sets
+the reminder's bilingual tone prefix and is stored on the `DunningEvent` (additive nullable column).
+Encourages an escalating friendly→firm progression before any plan change.
+
+## Transport suspension policy
+
+`BillingPolicy` now supports three thresholds — **any satisfied one suspends**: `suspendTransportAfterOverdue`
+(installments, existing), `suspendTransportAfterDays` (oldest overdue aged N days), and
+`suspendTransportAfterAmount` (overdue amount ≥ X). `evaluateTransport` records the triggering reason.
+Manual override: `POST students/:id/transport/suspend` (with reason) and `.../reinstate`. The student
+profile surfaces `transportSuspended`, `transportSuspendedAt`, `transportSuspendedReason`,
+`transportSuspendedById`, and `transportReinstatedAt`.
+
+Additive migrations only (`20260704120000`, `20260705120000`) — no ledger/plan/data changes.
