@@ -14,9 +14,46 @@ import type { Env } from '../../config/env.validation';
 import { NotificationEventBus } from '../../communication/engine/notification-event-bus';
 import { NotificationEventType } from '../../communication/engine/notification-events';
 import { agedAmount, qualifiesOutstanding } from './outstanding-filter';
-import type { PushOutstandingDto, SendReminderDto, SetCollectionsDto } from './collections.dto';
+import type {
+  LogCommunicationDto,
+  PushOutstandingDto,
+  RecordPromiseDto,
+  SendReminderDto,
+  SetCollectionsDto,
+} from './collections.dto';
+import type { DunningEvent, PromiseToPay } from '@prisma/client';
 
 const ZERO = new Prisma.Decimal(0);
+
+/** A promise-to-pay with a derived workflow status for the UI. */
+export interface PromiseView {
+  id: string;
+  amount: string;
+  promiseBy: Date;
+  note: string | null;
+  createdById: string | null;
+  createdAt: Date;
+  /** OPEN (awaiting the date), KEPT, BROKEN, or OVERDUE (past date, not yet resolved). */
+  status: 'OPEN' | 'KEPT' | 'BROKEN' | 'OVERDUE';
+}
+
+function toPromiseView(p: PromiseToPay): PromiseView {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  let status: PromiseView['status'];
+  if (p.kept === true) status = 'KEPT';
+  else if (p.kept === false) status = 'BROKEN';
+  else status = new Date(p.promiseBy) < startOfDay ? 'OVERDUE' : 'OPEN';
+  return {
+    id: p.id,
+    amount: p.amount.toFixed(3),
+    promiseBy: p.promiseBy,
+    note: p.note,
+    createdById: p.createdById,
+    createdAt: p.createdAt,
+    status,
+  };
+}
 
 export interface ReminderSnapshot {
   outstanding: string;
@@ -121,14 +158,18 @@ export class CollectionsService {
     customArrangement: boolean;
     snapshot: ReminderSnapshot;
     reminders: Awaited<ReturnType<CollectionsRepository['listReminders']>>;
+    promises: PromiseView[];
+    communications: DunningEvent[];
   }> {
     if (!(await this.repo.studentExists(studentId))) {
       throw new NotFoundException('Student not found in this tenant');
     }
-    const [profile, snapshot, reminders] = await Promise.all([
+    const [profile, snapshot, reminders, promises, communications] = await Promise.all([
       this.repo.getProfile(studentId),
       this.snapshot(studentId),
       this.repo.listReminders(studentId),
+      this.repo.listPromises(studentId),
+      this.repo.listCommunications(studentId),
     ]);
     return {
       studentId,
@@ -143,7 +184,52 @@ export class CollectionsService {
       customArrangement: profile?.customArrangement ?? false,
       snapshot,
       reminders,
+      promises: promises.map(toPromiseView),
+      communications,
     };
+  }
+
+  // ─────────────────────────────────────────────── Promise to Pay / Communication Log
+
+  /** Record a promise-to-pay (parent commits amount by date). Opens a case if needed. */
+  async recordPromise(studentId: string, dto: RecordPromiseDto): Promise<PromiseView> {
+    if (!(await this.repo.studentExists(studentId))) {
+      throw new NotFoundException('Student not found in this tenant');
+    }
+    const promise = await this.repo.createPromise({
+      studentId,
+      amount: new Prisma.Decimal(dto.amount),
+      promiseBy: new Date(dto.promiseBy),
+      note: dto.note ?? null,
+    });
+    if (!promise) throw new BadRequestException('Student has no financial account yet');
+    return toPromiseView(promise);
+  }
+
+  listPromises(studentId: string): Promise<PromiseView[]> {
+    return this.repo.listPromises(studentId).then((ps) => ps.map(toPromiseView));
+  }
+
+  async resolvePromise(promiseId: string, kept: boolean): Promise<PromiseView> {
+    return toPromiseView(await this.repo.resolvePromise(promiseId, kept));
+  }
+
+  /** Log a parent contact (call/WhatsApp/meeting/…) into the Communication Log. */
+  async logCommunication(studentId: string, dto: LogCommunicationDto): Promise<DunningEvent> {
+    if (!(await this.repo.studentExists(studentId))) {
+      throw new NotFoundException('Student not found in this tenant');
+    }
+    const event = await this.repo.logCommunication({
+      studentId,
+      medium: dto.medium,
+      note: dto.note,
+    });
+    if (!event) throw new BadRequestException('Student has no financial account yet');
+    return event;
+  }
+
+  listCommunications(studentId: string): Promise<DunningEvent[]> {
+    return this.repo.listCommunications(studentId);
   }
 
   async setCollections(studentId: string, dto: SetCollectionsDto): Promise<StudentBillingProfile> {

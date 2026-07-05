@@ -2680,6 +2680,18 @@ enum DunningEventType {
   STATUS_CHANGE // the case status changed
   PROMISE // a promise-to-pay was recorded
   ESCALATION // escalated to legal/lawyer
+  COMMUNICATION // a logged parent contact (call/WhatsApp/meeting/…)
+}
+
+/// How a finance officer contacted the parent, for the Communication Log (additive; nullable
+/// on DunningEvent — only set on COMMUNICATION events).
+enum CommunicationMedium {
+  PHONE
+  WHATSAPP
+  SMS
+  EMAIL
+  MEETING
+  NOTE
 }
 
 enum ReminderChannel {
@@ -2738,6 +2750,8 @@ model DunningEvent {
   caseId         String            @db.Uuid
   type           DunningEventType
   channels       ReminderChannel[]
+  /// Contact medium — only set on COMMUNICATION events (the Communication Log).
+  medium         CommunicationMedium?
   outstanding    Decimal?          @db.Decimal(12, 3)
   dueThisMonth   Decimal?          @db.Decimal(12, 3)
   overdue        Decimal?          @db.Decimal(12, 3)

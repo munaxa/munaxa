@@ -2,7 +2,9 @@ import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   type CollectionsStatus,
+  type CommunicationMedium,
   type DunningEvent,
+  type PromiseToPay,
   type ReminderChannel,
   type StudentBillingProfile,
 } from '@prisma/client';
@@ -322,6 +324,150 @@ export class CollectionsRepository extends TenantRepository {
       if (!kase) return [];
       return tx.dunningEvent.findMany({
         where: { caseId: kase.id, type: 'REMINDER' },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      });
+    });
+  }
+
+  // ─────────────────────────────────────────────────────── Promise to Pay
+
+  /**
+   * Record a promise-to-pay under the account's collections case (auto-opening the case), move the
+   * case into PROMISE_TO_PAY, log a PROMISE dunning event, and audit it. Returns null if no account.
+   */
+  createPromise(data: {
+    studentId: string;
+    amount: Prisma.Decimal;
+    promiseBy: Date;
+    note: string | null;
+  }): Promise<PromiseToPay | null> {
+    return this.run(async (tx, tenantId) => {
+      const caseId = await this.ensureCaseId(tx, tenantId, data.studentId);
+      if (!caseId) return null;
+      const promise = await tx.promiseToPay.create({
+        data: {
+          tenantId,
+          caseId,
+          amount: data.amount,
+          promiseBy: data.promiseBy,
+          note: data.note,
+          createdById: this.actor(),
+        },
+      });
+      // Reflect the commitment on the case (a promise is an active dunning stage).
+      await tx.collectionsCase.update({
+        where: { id: caseId },
+        data: { status: 'PROMISE_TO_PAY', resolvedAt: null },
+      });
+      await tx.dunningEvent.create({
+        data: {
+          tenantId,
+          caseId,
+          type: 'PROMISE',
+          detail: `Promise ${data.amount.toFixed(3)} by ${data.promiseBy.toISOString().slice(0, 10)}${
+            data.note ? ` — ${data.note}` : ''
+          }`,
+          actorId: this.actor(),
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.promise.create',
+        entityType: 'PromiseToPay',
+        entityId: promise.id,
+        metadata: {
+          studentId: data.studentId,
+          amount: data.amount.toString(),
+          promiseBy: data.promiseBy.toISOString().slice(0, 10),
+        },
+      });
+      return promise;
+    });
+  }
+
+  listPromises(studentId: string): Promise<PromiseToPay[]> {
+    return this.run(async (tx) => {
+      const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
+      if (!account) return [];
+      const kase = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+      if (!kase) return [];
+      return tx.promiseToPay.findMany({
+        where: { caseId: kase.id },
+        orderBy: { promiseBy: 'desc' },
+        take: 50,
+      });
+    });
+  }
+
+  /** Resolve an open promise as kept or broken; logs a STATUS_CHANGE event + audit. */
+  resolvePromise(promiseId: string, kept: boolean): Promise<PromiseToPay> {
+    return this.run(async (tx, tenantId) => {
+      const promise = await tx.promiseToPay.update({
+        where: { id: promiseId },
+        data: { kept },
+      });
+      await tx.dunningEvent.create({
+        data: {
+          tenantId,
+          caseId: promise.caseId,
+          type: 'STATUS_CHANGE',
+          detail: `Promise ${kept ? 'kept' : 'broken'} (${promise.amount.toFixed(3)})`,
+          actorId: this.actor(),
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.promise.resolve',
+        entityType: 'PromiseToPay',
+        entityId: promise.id,
+        metadata: { kept },
+      });
+      return promise;
+    });
+  }
+
+  // ─────────────────────────────────────────────────────── Communication Log
+
+  /**
+   * Log a parent contact (call/WhatsApp/meeting/…) as a COMMUNICATION dunning event under the
+   * account's case (auto-opened), timestamped + audited. Returns null if the account is missing.
+   */
+  logCommunication(data: {
+    studentId: string;
+    medium: CommunicationMedium;
+    note: string;
+  }): Promise<DunningEvent | null> {
+    return this.run(async (tx, tenantId) => {
+      const caseId = await this.ensureCaseId(tx, tenantId, data.studentId);
+      if (!caseId) return null;
+      const event = await tx.dunningEvent.create({
+        data: {
+          tenantId,
+          caseId,
+          type: 'COMMUNICATION',
+          medium: data.medium,
+          detail: data.note,
+          actorId: this.actor(),
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.communication.log',
+        entityType: 'DunningEvent',
+        entityId: event.id,
+        metadata: { studentId: data.studentId, medium: data.medium },
+      });
+      return event;
+    });
+  }
+
+  /** The account's communication log (logged contacts), newest first. */
+  listCommunications(studentId: string): Promise<DunningEvent[]> {
+    return this.run(async (tx) => {
+      const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
+      if (!account) return [];
+      const kase = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+      if (!kase) return [];
+      return tx.dunningEvent.findMany({
+        where: { caseId: kase.id, type: 'COMMUNICATION' },
         orderBy: { createdAt: 'desc' },
         take: 50,
       });

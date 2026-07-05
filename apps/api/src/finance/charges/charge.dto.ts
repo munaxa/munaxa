@@ -91,6 +91,16 @@ export class CreatePlanDto {
   @IsArray()
   @IsString({ each: true })
   holidays?: string[];
+
+  @ApiPropertyOptional({
+    description:
+      'Why the plan is being (re)created — required by the UI for a REPLACE (advanced action). ' +
+      'Recorded in the audit log (e.g. hardship, scholarship, recalculation, transfer, correction).',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }
 
 export class RescheduleInstallmentDto {

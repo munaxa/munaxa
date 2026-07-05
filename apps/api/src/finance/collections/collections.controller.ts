@@ -3,7 +3,14 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { CollectionsService } from './collections.service';
-import { PushOutstandingDto, SendReminderDto, SetCollectionsDto } from './collections.dto';
+import {
+  LogCommunicationDto,
+  PushOutstandingDto,
+  RecordPromiseDto,
+  ResolvePromiseDto,
+  SendReminderDto,
+  SetCollectionsDto,
+} from './collections.dto';
 
 /**
  * Fee collections (Phase 18): the per-student legal/collections tag shown on the finance card,
@@ -72,6 +79,52 @@ export class CollectionsController {
   @ApiOperation({ summary: 'Outstanding balance bucketed by age for one student' })
   studentAging(@Param('studentId', ParseUUIDPipe) studentId: string) {
     return this.service.aging(studentId);
+  }
+
+  // ── Promise to Pay ──────────────────────────────────────────────────────────
+  @Post('students/:studentId/promises')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Record a promise-to-pay (amount + expected date) for this student' })
+  recordPromise(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body() dto: RecordPromiseDto,
+  ) {
+    return this.service.recordPromise(studentId, dto);
+  }
+
+  @Get('students/:studentId/promises')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({ summary: 'List this student’s promises-to-pay (with derived status)' })
+  listPromises(@Param('studentId', ParseUUIDPipe) studentId: string) {
+    return this.service.listPromises(studentId);
+  }
+
+  @Post('promises/:promiseId/resolve')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Resolve a promise-to-pay as kept or broken' })
+  resolvePromise(
+    @Param('promiseId', ParseUUIDPipe) promiseId: string,
+    @Body() dto: ResolvePromiseDto,
+  ) {
+    return this.service.resolvePromise(promiseId, dto.kept);
+  }
+
+  // ── Communication Log ───────────────────────────────────────────────────────
+  @Post('students/:studentId/communications')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({ summary: 'Log a parent contact (call/WhatsApp/SMS/email/meeting/note)' })
+  logCommunication(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body() dto: LogCommunicationDto,
+  ) {
+    return this.service.logCommunication(studentId, dto);
+  }
+
+  @Get('students/:studentId/communications')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({ summary: 'The student’s communication log (logged parent contacts)' })
+  listCommunications(@Param('studentId', ParseUUIDPipe) studentId: string) {
+    return this.service.listCommunications(studentId);
   }
 
   @Post('students/:studentId/transport/evaluate')

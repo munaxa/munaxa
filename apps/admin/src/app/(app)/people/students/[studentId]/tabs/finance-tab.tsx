@@ -86,6 +86,8 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     cadence: string;
     installments: string;
     firstDueDate: string;
+    reason: string;
+    isReplace: boolean;
   } | null>(null);
   const [adjForm, setAdjForm] = useState<{
     chargeId: string;
@@ -161,14 +163,30 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     const installments = Number(planForm.installments);
     if (!installments || installments < 1) return toast.error('Enter a number of installments');
     if (!planForm.firstDueDate) return toast.error('Choose a first due date');
-    await run(async () => {
-      await financeApi.createPlan(planForm.chargeId, {
-        cadence: planForm.cadence as 'MONTHLY',
-        installments,
-        firstDueDate: planForm.firstDueDate,
-      });
-      setPlanForm(null);
-    }, 'Payment plan created');
+    if (planForm.isReplace) {
+      if (!planForm.reason.trim()) return toast.error('A reason is required to replace a plan');
+      if (
+        !window.confirm(
+          'Replace the active payment plan?\n\nThe current plan will be superseded (kept for ' +
+            'history), and a new plan will be generated for the OUTSTANDING balance only. Existing ' +
+            'payments and allocations are preserved. This is an exceptional administrative action.',
+        )
+      ) {
+        return;
+      }
+    }
+    await run(
+      async () => {
+        await financeApi.createPlan(planForm.chargeId, {
+          cadence: planForm.cadence as 'MONTHLY',
+          installments,
+          firstDueDate: planForm.firstDueDate,
+          ...(planForm.isReplace ? { reason: planForm.reason.trim() } : {}),
+        });
+        setPlanForm(null);
+      },
+      planForm.isReplace ? 'Payment plan replaced' : 'Payment plan created',
+    );
   }
 
   async function submitAdjustment() {
@@ -273,6 +291,8 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                   cadence: 'MONTHLY',
                   installments: '9',
                   firstDueDate: '',
+                  reason: '',
+                  isReplace: !!cv.plan,
                 })
               }
               onDiscount={() =>
@@ -287,8 +307,18 @@ export function FinanceTab({ studentId }: { studentId: string }) {
       {planForm && (
         <Card>
           <CardHeader>
-            <CardTitle>Create / replace payment plan</CardTitle>
+            <CardTitle>
+              {planForm.isReplace ? 'Replace payment plan' : 'Create payment plan'}
+            </CardTitle>
           </CardHeader>
+          {planForm.isReplace && (
+            <div className="mx-4 mb-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm">
+              Exceptional action. The current plan is superseded (kept for history) and a new plan
+              is generated for the <strong>outstanding balance only</strong>. Paid installments,
+              allocations and credits are preserved. A reason is required and recorded in the audit
+              log.
+            </div>
+          )}
           <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <Field label="Cadence">
               <Select
@@ -317,9 +347,22 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                 onChange={(e) => setPlanForm({ ...planForm, firstDueDate: e.target.value })}
               />
             </Field>
+            {planForm.isReplace && (
+              <Field label="Reason (required)" className="sm:col-span-4">
+                <Input
+                  placeholder="e.g. financial hardship, scholarship, recalculation, transfer, correction"
+                  value={planForm.reason}
+                  onChange={(e) => setPlanForm({ ...planForm, reason: e.target.value })}
+                />
+              </Field>
+            )}
             <div className="flex items-end gap-2">
-              <Button onClick={() => void submitPlan()} disabled={busy}>
-                Create plan
+              <Button
+                variant={planForm.isReplace ? 'destructive' : 'default'}
+                onClick={() => void submitPlan()}
+                disabled={busy}
+              >
+                {planForm.isReplace ? 'Replace plan' : 'Create plan'}
               </Button>
               <Button variant="ghost" onClick={() => setPlanForm(null)}>
                 Cancel
@@ -684,6 +727,7 @@ function ChargeNode({
   onDiscount: () => void;
 }) {
   const [showHistory, setShowHistory] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const history = cv.history ?? [];
   return (
     <div className="rounded-lg border border-border">
@@ -724,9 +768,13 @@ function ChargeNode({
               <Button size="sm" variant="ghost" onClick={onDiscount} disabled={busy}>
                 Adjust
               </Button>
-              <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
-                {cv.plan ? 'Replace plan' : 'Create plan'}
-              </Button>
+              {/* Creating the first plan is a normal action; REPLACING an existing plan is an
+                  exceptional admin action moved under Advanced actions below. */}
+              {!cv.plan && (
+                <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
+                  Create plan
+                </Button>
+              )}
             </div>
           </div>
 
@@ -805,6 +853,30 @@ function ChargeNode({
                     </Table>
                   </div>
                 ))}
+            </div>
+          )}
+
+          {/* Advanced actions — exceptional, not part of the daily collection workflow. */}
+          {cv.plan && (
+            <div className="mt-4 border-t border-border pt-3">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced((v) => !v)}
+                className="text-sm font-medium text-muted-foreground"
+              >
+                {showAdvanced ? '▼' : '▶'} Advanced actions
+              </button>
+              {showAdvanced && (
+                <div className="mt-2 flex items-center gap-3">
+                  <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
+                    Replace payment plan
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Supersedes the current plan and re-schedules the outstanding balance. Requires a
+                    reason (hardship, scholarship, recalculation, transfer, correction).
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
