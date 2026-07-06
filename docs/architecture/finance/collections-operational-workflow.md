@@ -73,6 +73,23 @@ Previously verified payments stay attached to the superseded plan (history) and 
 the new plan. Verified scenarios: 1705 debt −190 paid → 1515.000; 1705 −700 (6 mo) → 1005.000;
 1705 −0 → 1705.000; partial/odd payments still take the basis from the ledger to the fils.
 
+**Reconciliation invariant (single financial truth).** When a plan is superseded, a *partially-paid*
+installment is shrunk to exactly its allocated amount (status `PAID`, zero balance) — it never keeps
+a residual balance, because that remainder is already carried by the new plan. This preserves
+`Σ(non-cancelled installment.amount) == charge.net`, so the two outstanding computations stay
+identical to the fils:
+
+```
+Account / Statement outstanding  =  Σ max(installment.amount − installment.paid, 0)
+Charge outstanding               =  max(charge.net − Σ paid, 0)
+```
+
+After materialising the new schedule, `createPlan` re-derives both figures and **aborts the
+transaction (fail-closed)** if they differ, or if `Σ installments ≠ net` — inconsistent AR data can
+never be persisted. (Regression fixed: a retained partial installment used to keep a residual that
+the installment-sum path double-counted against the charge's net−paid path, e.g. Account 753.219 vs
+Charge 752.889.)
+
 In the **Student Finance** UI the action is **Renegotiate Payment Plan** — removed from the primary
 action row and placed under a per-charge **Advanced actions** disclosure, requiring a reason + a
 confirmation dialog.

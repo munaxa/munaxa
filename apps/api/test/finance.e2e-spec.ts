@@ -342,6 +342,57 @@ describe('Finance AR (e2e)', () => {
     expect(await renegotiate(1000, 333.333, 7)).toBe('666.667');
   });
 
+  // ── Every outstanding path stays identical after renegotiation (accounting consistency) ──
+  // Regression for the 0.330 divergence: a partial payment left a residual balance on the
+  // superseded installment, double-counting it in the installment-sum path (account/statement)
+  // against the charge's net−paid path. All five views MUST agree to the fils.
+  it('renegotiation with a partial payment keeps account == charge == installments == statement', async () => {
+    const plan = (chargeId: string, months: number, firstDueDate: string, reason?: string) =>
+      http()
+        .post(`/api/v1/finance/charges/${chargeId}/plan`)
+        .set(auth(financeToken))
+        .send({
+          cadence: 'MONTHLY',
+          installments: months,
+          firstDueDate,
+          ...(reason ? { reason } : {}),
+        })
+        .expect(201);
+
+    const studentId = await makeStudent('reconcile-1905');
+    const charge = await createCharge(studentId, 'Tuition & Fees', 1905);
+    await plan(charge.id, 9, '2026-09-01');
+    // 211.336 partially pays installment 1 (211.666) → leaves a 0.330 residual (the bug trigger).
+    await recordAndVerifyPayment(studentId, 211.336);
+    await plan(charge.id, 9, '2026-10-01', 'Financial hardship — approved renegotiation');
+
+    const assertReconciled = (s: Statement, expectedOutstanding: string, expectedPaid: string) => {
+      const view = s.charges.find((c) => c.charge.id === charge.id)!;
+      const activeSum = view.installments.reduce((t, i) => t + Number(i.amount), 0).toFixed(3);
+      const allBalances = [...view.installments, ...view.history.flatMap((h) => h.lines)]
+        .reduce((t, i) => t + Number(i.balance), 0)
+        .toFixed(3);
+      // charge net−paid, active-schedule sum, every installment balance, and the ACCOUNT total
+      // (statement) must all be the same number — this is the single financial truth.
+      expect(view.paid).toBe(expectedPaid);
+      expect(view.balance).toBe(expectedOutstanding);
+      expect(activeSum).toBe(expectedOutstanding);
+      expect(allBalances).toBe(expectedOutstanding);
+      expect(s.totals.outstanding).toBe(expectedOutstanding);
+      // The retained (superseded) installment was truncated to what was paid — no residual.
+      expect(view.history.flatMap((h) => h.lines).every((i) => Number(i.balance) === 0)).toBe(true);
+    };
+
+    // 1905 − 211.336 = 1693.664, reconciled across every view.
+    assertReconciled(await statement(studentId), '1693.664', '211.336');
+
+    // Multiple renegotiations: pay another partial, renegotiate again — still reconciled.
+    await recordAndVerifyPayment(studentId, 500.5);
+    await plan(charge.id, 6, '2026-11-01', 'Second renegotiation');
+    // 1905 − 211.336 − 500.5 = 1193.164.
+    assertReconciled(await statement(studentId), '1193.164', '711.836');
+  });
+
   // ── Manual allocation to a specific installment ──────────────────────────────
   it('allocates a verified payment to a specific installment (AR-1)', async () => {
     const studentId = await makeStudent('alloc');
