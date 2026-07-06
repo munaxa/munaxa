@@ -351,7 +351,12 @@ describe('Finance AR (e2e)', () => {
       http()
         .post(`/api/v1/finance/charges/${chargeId}/plan`)
         .set(auth(financeToken))
-        .send({ cadence: 'MONTHLY', installments: months, firstDueDate, ...(reason ? { reason } : {}) })
+        .send({
+          cadence: 'MONTHLY',
+          installments: months,
+          firstDueDate,
+          ...(reason ? { reason } : {}),
+        })
         .expect(201);
 
     const studentId = await makeStudent('reconcile-1905');
