@@ -1,11 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
+import { usePrincipal } from '@/components/shell';
 import { useToast } from '@/components/toast';
 import {
   documentsApi,
   type AcademicYearOption,
+  type AgreementStatus,
   type DocumentAccessLog,
   type DocumentMeta,
   type DocumentType,
@@ -62,6 +64,19 @@ const OPTIONAL_KINDS: FeeItemKind[] = [
 const dateStr = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : '—');
 const docNo = (n: number) => String(n).padStart(6, '0');
 
+/** Badge tone for the agreement's (derived) lifecycle status. */
+const AGREEMENT_TONE: Record<AgreementStatus, 'success' | 'muted' | 'warning' | 'danger'> = {
+  SIGNED: 'success',
+  PRINTED: 'warning',
+  GENERATED: 'muted',
+  COMMITTED: 'muted',
+  DRAFT: 'muted',
+  CANCELLED: 'danger',
+  ARCHIVED: 'muted',
+};
+
+const ACCEPT_SIGNED = 'application/pdf,image/jpeg,image/png';
+
 /**
  * Student Finance Card → Documents (Part 5). Lists the immutable document archive and the
  * registration agreement(s), and lets staff generate the finance documents on demand. Every action
@@ -71,6 +86,12 @@ const docNo = (n: number) => String(n).padStart(6, '0');
 export function DocumentsSection({ studentId }: { studentId: string }) {
   const { t } = useI18n();
   const toast = useToast();
+  const principal = usePrincipal();
+  const can = (p: string) => principal.permissions.includes(p);
+  const canUploadSigned = can('document:upload_signed');
+  const canReplaceSigned = can('document:replace_signed');
+  const canDeleteSigned = can('document:delete_signed');
+
   const [docs, setDocs] = useState<DocumentMeta[]>([]);
   const [agreements, setAgreements] = useState<RegistrationAgreementRow[]>([]);
   const [years, setYears] = useState<AcademicYearOption[]>([]);
@@ -97,6 +118,18 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
   // Access-history dialog state.
   const [historyDoc, setHistoryDoc] = useState<DocumentMeta | null>(null);
   const [history, setHistory] = useState<DocumentAccessLog[] | null>(null);
+
+  // Signed-agreement upload/replace dialog state.
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [signAgreement, setSignAgreement] = useState<RegistrationAgreementRow | null>(null);
+  const [signReplace, setSignReplace] = useState(false);
+  const [signForm, setSignForm] = useState({
+    signedBy: '',
+    signedAt: '',
+    file: null as File | null,
+  });
+  const [signing, setSigning] = useState(false);
+  const [deleteSignedFor, setDeleteSignedFor] = useState<RegistrationAgreementRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -148,17 +181,42 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
     }
   }
 
-  async function regenerateAgreement(enrollmentId: string) {
-    setBusy('agreement');
+  function openSign(agreement: RegistrationAgreementRow, replace: boolean) {
+    setSignReplace(replace);
+    setSignForm({ signedBy: '', signedAt: '', file: null });
+    setSignAgreement(agreement);
+  }
+
+  async function submitSigned() {
+    if (!signAgreement || !signForm.file) {
+      toast.error(t('studentProfile.selectFile'));
+      return;
+    }
+    setSigning(true);
     try {
-      await documentsApi.generateAgreement(enrollmentId, language);
-      toast.success(t('studentProfile.documentGenerated'));
+      await documentsApi.uploadSignedAgreement(signAgreement.id, signForm.file, {
+        ...(signForm.signedBy.trim() ? { signedBy: signForm.signedBy.trim() } : {}),
+        ...(signForm.signedAt ? { signedAt: signForm.signedAt } : {}),
+        replace: signReplace,
+      });
+      toast.success(t('studentProfile.signedUploaded'));
+      setSignAgreement(null);
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Generation failed');
+      toast.error(e instanceof Error ? e.message : 'Upload failed');
     } finally {
-      setBusy(null);
+      setSigning(false);
     }
+  }
+
+  async function confirmDeleteSigned() {
+    if (!deleteSignedFor) return;
+    await withBusy(`del-signed-${deleteSignedFor.id}`, async () => {
+      await documentsApi.deleteSignedAgreement(deleteSignedFor.id);
+      toast.success(t('studentProfile.signedDeleted'));
+      setDeleteSignedFor(null);
+      await load();
+    });
   }
 
   async function withBusy(key: string, fn: () => Promise<unknown>) {
@@ -258,10 +316,11 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
               <THead>
                 <TR>
                   <TH>{t('studentProfile.agreementNo')}</TH>
-                  <TH>{t('studentProfile.version')}</TH>
                   <TH>{t('common.status')}</TH>
+                  <TH>{t('studentProfile.createdAt')}</TH>
+                  <TH className="text-end">{t('studentProfile.printed')}</TH>
+                  <TH>{t('studentProfile.signed')}</TH>
                   <TH className="text-end">{t('finance.amount')}</TH>
-                  <TH>{t('studentProfile.generatedAt')}</TH>
                   <TH className="text-end">{t('common.actions')}</TH>
                 </TR>
               </THead>
@@ -269,20 +328,38 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                 {agreements.map((a) => (
                   <TR key={a.id}>
                     <TD className="font-mono text-xs">AGR-{docNo(a.agreementNo)}</TD>
-                    <TD className="font-mono text-xs">v{a.version}</TD>
                     <TD>
-                      <Badge
-                        tone={
-                          a.status === 'COMMITTED' || a.status === 'SIGNED' ? 'success' : 'muted'
-                        }
-                      >
-                        {a.status}
+                      <Badge tone={AGREEMENT_TONE[a.effectiveStatus] ?? 'muted'}>
+                        {a.effectiveStatus}
                       </Badge>
                     </TD>
-                    <TD className="text-end font-mono">{Number(a.grandTotal).toFixed(3)}</TD>
                     <TD className="whitespace-nowrap font-mono text-xs">{dateStr(a.createdAt)}</TD>
+                    <TD className="text-end font-mono text-xs">
+                      {a.printedCount}
+                      {a.lastPrintedAt ? (
+                        <span className="block text-[10px] text-muted-foreground">
+                          {dateStr(a.lastPrintedAt)}
+                        </span>
+                      ) : null}
+                    </TD>
+                    <TD className="text-xs">
+                      {a.hasSigned ? (
+                        <>
+                          <span className="font-mono">{dateStr(a.signedAt)}</span>
+                          {a.signedBy ? <span className="block">{a.signedBy}</span> : null}
+                          {a.signedUploadedByName ? (
+                            <span className="block text-[10px] text-muted-foreground">
+                              {t('studentProfile.uploadedBy')}: {a.signedUploadedByName}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TD>
+                    <TD className="text-end font-mono">{Number(a.grandTotal).toFixed(3)}</TD>
                     <TD className="text-end">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
                         {a.documentId ? (
                           <>
                             <Button
@@ -311,14 +388,40 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                             </Button>
                           </>
                         ) : null}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={busy !== null}
-                          onClick={() => void regenerateAgreement(a.enrollmentId)}
-                        >
-                          {t('studentProfile.newVersion')}
-                        </Button>
+                        {a.hasSigned ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy !== null}
+                            onClick={() =>
+                              void withBusy(`view-signed-${a.id}`, () =>
+                                documentsApi.viewSignedAgreement(a.id),
+                              )
+                            }
+                          >
+                            {t('studentProfile.viewSigned')}
+                          </Button>
+                        ) : null}
+                        {!a.hasSigned && canUploadSigned ? (
+                          <Button size="sm" variant="ghost" onClick={() => openSign(a, false)}>
+                            {t('studentProfile.uploadSigned')}
+                          </Button>
+                        ) : null}
+                        {a.hasSigned && canReplaceSigned ? (
+                          <Button size="sm" variant="ghost" onClick={() => openSign(a, true)}>
+                            {t('studentProfile.replaceSigned')}
+                          </Button>
+                        ) : null}
+                        {a.hasSigned && canDeleteSigned ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-danger"
+                            onClick={() => setDeleteSignedFor(a)}
+                          >
+                            {t('common.delete')}
+                          </Button>
+                        ) : null}
                       </div>
                     </TD>
                   </TR>
@@ -581,6 +684,81 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
             </TBody>
           </Table>
         )}
+      </Dialog>
+
+      {/* Upload / replace signed agreement dialog */}
+      <Dialog
+        open={signAgreement !== null}
+        onClose={() => setSignAgreement(null)}
+        title={signReplace ? t('studentProfile.replaceSigned') : t('studentProfile.uploadSigned')}
+        description={signAgreement ? `AGR-${docNo(signAgreement.agreementNo)}` : ''}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSignAgreement(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              disabled={signing || !signForm.file}
+              onClick={() => void submitSigned()}
+            >
+              {signing ? t('common.recording') : t('studentProfile.upload')}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <Field label={t('studentProfile.signedFile')}>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ACCEPT_SIGNED}
+              className="block w-full text-sm"
+              onChange={(e) => setSignForm({ ...signForm, file: e.target.files?.[0] ?? null })}
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {t('studentProfile.signedFileHint')}
+            </p>
+          </Field>
+          <Field label={t('studentProfile.signedByName')}>
+            <Input
+              value={signForm.signedBy}
+              onChange={(e) => setSignForm({ ...signForm, signedBy: e.target.value })}
+            />
+          </Field>
+          <Field label={t('studentProfile.signedDate')}>
+            <Input
+              type="date"
+              value={signForm.signedAt}
+              onChange={(e) => setSignForm({ ...signForm, signedAt: e.target.value })}
+            />
+          </Field>
+        </div>
+      </Dialog>
+
+      {/* Delete signed agreement confirm */}
+      <Dialog
+        open={deleteSignedFor !== null}
+        onClose={() => setDeleteSignedFor(null)}
+        title={t('studentProfile.deleteSignedTitle')}
+        description={deleteSignedFor ? `AGR-${docNo(deleteSignedFor.agreementNo)}` : ''}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setDeleteSignedFor(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              className="bg-danger text-white"
+              disabled={busy !== null}
+              onClick={() => void confirmDeleteSigned()}
+            >
+              {t('common.delete')}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted-foreground">{t('studentProfile.deleteSignedConfirm')}</p>
       </Dialog>
     </div>
   );

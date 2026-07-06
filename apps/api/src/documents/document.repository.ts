@@ -5,7 +5,6 @@ import {
   DocumentLanguage,
   DocumentPersistence,
   DocumentType,
-  GeneratedDocumentStatus,
   Prisma,
   RegistrationAgreementStatus,
 } from '@prisma/client';
@@ -338,11 +337,36 @@ export class DocumentRepository extends TenantRepository {
   // ── Registration agreements ────────────────────────────────────────────────
 
   /**
-   * Persist a registration-agreement version atomically: archive any current active version,
-   * allocate the agreement + document numbers, store the agreement snapshot + the rendered PDF,
-   * and link them. Returns the new agreement with its document metadata.
+   * The single (non-cancelled) registration agreement for an enrollment, with its document meta —
+   * or null. Used to enforce "exactly one immutable agreement per enrollment" (idempotent generate).
    */
-  persistAgreementVersion(input: {
+  agreementByEnrollment(enrollmentId: string) {
+    return this.run((tx) =>
+      tx.registrationAgreement.findFirst({
+        where: { enrollmentId, status: { not: RegistrationAgreementStatus.CANCELLED } },
+        include: { document: { select: META_SELECT } },
+        orderBy: { createdAt: 'asc' },
+      }),
+    );
+  }
+
+  /** A single agreement by id, with its linked document meta. */
+  agreementById(id: string) {
+    return this.run((tx) =>
+      tx.registrationAgreement.findFirst({
+        where: { id },
+        include: { document: { select: META_SELECT } },
+      }),
+    );
+  }
+
+  /**
+   * Persist THE registration agreement for an enrollment (exactly one, immutable — no versioning):
+   * allocate the agreement + document numbers, store the permanent snapshot + rendered PDF, and link
+   * them. The caller (RegistrationAgreementService) guarantees no agreement yet exists for the
+   * enrollment, so this never supersedes/archives anything.
+   */
+  persistAgreement(input: {
     enrollmentId: string;
     studentId: string;
     parentId: string | null;
@@ -364,30 +388,6 @@ export class DocumentRepository extends TenantRepository {
     byteSize: number;
   }) {
     return this.run(async (tx, tenantId) => {
-      // Archive the prior active version (never overwrite) — Part: Versioning.
-      const prior = await tx.registrationAgreement.findFirst({
-        where: {
-          enrollmentId: input.enrollmentId,
-          status: {
-            in: [RegistrationAgreementStatus.COMMITTED, RegistrationAgreementStatus.SIGNED],
-          },
-        },
-        orderBy: { version: 'desc' },
-      });
-      if (prior) {
-        await tx.registrationAgreement.update({
-          where: { id: prior.id },
-          data: { status: RegistrationAgreementStatus.ARCHIVED },
-        });
-        if (prior.documentId) {
-          await tx.generatedDocument.update({
-            where: { id: prior.documentId },
-            data: { status: GeneratedDocumentStatus.SUPERSEDED },
-          });
-        }
-      }
-      const version = (prior?.version ?? 0) + 1;
-
       const agreementNo = await this.nextNumber(tx, tenantId, 'AGREEMENT');
       const document = await this.archiveInTx(tx, tenantId, {
         type: DocumentType.REGISTRATION_AGREEMENT,
@@ -397,7 +397,7 @@ export class DocumentRepository extends TenantRepository {
         parentId: input.parentId,
         academicYearId: input.academicYearId,
         enrollmentId: input.enrollmentId,
-        version,
+        version: 1,
         dataSnapshot: input.dataSnapshot,
         pdf: input.pdf,
         checksum: input.checksum,
@@ -408,8 +408,8 @@ export class DocumentRepository extends TenantRepository {
         data: {
           tenantId,
           agreementNo,
-          version,
-          status: RegistrationAgreementStatus.COMMITTED,
+          version: 1, // deprecated field — always 1 (no versioning)
+          status: RegistrationAgreementStatus.GENERATED,
           enrollmentId: input.enrollmentId,
           studentId: input.studentId,
           parentId: input.parentId,
@@ -424,7 +424,6 @@ export class DocumentRepository extends TenantRepository {
           installmentSchedule: input.installmentSchedule,
           grandTotal: input.grandTotal,
           documentId: document.id,
-          supersedesId: prior?.id ?? null,
           registrarId: this.actor(),
         },
       });
@@ -432,21 +431,180 @@ export class DocumentRepository extends TenantRepository {
         action: 'document.registrationAgreement.generate',
         entityType: 'RegistrationAgreement',
         entityId: agreement.id,
-        metadata: { agreementNo, version, enrollmentId: input.enrollmentId },
+        metadata: { agreementNo, enrollmentId: input.enrollmentId },
       });
       return { agreement, document };
     });
   }
 
-  listAgreements(filter: { studentId?: string; enrollmentId?: string }) {
-    return this.run((tx) =>
-      tx.registrationAgreement.findMany({
+  /**
+   * Effective lifecycle status shown in the UI: SIGNED once a countersigned copy is attached, else
+   * PRINTED once the linked document has been printed (reusing the document's own print counter),
+   * else GENERATED. CANCELLED/ARCHIVED (and legacy DRAFT/COMMITTED) pass through / map to GENERATED.
+   */
+  private effectiveAgreementStatus(a: {
+    status: RegistrationAgreementStatus;
+    signedFileKey: string | null;
+    document: { printedCount: number } | null;
+  }): RegistrationAgreementStatus {
+    if (
+      a.status === RegistrationAgreementStatus.CANCELLED ||
+      a.status === RegistrationAgreementStatus.ARCHIVED
+    ) {
+      return a.status;
+    }
+    if (a.signedFileKey) return RegistrationAgreementStatus.SIGNED;
+    if ((a.document?.printedCount ?? 0) > 0) return RegistrationAgreementStatus.PRINTED;
+    return RegistrationAgreementStatus.GENERATED;
+  }
+
+  /** Agreements for a student/enrollment, enriched with document print stats + signer/uploader. */
+  async listAgreements(filter: { studentId?: string; enrollmentId?: string }) {
+    return this.run(async (tx) => {
+      const rows = await tx.registrationAgreement.findMany({
         where: {
           ...(filter.studentId ? { studentId: filter.studentId } : {}),
           ...(filter.enrollmentId ? { enrollmentId: filter.enrollmentId } : {}),
         },
-        orderBy: [{ enrollmentId: 'asc' }, { version: 'desc' }],
+        include: { document: { select: META_SELECT } },
+        orderBy: [{ enrollmentId: 'asc' }, { createdAt: 'desc' }],
         take: 500,
+      });
+      const uploaderIds = [
+        ...new Set(rows.map((r) => r.signedUploadedById).filter((v): v is string => Boolean(v))),
+      ];
+      const uploaders = uploaderIds.length
+        ? await tx.user.findMany({
+            where: { id: { in: uploaderIds } },
+            select: { id: true, firstNameEn: true, lastNameEn: true, email: true },
+          })
+        : [];
+      const nameOf = (id: string | null): string | null => {
+        if (!id) return null;
+        const u = uploaders.find((x) => x.id === id);
+        if (!u) return null;
+        return [u.firstNameEn, u.lastNameEn].filter(Boolean).join(' ').trim() || u.email;
+      };
+      return rows.map((r) => ({
+        id: r.id,
+        agreementNo: r.agreementNo,
+        version: r.version,
+        status: r.status,
+        effectiveStatus: this.effectiveAgreementStatus(r),
+        enrollmentId: r.enrollmentId,
+        studentId: r.studentId,
+        grandTotal: r.grandTotal.toFixed(3),
+        documentId: r.documentId,
+        registrationDate: r.registrationDate,
+        createdAt: r.createdAt,
+        printedCount: r.document?.printedCount ?? 0,
+        lastPrintedAt: r.document?.lastPrintedAt ?? null,
+        signedFileName: r.signedFileName,
+        signedFileType: r.signedFileType,
+        signedAt: r.signedAt,
+        signedBy: r.signedBy,
+        signedUploadedAt: r.signedUploadedAt,
+        signedUploadedByName: nameOf(r.signedUploadedById),
+        hasSigned: Boolean(r.signedFileKey),
+      }));
+    });
+  }
+
+  /** Attach (or replace) the parent's countersigned copy. Stores only a storage-key reference. */
+  attachSignedAgreement(input: {
+    agreementId: string;
+    fileKey: string;
+    fileName: string;
+    contentType: string;
+    size: number | null;
+    signedBy: string | null;
+    signedAt: Date | null;
+    mode: 'upload' | 'replace';
+    ctx?: AccessContext;
+  }): Promise<{ signedFileKey: string; priorKey: string | null }> {
+    return this.run(async (tx, tenantId) => {
+      const existing = await tx.registrationAgreement.findFirst({
+        where: { id: input.agreementId },
+      });
+      if (!existing) throw new NotFoundException('Registration agreement not found');
+      const priorKey = existing.signedFileKey;
+      await tx.registrationAgreement.update({
+        where: { id: input.agreementId },
+        data: {
+          signedFileKey: input.fileKey,
+          signedFileName: input.fileName,
+          signedFileType: input.contentType,
+          signedFileSize: input.size,
+          signedBy: input.signedBy,
+          signedAt: input.signedAt ?? new Date(),
+          signedUploadedById: this.actor(),
+          signedUploadedAt: new Date(),
+          status: RegistrationAgreementStatus.SIGNED,
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action:
+          input.mode === 'replace'
+            ? 'document.registrationAgreement.signReplace'
+            : 'document.registrationAgreement.signUpload',
+        entityType: 'RegistrationAgreement',
+        entityId: input.agreementId,
+        metadata: {
+          fileName: input.fileName,
+          contentType: input.contentType,
+          ...(input.ctx?.ip ? { ip: input.ctx.ip } : {}),
+          ...(input.ctx?.userAgent ? { userAgent: input.ctx.userAgent } : {}),
+        },
+      });
+      return { signedFileKey: input.fileKey, priorKey };
+    });
+  }
+
+  /** Remove the signed copy reference (the object itself is deleted by the service). Audited. */
+  clearSignedAgreement(id: string, ctx?: AccessContext): Promise<{ priorKey: string | null }> {
+    return this.run(async (tx, tenantId) => {
+      const existing = await tx.registrationAgreement.findFirst({ where: { id } });
+      if (!existing) throw new NotFoundException('Registration agreement not found');
+      const priorKey = existing.signedFileKey;
+      await tx.registrationAgreement.update({
+        where: { id },
+        data: {
+          signedFileKey: null,
+          signedFileName: null,
+          signedFileType: null,
+          signedFileSize: null,
+          signedBy: null,
+          signedAt: null,
+          signedUploadedById: null,
+          signedUploadedAt: null,
+          status: RegistrationAgreementStatus.GENERATED,
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'document.registrationAgreement.signDelete',
+        entityType: 'RegistrationAgreement',
+        entityId: id,
+        metadata: {
+          priorFileName: existing.signedFileName,
+          ...(ctx?.ip ? { ip: ctx.ip } : {}),
+          ...(ctx?.userAgent ? { userAgent: ctx.userAgent } : {}),
+        },
+      });
+      return { priorKey };
+    });
+  }
+
+  /** Audit a VIEW of the signed copy (a presigned download URL was issued). */
+  auditSignedView(id: string, ctx?: AccessContext): Promise<unknown> {
+    return this.run((tx, tenantId) =>
+      this.writeAudit(tx, tenantId, {
+        action: 'document.registrationAgreement.signView',
+        entityType: 'RegistrationAgreement',
+        entityId: id,
+        metadata: {
+          ...(ctx?.ip ? { ip: ctx.ip } : {}),
+          ...(ctx?.userAgent ? { userAgent: ctx.userAgent } : {}),
+        },
       }),
     );
   }

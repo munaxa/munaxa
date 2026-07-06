@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -15,7 +17,13 @@ import { DocumentType } from '@prisma/client';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { DocumentsService } from './documents.service';
-import { EmailDocumentDto, GenerateAgreementDto, GenerateDocumentDto } from './documents.dto';
+import {
+  ConfirmSignedAgreementDto,
+  EmailDocumentDto,
+  GenerateAgreementDto,
+  GenerateDocumentDto,
+  PresignSignedAgreementDto,
+} from './documents.dto';
 import type { DocumentMeta } from './document.repository';
 import type { AccessContext } from './document.types';
 
@@ -74,9 +82,55 @@ export class DocumentsController {
 
   @Post('agreements')
   @RequirePermissions(Permission.DOCUMENT_GENERATE)
-  @ApiOperation({ summary: '(Re)generate a registration agreement (creates a new version)' })
+  @ApiOperation({
+    summary:
+      'Generate the registration agreement for an enrollment (idempotent — one per enrollment)',
+  })
   generateAgreement(@Body() dto: GenerateAgreementDto) {
     return this.service.generateAgreement(dto);
+  }
+
+  @Post('agreements/:agreementId/signed/presign')
+  @RequirePermissions(Permission.DOCUMENT_UPLOAD_SIGNED)
+  @ApiOperation({ summary: 'Pre-sign an upload for the parent’s signed agreement (PDF/JPG/PNG)' })
+  presignSigned(@Param('agreementId') agreementId: string, @Body() dto: PresignSignedAgreementDto) {
+    return this.service.presignSignedAgreement(agreementId, dto);
+  }
+
+  @Post('agreements/:agreementId/signed')
+  @RequirePermissions(Permission.DOCUMENT_UPLOAD_SIGNED)
+  @ApiOperation({ summary: 'Confirm the uploaded signed agreement (first upload)' })
+  uploadSigned(
+    @Param('agreementId') agreementId: string,
+    @Body() dto: ConfirmSignedAgreementDto,
+    @Req() req: Request,
+  ) {
+    return this.service.confirmSignedAgreement(agreementId, dto, 'upload', this.ctx(req));
+  }
+
+  @Put('agreements/:agreementId/signed')
+  @RequirePermissions(Permission.DOCUMENT_REPLACE_SIGNED)
+  @ApiOperation({ summary: 'Replace an existing signed agreement (audited)' })
+  replaceSigned(
+    @Param('agreementId') agreementId: string,
+    @Body() dto: ConfirmSignedAgreementDto,
+    @Req() req: Request,
+  ) {
+    return this.service.confirmSignedAgreement(agreementId, dto, 'replace', this.ctx(req));
+  }
+
+  @Get('agreements/:agreementId/signed')
+  @RequirePermissions(Permission.DOCUMENT_READ)
+  @ApiOperation({ summary: 'Get a secure, short-lived URL to view the signed agreement (audited)' })
+  viewSigned(@Param('agreementId') agreementId: string, @Req() req: Request) {
+    return this.service.viewSignedAgreement(agreementId, this.ctx(req));
+  }
+
+  @Delete('agreements/:agreementId/signed')
+  @RequirePermissions(Permission.DOCUMENT_DELETE_SIGNED)
+  @ApiOperation({ summary: 'Delete the uploaded signed agreement (audited)' })
+  deleteSigned(@Param('agreementId') agreementId: string, @Req() req: Request) {
+    return this.service.deleteSignedAgreement(agreementId, this.ctx(req));
   }
 
   @Get(':id')

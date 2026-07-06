@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { DocumentLanguage, EnrollmentStatus, Prisma, QuotePaymentMode } from '@prisma/client';
 import { DocumentEngineService } from './document-engine.service';
 import { DocumentRepository } from './document.repository';
@@ -9,6 +15,17 @@ import {
 } from './templates/agreement-template';
 import { fullNameAr, fullNameEn } from './templates/util';
 import { splitFils, toFils } from '../finance/shared/money';
+import { StorageService, type PresignedUpload } from '../common/storage.service';
+import { requireTenantId } from '../common/tenant.util';
+import type { AccessContext } from './document.types';
+import type { ConfirmSignedAgreementDto, PresignSignedAgreementDto } from './documents.dto';
+
+/** The signed countersigned copy may only be a PDF or a photo of the paper agreement (JPG/PNG). */
+const SIGNED_UPLOAD_MIME: ReadonlySet<string> = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+]);
 
 function addMonths(base: Date, n: number): Date {
   const dt = new Date(base);
@@ -21,11 +38,13 @@ function addMonths(base: Date, n: number): Date {
 }
 
 /**
- * Registration Agreement generator (Part 1 + Versioning). Builds a permanent financial snapshot
- * from the committed enrollment's immutable quote, renders the legal agreement PDF, and archives it
- * as a versioned RegistrationAgreement. Called automatically right after a successful commit (and on
- * approval of a held enrollment). Re-running it after a fee change creates a NEW version and archives
- * the prior one — the agreement is never overwritten, and the PDF is never re-derived from live data.
+ * Registration Agreement generator. Builds a permanent financial snapshot from the committed
+ * enrollment's immutable quote, renders the legal agreement PDF, and stores it as THE (single,
+ * immutable) RegistrationAgreement for that enrollment. Called automatically right after a successful
+ * commit (and on approval of a held enrollment). Generation is **idempotent**: once an agreement
+ * exists for the enrollment it is never regenerated or versioned — later financial changes live in
+ * the billing ledger, not on the agreement. It also manages the parent's countersigned copy (upload
+ * / replace / view / delete), stored in object storage and referenced by key.
  */
 @Injectable()
 export class RegistrationAgreementService {
@@ -34,6 +53,7 @@ export class RegistrationAgreementService {
   constructor(
     private readonly engine: DocumentEngineService,
     private readonly repo: DocumentRepository,
+    private readonly storage: StorageService,
   ) {}
 
   /**
@@ -51,11 +71,21 @@ export class RegistrationAgreementService {
     }
   }
 
-  /** Generate (or version up) the registration agreement for an enrollment. */
+  /**
+   * Generate THE registration agreement for an enrollment. Idempotent: if a (non-cancelled)
+   * agreement already exists for the enrollment it is returned unchanged — the agreement is
+   * immutable and one-per-enrollment, never versioned or regenerated from later financial data.
+   */
   async generate(enrollmentId: string, language: DocumentLanguage) {
     const enrollment = await this.repo.enrollmentContext(enrollmentId);
     if (!enrollment) throw new NotFoundException('Enrollment not found');
     if (!enrollment.quote) throw new NotFoundException('Enrollment has no quote to snapshot');
+
+    const existing = await this.repo.agreementByEnrollment(enrollmentId);
+    if (existing) {
+      const { document, ...agreement } = existing;
+      return { agreement, document };
+    }
 
     const snapshot = this.buildSnapshot(enrollment, language);
     const branding = await this.engine.resolveBranding();
@@ -63,7 +93,7 @@ export class RegistrationAgreementService {
     const rendered = await this.engine.render(layout, branding);
 
     const primaryParent = enrollment.student.parentLinks[0]?.parent ?? null;
-    const result = await this.repo.persistAgreementVersion({
+    const result = await this.repo.persistAgreement({
       enrollmentId,
       studentId: enrollment.studentId,
       parentId: primaryParent?.id ?? null,
@@ -158,5 +188,95 @@ export class RegistrationAgreementService {
 
   private iso(d: Date | null | undefined): string | null {
     return d ? new Date(d).toISOString().slice(0, 10) : null;
+  }
+
+  // ── Signed (countersigned) copy ────────────────────────────────────────────
+
+  private assertSignedType(contentType: string): void {
+    const type = (contentType ?? '').split(';')[0]!.trim().toLowerCase();
+    if (!SIGNED_UPLOAD_MIME.has(type)) {
+      throw new BadRequestException('Signed agreement must be a PDF, JPG or PNG file');
+    }
+  }
+
+  /** Pre-sign a direct-to-bucket upload for the parent's countersigned copy (PDF/JPG/PNG only). */
+  async presignSigned(
+    agreementId: string,
+    dto: PresignSignedAgreementDto,
+  ): Promise<PresignedUpload> {
+    this.assertSignedType(dto.contentType);
+    const agreement = await this.repo.agreementById(agreementId);
+    if (!agreement) throw new NotFoundException('Registration agreement not found');
+    const key = this.storage.buildKey(requireTenantId(), 'agreements-signed', dto.fileName);
+    return this.storage.presignUpload(key, dto.contentType, dto.size);
+  }
+
+  /**
+   * Confirm an uploaded signed copy. `mode` distinguishes the first upload (DOCUMENT_UPLOAD_SIGNED)
+   * from a replacement (DOCUMENT_REPLACE_SIGNED, enforced by the controller). A first upload over an
+   * already-signed agreement is rejected — the caller must use the replace endpoint. On replace, the
+   * previously stored object is deleted so the bucket never keeps an orphaned copy.
+   */
+  async confirmSigned(
+    agreementId: string,
+    dto: ConfirmSignedAgreementDto,
+    mode: 'upload' | 'replace',
+    ctx?: AccessContext,
+  ) {
+    this.assertSignedType(dto.contentType);
+    this.storage.assertKeyInTenant(dto.fileKey);
+    const agreement = await this.repo.agreementById(agreementId);
+    if (!agreement) throw new NotFoundException('Registration agreement not found');
+    if (mode === 'upload' && agreement.signedFileKey) {
+      throw new ConflictException(
+        'A signed agreement already exists — use replace to overwrite it',
+      );
+    }
+    const { priorKey } = await this.repo.attachSignedAgreement({
+      agreementId,
+      fileKey: dto.fileKey,
+      fileName: dto.fileName,
+      contentType: dto.contentType,
+      size: dto.size ?? null,
+      signedBy: dto.signedBy ?? null,
+      signedAt: dto.signedAt ? new Date(dto.signedAt) : null,
+      mode,
+      ...(ctx ? { ctx } : {}),
+    });
+    if (priorKey && priorKey !== dto.fileKey) {
+      await this.storage.deleteObject(priorKey).catch((err) => {
+        this.logger.error(`failed to delete superseded signed copy: ${String(err)}`);
+      });
+    }
+    return { signed: true };
+  }
+
+  /** Issue a short-lived presigned download URL for the signed copy (audited as a VIEW). */
+  async viewSigned(agreementId: string, ctx?: AccessContext): Promise<{ url: string }> {
+    const agreement = await this.repo.agreementById(agreementId);
+    if (!agreement) throw new NotFoundException('Registration agreement not found');
+    if (!agreement.signedFileKey) {
+      throw new NotFoundException('No signed agreement has been uploaded');
+    }
+    this.storage.assertKeyInTenant(agreement.signedFileKey);
+    const url = await this.storage.presignDownload(agreement.signedFileKey);
+    await this.repo.auditSignedView(agreementId, ctx);
+    return { url };
+  }
+
+  /** Delete the uploaded signed copy (reference + stored object). Audited. */
+  async deleteSigned(agreementId: string, ctx?: AccessContext): Promise<{ deleted: boolean }> {
+    const agreement = await this.repo.agreementById(agreementId);
+    if (!agreement) throw new NotFoundException('Registration agreement not found');
+    if (!agreement.signedFileKey) {
+      throw new NotFoundException('No signed agreement has been uploaded');
+    }
+    const { priorKey } = await this.repo.clearSignedAgreement(agreementId, ctx);
+    if (priorKey) {
+      await this.storage.deleteObject(priorKey).catch((err) => {
+        this.logger.error(`failed to delete signed copy object: ${String(err)}`);
+      });
+    }
+    return { deleted: true };
   }
 }

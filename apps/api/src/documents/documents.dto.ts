@@ -1,6 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { DocumentLanguage, DocumentType, FeeItemKind } from '@prisma/client';
-import { IsArray, IsBoolean, IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEmail,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 /** Generate a finance document for a student. `type` selects the template. */
 export class GenerateDocumentDto {
@@ -32,6 +45,56 @@ export class GenerateAgreementDto {
   @IsOptional()
   @IsEnum(DocumentLanguage)
   language?: DocumentLanguage;
+}
+
+/** Pre-sign a direct-to-bucket upload for a signed registration agreement (PDF/JPG/PNG). */
+export class PresignSignedAgreementDto {
+  @ApiProperty({ example: 'signed-agreement.pdf' })
+  @IsString()
+  @MaxLength(200)
+  fileName!: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  @IsString()
+  @MaxLength(150)
+  contentType!: string;
+
+  @ApiProperty({ example: 512000, description: 'Bytes' })
+  @IsInt()
+  @Min(1)
+  @Max(15728640) // 15 MB
+  size!: number;
+}
+
+/** Confirm an uploaded signed registration agreement (echoes the server-issued fileKey). */
+export class ConfirmSignedAgreementDto {
+  @ApiProperty({ description: 'The tenant-scoped storage key returned by presign.' })
+  @IsString()
+  @MaxLength(512)
+  fileKey!: string;
+
+  @ApiProperty({ example: 'signed-agreement.pdf' })
+  @IsString()
+  @MaxLength(200)
+  fileName!: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  @IsString()
+  @MaxLength(150)
+  contentType!: string;
+
+  @ApiPropertyOptional({ example: 512000, description: 'Bytes' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(15728640)
+  size?: number;
+
+  /** Name of the signatory (the parent who signed), recorded by staff. */
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) signedBy?: string;
+
+  /** The date the parent signed (YYYY-MM-DD). Defaults to the upload date. */
+  @ApiPropertyOptional() @IsOptional() @IsDateString() signedAt?: string;
 }
 
 /**
