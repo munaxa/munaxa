@@ -56,8 +56,9 @@ export class AdmissionsService {
   // user — who holds fee authority — commits in one step; the change is recorded and
   // auto-approved for audit. See AdmissionsRepository.commit.
   // After a successful commit, automatically generate the Registration Agreement from the committed
-  // snapshot (Part 1). Best-effort and only for COMMITTED enrollments (held/PENDING_APPROVAL ones get
-  // their agreement when finance approves — see approve()). Generation never blocks/fails the commit.
+  // snapshot. Best-effort and only for COMMITTED enrollments (held/PENDING_APPROVAL ones get their
+  // agreement when finance approves — see approve()). Generation is idempotent (one immutable
+  // agreement per enrollment) and never blocks/fails the commit.
   async commit(dto: CommitDto) {
     const enrollment = await this.repo.commit(dto);
     if (enrollment.status === EnrollmentStatus.COMMITTED) {
@@ -82,8 +83,9 @@ export class AdmissionsService {
     return this.repo.listModifications(status);
   }
   // Approving a held (fee-modified) enrollment activates it (creates its charges); generate the
-  // agreement from the now-committed snapshot. A later fee change that is re-approved produces a new
-  // agreement version (the prior one is archived) — see RegistrationAgreementService.
+  // agreement from the now-committed snapshot. Generation is idempotent — the enrollment keeps its
+  // single immutable agreement; later financial changes live in the billing ledger, not a new
+  // agreement version — see RegistrationAgreementService.
   async approve(modificationId: string, note?: string) {
     const decision = await this.repo.decideModification(modificationId, true, note);
     const enrollmentId = await this.repo.enrollmentIdForModification(modificationId);

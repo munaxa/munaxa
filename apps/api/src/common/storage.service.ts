@@ -176,6 +176,18 @@ export class StorageService {
     return { uploadUrl, fileKey };
   }
 
+  /**
+   * Delete an object from the bucket (best-effort). Used when a signed document is replaced or
+   * removed so the bucket never retains an orphaned/superseded copy. No-ops (resolves) when storage
+   * is not configured (dev/test) so the calling flow stays exercisable without cloud credentials.
+   */
+  async deleteObject(fileKey: string): Promise<void> {
+    if (!this.configured) return;
+    const { S3Client, DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+    const client = new S3Client({ region: this.region, endpoint: this.endpoint });
+    await client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: fileKey }));
+  }
+
   async presignDownload(fileKey: string): Promise<string> {
     if (!this.configured) {
       const base = this.endpoint ?? 'https://uploads.munaxa.local';

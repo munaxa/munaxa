@@ -19,10 +19,11 @@ Ledger / Statement / Organization data and never creates or duplicates a financi
   - `branding.service.ts` — resolves school branding from `OrganizationSettings` (Part 7).
   - `document-engine.service.ts` — the reusable core: collect → merge-branding → render → archive.
   - `document.repository.ts` — gapless numbering, immutable archive, print/download/email logging,
-    context reads, registration-agreement versioning.
+    context reads, registration-agreement persistence + signed-copy handling.
   - `templates/` — pure functions mapping collected data → a `DocumentLayout` (+ `tuition-calc.ts`).
   - `finance-documents.service.ts` — collectors for each finance document type.
-  - `registration-agreement.service.ts` — snapshot + versioned agreement generation.
+  - `registration-agreement.service.ts` — snapshot + (idempotent, one-per-enrollment) agreement
+    generation and signed-copy upload/replace/view/delete.
   - `documents.service.ts` / `documents.controller.ts` / `documents.dto.ts` — orchestration + API.
 - **Frontend:** `apps/admin/.../students/[studentId]/tabs/documents-section.tsx` (Student Finance
   Card → Documents) + `apps/admin/src/lib/documents.ts` (API client).
@@ -33,7 +34,7 @@ Ledger / Statement / Organization data and never creates or duplicates a financi
 | Model | Purpose |
 |-------|---------|
 | `GeneratedDocument` | Immutable archived document. PDF stored in `pdf` (bytea) + `checksum` (sha256) + `byteSize`. Tracks `printedCount`/`lastPrintedAt`, `version`, `status` (ARCHIVED/SUPERSEDED/CANCELLED) and the `dataSnapshot` it was built from. |
-| `RegistrationAgreement` | The legal commitment. Versioned (`version`, `supersedesId`), with a permanent `feeBreakdown` + `installmentSchedule` + `grandTotal` snapshot; links to its `GeneratedDocument`. |
+| `RegistrationAgreement` | The legal commitment — **exactly one immutable agreement per enrollment** (no versioning). Permanent `feeBreakdown` + `installmentSchedule` + `grandTotal` snapshot; links to its `GeneratedDocument`. Lifecycle `status` (GENERATED → PRINTED → SIGNED, or CANCELLED/ARCHIVED). The parent's countersigned copy is referenced by `signedFileKey` (object storage — never stored inline) plus `signedBy`/`signedAt`/`signedUploadedBy`/`signedUploadedAt`. `version`/`supersedesId` are deprecated (retained for backward compatibility; always 1). |
 | `DocumentSequence` | Gapless per-tenant, per-scope counter (`AGREEMENT`, `DOC:<type>`) — same row-locked pattern as `FinanceReceiptCounter` / the JoFotara ICV. |
 
 > The archive model is named `GeneratedDocument` (not `Document`) because a `Document` model already
@@ -53,8 +54,20 @@ The agreement is generated automatically right after a successful **COMMITTED** 
 (`AdmissionsService.commit`), and on approval of a held (fee-modified) enrollment
 (`AdmissionsService.approve`). Generation is best-effort and never blocks/fails the registration.
 
-**Versioning:** a fee change after commitment creates **version N+1** and **archives** the prior
-version (its document is marked `SUPERSEDED`). Agreements are never overwritten; full history is kept.
+**One immutable agreement per enrollment (no versioning).** The agreement captures what the parent
+agreed to at registration and is **never** regenerated or superseded — generation is **idempotent**
+(re-running returns the existing agreement). Later financial changes (transport, scholarship,
+discount, corrections) are handled entirely by the **billing ledger**, never by editing or
+re-issuing the agreement. If a school needs additional legal paperwork after registration, add a
+separate document type (e.g. a Financial Amendment Agreement) — do not touch the original.
+
+**Signed copy.** After the agreement is printed and countersigned, staff upload the signed copy
+(PDF/JPG/PNG) via a pre-signed, tenant-scoped storage key (reusing `StorageService`); only the key is
+stored (never the bytes). Lifecycle: `GENERATED → PRINTED` (derived from the linked document's print
+counter) `→ SIGNED`. Actions are permission-gated — `document:upload_signed`,
+`document:replace_signed`, `document:delete_signed` — and every upload/replace/view/delete is audited
+(`document.registrationAgreement.sign{Upload,Replace,View,Delete}`), with tenant isolation enforced on
+the storage key.
 
 ### Finance (Part 2)
 `Receive → Verify → Allocate → Update Ledger → Generate Receipt → Print → Email`. Receipt generation
@@ -121,9 +134,14 @@ existing `MailService` (Resend) — no second email system.
 ## Permissions
 - `document:read` — view/list/download/reprint archived documents.
 - `document:generate` — generate official documents and email them.
+- `document:upload_signed` — upload the parent's countersigned agreement.
+- `document:replace_signed` — replace an uploaded signed agreement.
+- `document:delete_signed` — delete an uploaded signed agreement.
 
-Granted to `FinanceOfficer`, `Accountant`, `Registrar` (both) and `Principal` (read); `SchoolAdmin`
-has all permissions.
+`document:read`/`generate` are granted to `FinanceOfficer`, `Accountant`, `Registrar` (both) and
+`Principal` (read). The signed-copy permissions are granted to `Registrar` and `FinanceOfficer`
+(upload + replace + delete) and `Accountant` (upload + replace, **not** delete). `SchoolAdmin` has all
+permissions.
 
 ## API (`/api/v1/documents`)
 | Method | Path | Permission | Purpose |
@@ -131,8 +149,13 @@ has all permissions.
 | GET | `/documents` | `document:read` | List the archive (by student/type/enrollment). |
 | GET | `/documents/academic-years` | `document:read` | Years for the tuition-certificate picker. |
 | POST | `/documents/generate` | `document:generate` | Generate & archive a finance document. |
-| GET | `/documents/agreements` | `document:read` | List registration agreements (all versions). |
-| POST | `/documents/agreements` | `document:generate` | (Re)generate an agreement (new version). |
+| GET | `/documents/agreements` | `document:read` | List registration agreements (enriched: derived status, print stats, signer/uploader). |
+| POST | `/documents/agreements` | `document:generate` | Generate the agreement for an enrollment (**idempotent** — one per enrollment). |
+| POST | `/documents/agreements/:id/signed/presign` | `document:upload_signed` | Pre-sign a signed-copy upload (PDF/JPG/PNG). |
+| POST | `/documents/agreements/:id/signed` | `document:upload_signed` | Confirm the first signed-copy upload. |
+| PUT | `/documents/agreements/:id/signed` | `document:replace_signed` | Replace the signed copy (audited). |
+| GET | `/documents/agreements/:id/signed` | `document:read` | Short-lived, tenant-scoped URL to view the signed copy (audited). |
+| DELETE | `/documents/agreements/:id/signed` | `document:delete_signed` | Delete the signed copy (audited). |
 | GET | `/documents/:id` | `document:read` | Document metadata. |
 | GET | `/documents/:id/history` | `document:read` | Per-action access history. |
 | GET | `/documents/:id/download` | `document:read` | Download the PDF — stored (SNAPSHOT) or re-rendered live (DYNAMIC); audited. |

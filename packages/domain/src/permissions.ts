@@ -70,6 +70,10 @@ export const Permission = {
   // Enterprise Document Engine (Phase 23): official document generation & archive.
   DOCUMENT_READ: 'document:read',
   DOCUMENT_GENERATE: 'document:generate',
+  // Signed registration-agreement handling (upload the parent's countersigned copy; replace/delete).
+  DOCUMENT_UPLOAD_SIGNED: 'document:upload_signed',
+  DOCUMENT_REPLACE_SIGNED: 'document:replace_signed',
+  DOCUMENT_DELETE_SIGNED: 'document:delete_signed',
 
   // Student app (resources & gamification)
   RESOURCE_READ: 'resource:read',
@@ -175,6 +179,12 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
     'View, download and reprint archived official documents (agreements, receipts, certificates, statements).',
   [Permission.DOCUMENT_GENERATE]:
     'Generate official documents (registration agreements, tuition/clearance/balance certificates, statements) and email them.',
+  [Permission.DOCUMENT_UPLOAD_SIGNED]:
+    "Upload the parent's countersigned registration agreement as the school's legal copy.",
+  [Permission.DOCUMENT_REPLACE_SIGNED]:
+    'Replace a previously uploaded signed registration agreement (fully audited).',
+  [Permission.DOCUMENT_DELETE_SIGNED]:
+    'Delete an uploaded signed registration agreement (fully audited).',
 
   [Permission.RESOURCE_READ]: 'View shared learning resources.',
   [Permission.RESOURCE_MANAGE]: 'Upload and manage shared learning resources.',

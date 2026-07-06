@@ -76,17 +76,37 @@ export interface EmailDocumentInput {
   message?: string;
 }
 
+export type AgreementStatus =
+  | 'DRAFT'
+  | 'COMMITTED'
+  | 'GENERATED'
+  | 'PRINTED'
+  | 'SIGNED'
+  | 'CANCELLED'
+  | 'ARCHIVED';
+
 export interface RegistrationAgreementRow {
   id: string;
   agreementNo: number;
   version: number;
-  status: string;
+  status: AgreementStatus;
+  /** Derived lifecycle status shown in the UI (SIGNED > PRINTED > GENERATED). */
+  effectiveStatus: AgreementStatus;
   enrollmentId: string;
   studentId: string;
   grandTotal: string;
   documentId?: string | null;
   registrationDate: string;
   createdAt: string;
+  printedCount: number;
+  lastPrintedAt?: string | null;
+  signedFileName?: string | null;
+  signedFileType?: string | null;
+  signedAt?: string | null;
+  signedBy?: string | null;
+  signedUploadedAt?: string | null;
+  signedUploadedByName?: string | null;
+  hasSigned: boolean;
 }
 
 export interface AcademicYearOption {
@@ -170,4 +190,51 @@ export const documentsApi = {
 
   history: (id: string) =>
     authFetch(`/documents/${id}/history`).then((r) => json<DocumentAccessLog[]>(r)),
+
+  /**
+   * Upload (or replace) the parent's countersigned agreement: presign a tenant-scoped key, PUT the
+   * file straight to storage, then confirm so the API records it as the school's legal copy.
+   */
+  uploadSignedAgreement: async (
+    agreementId: string,
+    file: File,
+    opts: { signedBy?: string; signedAt?: string; replace?: boolean } = {},
+  ): Promise<{ signed: boolean }> => {
+    const presign = await authFetch(`/documents/agreements/${agreementId}/signed/presign`, {
+      method: 'POST',
+      body: JSON.stringify({ fileName: file.name, contentType: file.type, size: file.size }),
+    }).then((r) => json<{ uploadUrl: string; fileKey: string }>(r));
+
+    const put = await fetch(presign.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    });
+    if (!put.ok) throw new Error(`Upload to storage failed (${put.status})`);
+
+    return authFetch(`/documents/agreements/${agreementId}/signed`, {
+      method: opts.replace ? 'PUT' : 'POST',
+      body: JSON.stringify({
+        fileKey: presign.fileKey,
+        fileName: file.name,
+        contentType: file.type,
+        size: file.size,
+        ...(opts.signedBy ? { signedBy: opts.signedBy } : {}),
+        ...(opts.signedAt ? { signedAt: opts.signedAt } : {}),
+      }),
+    }).then((r) => json<{ signed: boolean }>(r));
+  },
+
+  /** Open the signed agreement in a new tab via a short-lived, tenant-scoped storage URL. */
+  viewSignedAgreement: async (agreementId: string): Promise<void> => {
+    const { url } = await authFetch(`/documents/agreements/${agreementId}/signed`).then((r) =>
+      json<{ url: string }>(r),
+    );
+    window.open(url, '_blank', 'noopener');
+  },
+
+  deleteSignedAgreement: (agreementId: string) =>
+    authFetch(`/documents/agreements/${agreementId}/signed`, { method: 'DELETE' }).then((r) =>
+      json<{ deleted: boolean }>(r),
+    ),
 };
