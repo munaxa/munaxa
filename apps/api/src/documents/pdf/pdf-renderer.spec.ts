@@ -88,6 +88,97 @@ describe('PdfRenderer', () => {
     expect(out.byteSize).toBeGreaterThan(500);
   });
 
+  // ── Arabic / bidirectional rendering ──────────────────────────────────────
+  // These assert the renderer drives every surface (header, meta, headings, paragraphs, fields,
+  // tables, totals, signatures, footer) through the Arabic shaping/bidi pipeline without throwing and
+  // still emits a valid PDF. Exact glyph-shaping correctness is asserted in arabic-text.spec.ts.
+  const expectValidPdf = (out: { buffer: Buffer; byteSize: number; checksum: string }): void => {
+    expect(out.buffer.subarray(0, 5).toString('ascii')).toBe('%PDF-');
+    expect(out.byteSize).toBeGreaterThan(0);
+    expect(out.checksum).toMatch(/^[a-f0-9]{64}$/);
+  };
+
+  it('renders an Arabic-only document (title, heading, paragraph)', async () => {
+    const layout: DocumentLayout = {
+      title: 'إيصال استلام',
+      subtitle: 'السنة الدراسية ٢٠٢٥',
+      language: DocumentLanguage.AR,
+      blocks: [
+        { kind: 'heading', text: 'تفاصيل الدفعة' },
+        { kind: 'paragraph', text: 'استلمنا المبلغ المذكور أعلاه بالكامل.' },
+      ],
+    };
+    expectValidPdf(await renderer.render(layout, branding));
+  });
+
+  it('renders an English-only document unchanged in behaviour', async () => {
+    const layout: DocumentLayout = {
+      title: 'Receipt',
+      language: DocumentLanguage.EN,
+      blocks: [
+        { kind: 'heading', text: 'Payment details' },
+        { kind: 'paragraph', text: 'We received the amount above in full.' },
+      ],
+    };
+    expectValidPdf(await renderer.render(layout, branding));
+  });
+
+  it('renders a header/meta box with mixed Arabic + Latin + numbers', async () => {
+    const layout: DocumentLayout = {
+      title: 'رقم Invoice INV-1025',
+      subtitle: 'Receipt رقم 125',
+      language: DocumentLanguage.BILINGUAL,
+      meta: [
+        { label: 'الرقم', value: 'INV-1025' },
+        { label: 'Date', value: '2026-07-07' },
+      ],
+      blocks: [{ kind: 'paragraph', text: 'Student: أحمد محمد' }],
+    };
+    expectValidPdf(await renderer.render(layout, branding));
+  });
+
+  it('renders a table with Arabic headers, cells and numeric columns', async () => {
+    const layout: DocumentLayout = {
+      title: 'كشف حساب',
+      language: DocumentLanguage.AR,
+      blocks: [
+        {
+          kind: 'table',
+          columns: [
+            { header: 'البند', key: 'item' },
+            { header: 'المبلغ', key: 'amount', align: 'right' },
+          ],
+          rows: [
+            { item: 'رسوم دراسية', amount: '900.000' },
+            { item: 'رقم Invoice INV-1025', amount: '125.000' },
+          ],
+          totalsRow: { item: 'الإجمالي', amount: '1025.000' },
+        },
+        { kind: 'fields', columns: 2, rows: [{ label: 'الطالب', value: 'أحمد محمد' }] },
+        { kind: 'totals', rows: [{ label: 'المجموع', value: '1025.000 JOD' }] },
+        { kind: 'signatures', blocks: [{ label: 'التوقيع', name: 'أحمد محمد' }] },
+      ],
+    };
+    expectValidPdf(await renderer.render(layout, branding));
+  });
+
+  it('renders an Arabic footer note across buffered pages', async () => {
+    // A long body forces multiple pages so the footer (with page numbers) is drawn more than once.
+    const blocks: DocumentLayout['blocks'] = Array.from({ length: 60 }, () => ({
+      kind: 'paragraph' as const,
+      text: 'سطر نصي عربي لاختبار التذييل والترقيم عبر عدة صفحات.',
+    }));
+    const layout: DocumentLayout = {
+      title: 'مستند طويل',
+      footer: 'أكاديمية الاختبار · جميع الحقوق محفوظة',
+      language: DocumentLanguage.AR,
+      blocks,
+    };
+    const out = await renderer.render(layout, branding);
+    expectValidPdf(out);
+    expect(out.byteSize).toBeGreaterThan(1000);
+  });
+
   it('produces identical checksums for identical input (snapshot reproducibility)', async () => {
     const layout: DocumentLayout = {
       title: 'Stable',

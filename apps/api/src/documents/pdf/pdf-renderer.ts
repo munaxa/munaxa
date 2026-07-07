@@ -1,6 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import type { BrandingContext, DocumentLayout, LayoutBlock, TableColumn } from './document-layout';
+import { shapeForPdf } from './arabic-text';
+
+/**
+ * Logical→visual text transform applied to every string before it reaches PDFKit. It shapes Arabic
+ * glyphs and applies bidirectional reordering (see {@link shapeForPdf}); Latin/numeric strings pass
+ * through untouched, so callers stay backward compatible. Centralised here so no draw call can forget
+ * it — receipts, agreements, certificates and statements all render Arabic correctly for free.
+ */
+const t = (value: string): string => shapeForPdf(value);
 
 export interface RenderedPdf {
   buffer: Buffer;
@@ -20,9 +29,14 @@ const ACCENT = '#1d4ed8';
  * renderer is deliberately layout-agnostic: it knows how to draw a header, fields, tables, totals
  * and a signature block, and every official document is expressed as data for it to render.
  *
- * Arabic note: pdfkit's built-in fonts cover Latin only. When AR/BILINGUAL output is requested and
- * an Arabic-capable TTF is configured via PDF_ARABIC_FONT_PATH, it is embedded so Arabic strings in
- * the data render correctly; otherwise the standard font is used (Arabic glyphs may not display).
+ * Arabic note: pdfkit's built-in fonts cover Latin only, and even with an embedded Arabic TTF pdfkit
+ * does no complex-script processing — it draws code points in logical order with no glyph shaping or
+ * bidirectional reordering, which makes raw Arabic unreadable. Two things therefore cooperate here:
+ *   1. An Arabic-capable TTF is embedded when PDF_ARABIC_FONT_PATH is configured (see
+ *      {@link maybeEmbedArabicFont}) so the glyphs exist in the font.
+ *   2. Every string is passed through {@link shapeForPdf} (the module-level `t` helper) which shapes
+ *      Arabic letters into their contextual presentation forms and reorders mixed text to visual order
+ *      before pdfkit sees it. Latin/numeric text is untouched, so this is fully backward compatible.
  */
 @Injectable()
 export class PdfRenderer {
@@ -70,7 +84,7 @@ export class PdfRenderer {
       .fillColor(INK)
       .font('Helvetica-Bold')
       .fontSize(15)
-      .text(b.nameEn, textX, top, {
+      .text(t(b.nameEn), textX, top, {
         width: right - textX,
       });
     if (b.nameAr) {
@@ -78,7 +92,7 @@ export class PdfRenderer {
         .font('Helvetica')
         .fontSize(11)
         .fillColor(INK)
-        .text(b.nameAr, textX, doc.y, {
+        .text(t(b.nameAr), textX, doc.y, {
           width: right - textX,
         });
     }
@@ -90,7 +104,7 @@ export class PdfRenderer {
         .font('Helvetica')
         .fontSize(8)
         .fillColor(MUTED)
-        .text(contact, textX, doc.y + 1, {
+        .text(t(contact), textX, doc.y + 1, {
           width: right - textX,
         });
     }
@@ -107,7 +121,7 @@ export class PdfRenderer {
     doc.y = headerBottom + 14;
     const titleWidth = layout.meta && layout.meta.length > 0 ? (right - left) * 0.6 : right - left;
     const titleTop = doc.y;
-    doc.fillColor(INK).font('Helvetica-Bold').fontSize(16).text(layout.title, left, titleTop, {
+    doc.fillColor(INK).font('Helvetica-Bold').fontSize(16).text(t(layout.title), left, titleTop, {
       width: titleWidth,
     });
     if (layout.subtitle) {
@@ -115,7 +129,7 @@ export class PdfRenderer {
         .font('Helvetica')
         .fontSize(9)
         .fillColor(MUTED)
-        .text(layout.subtitle, left, doc.y + 1, {
+        .text(t(layout.subtitle), left, doc.y + 1, {
           width: titleWidth,
         });
     }
@@ -130,11 +144,11 @@ export class PdfRenderer {
           .font('Helvetica-Bold')
           .fontSize(8)
           .fillColor(MUTED)
-          .text(m.label.toUpperCase(), boxX, metaY, {
+          .text(t(m.label.toUpperCase()), boxX, metaY, {
             width: boxW,
             align: 'right',
           });
-        doc.font('Helvetica').fontSize(10).fillColor(INK).text(m.value, boxX, doc.y, {
+        doc.font('Helvetica').fontSize(10).fillColor(INK).text(t(m.value), boxX, doc.y, {
           width: boxW,
           align: 'right',
         });
@@ -159,7 +173,7 @@ export class PdfRenderer {
         return;
       case 'heading':
         doc.moveDown(0.3);
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(block.text, left, doc.y, {
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(t(block.text), left, doc.y, {
           width,
         });
         doc.moveDown(0.2);
@@ -169,7 +183,7 @@ export class PdfRenderer {
           .font('Helvetica')
           .fontSize(9.5)
           .fillColor(block.muted ? MUTED : INK)
-          .text(block.text, left, doc.y, { width, align: 'left', lineGap: 2 });
+          .text(t(block.text), left, doc.y, { width, align: 'left', lineGap: 2 });
         doc.moveDown(0.4);
         return;
       case 'fields':
@@ -206,14 +220,14 @@ export class PdfRenderer {
         .font('Helvetica')
         .fontSize(7.5)
         .fillColor(MUTED)
-        .text(row.label.toUpperCase(), x, y, {
+        .text(t(row.label.toUpperCase()), x, y, {
           width: colW - 8,
         });
       doc
         .font('Helvetica-Bold')
         .fontSize(10)
         .fillColor(INK)
-        .text(row.value || '—', x, y + 11, {
+        .text(t(row.value || '—'), x, y + 11, {
           width: colW - 8,
         });
       i += 1;
@@ -237,12 +251,12 @@ export class PdfRenderer {
         .font(last ? 'Helvetica-Bold' : 'Helvetica')
         .fontSize(last ? 11 : 9.5)
         .fillColor(last ? INK : MUTED)
-        .text(row.label, x, y, { width: boxW * 0.55 });
+        .text(t(row.label), x, y, { width: boxW * 0.55 });
       doc
         .font('Helvetica-Bold')
         .fontSize(last ? 11 : 9.5)
         .fillColor(last ? ACCENT : INK)
-        .text(row.value, x + boxW * 0.55, y, { width: boxW * 0.45, align: 'right' });
+        .text(t(row.value), x + boxW * 0.55, y, { width: boxW * 0.45, align: 'right' });
       doc.y = y + (last ? 18 : 15);
     }
     doc.moveDown(0.3);
@@ -266,7 +280,7 @@ export class PdfRenderer {
       // Measure tallest cell for wrapping.
       doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
       const heights = columns.map((c, i) =>
-        doc.heightOfString(String(record[c.key] ?? ''), { width: widths[i]! - 8 }),
+        doc.heightOfString(t(String(record[c.key] ?? '')), { width: widths[i]! - 8 }),
       );
       const rowH = Math.max(14, ...heights) + 6;
       this.ensureSpace(doc, rowH);
@@ -274,7 +288,7 @@ export class PdfRenderer {
       columns.forEach((c, i) => {
         doc
           .fillColor(bold ? INK : '#1e293b')
-          .text(String(record[c.key] ?? ''), colX(i) + 4, y + 3, {
+          .text(t(String(record[c.key] ?? '')), colX(i) + 4, y + 3, {
             width: widths[i]! - 8,
             align: c.align ?? 'left',
           });
@@ -289,7 +303,7 @@ export class PdfRenderer {
     doc.rect(left, hy, width, 18).fill('#eef2ff');
     doc.fillColor(ACCENT).font('Helvetica-Bold').fontSize(8.5);
     columns.forEach((c, i) => {
-      doc.text(c.header.toUpperCase(), colX(i) + 4, hy + 5, {
+      doc.text(t(c.header.toUpperCase()), colX(i) + 4, hy + 5, {
         width: widths[i]! - 8,
         align: c.align ?? 'left',
       });
@@ -323,7 +337,7 @@ export class PdfRenderer {
         .font('Helvetica-Bold')
         .fontSize(9)
         .fillColor(INK)
-        .text(blk.label, x, y + 5, {
+        .text(t(blk.label), x, y + 5, {
           width: colW - 24,
         });
       if (blk.name) {
@@ -331,7 +345,7 @@ export class PdfRenderer {
           .font('Helvetica')
           .fontSize(8)
           .fillColor(MUTED)
-          .text(blk.name, x, doc.y, {
+          .text(t(blk.name), x, doc.y, {
             width: colW - 24,
           });
       }
@@ -353,7 +367,7 @@ export class PdfRenderer {
         .font('Helvetica')
         .fontSize(7)
         .fillColor(MUTED)
-        .text(note, left, y + 4, {
+        .text(t(note), left, y + 4, {
           width: (right - left) * 0.75,
         });
       doc.text(`Page ${i - range.start + 1} of ${range.count}`, left, y + 4, {
