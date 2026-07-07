@@ -57,6 +57,65 @@ describe('arabic-text', () => {
     });
   });
 
+  describe('robustness: NFC normalization', () => {
+    it('composes decomposed alef + combining hamza before shaping', () => {
+      // U+0627 ALEF + U+0654 COMBINING HAMZA ABOVE --NFC--> U+0623, shaped isolated = FE83.
+      expect(hex(shapeArabic('أ'))).toBe('fe83');
+      // …and it equals shaping the already-composed character.
+      expect(shapeArabic('أ')).toBe(shapeArabic('أ'));
+    });
+  });
+
+  describe('robustness: ZWJ / ZWNJ join controls', () => {
+    it('ZWNJ breaks a join that would otherwise happen', () => {
+      // MEEM + FARSI YEH normally joins (initial + final); a ZWNJ between them forces isolated forms.
+      expect(hex(shapeArabic('می'))).toBe('fee3 fbfd'); // joined
+      expect(hex(shapeArabic('م‌ی'))).toBe('fee1 fbfc'); // ZWNJ → both isolated
+    });
+
+    it('ZWJ forces a medial form in isolation and is not drawn', () => {
+      // ZWJ + BEH + ZWJ makes BEH connect on both sides → medial FE92, with no extra output glyphs.
+      expect(hex(shapeArabic('‍ب‍'))).toBe('fe92');
+    });
+
+    it('ZWNJ between LAM and ALEF prevents the lam-alef ligature', () => {
+      expect(hex(shapeArabic('لا'))).toBe('fefb'); // ligature
+      expect(hex(shapeArabic('ل‌ا'))).toBe('fedd fe8d'); // LAM isolated + ALEF isolated
+    });
+  });
+
+  describe('robustness: no double-shaping of presentation forms', () => {
+    it('passes already-shaped presentation forms through untouched', () => {
+      expect(hex(shapeArabic('ﺑ'))).toBe('fe91'); // BEH initial form stays as-is
+    });
+
+    it('is idempotent — shaping shaped text is a no-op', () => {
+      const once = shapeArabic('محمد');
+      expect(shapeArabic(once)).toBe(once);
+    });
+  });
+
+  describe('extended coverage: Persian / Urdu letters', () => {
+    it('detects Persian/Urdu letters as Arabic script', () => {
+      expect(containsArabic('گچپ')).toBe(true); // gaf, tcheh, peh
+      expect(containsArabic('ٹڈ')).toBe(true); // tteh, ddal
+    });
+
+    it('shapes Persian letters contextually (peh initial, gaf final)', () => {
+      expect(hex(shapeArabic('پگ'))).toBe('fb58 fb93');
+    });
+
+    it('shapes the Farsi yeh (U+06CC) with proper initial/final forms', () => {
+      // MEEM + FARSI YEH → MEEM initial FEE3, FARSI YEH final FBFD.
+      expect(hex(shapeArabic('می'))).toBe('fee3 fbfd');
+    });
+
+    it('shapes an Urdu retroflex letter (tteh) joined to the next letter', () => {
+      // TTEH (U+0679, dual) + BEH → TTEH initial FB68, BEH final FE90.
+      expect(hex(shapeArabic('ٹب'))).toBe('fb68 fe90');
+    });
+  });
+
   describe('baseDirection', () => {
     it('is rtl when the string leads with Arabic', () => {
       expect(baseDirection('رقم Invoice')).toBe('rtl');
@@ -97,6 +156,14 @@ describe('arabic-text', () => {
       expect(out).toContain('125');
       // The Arabic word is shaped to presentation forms and reversed for display.
       expect(out).toContain('ﻢﻗﺭ');
+    });
+
+    it('reorders each line independently and keeps newlines in place', () => {
+      // A single reorder over multi-line text would drag the newline out of place; per-line reorder
+      // must preserve one '\n' with each line reversed on its own.
+      const out = shapeForPdf('السطر الأول\nالسطر الثاني');
+      expect(out.split('\n')).toHaveLength(2);
+      expect(out).toBe('ﻝﻭﻷﺍ ﺮﻄﺴﻟﺍ\nﻲﻧﺎﺜﻟﺍ ﺮﻄﺴﻟﺍ');
     });
   });
 });

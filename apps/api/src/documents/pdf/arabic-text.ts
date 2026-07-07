@@ -9,17 +9,36 @@ import bidiFactory from 'bidi-js';
  *
  *   1. **Glyph shaping** — Arabic letters change shape depending on their neighbours (isolated,
  *      initial, medial, final) and some pairs form mandatory ligatures (lam-alef). Unicode encodes
- *      every contextual glyph in the *Arabic Presentation Forms* blocks, so we can map each letter to
- *      the correct presentation form up-front.
+ *      every contextual glyph in the *Arabic Presentation Forms* blocks, so we map each letter to the
+ *      correct presentation form up-front.
  *   2. **Bidirectional reordering** — mixed Arabic/Latin/number text must be reordered from logical
  *      order to visual (display) order per the Unicode Bidirectional Algorithm (UAX #9) before it is
  *      handed to a left-to-right renderer.
  *
- * The public entry point is {@link shapeForPdf}: it is a pure string→string function that leaves
- * Latin text, digits and punctuation untouched, so wrapping it around every draw call is safe and
- * backward compatible. Order matters — we shape first (joining is computed in logical order) and then
- * reorder, which is sound because the Presentation Forms produced by shaping are themselves classified
- * as strong RTL (AL) by the bidi algorithm, so the reorder step treats them exactly like raw letters.
+ * The public entry point is {@link shapeForPdf}: a pure string→string function that leaves Latin text,
+ * digits and punctuation untouched, so wrapping it around every draw call is safe and backward
+ * compatible. Order matters — we shape first (joining is computed in logical order) and then reorder,
+ * which is sound because the Presentation Forms produced by shaping are themselves classified as strong
+ * RTL (AL) by the bidi algorithm, so the reorder step treats them exactly like raw letters.
+ *
+ * Robustness features:
+ *   - **Unicode normalization (NFC)** is applied before shaping, so decomposed sequences (e.g. a bare
+ *     ALEF followed by a combining HAMZA) compose to the precomposed letters we have forms for.
+ *   - **ZWJ / ZWNJ** (U+200D / U+200C) are honoured: ZWNJ breaks a join (e.g. Persian «می‌رود»), ZWJ
+ *     forces one (used to show medial forms in isolation). Both are consumed and never drawn.
+ *   - **Double-shaping is prevented**: code points already in the Presentation Forms blocks are passed
+ *     through verbatim, so shaping is idempotent and re-processing pre-shaped text is a no-op.
+ *   - **Coverage** spans standard Arabic plus commonly used Persian/Urdu letters (peh, tcheh, gaf,
+ *     keheh, farsi yeh, tteh, ddal, jeh, rreh, noon ghunna, heh doachashmee, …).
+ *
+ * Why a hand-written table rather than a shaping library: the mature engine is HarfBuzz
+ * (`harfbuzzjs`, WASM), but it shapes against the *font's* GSUB tables and returns glyph indices, which
+ * would require bypassing PDFKit's text API and drawing raw glyphs — i.e. rewriting the renderer, which
+ * is out of scope. Pure-JS reshapers (`arabic-reshaper` et al.) use the very same Unicode
+ * Presentation-Forms mapping implemented here, are less actively maintained, and still would not give
+ * us NFC, ZWJ/ZWNJ handling or double-shape protection, so they would have to be wrapped anyway. The
+ * table below is small, dependency-free, deterministic and fully unit-tested, which wins on this
+ * trade-off. (Bidi *is* delegated to `bidi-js`, a faithful pure-JS UAX #9 implementation.)
  */
 
 // bidi-js is a faithful UAX #9 implementation; instantiate once (it is stateless per call).
@@ -49,6 +68,7 @@ interface LetterData {
 
 // prettier-ignore
 const LETTERS: Record<number, LetterData> = {
+  // ── Standard Arabic ───────────────────────────────────────────────────────
   0x0621: { forms: [0xfe80, 0, 0, 0], join: 'U' },                 // HAMZA
   0x0622: { forms: [0xfe81, 0xfe82, 0, 0], join: 'R' },            // ALEF WITH MADDA
   0x0623: { forms: [0xfe83, 0xfe84, 0, 0], join: 'R' },            // ALEF WITH HAMZA ABOVE
@@ -86,6 +106,27 @@ const LETTERS: Record<number, LetterData> = {
   0x0648: { forms: [0xfeed, 0xfeee, 0, 0], join: 'R' },            // WAW
   0x0649: { forms: [0xfeef, 0xfef0, 0, 0], join: 'R' },            // ALEF MAKSURA
   0x064a: { forms: [0xfef1, 0xfef2, 0xfef3, 0xfef4], join: 'D' },  // YEH
+  // ── Persian / Urdu and other common Arabic-script letters ─────────────────
+  0x0671: { forms: [0xfb50, 0xfb51, 0, 0], join: 'R' },            // ALEF WASLA
+  0x0679: { forms: [0xfb66, 0xfb67, 0xfb68, 0xfb69], join: 'D' },  // TTEH (Urdu)
+  0x067e: { forms: [0xfb56, 0xfb57, 0xfb58, 0xfb59], join: 'D' },  // PEH (Persian/Urdu)
+  0x0686: { forms: [0xfb7a, 0xfb7b, 0xfb7c, 0xfb7d], join: 'D' },  // TCHEH (Persian/Urdu)
+  0x0688: { forms: [0xfb88, 0xfb89, 0, 0], join: 'R' },            // DDAL (Urdu)
+  0x0691: { forms: [0xfb8c, 0xfb8d, 0, 0], join: 'R' },            // RREH (Urdu)
+  0x0698: { forms: [0xfb8a, 0xfb8b, 0, 0], join: 'R' },            // JEH (Persian/Urdu)
+  0x06a4: { forms: [0xfb6a, 0xfb6b, 0xfb6c, 0xfb6d], join: 'D' },  // VEH
+  0x06a9: { forms: [0xfb8e, 0xfb8f, 0xfb90, 0xfb91], join: 'D' },  // KEHEH (Persian/Urdu)
+  0x06af: { forms: [0xfb92, 0xfb93, 0xfb94, 0xfb95], join: 'D' },  // GAF (Persian/Urdu)
+  0x06ba: { forms: [0xfb9e, 0xfb9f, 0, 0], join: 'R' },            // NOON GHUNNA (Urdu)
+  0x06be: { forms: [0xfbaa, 0xfbab, 0xfbac, 0xfbad], join: 'D' },  // HEH DOACHASHMEE (Urdu)
+  0x06c1: { forms: [0xfba6, 0xfba7, 0xfba8, 0xfba9], join: 'D' },  // HEH GOAL
+  0x06c6: { forms: [0xfbd9, 0xfbda, 0, 0], join: 'R' },            // OE
+  0x06c7: { forms: [0xfbd7, 0xfbd8, 0, 0], join: 'R' },            // U
+  0x06c8: { forms: [0xfbdb, 0xfbdc, 0, 0], join: 'R' },            // YU
+  0x06cb: { forms: [0xfbde, 0xfbdf, 0, 0], join: 'R' },            // VE
+  0x06cc: { forms: [0xfbfc, 0xfbfd, 0xfbfe, 0xfbff], join: 'D' },  // FARSI YEH (Persian/Urdu)
+  0x06d0: { forms: [0xfbe4, 0xfbe5, 0xfbe6, 0xfbe7], join: 'D' },  // E
+  0x06d2: { forms: [0xfbae, 0xfbaf, 0, 0], join: 'R' },            // YEH BARREE (Urdu)
 };
 
 /** Lam-Alef mandatory ligatures, keyed by the following alef variant. `[isolated, final]`. */
@@ -97,6 +138,13 @@ const LAM_ALEF: Record<number, [number, number]> = {
 };
 
 const LAM = 0x0644;
+const ZWNJ = 0x200c; // ZERO WIDTH NON-JOINER — forces a break
+const ZWJ = 0x200d; // ZERO WIDTH JOINER — forces a join
+
+/** True for the Arabic Presentation Forms blocks (A + B) — i.e. already-shaped glyphs. */
+function isPresentationForm(cp: number): boolean {
+  return (cp >= 0xfb50 && cp <= 0xfdff) || (cp >= 0xfe70 && cp <= 0xfeff);
+}
 
 /** Combining marks (harakat, superscript alef …) are transparent to joining but kept in output. */
 function isTransparent(cp: number): boolean {
@@ -111,31 +159,34 @@ function isTransparent(cp: number): boolean {
   );
 }
 
-const canJoinForward = (l: LetterData | undefined): boolean => l?.join === 'D';
-// Every real letter (dual or right-joining) can connect to the preceding letter.
-const canJoinBackward = (l: LetterData | undefined): boolean => l?.join === 'D' || l?.join === 'R';
+// Join capability of a *neighbour* code point, expressed from the current letter's point of view.
+// ZWJ is join-causing on both sides; a dual letter joins forward; any real letter joins backward.
+const neighbourJoinsForward = (cp: number): boolean => cp === ZWJ || LETTERS[cp]?.join === 'D';
+const neighbourJoinsBackward = (cp: number): boolean => {
+  if (cp === ZWJ) return true;
+  const l = LETTERS[cp];
+  return l !== undefined && l.join !== 'U';
+};
 
 /**
  * Replace Arabic base letters with their contextual presentation forms and collapse lam-alef pairs
- * into their mandatory ligature. Non-Arabic code points are copied through untouched. Operates in
- * logical order; the resulting code points are all in the Presentation Forms blocks.
+ * into their mandatory ligature. Input is normalized to NFC first; ZWJ/ZWNJ are honoured and dropped;
+ * code points already in the Presentation Forms blocks (and all non-Arabic code points) are copied
+ * through untouched, so shaping is idempotent. Operates in logical order.
  */
 export function shapeArabic(text: string): string {
-  const cps = Array.from(text, (c) => c.codePointAt(0)!);
-  const letters = cps.map((cp) => LETTERS[cp]);
+  const cps = Array.from(text.normalize('NFC'), (c) => c.codePointAt(0)!);
 
-  // Nearest non-transparent neighbour indices, so harakat between two letters don't break joining.
-  const prevLetter = (i: number): LetterData | undefined => {
+  // Nearest non-transparent neighbour (skipping harakat), as a code point; -1 at the string edge.
+  const prevCp = (i: number): number => {
     for (let j = i - 1; j >= 0; j -= 1) {
-      if (isTransparent(cps[j]!)) continue;
-      return letters[j];
+      if (!isTransparent(cps[j]!)) return cps[j]!;
     }
-    return undefined;
+    return -1;
   };
   const nextIndex = (i: number): number => {
     for (let j = i + 1; j < cps.length; j += 1) {
-      if (isTransparent(cps[j]!)) continue;
-      return j;
+      if (!isTransparent(cps[j]!)) return j;
     }
     return -1;
   };
@@ -146,17 +197,22 @@ export function shapeArabic(text: string): string {
   for (let i = 0; i < cps.length; i += 1) {
     if (i === skip) continue;
     const cp = cps[i]!;
-    const data = letters[i];
 
-    if (!data) {
-      out.push(cp); // non-Arabic (or unsupported) — pass through verbatim
+    // ZWJ/ZWNJ are join controls: they steer the neighbours (via prevCp/nextIndex) but are not drawn.
+    if (cp === ZWJ || cp === ZWNJ) continue;
+
+    // Already-shaped glyph, non-Arabic, or unsupported — pass through (guards against double-shaping).
+    const data = LETTERS[cp];
+    if (!data || isPresentationForm(cp)) {
+      out.push(cp);
       continue;
     }
 
-    const prev = prevLetter(i);
-    const connectPrev = canJoinForward(prev) && canJoinBackward(data);
+    const selfForward = data.join === 'D';
+    const selfBackward = data.join !== 'U';
+    const connectPrev = selfBackward && neighbourJoinsForward(prevCp(i));
 
-    // Lam-Alef ligature: a LAM immediately followed (ignoring marks) by an alef variant.
+    // Lam-Alef ligature: a LAM immediately followed (ignoring marks, respecting ZWNJ) by an alef.
     if (cp === LAM) {
       const ni = nextIndex(i);
       const ligature = ni >= 0 ? LAM_ALEF[cps[ni]!] : undefined;
@@ -168,8 +224,7 @@ export function shapeArabic(text: string): string {
     }
 
     const ni = nextIndex(i);
-    const next = ni >= 0 ? letters[ni] : undefined;
-    const connectNext = canJoinForward(data) && canJoinBackward(next);
+    const connectNext = selfForward && ni >= 0 && neighbourJoinsBackward(cps[ni]!);
 
     // Choose form with graceful fallback for letters lacking initial/medial variants.
     const [iso, fin, ini, med] = data.forms;
@@ -184,22 +239,34 @@ export function shapeArabic(text: string): string {
   return String.fromCodePoint(...out);
 }
 
+/** Shape + bidi-reorder a single line (no embedded newline). */
+function shapeLine(line: string): string {
+  if (!containsArabic(line)) return line;
+  const shaped = shapeArabic(line);
+  const embeddingLevels = bidi.getEmbeddingLevels(shaped);
+  return bidi.getReorderedString(shaped, embeddingLevels);
+}
+
 /**
- * Full logical→visual transform for PDFKit: shape Arabic letters, then reorder the whole string to
- * display order with the Unicode Bidi Algorithm (base direction auto-detected from the first strong
- * character). Pure Latin/numeric/punctuation strings are returned unchanged (fast path), so this is
- * safe to apply to every string the renderer draws.
+ * Full logical→visual transform for PDFKit: shape Arabic letters, then reorder to display order with
+ * the Unicode Bidi Algorithm (base direction auto-detected per line from its first strong character).
+ * Pure Latin/numeric/punctuation strings are returned unchanged (fast path), so this is safe to apply
+ * to every string the renderer draws.
+ *
+ * Bidi reordering is line-relative, so we split on explicit newlines and reorder each line on its own
+ * (a single reorder over multi-line text would drag the newline out of place and merge the lines). See
+ * ARABIC_RENDERING.md for the one case this cannot fix — PDFKit's *automatic* width-wrapping, which
+ * happens inside pdfkit after this function has already produced visual order.
  */
 export function shapeForPdf(text: string): string {
   if (!text || !containsArabic(text)) return text;
-  const shaped = shapeArabic(text);
-  const embeddingLevels = bidi.getEmbeddingLevels(shaped);
-  return bidi.getReorderedString(shaped, embeddingLevels);
+  if (!text.includes('\n')) return shapeLine(text);
+  return text.split('\n').map(shapeLine).join('\n');
 }
 
 /** Base paragraph direction of a string per the bidi algorithm ('rtl' when it leads with Arabic). */
 export function baseDirection(text: string): 'ltr' | 'rtl' {
   if (!containsArabic(text)) return 'ltr';
-  const { paragraphs } = bidi.getEmbeddingLevels(text);
+  const { paragraphs } = bidi.getEmbeddingLevels(text.normalize('NFC'));
   return paragraphs.length > 0 && paragraphs[0]!.level % 2 === 1 ? 'rtl' : 'ltr';
 }
