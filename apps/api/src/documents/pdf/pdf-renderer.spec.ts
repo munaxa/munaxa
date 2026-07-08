@@ -187,13 +187,12 @@ describe('PdfRenderer', () => {
     expect(out.byteSize).toBeGreaterThan(1000);
   });
 
-  // Regression guard for the mojibake root cause: PDFKit reserves the built-in name "Helvetica" (its
-  // pre-cached default), so overriding *that* name with an Arabic font was silently ignored and
-  // regular-weight Arabic fell back to the WinAnsi standard font — rendering each 16-bit code unit as
-  // two Latin-1 glyphs. The renderer now binds its own font aliases, so a configured font must back
-  // EVERY weight and the standard Type1 Helvetica must not appear in the output at all.
+  // Regression guard for the mojibake root cause: Arabic used to fall back to the WinAnsi standard
+  // Helvetica (no embedded Arabic font at all), rendering each 16-bit code unit as two Latin-1 glyphs.
+  // The renderer now uses a separate Arabic family, so an embedded Arabic TrueType (FontFile2) must be
+  // present when a font is configured — its absence is exactly the mojibake defect.
   (SYSTEM_TTF ? it : it.skip)(
-    'uses the configured font for all weights — no WinAnsi Helvetica fallback (mojibake guard)',
+    'embeds a real Arabic TrueType font for Arabic runs (mojibake guard)',
     async () => {
       const prev = process.env.PDF_ARABIC_FONT_PATH;
       process.env.PDF_ARABIC_FONT_PATH = SYSTEM_TTF!;
@@ -211,10 +210,7 @@ describe('PdfRenderer', () => {
         };
         const out = await renderer.render(layout, branding);
         const pdf = out.buffer.toString('latin1');
-        // The standard Type1 Helvetica must NOT be embedded when a font is configured; its presence
-        // means an alias override was dropped — the exact defect that produced the mojibake.
-        expect(pdf).not.toMatch(/\/BaseFont\s*\/[A-Z]*\+?Helvetica\b/);
-        expect(pdf).toMatch(/\/FontFile2\b/); // the embedded TrueType is present instead
+        expect(pdf).toMatch(/\/FontFile2\b/); // the embedded Arabic TrueType is present
       } finally {
         if (prev === undefined) delete process.env.PDF_ARABIC_FONT_PATH;
         else process.env.PDF_ARABIC_FONT_PATH = prev;
@@ -222,9 +218,9 @@ describe('PdfRenderer', () => {
     },
   );
 
-  it('embeds the bundled Arabic font by default — no config, no Helvetica fallback', async () => {
+  it('embeds the bundled Arabic font by default — no config needed', async () => {
     // With PDF_ARABIC_FONT_PATH unset (the production default that produced unreadable Arabic in
-    // Acrobat), the renderer must still embed the bundled DejaVu font, never the Latin-only Helvetica.
+    // Acrobat), the renderer must still embed the bundled Arabic TrueType for Arabic runs.
     const prev = process.env.PDF_ARABIC_FONT_PATH;
     delete process.env.PDF_ARABIC_FONT_PATH;
     try {
@@ -238,12 +234,27 @@ describe('PdfRenderer', () => {
       };
       const out = await renderer.render(layout, branding);
       const pdf = out.buffer.toString('latin1');
-      expect(pdf).toMatch(/\/FontFile2\b/); // an embedded TrueType is present
-      expect(pdf).not.toMatch(/\/BaseFont\s*\/[A-Z]*\+?Helvetica\b/); // and it is NOT Helvetica
+      expect(pdf).toMatch(/\/FontFile2\b/); // the bundled Arabic TrueType is embedded
     } finally {
       if (prev === undefined) delete process.env.PDF_ARABIC_FONT_PATH;
       else process.env.PDF_ARABIC_FONT_PATH = prev;
     }
+  });
+
+  it('uses separate Latin and Arabic families — Latin stays Helvetica, Arabic is embedded', async () => {
+    // Per-run selection: pure-Latin runs render in built-in Helvetica; Arabic runs in the embedded
+    // Arabic font. Both must therefore appear in a bilingual document.
+    const layout: DocumentLayout = {
+      title: 'Certificate / شهادة',
+      language: DocumentLanguage.BILINGUAL,
+      blocks: [
+        { kind: 'heading', text: 'Student / الطالب' },
+        { kind: 'fields', columns: 2, rows: [{ label: 'Name / الاسم', value: 'أحمد محمد' }] },
+      ],
+    };
+    const pdf = (await renderer.render(layout, branding)).buffer.toString('latin1');
+    expect(pdf).toMatch(/\/BaseFont\s*\/Helvetica\b/); // Latin family present
+    expect(pdf).toMatch(/\/FontFile2\b/); // Arabic family embedded
   });
 
   it('stores logical Arabic in the text layer via /ActualText (correct copy/search/accessibility)', async () => {
