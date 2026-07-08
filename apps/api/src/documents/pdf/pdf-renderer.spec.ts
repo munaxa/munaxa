@@ -1,7 +1,15 @@
+import { existsSync } from 'node:fs';
 import { DocumentLanguage } from '@prisma/client';
 import { PdfRenderer } from './pdf-renderer';
 import type { BrandingContext, DocumentLayout } from './document-layout';
 import { buildAgreementLayout, type AgreementSnapshot } from '../templates/agreement-template';
+
+/** First available TrueType font on this machine (DejaVu ships almost everywhere), or null. */
+const SYSTEM_TTF = [
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+  '/Library/Fonts/Arial Unicode.ttf',
+].find((p) => existsSync(p));
 
 const branding: BrandingContext = {
   nameEn: 'Test Academy',
@@ -178,6 +186,41 @@ describe('PdfRenderer', () => {
     expectValidPdf(out);
     expect(out.byteSize).toBeGreaterThan(1000);
   });
+
+  // Regression guard for the mojibake root cause: PDFKit reserves the built-in name "Helvetica" (its
+  // pre-cached default), so overriding *that* name with an Arabic font was silently ignored and
+  // regular-weight Arabic fell back to the WinAnsi standard font — rendering each 16-bit code unit as
+  // two Latin-1 glyphs. The renderer now binds its own font aliases, so a configured font must back
+  // EVERY weight and the standard Type1 Helvetica must not appear in the output at all.
+  (SYSTEM_TTF ? it : it.skip)(
+    'uses the configured font for all weights — no WinAnsi Helvetica fallback (mojibake guard)',
+    async () => {
+      const prev = process.env.PDF_ARABIC_FONT_PATH;
+      process.env.PDF_ARABIC_FONT_PATH = SYSTEM_TTF!;
+      try {
+        const layout: DocumentLayout = {
+          title: 'اتفاقية التسجيل',
+          subtitle: 'مدرسة الاختبار',
+          language: DocumentLanguage.AR,
+          meta: [{ label: 'رقم', value: 'AGR-000007' }],
+          blocks: [
+            { kind: 'heading', text: 'الأطراف والطالب' }, // regular + bold both exercised
+            { kind: 'paragraph', text: 'هذا نص عربي في فقرة عادية.' },
+            { kind: 'fields', columns: 2, rows: [{ label: 'الطالب', value: 'أحمد محمد' }] },
+          ],
+        };
+        const out = await renderer.render(layout, branding);
+        const pdf = out.buffer.toString('latin1');
+        // The standard Type1 Helvetica must NOT be embedded when a font is configured; its presence
+        // means an alias override was dropped — the exact defect that produced the mojibake.
+        expect(pdf).not.toMatch(/\/BaseFont\s*\/[A-Z]*\+?Helvetica\b/);
+        expect(pdf).toMatch(/\/FontFile2\b/); // the embedded TrueType is present instead
+      } finally {
+        if (prev === undefined) delete process.env.PDF_ARABIC_FONT_PATH;
+        else process.env.PDF_ARABIC_FONT_PATH = prev;
+      }
+    },
+  );
 
   it('produces identical checksums for identical input (snapshot reproducibility)', async () => {
     const layout: DocumentLayout = {

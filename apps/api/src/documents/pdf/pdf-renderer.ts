@@ -24,6 +24,17 @@ const LINE = '#cbd5e1';
 const ACCENT = '#1d4ed8';
 
 /**
+ * Font aliases the renderer draws with. They are deliberately NOT the built-in names `Helvetica` /
+ * `Helvetica-Bold`: PDFKit pre-caches its default font under the name `Helvetica` at document
+ * construction, so a later `registerFont('Helvetica', …)` is silently ignored (the cache wins) and
+ * regular-weight text keeps the standard WinAnsi font — which cannot encode Arabic, emitting each
+ * 16-bit code unit as two Latin-1 bytes (the `þ®…` mojibake). Registering under our own names sidesteps
+ * that reserved cache entirely, so the same font actually backs every weight. See {@link registerFonts}.
+ */
+const FONT_BODY = 'DocBody';
+const FONT_BODY_BOLD = 'DocBody-Bold';
+
+/**
  * Renders a declarative {@link DocumentLayout} into a branded A4 PDF (Part 3). pdfkit is lazily
  * imported so it only loads when a document is actually produced (mirrors ExportService). The
  * renderer is deliberately layout-agnostic: it knows how to draw a header, fields, tables, totals
@@ -33,7 +44,7 @@ const ACCENT = '#1d4ed8';
  * does no complex-script processing — it draws code points in logical order with no glyph shaping or
  * bidirectional reordering, which makes raw Arabic unreadable. Two things therefore cooperate here:
  *   1. An Arabic-capable TTF is embedded when PDF_ARABIC_FONT_PATH is configured (see
- *      {@link maybeEmbedArabicFont}) so the glyphs exist in the font.
+ *      {@link registerFonts}) so the glyphs exist in the font.
  *   2. Every string is passed through {@link shapeForPdf} (the module-level `t` helper) which shapes
  *      Arabic letters into their contextual presentation forms and reorders mixed text to visual order
  *      before pdfkit sees it. Latin/numeric text is untouched, so this is fully backward compatible.
@@ -50,7 +61,7 @@ export class PdfRenderer {
       doc.on('error', reject);
     });
 
-    this.maybeEmbedArabicFont(doc);
+    this.registerFonts(doc);
     this.drawHeader(doc, layout, branding);
     for (const block of layout.blocks) this.drawBlock(doc, block);
     this.drawFooters(doc, layout, branding);
@@ -82,14 +93,14 @@ export class PdfRenderer {
 
     doc
       .fillColor(INK)
-      .font('Helvetica-Bold')
+      .font(FONT_BODY_BOLD)
       .fontSize(15)
       .text(t(b.nameEn), textX, top, {
         width: right - textX,
       });
     if (b.nameAr) {
       doc
-        .font('Helvetica')
+        .font(FONT_BODY)
         .fontSize(11)
         .fillColor(INK)
         .text(t(b.nameAr), textX, doc.y, {
@@ -101,7 +112,7 @@ export class PdfRenderer {
       .join('  ·  ');
     if (contact) {
       doc
-        .font('Helvetica')
+        .font(FONT_BODY)
         .fontSize(8)
         .fillColor(MUTED)
         .text(t(contact), textX, doc.y + 1, {
@@ -121,12 +132,12 @@ export class PdfRenderer {
     doc.y = headerBottom + 14;
     const titleWidth = layout.meta && layout.meta.length > 0 ? (right - left) * 0.6 : right - left;
     const titleTop = doc.y;
-    doc.fillColor(INK).font('Helvetica-Bold').fontSize(16).text(t(layout.title), left, titleTop, {
+    doc.fillColor(INK).font(FONT_BODY_BOLD).fontSize(16).text(t(layout.title), left, titleTop, {
       width: titleWidth,
     });
     if (layout.subtitle) {
       doc
-        .font('Helvetica')
+        .font(FONT_BODY)
         .fontSize(9)
         .fillColor(MUTED)
         .text(t(layout.subtitle), left, doc.y + 1, {
@@ -141,14 +152,14 @@ export class PdfRenderer {
       let metaY = titleTop;
       for (const m of layout.meta) {
         doc
-          .font('Helvetica-Bold')
+          .font(FONT_BODY_BOLD)
           .fontSize(8)
           .fillColor(MUTED)
           .text(t(m.label.toUpperCase()), boxX, metaY, {
             width: boxW,
             align: 'right',
           });
-        doc.font('Helvetica').fontSize(10).fillColor(INK).text(t(m.value), boxX, doc.y, {
+        doc.font(FONT_BODY).fontSize(10).fillColor(INK).text(t(m.value), boxX, doc.y, {
           width: boxW,
           align: 'right',
         });
@@ -173,14 +184,14 @@ export class PdfRenderer {
         return;
       case 'heading':
         doc.moveDown(0.3);
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(t(block.text), left, doc.y, {
+        doc.font(FONT_BODY_BOLD).fontSize(11).fillColor(ACCENT).text(t(block.text), left, doc.y, {
           width,
         });
         doc.moveDown(0.2);
         return;
       case 'paragraph':
         doc
-          .font('Helvetica')
+          .font(FONT_BODY)
           .fontSize(9.5)
           .fillColor(block.muted ? MUTED : INK)
           .text(t(block.text), left, doc.y, { width, align: 'left', lineGap: 2 });
@@ -217,14 +228,14 @@ export class PdfRenderer {
       const x = left + col * colW;
       const y = doc.y;
       doc
-        .font('Helvetica')
+        .font(FONT_BODY)
         .fontSize(7.5)
         .fillColor(MUTED)
         .text(t(row.label.toUpperCase()), x, y, {
           width: colW - 8,
         });
       doc
-        .font('Helvetica-Bold')
+        .font(FONT_BODY_BOLD)
         .fontSize(10)
         .fillColor(INK)
         .text(t(row.value || '—'), x, y + 11, {
@@ -248,12 +259,12 @@ export class PdfRenderer {
       const y = doc.y;
       const last = idx === rows.length - 1;
       doc
-        .font(last ? 'Helvetica-Bold' : 'Helvetica')
+        .font(last ? FONT_BODY_BOLD : FONT_BODY)
         .fontSize(last ? 11 : 9.5)
         .fillColor(last ? INK : MUTED)
         .text(t(row.label), x, y, { width: boxW * 0.55 });
       doc
-        .font('Helvetica-Bold')
+        .font(FONT_BODY_BOLD)
         .fontSize(last ? 11 : 9.5)
         .fillColor(last ? ACCENT : INK)
         .text(t(row.value), x + boxW * 0.55, y, { width: boxW * 0.45, align: 'right' });
@@ -278,7 +289,7 @@ export class PdfRenderer {
 
     const drawRow = (record: Record<string, string | number>, bold: boolean) => {
       // Measure tallest cell for wrapping.
-      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
+      doc.font(bold ? FONT_BODY_BOLD : FONT_BODY).fontSize(9);
       const heights = columns.map((c, i) =>
         doc.heightOfString(t(String(record[c.key] ?? '')), { width: widths[i]! - 8 }),
       );
@@ -301,7 +312,7 @@ export class PdfRenderer {
     this.ensureSpace(doc, 20);
     const hy = doc.y;
     doc.rect(left, hy, width, 18).fill('#eef2ff');
-    doc.fillColor(ACCENT).font('Helvetica-Bold').fontSize(8.5);
+    doc.fillColor(ACCENT).font(FONT_BODY_BOLD).fontSize(8.5);
     columns.forEach((c, i) => {
       doc.text(t(c.header.toUpperCase()), colX(i) + 4, hy + 5, {
         width: widths[i]! - 8,
@@ -334,7 +345,7 @@ export class PdfRenderer {
         .strokeColor(INK)
         .stroke();
       doc
-        .font('Helvetica-Bold')
+        .font(FONT_BODY_BOLD)
         .fontSize(9)
         .fillColor(INK)
         .text(t(blk.label), x, y + 5, {
@@ -342,7 +353,7 @@ export class PdfRenderer {
         });
       if (blk.name) {
         doc
-          .font('Helvetica')
+          .font(FONT_BODY)
           .fontSize(8)
           .fillColor(MUTED)
           .text(t(blk.name), x, doc.y, {
@@ -364,7 +375,7 @@ export class PdfRenderer {
       const y = doc.page.height - doc.page.margins.bottom + 8;
       doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(LINE).stroke();
       doc
-        .font('Helvetica')
+        .font(FONT_BODY)
         .fontSize(7)
         .fillColor(MUTED)
         .text(t(note), left, y + 4, {
@@ -383,14 +394,25 @@ export class PdfRenderer {
     if (doc.y + needed > bottom) doc.addPage();
   }
 
-  private maybeEmbedArabicFont(doc: PDFKit.PDFDocument): void {
+  /**
+   * Binds the {@link FONT_BODY} / {@link FONT_BODY_BOLD} aliases the renderer draws with. When
+   * PDF_ARABIC_FONT_PATH points to an Arabic-capable TTF it backs both weights (so Arabic — already
+   * shaped and reordered by {@link shapeForPdf} — renders with real glyphs); otherwise the aliases map
+   * to the standard Latin fonts and Latin text renders exactly as before (Arabic then needs the TTF).
+   * Registering under our own names avoids PDFKit's reserved `Helvetica` cache entry (see FONT_BODY).
+   */
+  private registerFonts(doc: PDFKit.PDFDocument): void {
     const path = process.env.PDF_ARABIC_FONT_PATH;
-    if (!path) return;
-    try {
-      doc.registerFont('Helvetica', path);
-      doc.registerFont('Helvetica-Bold', path);
-    } catch {
-      /* keep built-in fonts if the configured font cannot be loaded */
+    if (path) {
+      try {
+        doc.registerFont(FONT_BODY, path);
+        doc.registerFont(FONT_BODY_BOLD, path);
+        return;
+      } catch {
+        /* fall through to the standard Latin fonts if the configured font cannot be loaded */
+      }
     }
+    doc.registerFont(FONT_BODY, 'Helvetica');
+    doc.registerFont(FONT_BODY_BOLD, 'Helvetica-Bold');
   }
 }

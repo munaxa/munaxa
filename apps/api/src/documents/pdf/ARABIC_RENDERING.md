@@ -73,6 +73,14 @@ Forms (`U+FB50–U+FEFF`); most Arabic fonts (Amiri, Cairo, Noto Naskh, …) do.
 Helvetica has no Arabic glyphs, so without an embedded font Arabic will not render regardless of
 shaping.
 
+**Do not register the Arabic font under the name `Helvetica`.** PDFKit pre-caches its default font
+under that exact name at document construction, so `registerFont('Helvetica', …)` is silently ignored
+(the cache wins) — regular-weight text then keeps the standard WinAnsi font and emits each 16-bit
+Arabic code unit as two Latin-1 bytes (`þ®…` mojibake), while bold text (an unreserved name) renders
+correctly. The renderer therefore binds its own aliases (`DocBody` / `DocBody-Bold`, see
+`pdf-renderer.ts`) that PDFKit has not reserved, so the configured font backs every weight. This is
+covered by a regression test that asserts no Type1 Helvetica is embedded when a font is configured.
+
 ### 5. Paragraph alignment
 The renderer keeps its existing left alignment; RTL text is shaped and correctly ordered but not
 right-aligned. Right-aligning RTL blocks would require renderer/layout changes and is intentionally
