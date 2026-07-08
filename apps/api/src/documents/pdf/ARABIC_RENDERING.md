@@ -39,14 +39,27 @@ the line breaks read in the wrong order.
   drawing — i.e. take over text layout from PDFKit, which is out of scope, or move to an engine with
   native shaping (HarfBuzz/browser).
 
-### 2. Space-separated digit groups reorder in RTL context
-Per UAX #9, whitespace-separated number runs in an RTL paragraph are ordered right-to-left. A phone
-number typed with spaces (`+962 79 123 4567`) therefore displays as `4567 123 79 962+`. This is
-**standards-correct** bidi (browsers do the same) — it is not a shaping bug. Emails, URLs, IBANs and
-invoice numbers are unaffected because they contain no internal spaces and stay contiguous LTR.
+### 2. Space-separated identifiers — solved with LRI/PDI isolation
+Per UAX #9, whitespace-separated numeric runs in an RTL paragraph are ordered right-to-left, so a phone
+number typed with spaces (`+962 79 123 4567`) would display as `4567 123 79 962+`. This is
+standards-correct bidi, but not what a reader expects of an identifier.
 
-- **Mitigation:** store such numbers without internal spaces, or wrap them in a directional isolate at
-  the data layer if grouped display is required.
+`shapeForPdf` fixes it the standards-compliant way: it wraps each run of two-or-more space-separated
+ASCII tokens **that contains a digit** in a **LEFT-TO-RIGHT ISOLATE** (`U+2066 … U+2069`, UAX #9 §2.4)
+before reordering, then strips the isolate controls from the visual output so PDFKit never sees a
+formatting code point (which could otherwise render as a `.notdef` box). This covers phone numbers,
+national IDs, grouped IBANs and reference numbers (`+962 79 123 4567`, `1234 5678 9012`,
+`JO94 CBJO 0010 …`, `REF 2026 00125`).
+
+Scope and safety of the heuristic:
+- It only fires on Arabic-bearing lines (English-only text takes the byte-identical fast path).
+- Wrapping already-LTR content is a visual no-op, so emails, URLs, single numbers, decimals
+  (`1025.000`) and prose are unaffected; only genuinely reversible multi-group identifiers change.
+- It is **detection-based**: an identifier with no digit (rare) or split by non-space punctuation is not
+  isolated. Callers that need a guaranteed isolate can still insert `U+2066…U+2069` themselves — the
+  post-reorder strip cleans those up too.
+- Residual UAX #9 behaviour: the isolate keeps the run left-to-right; it does not re-group tokens, which
+  is the correct outcome for identifiers.
 
 ### 3. No GPOS mark positioning / no kashida justification
 Presentation Forms give correct letter **shapes** but not advanced glyph **positioning**. Precise

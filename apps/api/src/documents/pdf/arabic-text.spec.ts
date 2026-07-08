@@ -158,6 +158,33 @@ describe('arabic-text', () => {
       expect(out).toContain('ﻢﻗﺭ');
     });
 
+    it('pins space-separated identifiers to LTR inside Arabic (LRI/PDI isolate)', () => {
+      // Without isolation the UBA orders these numeric groups right-to-left; they must stay in order.
+      const cases: Array<[string, string]> = [
+        ['الهاتف +962 79 123 4567', '+962 79 123 4567'], // phone
+        ['الرقم الوطني 1234 5678 9012', '1234 5678 9012'], // national ID
+        ['الآيبان JO94 CBJO 0010 0000 0000 0131 0003 02', 'JO94 CBJO 0010 0000 0000 0131 0003 02'],
+        ['المرجع REF 2026 00125', 'REF 2026 00125'], // reference number
+      ];
+      for (const [input, token] of cases) {
+        const out = shapeForPdf(input);
+        expect(out).toContain(token); // contiguous and in reading order
+      }
+    });
+
+    it('never leaks bidi isolate control characters into the output', () => {
+      // U+2066..U+2069 are inserted internally to steer the algorithm and must be stripped afterwards,
+      // so PDFKit/the font never sees a formatting code point (which could render as a .notdef box).
+      const out = shapeForPdf('الهاتف +962 79 123 4567 للتواصل');
+      expect(out).not.toMatch(/[⁦-⁩]/);
+    });
+
+    it('does not disturb single-token identifiers, decimals, or English-only text', () => {
+      expect(shapeForPdf('المبلغ 1025.000 دينار')).toContain('1025.000'); // decimal untouched
+      expect(shapeForPdf('البريد info@test.edu')).toContain('info@test.edu'); // single token
+      expect(shapeForPdf('Invoice INV-1025')).toBe('Invoice INV-1025'); // English fast-path unchanged
+    });
+
     it('reorders each line independently and keeps newlines in place', () => {
       // A single reorder over multi-line text would drag the newline out of place; per-line reorder
       // must preserve one '\n' with each line reversed on its own.

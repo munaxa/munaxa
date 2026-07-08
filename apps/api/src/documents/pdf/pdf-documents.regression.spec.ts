@@ -295,3 +295,48 @@ describe('embedded LTR tokens inside Arabic (emails, URLs, IBANs, invoices, QR)'
     expect(shapeForPdf(qr)).toBe(qr);
   });
 });
+
+// ── Structured identifiers with internal spaces, embedded in Arabic (LRI/PDI isolation) ──
+describe('space-separated identifiers stay left-to-right inside Arabic', () => {
+  const spaced: Array<[string, string, string]> = [
+    ['phone number', 'الهاتف +962 79 123 4567', '+962 79 123 4567'],
+    ['national ID', 'الرقم الوطني 1234 5678 9012 صادر', '1234 5678 9012'],
+    [
+      'grouped IBAN',
+      'الآيبان JO94 CBJO 0010 0000 0000 0131 0003 02 لدى',
+      'JO94 CBJO 0010 0000 0000 0131 0003 02',
+    ],
+    ['reference number', 'المرجع REF 2026 00125 مؤكد', 'REF 2026 00125'],
+  ];
+
+  for (const [kind, input, token] of spaced) {
+    it(`keeps the ${kind} in reading order and drops all isolate controls`, () => {
+      const out = shapeForPdf(input);
+      expect(out).toContain(token);
+      expect(out).not.toMatch(/[⁦-⁩]/); // no U+2066..U+2069 leaked to the renderer
+    });
+  }
+
+  it('renders a receipt whose fields carry every identifier kind', async () => {
+    const layout: DocumentLayout = {
+      title: L(DocumentLanguage.AR, 'Payment Receipt', 'إيصال دفع'),
+      language: DocumentLanguage.AR,
+      meta: [{ label: 'رقم الإيصال', value: 'RCP-000125' }],
+      blocks: [
+        {
+          kind: 'fields',
+          columns: 2,
+          rows: [
+            { label: 'الطالب', value: 'أحمد محمد' },
+            { label: 'الهاتف', value: 'الهاتف +962 79 123 4567' },
+            { label: 'الرقم الوطني', value: 'الرقم الوطني 1234 5678 9012' },
+            { label: 'الآيبان', value: 'الآيبان JO94 CBJO 0010 0000 0000 0131 0003 02' },
+            { label: 'المرجع', value: 'المرجع REF 2026 00125' },
+            { label: 'البريد', value: 'ahmad@example.com' },
+          ],
+        },
+      ],
+    };
+    expectValidPdf(await renderer.render(layout, branding));
+  });
+});

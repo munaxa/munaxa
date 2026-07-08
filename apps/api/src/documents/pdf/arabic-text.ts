@@ -30,6 +30,9 @@ import bidiFactory from 'bidi-js';
  *     through verbatim, so shaping is idempotent and re-processing pre-shaped text is a no-op.
  *   - **Coverage** spans standard Arabic plus commonly used Persian/Urdu letters (peh, tcheh, gaf,
  *     keheh, farsi yeh, tteh, ddal, jeh, rreh, noon ghunna, heh doachashmee, …).
+ *   - **Structured identifiers** with internal spaces (phone numbers, national IDs, grouped IBANs,
+ *     reference numbers) are wrapped in an LRI…PDI isolate so the UBA keeps them left-to-right instead
+ *     of reversing their groups; the isolate controls are stripped before the text reaches PDFKit.
  *
  * Why a hand-written table rather than a shaping library: the mature engine is HarfBuzz
  * (`harfbuzzjs`, WASM), but it shapes against the *font's* GSUB tables and returns glyph indices, which
@@ -239,12 +242,39 @@ export function shapeArabic(text: string): string {
   return String.fromCodePoint(...out);
 }
 
+// Unicode directional isolates (UAX #9): pin a run's internal direction without leaking to neighbours.
+const LRI = '\u2066'; // LEFT-TO-RIGHT ISOLATE
+const PDI = '\u2069'; // POP DIRECTIONAL ISOLATE
+// Any directional-isolate control we might introduce — stripped from the visual output so the font
+// never sees a (potentially unmapped) formatting code point and renders no `.notdef` box.
+const BIDI_ISOLATES = /[\u2066-\u2069]/g;
+
+// A run of two or more whitespace-separated ASCII "identifier" tokens (phone numbers, national IDs,
+// IBANs, reference numbers …). The run must contain a digit — see {@link isolateStructuredIdentifiers}.
+// The '-' is last inside the class (literal), and '/' is escaped to satisfy the linter.
+const STRUCTURED_LTR_RUN = /[A-Za-z0-9+][A-Za-z0-9+/@._-]*(?:[ \u00a0][A-Za-z0-9+/@._-]+)+/g;
+
+/**
+ * Wrap structured LTR identifiers that contain internal spaces in an LRI…PDI isolate.
+ *
+ * In a right-to-left paragraph the Unicode Bidi Algorithm orders whitespace-separated numeric groups
+ * right-to-left, so `+962 79 123 4567` would display as `4567 123 79 962+`. Isolating such a run pins
+ * it to left-to-right — the standards-compliant fix (UAX #9 §2.4) — while the surrounding Arabic keeps
+ * its direction. We only touch runs that contain a digit, so prose and single tokens (emails, URLs,
+ * single numbers) are left untouched; the isolate controls are removed again after reordering, so no
+ * formatting code point ever reaches PDFKit. Wrapping already-LTR content is a visual no-op, which is
+ * why this is safe to apply unconditionally to Arabic-bearing lines.
+ */
+function isolateStructuredIdentifiers(line: string): string {
+  return line.replace(STRUCTURED_LTR_RUN, (run) => (/\d/.test(run) ? LRI + run + PDI : run));
+}
+
 /** Shape + bidi-reorder a single line (no embedded newline). */
 function shapeLine(line: string): string {
   if (!containsArabic(line)) return line;
-  const shaped = shapeArabic(line);
+  const shaped = shapeArabic(isolateStructuredIdentifiers(line));
   const embeddingLevels = bidi.getEmbeddingLevels(shaped);
-  return bidi.getReorderedString(shaped, embeddingLevels);
+  return bidi.getReorderedString(shaped, embeddingLevels).replace(BIDI_ISOLATES, '');
 }
 
 /**
