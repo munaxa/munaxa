@@ -1,6 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import type { BrandingContext, DocumentLayout, LayoutBlock, TableColumn } from './document-layout';
+import { containsArabic, shapeForPdf } from './arabic-text';
+
+/**
+ * Logical→visual text transform applied to every string before it reaches PDFKit. It shapes Arabic
+ * glyphs and applies bidirectional reordering (see {@link shapeForPdf}); Latin/numeric strings pass
+ * through untouched, so callers stay backward compatible. Used for width/height measurement; text is
+ * actually drawn via {@link PdfRenderer.drawText}, which also preserves the logical text layer.
+ */
+const t = (value: string): string => shapeForPdf(value);
 
 export interface RenderedPdf {
   buffer: Buffer;
@@ -15,14 +24,31 @@ const LINE = '#cbd5e1';
 const ACCENT = '#1d4ed8';
 
 /**
+ * Font aliases the renderer draws with. They are deliberately NOT the built-in names `Helvetica` /
+ * `Helvetica-Bold`: PDFKit pre-caches its default font under the name `Helvetica` at document
+ * construction, so a later `registerFont('Helvetica', …)` is silently ignored (the cache wins) and
+ * regular-weight text keeps the standard WinAnsi font — which cannot encode Arabic, emitting each
+ * 16-bit code unit as two Latin-1 bytes (the `þ®…` mojibake). Registering under our own names sidesteps
+ * that reserved cache entirely, so the same font actually backs every weight. See {@link registerFonts}.
+ */
+const FONT_BODY = 'DocBody';
+const FONT_BODY_BOLD = 'DocBody-Bold';
+
+/**
  * Renders a declarative {@link DocumentLayout} into a branded A4 PDF (Part 3). pdfkit is lazily
  * imported so it only loads when a document is actually produced (mirrors ExportService). The
  * renderer is deliberately layout-agnostic: it knows how to draw a header, fields, tables, totals
  * and a signature block, and every official document is expressed as data for it to render.
  *
- * Arabic note: pdfkit's built-in fonts cover Latin only. When AR/BILINGUAL output is requested and
- * an Arabic-capable TTF is configured via PDF_ARABIC_FONT_PATH, it is embedded so Arabic strings in
- * the data render correctly; otherwise the standard font is used (Arabic glyphs may not display).
+ * Arabic note: pdfkit's built-in fonts cover Latin only, and even with an embedded Arabic TTF pdfkit
+ * does no complex-script processing — it draws code points in logical order with no glyph shaping or
+ * bidirectional reordering, which makes raw Arabic unreadable. Two things therefore cooperate here:
+ *   1. An Arabic-capable TTF is embedded when PDF_ARABIC_FONT_PATH is configured (see
+ *      {@link registerFonts}) so the glyphs exist in the font.
+ *   2. Text is drawn via {@link PdfRenderer.drawText}: Arabic is shaped and reordered to visual order
+ *      by {@link shapeForPdf} so the glyphs display correctly, and the *original logical* Unicode is
+ *      attached as an `/ActualText` marked-content span so copy/search/screen readers still get correct,
+ *      un-reversed text. Latin/numeric text is untouched, so this is fully backward compatible.
  */
 @Injectable()
 export class PdfRenderer {
@@ -36,7 +62,7 @@ export class PdfRenderer {
       doc.on('error', reject);
     });
 
-    this.maybeEmbedArabicFont(doc);
+    this.registerFonts(doc);
     this.drawHeader(doc, layout, branding);
     for (const block of layout.blocks) this.drawBlock(doc, block);
     this.drawFooters(doc, layout, branding);
@@ -66,33 +92,18 @@ export class PdfRenderer {
       }
     }
 
-    doc
-      .fillColor(INK)
-      .font('Helvetica-Bold')
-      .fontSize(15)
-      .text(b.nameEn, textX, top, {
-        width: right - textX,
-      });
+    doc.fillColor(INK).font(FONT_BODY_BOLD).fontSize(15);
+    this.drawText(doc, b.nameEn, textX, top, { width: right - textX });
     if (b.nameAr) {
-      doc
-        .font('Helvetica')
-        .fontSize(11)
-        .fillColor(INK)
-        .text(b.nameAr, textX, doc.y, {
-          width: right - textX,
-        });
+      doc.font(FONT_BODY).fontSize(11).fillColor(INK);
+      this.drawText(doc, b.nameAr, textX, doc.y, { width: right - textX });
     }
     const contact = [b.addressLines.join(', '), b.phone, b.email, b.website]
       .filter((s): s is string => Boolean(s && s.trim()))
       .join('  ·  ');
     if (contact) {
-      doc
-        .font('Helvetica')
-        .fontSize(8)
-        .fillColor(MUTED)
-        .text(contact, textX, doc.y + 1, {
-          width: right - textX,
-        });
+      doc.font(FONT_BODY).fontSize(8).fillColor(MUTED);
+      this.drawText(doc, contact, textX, doc.y + 1, { width: right - textX });
     }
 
     const headerBottom = Math.max(doc.y, top + (b.logo ? 64 : 0)) + 8;
@@ -107,17 +118,11 @@ export class PdfRenderer {
     doc.y = headerBottom + 14;
     const titleWidth = layout.meta && layout.meta.length > 0 ? (right - left) * 0.6 : right - left;
     const titleTop = doc.y;
-    doc.fillColor(INK).font('Helvetica-Bold').fontSize(16).text(layout.title, left, titleTop, {
-      width: titleWidth,
-    });
+    doc.fillColor(INK).font(FONT_BODY_BOLD).fontSize(16);
+    this.drawText(doc, layout.title, left, titleTop, { width: titleWidth });
     if (layout.subtitle) {
-      doc
-        .font('Helvetica')
-        .fontSize(9)
-        .fillColor(MUTED)
-        .text(layout.subtitle, left, doc.y + 1, {
-          width: titleWidth,
-        });
+      doc.font(FONT_BODY).fontSize(9).fillColor(MUTED);
+      this.drawText(doc, layout.subtitle, left, doc.y + 1, { width: titleWidth });
     }
     const afterTitle = doc.y;
 
@@ -126,18 +131,10 @@ export class PdfRenderer {
       const boxX = right - boxW;
       let metaY = titleTop;
       for (const m of layout.meta) {
-        doc
-          .font('Helvetica-Bold')
-          .fontSize(8)
-          .fillColor(MUTED)
-          .text(m.label.toUpperCase(), boxX, metaY, {
-            width: boxW,
-            align: 'right',
-          });
-        doc.font('Helvetica').fontSize(10).fillColor(INK).text(m.value, boxX, doc.y, {
-          width: boxW,
-          align: 'right',
-        });
+        doc.font(FONT_BODY_BOLD).fontSize(8).fillColor(MUTED);
+        this.drawText(doc, m.label.toUpperCase(), boxX, metaY, { width: boxW, align: 'right' });
+        doc.font(FONT_BODY).fontSize(10).fillColor(INK);
+        this.drawText(doc, m.value, boxX, doc.y, { width: boxW, align: 'right' });
         metaY = doc.y + 4;
       }
     }
@@ -159,17 +156,16 @@ export class PdfRenderer {
         return;
       case 'heading':
         doc.moveDown(0.3);
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(ACCENT).text(block.text, left, doc.y, {
-          width,
-        });
+        doc.font(FONT_BODY_BOLD).fontSize(11).fillColor(ACCENT);
+        this.drawText(doc, block.text, left, doc.y, { width });
         doc.moveDown(0.2);
         return;
       case 'paragraph':
         doc
-          .font('Helvetica')
+          .font(FONT_BODY)
           .fontSize(9.5)
-          .fillColor(block.muted ? MUTED : INK)
-          .text(block.text, left, doc.y, { width, align: 'left', lineGap: 2 });
+          .fillColor(block.muted ? MUTED : INK);
+        this.drawText(doc, block.text, left, doc.y, { width, align: 'left', lineGap: 2 });
         doc.moveDown(0.4);
         return;
       case 'fields':
@@ -202,20 +198,10 @@ export class PdfRenderer {
       if (col === 0) this.ensureSpace(doc, rowH);
       const x = left + col * colW;
       const y = doc.y;
-      doc
-        .font('Helvetica')
-        .fontSize(7.5)
-        .fillColor(MUTED)
-        .text(row.label.toUpperCase(), x, y, {
-          width: colW - 8,
-        });
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(10)
-        .fillColor(INK)
-        .text(row.value || '—', x, y + 11, {
-          width: colW - 8,
-        });
+      doc.font(FONT_BODY).fontSize(7.5).fillColor(MUTED);
+      this.drawText(doc, row.label.toUpperCase(), x, y, { width: colW - 8 });
+      doc.font(FONT_BODY_BOLD).fontSize(10).fillColor(INK);
+      this.drawText(doc, row.value || '—', x, y + 11, { width: colW - 8 });
       i += 1;
       if (col === columns - 1) doc.y = y + rowH;
       else doc.y = y; // keep same row baseline for remaining columns
@@ -234,15 +220,15 @@ export class PdfRenderer {
       const y = doc.y;
       const last = idx === rows.length - 1;
       doc
-        .font(last ? 'Helvetica-Bold' : 'Helvetica')
+        .font(last ? FONT_BODY_BOLD : FONT_BODY)
         .fontSize(last ? 11 : 9.5)
-        .fillColor(last ? INK : MUTED)
-        .text(row.label, x, y, { width: boxW * 0.55 });
+        .fillColor(last ? INK : MUTED);
+      this.drawText(doc, row.label, x, y, { width: boxW * 0.55 });
       doc
-        .font('Helvetica-Bold')
+        .font(FONT_BODY_BOLD)
         .fontSize(last ? 11 : 9.5)
-        .fillColor(last ? ACCENT : INK)
-        .text(row.value, x + boxW * 0.55, y, { width: boxW * 0.45, align: 'right' });
+        .fillColor(last ? ACCENT : INK);
+      this.drawText(doc, row.value, x + boxW * 0.55, y, { width: boxW * 0.45, align: 'right' });
       doc.y = y + (last ? 18 : 15);
     }
     doc.moveDown(0.3);
@@ -264,20 +250,19 @@ export class PdfRenderer {
 
     const drawRow = (record: Record<string, string | number>, bold: boolean) => {
       // Measure tallest cell for wrapping.
-      doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(9);
+      doc.font(bold ? FONT_BODY_BOLD : FONT_BODY).fontSize(9);
       const heights = columns.map((c, i) =>
-        doc.heightOfString(String(record[c.key] ?? ''), { width: widths[i]! - 8 }),
+        doc.heightOfString(t(String(record[c.key] ?? '')), { width: widths[i]! - 8 }),
       );
       const rowH = Math.max(14, ...heights) + 6;
       this.ensureSpace(doc, rowH);
       const y = doc.y;
       columns.forEach((c, i) => {
-        doc
-          .fillColor(bold ? INK : '#1e293b')
-          .text(String(record[c.key] ?? ''), colX(i) + 4, y + 3, {
-            width: widths[i]! - 8,
-            align: c.align ?? 'left',
-          });
+        doc.fillColor(bold ? INK : '#1e293b');
+        this.drawText(doc, String(record[c.key] ?? ''), colX(i) + 4, y + 3, {
+          width: widths[i]! - 8,
+          align: c.align ?? 'left',
+        });
       });
       doc.y = y + rowH;
       doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.5).strokeColor(LINE).stroke();
@@ -287,9 +272,9 @@ export class PdfRenderer {
     this.ensureSpace(doc, 20);
     const hy = doc.y;
     doc.rect(left, hy, width, 18).fill('#eef2ff');
-    doc.fillColor(ACCENT).font('Helvetica-Bold').fontSize(8.5);
+    doc.fillColor(ACCENT).font(FONT_BODY_BOLD).fontSize(8.5);
     columns.forEach((c, i) => {
-      doc.text(c.header.toUpperCase(), colX(i) + 4, hy + 5, {
+      this.drawText(doc, c.header.toUpperCase(), colX(i) + 4, hy + 5, {
         width: widths[i]! - 8,
         align: c.align ?? 'left',
       });
@@ -319,21 +304,11 @@ export class PdfRenderer {
         .lineWidth(0.7)
         .strokeColor(INK)
         .stroke();
-      doc
-        .font('Helvetica-Bold')
-        .fontSize(9)
-        .fillColor(INK)
-        .text(blk.label, x, y + 5, {
-          width: colW - 24,
-        });
+      doc.font(FONT_BODY_BOLD).fontSize(9).fillColor(INK);
+      this.drawText(doc, blk.label, x, y + 5, { width: colW - 24 });
       if (blk.name) {
-        doc
-          .font('Helvetica')
-          .fontSize(8)
-          .fillColor(MUTED)
-          .text(blk.name, x, doc.y, {
-            width: colW - 24,
-          });
+        doc.font(FONT_BODY).fontSize(8).fillColor(MUTED);
+        this.drawText(doc, blk.name, x, doc.y, { width: colW - 24 });
       }
     });
     doc.y = y + 50;
@@ -349,13 +324,8 @@ export class PdfRenderer {
       const right = doc.page.width - doc.page.margins.right;
       const y = doc.page.height - doc.page.margins.bottom + 8;
       doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(LINE).stroke();
-      doc
-        .font('Helvetica')
-        .fontSize(7)
-        .fillColor(MUTED)
-        .text(note, left, y + 4, {
-          width: (right - left) * 0.75,
-        });
+      doc.font(FONT_BODY).fontSize(7).fillColor(MUTED);
+      this.drawText(doc, note, left, y + 4, { width: (right - left) * 0.75 });
       doc.text(`Page ${i - range.start + 1} of ${range.count}`, left, y + 4, {
         width: right - left,
         align: 'right',
@@ -369,14 +339,55 @@ export class PdfRenderer {
     if (doc.y + needed > bottom) doc.addPage();
   }
 
-  private maybeEmbedArabicFont(doc: PDFKit.PDFDocument): void {
-    const path = process.env.PDF_ARABIC_FONT_PATH;
-    if (!path) return;
-    try {
-      doc.registerFont('Helvetica', path);
-      doc.registerFont('Helvetica-Bold', path);
-    } catch {
-      /* keep built-in fonts if the configured font cannot be loaded */
+  /**
+   * Draws a text run while keeping the PDF's logical text layer correct. Arabic must be handed to
+   * pdfkit shaped and in visual (bidi-reordered) order to *display* correctly (pdfkit draws code points
+   * left-to-right in the given order and does no bidi), but that same string is what pdfkit stores as
+   * the text layer — so copy, search and screen readers would otherwise get reversed, presentation-form
+   * text. For Arabic-bearing runs we therefore wrap the drawn glyphs in an `/ActualText` marked-content
+   * span carrying the original *logical* Unicode, which conforming consumers (Acrobat, Chrome/Edge,
+   * poppler, PDF/UA readers) return instead of the visual glyphs. Latin-only runs are drawn plainly.
+   *
+   * `logical` is the pre-shaping string; the visually-ordered glyphs come from {@link shapeForPdf}. The
+   * cursor/layout behaviour is identical to a bare `doc.text` — the marked-content operators paint
+   * nothing and pdfkit balances them automatically across page breaks.
+   */
+  private drawText(
+    doc: PDFKit.PDFDocument,
+    logical: string,
+    x: number,
+    y: number,
+    options?: PDFKit.Mixins.TextOptions,
+  ): void {
+    const visual = shapeForPdf(logical);
+    if (!containsArabic(logical)) {
+      doc.text(visual, x, y, options);
+      return;
     }
+    doc.markContent('Span', { actual: logical });
+    doc.text(visual, x, y, options);
+    doc.endMarkedContent();
+  }
+
+  /**
+   * Binds the {@link FONT_BODY} / {@link FONT_BODY_BOLD} aliases the renderer draws with. When
+   * PDF_ARABIC_FONT_PATH points to an Arabic-capable TTF it backs both weights (so Arabic — already
+   * shaped and reordered by {@link shapeForPdf} — renders with real glyphs); otherwise the aliases map
+   * to the standard Latin fonts and Latin text renders exactly as before (Arabic then needs the TTF).
+   * Registering under our own names avoids PDFKit's reserved `Helvetica` cache entry (see FONT_BODY).
+   */
+  private registerFonts(doc: PDFKit.PDFDocument): void {
+    const path = process.env.PDF_ARABIC_FONT_PATH;
+    if (path) {
+      try {
+        doc.registerFont(FONT_BODY, path);
+        doc.registerFont(FONT_BODY_BOLD, path);
+        return;
+      } catch {
+        /* fall through to the standard Latin fonts if the configured font cannot be loaded */
+      }
+    }
+    doc.registerFont(FONT_BODY, 'Helvetica');
+    doc.registerFont(FONT_BODY_BOLD, 'Helvetica-Bold');
   }
 }
