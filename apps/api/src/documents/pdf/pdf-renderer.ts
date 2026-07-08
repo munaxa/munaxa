@@ -1,7 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { BrandingContext, DocumentLayout, LayoutBlock, TableColumn } from './document-layout';
 import { containsArabic, shapeForPdf } from './arabic-text';
+
+/**
+ * Bundled Arabic-capable fonts (DejaVu; see fonts/LICENSE.txt), copied next to the compiled output by
+ * nest-cli's asset step so they resolve from `__dirname` in both ts-jest (src) and production (dist).
+ * DejaVu is used because its Arabic *presentation-form* glyphs are self-connecting — the shape we feed
+ * PDFKit — whereas GPOS-based fonts (e.g. Amiri) leave gaps when handed pre-shaped forms. Defaulting to
+ * these guarantees Arabic never silently falls back to Latin-only Helvetica (unreadable in Acrobat).
+ */
+const FONTS_DIR = join(__dirname, 'fonts');
+const BUNDLED_FONT = join(FONTS_DIR, 'DejaVuSans.ttf');
+const BUNDLED_FONT_BOLD = join(FONTS_DIR, 'DejaVuSans-Bold.ttf');
 
 /**
  * Logical→visual text transform applied to every string before it reaches PDFKit. It shapes Arabic
@@ -370,24 +383,37 @@ export class PdfRenderer {
   }
 
   /**
-   * Binds the {@link FONT_BODY} / {@link FONT_BODY_BOLD} aliases the renderer draws with. When
-   * PDF_ARABIC_FONT_PATH points to an Arabic-capable TTF it backs both weights (so Arabic — already
-   * shaped and reordered by {@link shapeForPdf} — renders with real glyphs); otherwise the aliases map
-   * to the standard Latin fonts and Latin text renders exactly as before (Arabic then needs the TTF).
+   * Binds the {@link FONT_BODY} / {@link FONT_BODY_BOLD} aliases the renderer draws with, in priority
+   * order so Arabic always has real glyphs:
+   *   1. PDF_ARABIC_FONT_PATH — a deployment-chosen Arabic TTF (same file backs both weights).
+   *   2. The {@link BUNDLED_FONT} DejaVu pair shipped with the app — the default, so no environment can
+   *      silently fall back to a Latin-only font.
+   *   3. Standard Helvetica — last resort only if the bundled files are somehow missing; Latin renders
+   *      as before but Arabic would need one of the above.
    * Registering under our own names avoids PDFKit's reserved `Helvetica` cache entry (see FONT_BODY).
    */
   private registerFonts(doc: PDFKit.PDFDocument): void {
-    const path = process.env.PDF_ARABIC_FONT_PATH;
-    if (path) {
-      try {
-        doc.registerFont(FONT_BODY, path);
-        doc.registerFont(FONT_BODY_BOLD, path);
-        return;
-      } catch {
-        /* fall through to the standard Latin fonts if the configured font cannot be loaded */
-      }
+    const envPath = process.env.PDF_ARABIC_FONT_PATH;
+    if (envPath && this.tryRegister(doc, envPath, envPath)) return;
+    if (
+      existsSync(BUNDLED_FONT) &&
+      existsSync(BUNDLED_FONT_BOLD) &&
+      this.tryRegister(doc, BUNDLED_FONT, BUNDLED_FONT_BOLD)
+    ) {
+      return;
     }
     doc.registerFont(FONT_BODY, 'Helvetica');
     doc.registerFont(FONT_BODY_BOLD, 'Helvetica-Bold');
+  }
+
+  /** Register both weight aliases from the given font files; returns false if the font cannot load. */
+  private tryRegister(doc: PDFKit.PDFDocument, regular: string, bold: string): boolean {
+    try {
+      doc.registerFont(FONT_BODY, regular);
+      doc.registerFont(FONT_BODY_BOLD, bold);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
