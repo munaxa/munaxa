@@ -15,6 +15,22 @@ tteh, ddal, jeh, rreh, noon ghunna, heh doachashmee, …). The public API — `c
 `shapeArabic`, `shapeForPdf`, `baseDirection` — and the `DocumentLayout`/renderer contracts are
 unchanged; Latin/numeric strings take a fast path and are returned byte-identical.
 
+## Logical text layer (copy / search / accessibility)
+
+Because Arabic is handed to PDFKit already shaped and in **visual** (bidi-reordered) order — the only
+way to make the glyphs display correctly, since PDFKit draws code points left-to-right with no bidi —
+that same visual-order string would otherwise become the PDF's text layer, so copy/search/screen-reader
+extraction returned reversed, presentation-form text (e.g. `ةيقافتاليجستلا` for `اتفاقية التسجيل`).
+
+The renderer fixes this without changing the drawn glyphs: `drawText` wraps every Arabic run in an
+`/ActualText` marked-content span (`U+2066`-free UTF-16BE) carrying the **original logical** Unicode.
+Conforming consumers — Adobe Acrobat, Chrome/Edge (pdf.js), poppler `pdftotext`, and PDF/UA screen
+readers — return the logical text; the painted glyphs are unchanged. Verified by decoding the spans out
+of a rendered agreement (`أكاديمية مناكسة الدولية`, `أحمد محمد الخطيب`, …) and by a unit test that
+inflates the content streams and asserts the logical UTF-16BE string is present and the reversed form is
+not. **Caveat:** extractors that ignore `/ActualText` (e.g. PyMuPDF's default `get_text`) still return
+the visual glyph order — that is a limitation of those tools, not of the document.
+
 ## Known limitations (require replacing PDFKit's text engine to fully fix)
 
 These are inherent to doing shaping/bidi as a **preprocessing** step in front of a renderer that owns

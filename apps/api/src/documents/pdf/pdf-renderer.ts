@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import type { BrandingContext, DocumentLayout, LayoutBlock, TableColumn } from './document-layout';
-import { shapeForPdf } from './arabic-text';
+import { containsArabic, shapeForPdf } from './arabic-text';
 
 /**
  * Logical→visual text transform applied to every string before it reaches PDFKit. It shapes Arabic
  * glyphs and applies bidirectional reordering (see {@link shapeForPdf}); Latin/numeric strings pass
- * through untouched, so callers stay backward compatible. Centralised here so no draw call can forget
- * it — receipts, agreements, certificates and statements all render Arabic correctly for free.
+ * through untouched, so callers stay backward compatible. Used for width/height measurement; text is
+ * actually drawn via {@link PdfRenderer.drawText}, which also preserves the logical text layer.
  */
 const t = (value: string): string => shapeForPdf(value);
 
@@ -45,9 +45,10 @@ const FONT_BODY_BOLD = 'DocBody-Bold';
  * bidirectional reordering, which makes raw Arabic unreadable. Two things therefore cooperate here:
  *   1. An Arabic-capable TTF is embedded when PDF_ARABIC_FONT_PATH is configured (see
  *      {@link registerFonts}) so the glyphs exist in the font.
- *   2. Every string is passed through {@link shapeForPdf} (the module-level `t` helper) which shapes
- *      Arabic letters into their contextual presentation forms and reorders mixed text to visual order
- *      before pdfkit sees it. Latin/numeric text is untouched, so this is fully backward compatible.
+ *   2. Text is drawn via {@link PdfRenderer.drawText}: Arabic is shaped and reordered to visual order
+ *      by {@link shapeForPdf} so the glyphs display correctly, and the *original logical* Unicode is
+ *      attached as an `/ActualText` marked-content span so copy/search/screen readers still get correct,
+ *      un-reversed text. Latin/numeric text is untouched, so this is fully backward compatible.
  */
 @Injectable()
 export class PdfRenderer {
@@ -91,33 +92,18 @@ export class PdfRenderer {
       }
     }
 
-    doc
-      .fillColor(INK)
-      .font(FONT_BODY_BOLD)
-      .fontSize(15)
-      .text(t(b.nameEn), textX, top, {
-        width: right - textX,
-      });
+    doc.fillColor(INK).font(FONT_BODY_BOLD).fontSize(15);
+    this.drawText(doc, b.nameEn, textX, top, { width: right - textX });
     if (b.nameAr) {
-      doc
-        .font(FONT_BODY)
-        .fontSize(11)
-        .fillColor(INK)
-        .text(t(b.nameAr), textX, doc.y, {
-          width: right - textX,
-        });
+      doc.font(FONT_BODY).fontSize(11).fillColor(INK);
+      this.drawText(doc, b.nameAr, textX, doc.y, { width: right - textX });
     }
     const contact = [b.addressLines.join(', '), b.phone, b.email, b.website]
       .filter((s): s is string => Boolean(s && s.trim()))
       .join('  ·  ');
     if (contact) {
-      doc
-        .font(FONT_BODY)
-        .fontSize(8)
-        .fillColor(MUTED)
-        .text(t(contact), textX, doc.y + 1, {
-          width: right - textX,
-        });
+      doc.font(FONT_BODY).fontSize(8).fillColor(MUTED);
+      this.drawText(doc, contact, textX, doc.y + 1, { width: right - textX });
     }
 
     const headerBottom = Math.max(doc.y, top + (b.logo ? 64 : 0)) + 8;
@@ -132,17 +118,11 @@ export class PdfRenderer {
     doc.y = headerBottom + 14;
     const titleWidth = layout.meta && layout.meta.length > 0 ? (right - left) * 0.6 : right - left;
     const titleTop = doc.y;
-    doc.fillColor(INK).font(FONT_BODY_BOLD).fontSize(16).text(t(layout.title), left, titleTop, {
-      width: titleWidth,
-    });
+    doc.fillColor(INK).font(FONT_BODY_BOLD).fontSize(16);
+    this.drawText(doc, layout.title, left, titleTop, { width: titleWidth });
     if (layout.subtitle) {
-      doc
-        .font(FONT_BODY)
-        .fontSize(9)
-        .fillColor(MUTED)
-        .text(t(layout.subtitle), left, doc.y + 1, {
-          width: titleWidth,
-        });
+      doc.font(FONT_BODY).fontSize(9).fillColor(MUTED);
+      this.drawText(doc, layout.subtitle, left, doc.y + 1, { width: titleWidth });
     }
     const afterTitle = doc.y;
 
@@ -151,18 +131,10 @@ export class PdfRenderer {
       const boxX = right - boxW;
       let metaY = titleTop;
       for (const m of layout.meta) {
-        doc
-          .font(FONT_BODY_BOLD)
-          .fontSize(8)
-          .fillColor(MUTED)
-          .text(t(m.label.toUpperCase()), boxX, metaY, {
-            width: boxW,
-            align: 'right',
-          });
-        doc.font(FONT_BODY).fontSize(10).fillColor(INK).text(t(m.value), boxX, doc.y, {
-          width: boxW,
-          align: 'right',
-        });
+        doc.font(FONT_BODY_BOLD).fontSize(8).fillColor(MUTED);
+        this.drawText(doc, m.label.toUpperCase(), boxX, metaY, { width: boxW, align: 'right' });
+        doc.font(FONT_BODY).fontSize(10).fillColor(INK);
+        this.drawText(doc, m.value, boxX, doc.y, { width: boxW, align: 'right' });
         metaY = doc.y + 4;
       }
     }
@@ -184,17 +156,16 @@ export class PdfRenderer {
         return;
       case 'heading':
         doc.moveDown(0.3);
-        doc.font(FONT_BODY_BOLD).fontSize(11).fillColor(ACCENT).text(t(block.text), left, doc.y, {
-          width,
-        });
+        doc.font(FONT_BODY_BOLD).fontSize(11).fillColor(ACCENT);
+        this.drawText(doc, block.text, left, doc.y, { width });
         doc.moveDown(0.2);
         return;
       case 'paragraph':
         doc
           .font(FONT_BODY)
           .fontSize(9.5)
-          .fillColor(block.muted ? MUTED : INK)
-          .text(t(block.text), left, doc.y, { width, align: 'left', lineGap: 2 });
+          .fillColor(block.muted ? MUTED : INK);
+        this.drawText(doc, block.text, left, doc.y, { width, align: 'left', lineGap: 2 });
         doc.moveDown(0.4);
         return;
       case 'fields':
@@ -227,20 +198,10 @@ export class PdfRenderer {
       if (col === 0) this.ensureSpace(doc, rowH);
       const x = left + col * colW;
       const y = doc.y;
-      doc
-        .font(FONT_BODY)
-        .fontSize(7.5)
-        .fillColor(MUTED)
-        .text(t(row.label.toUpperCase()), x, y, {
-          width: colW - 8,
-        });
-      doc
-        .font(FONT_BODY_BOLD)
-        .fontSize(10)
-        .fillColor(INK)
-        .text(t(row.value || '—'), x, y + 11, {
-          width: colW - 8,
-        });
+      doc.font(FONT_BODY).fontSize(7.5).fillColor(MUTED);
+      this.drawText(doc, row.label.toUpperCase(), x, y, { width: colW - 8 });
+      doc.font(FONT_BODY_BOLD).fontSize(10).fillColor(INK);
+      this.drawText(doc, row.value || '—', x, y + 11, { width: colW - 8 });
       i += 1;
       if (col === columns - 1) doc.y = y + rowH;
       else doc.y = y; // keep same row baseline for remaining columns
@@ -261,13 +222,13 @@ export class PdfRenderer {
       doc
         .font(last ? FONT_BODY_BOLD : FONT_BODY)
         .fontSize(last ? 11 : 9.5)
-        .fillColor(last ? INK : MUTED)
-        .text(t(row.label), x, y, { width: boxW * 0.55 });
+        .fillColor(last ? INK : MUTED);
+      this.drawText(doc, row.label, x, y, { width: boxW * 0.55 });
       doc
         .font(FONT_BODY_BOLD)
         .fontSize(last ? 11 : 9.5)
-        .fillColor(last ? ACCENT : INK)
-        .text(t(row.value), x + boxW * 0.55, y, { width: boxW * 0.45, align: 'right' });
+        .fillColor(last ? ACCENT : INK);
+      this.drawText(doc, row.value, x + boxW * 0.55, y, { width: boxW * 0.45, align: 'right' });
       doc.y = y + (last ? 18 : 15);
     }
     doc.moveDown(0.3);
@@ -297,12 +258,11 @@ export class PdfRenderer {
       this.ensureSpace(doc, rowH);
       const y = doc.y;
       columns.forEach((c, i) => {
-        doc
-          .fillColor(bold ? INK : '#1e293b')
-          .text(t(String(record[c.key] ?? '')), colX(i) + 4, y + 3, {
-            width: widths[i]! - 8,
-            align: c.align ?? 'left',
-          });
+        doc.fillColor(bold ? INK : '#1e293b');
+        this.drawText(doc, String(record[c.key] ?? ''), colX(i) + 4, y + 3, {
+          width: widths[i]! - 8,
+          align: c.align ?? 'left',
+        });
       });
       doc.y = y + rowH;
       doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.5).strokeColor(LINE).stroke();
@@ -314,7 +274,7 @@ export class PdfRenderer {
     doc.rect(left, hy, width, 18).fill('#eef2ff');
     doc.fillColor(ACCENT).font(FONT_BODY_BOLD).fontSize(8.5);
     columns.forEach((c, i) => {
-      doc.text(t(c.header.toUpperCase()), colX(i) + 4, hy + 5, {
+      this.drawText(doc, c.header.toUpperCase(), colX(i) + 4, hy + 5, {
         width: widths[i]! - 8,
         align: c.align ?? 'left',
       });
@@ -344,21 +304,11 @@ export class PdfRenderer {
         .lineWidth(0.7)
         .strokeColor(INK)
         .stroke();
-      doc
-        .font(FONT_BODY_BOLD)
-        .fontSize(9)
-        .fillColor(INK)
-        .text(t(blk.label), x, y + 5, {
-          width: colW - 24,
-        });
+      doc.font(FONT_BODY_BOLD).fontSize(9).fillColor(INK);
+      this.drawText(doc, blk.label, x, y + 5, { width: colW - 24 });
       if (blk.name) {
-        doc
-          .font(FONT_BODY)
-          .fontSize(8)
-          .fillColor(MUTED)
-          .text(t(blk.name), x, doc.y, {
-            width: colW - 24,
-          });
+        doc.font(FONT_BODY).fontSize(8).fillColor(MUTED);
+        this.drawText(doc, blk.name, x, doc.y, { width: colW - 24 });
       }
     });
     doc.y = y + 50;
@@ -374,13 +324,8 @@ export class PdfRenderer {
       const right = doc.page.width - doc.page.margins.right;
       const y = doc.page.height - doc.page.margins.bottom + 8;
       doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(LINE).stroke();
-      doc
-        .font(FONT_BODY)
-        .fontSize(7)
-        .fillColor(MUTED)
-        .text(t(note), left, y + 4, {
-          width: (right - left) * 0.75,
-        });
+      doc.font(FONT_BODY).fontSize(7).fillColor(MUTED);
+      this.drawText(doc, note, left, y + 4, { width: (right - left) * 0.75 });
       doc.text(`Page ${i - range.start + 1} of ${range.count}`, left, y + 4, {
         width: right - left,
         align: 'right',
@@ -392,6 +337,36 @@ export class PdfRenderer {
   private ensureSpace(doc: PDFKit.PDFDocument, needed: number): void {
     const bottom = doc.page.height - doc.page.margins.bottom;
     if (doc.y + needed > bottom) doc.addPage();
+  }
+
+  /**
+   * Draws a text run while keeping the PDF's logical text layer correct. Arabic must be handed to
+   * pdfkit shaped and in visual (bidi-reordered) order to *display* correctly (pdfkit draws code points
+   * left-to-right in the given order and does no bidi), but that same string is what pdfkit stores as
+   * the text layer — so copy, search and screen readers would otherwise get reversed, presentation-form
+   * text. For Arabic-bearing runs we therefore wrap the drawn glyphs in an `/ActualText` marked-content
+   * span carrying the original *logical* Unicode, which conforming consumers (Acrobat, Chrome/Edge,
+   * poppler, PDF/UA readers) return instead of the visual glyphs. Latin-only runs are drawn plainly.
+   *
+   * `logical` is the pre-shaping string; the visually-ordered glyphs come from {@link shapeForPdf}. The
+   * cursor/layout behaviour is identical to a bare `doc.text` — the marked-content operators paint
+   * nothing and pdfkit balances them automatically across page breaks.
+   */
+  private drawText(
+    doc: PDFKit.PDFDocument,
+    logical: string,
+    x: number,
+    y: number,
+    options?: PDFKit.Mixins.TextOptions,
+  ): void {
+    const visual = shapeForPdf(logical);
+    if (!containsArabic(logical)) {
+      doc.text(visual, x, y, options);
+      return;
+    }
+    doc.markContent('Span', { actual: logical });
+    doc.text(visual, x, y, options);
+    doc.endMarkedContent();
   }
 
   /**

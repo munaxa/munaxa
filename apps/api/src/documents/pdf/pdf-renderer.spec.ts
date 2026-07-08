@@ -222,6 +222,47 @@ describe('PdfRenderer', () => {
     },
   );
 
+  it('stores logical Arabic in the text layer via /ActualText (correct copy/search/accessibility)', async () => {
+    // PDFKit draws Arabic in shaped, visual (reversed) order so the glyphs display correctly, which
+    // would make the text layer extract as reversed presentation forms. drawText wraps each Arabic run
+    // in an /ActualText marked-content span carrying the ORIGINAL logical Unicode (UTF-16BE), which
+    // conforming readers (Acrobat, Chrome/Edge, poppler, screen readers) return instead. Here we inflate
+    // the content streams and assert the logical string is present as UTF-16BE — i.e. NOT reversed.
+    // Avoid letters whose UTF-16 low byte is a PDF string metacharacter — U+0628 '(' / U+0629 ')' —
+    // so the expected bytes appear verbatim (unescaped) in the stream.
+    const heading = 'محمد أحمد';
+    const layout: DocumentLayout = {
+      title: 'شهادة',
+      language: DocumentLanguage.AR,
+      blocks: [{ kind: 'heading', text: heading }],
+    };
+    const { buffer } = await renderer.render(layout, branding);
+
+    // Concatenate every inflated FlateDecode stream in the PDF.
+    const { inflateSync } = await import('node:zlib');
+    let content = Buffer.alloc(0);
+    const re = /stream\r?\n/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(buffer.toString('latin1')))) {
+      const start = m.index + m[0].length;
+      const end = buffer.indexOf('endstream', start, 'latin1');
+      if (end < 0) continue;
+      try {
+        content = Buffer.concat([content, inflateSync(buffer.subarray(start, end))]);
+      } catch {
+        /* not a flate stream (e.g. font file) — skip */
+      }
+    }
+
+    // Logical string, UTF-16BE with BOM = what /ActualText must contain (NOT the reversed visual form).
+    const utf16be = Buffer.from('﻿' + heading, 'utf16le').swap16();
+    expect(content.includes('ActualText')).toBe(true);
+    expect(content.includes(utf16be)).toBe(true);
+    // Sanity: the reversed visual string must NOT be what ActualText stores.
+    const reversedBE = Buffer.from('﻿' + [...heading].reverse().join(''), 'utf16le').swap16();
+    expect(content.includes(reversedBE)).toBe(false);
+  });
+
   it('produces identical checksums for identical input (snapshot reproducibility)', async () => {
     const layout: DocumentLayout = {
       title: 'Stable',
