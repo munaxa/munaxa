@@ -89,23 +89,27 @@ Forms (`U+FB50–U+FEFF`); most Arabic fonts (Amiri, Cairo, Noto Naskh, …) do.
 Helvetica has no Arabic glyphs, so without an embedded font Arabic will not render regardless of
 shaping.
 
-**Do not register the Arabic font under the name `Helvetica`.** PDFKit pre-caches its default font
-under that exact name at document construction, so `registerFont('Helvetica', …)` is silently ignored
-(the cache wins) — regular-weight text then keeps the standard WinAnsi font and emits each 16-bit
-Arabic code unit as two Latin-1 bytes (`þ®…` mojibake), while bold text (an unreserved name) renders
-correctly. The renderer therefore binds its own aliases (`DocBody` / `DocBody-Bold`, see
-`pdf-renderer.ts`) that PDFKit has not reserved, so the configured font backs every weight. This is
-covered by a regression test that asserts no Type1 Helvetica is embedded when a font is configured.
+**Separate Latin and Arabic font families, selected per run.** The renderer registers four aliases —
+`MunaxaLatin` / `MunaxaLatinBold` (built-in Helvetica) and `MunaxaArabic` / `MunaxaArabicBold` (an
+embedded Arabic TTF). `drawText` picks the Arabic family for any run that `containsArabic`, and the
+Latin family for pure Latin/numeric text; mixed runs use the Arabic family (which also has Latin
+glyphs). The names are deliberately **not** the built-in `Helvetica`: PDFKit pre-caches its default
+font under that exact name at construction, so `registerFont('Helvetica', …)` is silently ignored (the
+cache wins) and Arabic would fall back to the WinAnsi standard font — emitting each 16-bit code unit as
+two Latin-1 bytes (`þ®…` mojibake). Our own names sidestep that cache.
 
-**A font is bundled so Arabic works out of the box.** `registerFonts` resolves in priority order:
-`PDF_ARABIC_FONT_PATH` → the bundled `fonts/DejaVuSans{,-Bold}.ttf` → standard Helvetica (last resort).
-The bundled DejaVu pair is copied into `dist/documents/pdf/fonts/` by nest-cli's `assets` step, so
-`__dirname/fonts` resolves in both tests (src) and production (dist). This means an unconfigured
-deployment no longer silently falls back to Latin-only Helvetica — the exact cause of unreadable Arabic
-in Acrobat. DejaVu is chosen because its Arabic *presentation-form* glyphs are self-connecting (the
-shape we feed PDFKit); a heavier calligraphic font (Amiri, Noto Naskh) can be supplied via
-`PDF_ARABIC_FONT_PATH`, but only fonts whose presentation-form glyphs connect standalone will render
-our pre-shaped output without gaps.
+**A font is bundled so Arabic works out of the box.** The Arabic family resolves in priority order:
+`PDF_ARABIC_FONT_PATH` → the bundled `fonts/NotoNaskhArabic-{Regular,Bold}.ttf` → Helvetica (last
+resort only if the bundle is missing). The bundled pair is copied into `dist/documents/pdf/fonts/` by
+nest-cli's `assets` step, so `__dirname/fonts` resolves in both tests (src) and production (dist) — an
+unconfigured deployment no longer silently loses Arabic (the cause of unreadable Arabic in Acrobat).
+**Noto Naskh Arabic** (OFL) is the default: a production-quality naskh face whose *presentation-form*
+glyphs are self-connecting, so our pre-shaped output renders cleanly. Not every quality font qualifies —
+GPOS-only faces such as **Amiri** position joins on the *base* characters and leave gaps when handed
+pre-shaped presentation forms; a proven finding is that PDFKit/fontkit *does* run the font's GSUB shaper
+on base characters (so base input shapes beautifully) but performs **no bidi** on mixed Arabic/Latin,
+which is exactly why we pre-shape + reorder and feed presentation forms. A different Arabic font can be
+supplied via `PDF_ARABIC_FONT_PATH`, but only one whose presentation-form glyphs connect standalone.
 
 ### 5. Paragraph alignment
 The renderer keeps its existing left alignment; RTL text is shaped and correctly ordered but not

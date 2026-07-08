@@ -6,15 +6,16 @@ import type { BrandingContext, DocumentLayout, LayoutBlock, TableColumn } from '
 import { containsArabic, shapeForPdf } from './arabic-text';
 
 /**
- * Bundled Arabic-capable fonts (DejaVu; see fonts/LICENSE.txt), copied next to the compiled output by
- * nest-cli's asset step so they resolve from `__dirname` in both ts-jest (src) and production (dist).
- * DejaVu is used because its Arabic *presentation-form* glyphs are self-connecting — the shape we feed
- * PDFKit — whereas GPOS-based fonts (e.g. Amiri) leave gaps when handed pre-shaped forms. Defaulting to
- * these guarantees Arabic never silently falls back to Latin-only Helvetica (unreadable in Acrobat).
+ * Bundled Arabic font (Noto Naskh Arabic, OFL; see fonts/LICENSE.txt), copied next to the compiled
+ * output by nest-cli's asset step so it resolves from `__dirname` in both ts-jest (src) and production
+ * (dist). Noto Naskh is a production-quality naskh face whose Arabic *presentation-form* glyphs are
+ * self-connecting — the shape we hand PDFKit — so our pre-shaped output renders cleanly (GPOS-only faces
+ * such as Amiri leave gaps on pre-shaped forms). Defaulting to it guarantees Arabic never silently falls
+ * back to a Latin-only font (unreadable in Acrobat).
  */
 const FONTS_DIR = join(__dirname, 'fonts');
-const BUNDLED_FONT = join(FONTS_DIR, 'DejaVuSans.ttf');
-const BUNDLED_FONT_BOLD = join(FONTS_DIR, 'DejaVuSans-Bold.ttf');
+const BUNDLED_ARABIC = join(FONTS_DIR, 'NotoNaskhArabic-Regular.ttf');
+const BUNDLED_ARABIC_BOLD = join(FONTS_DIR, 'NotoNaskhArabic-Bold.ttf');
 
 /**
  * Logical→visual text transform applied to every string before it reaches PDFKit. It shapes Arabic
@@ -37,15 +38,19 @@ const LINE = '#cbd5e1';
 const ACCENT = '#1d4ed8';
 
 /**
- * Font aliases the renderer draws with. They are deliberately NOT the built-in names `Helvetica` /
- * `Helvetica-Bold`: PDFKit pre-caches its default font under the name `Helvetica` at document
- * construction, so a later `registerFont('Helvetica', …)` is silently ignored (the cache wins) and
- * regular-weight text keeps the standard WinAnsi font — which cannot encode Arabic, emitting each
- * 16-bit code unit as two Latin-1 bytes (the `þ®…` mojibake). Registering under our own names sidesteps
- * that reserved cache entirely, so the same font actually backs every weight. See {@link registerFonts}.
+ * Separate Latin and Arabic font families, each in two weights. {@link drawText} picks the Arabic
+ * family for any run that contains Arabic (so it renders in the bundled naskh face) and the Latin family
+ * for pure Latin/numeric text (crisp Helvetica), which keeps mixed runs correct too.
+ *
+ * The names are deliberately NOT the built-in `Helvetica` / `Helvetica-Bold`: PDFKit pre-caches its
+ * default font under the name `Helvetica` at construction, so `registerFont('Helvetica', …)` is
+ * silently ignored (the cache wins) and Arabic would fall back to the WinAnsi standard font — emitting
+ * each 16-bit code unit as two Latin-1 bytes (the `þ®…` mojibake). Our own names sidestep that cache.
  */
-const FONT_BODY = 'DocBody';
-const FONT_BODY_BOLD = 'DocBody-Bold';
+const FONT_LATIN = 'MunaxaLatin';
+const FONT_LATIN_BOLD = 'MunaxaLatinBold';
+const FONT_ARABIC = 'MunaxaArabic';
+const FONT_ARABIC_BOLD = 'MunaxaArabicBold';
 
 /**
  * Renders a declarative {@link DocumentLayout} into a branded A4 PDF (Part 3). pdfkit is lazily
@@ -105,17 +110,17 @@ export class PdfRenderer {
       }
     }
 
-    doc.fillColor(INK).font(FONT_BODY_BOLD).fontSize(15);
-    this.drawText(doc, b.nameEn, textX, top, { width: right - textX });
+    doc.fillColor(INK).fontSize(15);
+    this.drawText(doc, b.nameEn, textX, top, { width: right - textX }, true);
     if (b.nameAr) {
-      doc.font(FONT_BODY).fontSize(11).fillColor(INK);
+      doc.fontSize(11).fillColor(INK);
       this.drawText(doc, b.nameAr, textX, doc.y, { width: right - textX });
     }
     const contact = [b.addressLines.join(', '), b.phone, b.email, b.website]
       .filter((s): s is string => Boolean(s && s.trim()))
       .join('  ·  ');
     if (contact) {
-      doc.font(FONT_BODY).fontSize(8).fillColor(MUTED);
+      doc.fontSize(8).fillColor(MUTED);
       this.drawText(doc, contact, textX, doc.y + 1, { width: right - textX });
     }
 
@@ -131,10 +136,10 @@ export class PdfRenderer {
     doc.y = headerBottom + 14;
     const titleWidth = layout.meta && layout.meta.length > 0 ? (right - left) * 0.6 : right - left;
     const titleTop = doc.y;
-    doc.fillColor(INK).font(FONT_BODY_BOLD).fontSize(16);
-    this.drawText(doc, layout.title, left, titleTop, { width: titleWidth });
+    doc.fillColor(INK).fontSize(16);
+    this.drawText(doc, layout.title, left, titleTop, { width: titleWidth }, true);
     if (layout.subtitle) {
-      doc.font(FONT_BODY).fontSize(9).fillColor(MUTED);
+      doc.fontSize(9).fillColor(MUTED);
       this.drawText(doc, layout.subtitle, left, doc.y + 1, { width: titleWidth });
     }
     const afterTitle = doc.y;
@@ -144,9 +149,16 @@ export class PdfRenderer {
       const boxX = right - boxW;
       let metaY = titleTop;
       for (const m of layout.meta) {
-        doc.font(FONT_BODY_BOLD).fontSize(8).fillColor(MUTED);
-        this.drawText(doc, m.label.toUpperCase(), boxX, metaY, { width: boxW, align: 'right' });
-        doc.font(FONT_BODY).fontSize(10).fillColor(INK);
+        doc.fontSize(8).fillColor(MUTED);
+        this.drawText(
+          doc,
+          m.label.toUpperCase(),
+          boxX,
+          metaY,
+          { width: boxW, align: 'right' },
+          true,
+        );
+        doc.fontSize(10).fillColor(INK);
         this.drawText(doc, m.value, boxX, doc.y, { width: boxW, align: 'right' });
         metaY = doc.y + 4;
       }
@@ -169,15 +181,12 @@ export class PdfRenderer {
         return;
       case 'heading':
         doc.moveDown(0.3);
-        doc.font(FONT_BODY_BOLD).fontSize(11).fillColor(ACCENT);
-        this.drawText(doc, block.text, left, doc.y, { width });
+        doc.fontSize(11).fillColor(ACCENT);
+        this.drawText(doc, block.text, left, doc.y, { width }, true);
         doc.moveDown(0.2);
         return;
       case 'paragraph':
-        doc
-          .font(FONT_BODY)
-          .fontSize(9.5)
-          .fillColor(block.muted ? MUTED : INK);
+        doc.fontSize(9.5).fillColor(block.muted ? MUTED : INK);
         this.drawText(doc, block.text, left, doc.y, { width, align: 'left', lineGap: 2 });
         doc.moveDown(0.4);
         return;
@@ -211,10 +220,10 @@ export class PdfRenderer {
       if (col === 0) this.ensureSpace(doc, rowH);
       const x = left + col * colW;
       const y = doc.y;
-      doc.font(FONT_BODY).fontSize(7.5).fillColor(MUTED);
+      doc.fontSize(7.5).fillColor(MUTED);
       this.drawText(doc, row.label.toUpperCase(), x, y, { width: colW - 8 });
-      doc.font(FONT_BODY_BOLD).fontSize(10).fillColor(INK);
-      this.drawText(doc, row.value || '—', x, y + 11, { width: colW - 8 });
+      doc.fontSize(10).fillColor(INK);
+      this.drawText(doc, row.value || '—', x, y + 11, { width: colW - 8 }, true);
       i += 1;
       if (col === columns - 1) doc.y = y + rowH;
       else doc.y = y; // keep same row baseline for remaining columns
@@ -232,16 +241,17 @@ export class PdfRenderer {
       this.ensureSpace(doc, 18);
       const y = doc.y;
       const last = idx === rows.length - 1;
-      doc
-        .font(last ? FONT_BODY_BOLD : FONT_BODY)
-        .fontSize(last ? 11 : 9.5)
-        .fillColor(last ? INK : MUTED);
-      this.drawText(doc, row.label, x, y, { width: boxW * 0.55 });
-      doc
-        .font(FONT_BODY_BOLD)
-        .fontSize(last ? 11 : 9.5)
-        .fillColor(last ? ACCENT : INK);
-      this.drawText(doc, row.value, x + boxW * 0.55, y, { width: boxW * 0.45, align: 'right' });
+      doc.fontSize(last ? 11 : 9.5).fillColor(last ? INK : MUTED);
+      this.drawText(doc, row.label, x, y, { width: boxW * 0.55 }, last);
+      doc.fontSize(last ? 11 : 9.5).fillColor(last ? ACCENT : INK);
+      this.drawText(
+        doc,
+        row.value,
+        x + boxW * 0.55,
+        y,
+        { width: boxW * 0.45, align: 'right' },
+        true,
+      );
       doc.y = y + (last ? 18 : 15);
     }
     doc.moveDown(0.3);
@@ -263,19 +273,25 @@ export class PdfRenderer {
 
     const drawRow = (record: Record<string, string | number>, bold: boolean) => {
       // Measure tallest cell for wrapping.
-      doc.font(bold ? FONT_BODY_BOLD : FONT_BODY).fontSize(9);
-      const heights = columns.map((c, i) =>
-        doc.heightOfString(t(String(record[c.key] ?? '')), { width: widths[i]! - 8 }),
-      );
+      doc.fontSize(9);
+      const heights = columns.map((c, i) => {
+        const cell = String(record[c.key] ?? '');
+        doc.font(this.fontFor(cell, bold));
+        return doc.heightOfString(t(cell), { width: widths[i]! - 8 });
+      });
       const rowH = Math.max(14, ...heights) + 6;
       this.ensureSpace(doc, rowH);
       const y = doc.y;
       columns.forEach((c, i) => {
         doc.fillColor(bold ? INK : '#1e293b');
-        this.drawText(doc, String(record[c.key] ?? ''), colX(i) + 4, y + 3, {
-          width: widths[i]! - 8,
-          align: c.align ?? 'left',
-        });
+        this.drawText(
+          doc,
+          String(record[c.key] ?? ''),
+          colX(i) + 4,
+          y + 3,
+          { width: widths[i]! - 8, align: c.align ?? 'left' },
+          bold,
+        );
       });
       doc.y = y + rowH;
       doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.5).strokeColor(LINE).stroke();
@@ -285,12 +301,16 @@ export class PdfRenderer {
     this.ensureSpace(doc, 20);
     const hy = doc.y;
     doc.rect(left, hy, width, 18).fill('#eef2ff');
-    doc.fillColor(ACCENT).font(FONT_BODY_BOLD).fontSize(8.5);
+    doc.fillColor(ACCENT).fontSize(8.5);
     columns.forEach((c, i) => {
-      this.drawText(doc, c.header.toUpperCase(), colX(i) + 4, hy + 5, {
-        width: widths[i]! - 8,
-        align: c.align ?? 'left',
-      });
+      this.drawText(
+        doc,
+        c.header.toUpperCase(),
+        colX(i) + 4,
+        hy + 5,
+        { width: widths[i]! - 8, align: c.align ?? 'left' },
+        true,
+      );
     });
     doc.y = hy + 18;
     doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.5).strokeColor(LINE).stroke();
@@ -317,10 +337,10 @@ export class PdfRenderer {
         .lineWidth(0.7)
         .strokeColor(INK)
         .stroke();
-      doc.font(FONT_BODY_BOLD).fontSize(9).fillColor(INK);
-      this.drawText(doc, blk.label, x, y + 5, { width: colW - 24 });
+      doc.fontSize(9).fillColor(INK);
+      this.drawText(doc, blk.label, x, y + 5, { width: colW - 24 }, true);
       if (blk.name) {
-        doc.font(FONT_BODY).fontSize(8).fillColor(MUTED);
+        doc.fontSize(8).fillColor(MUTED);
         this.drawText(doc, blk.name, x, doc.y, { width: colW - 24 });
       }
     });
@@ -337,7 +357,7 @@ export class PdfRenderer {
       const right = doc.page.width - doc.page.margins.right;
       const y = doc.page.height - doc.page.margins.bottom + 8;
       doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(LINE).stroke();
-      doc.font(FONT_BODY).fontSize(7).fillColor(MUTED);
+      doc.fontSize(7).fillColor(MUTED);
       this.drawText(doc, note, left, y + 4, { width: (right - left) * 0.75 });
       doc.text(`Page ${i - range.start + 1} of ${range.count}`, left, y + 4, {
         width: right - left,
@@ -371,7 +391,9 @@ export class PdfRenderer {
     x: number,
     y: number,
     options?: PDFKit.Mixins.TextOptions,
+    bold = false,
   ): void {
+    doc.font(this.fontFor(logical, bold));
     const visual = shapeForPdf(logical);
     if (!containsArabic(logical)) {
       doc.text(visual, x, y, options);
@@ -383,37 +405,45 @@ export class PdfRenderer {
   }
 
   /**
-   * Binds the {@link FONT_BODY} / {@link FONT_BODY_BOLD} aliases the renderer draws with, in priority
+   * Binds all four font aliases. The Latin family is the built-in Helvetica (registered under our own
+   * names to avoid PDFKit's reserved `Helvetica` cache entry). The Arabic family resolves in priority
    * order so Arabic always has real glyphs:
    *   1. PDF_ARABIC_FONT_PATH — a deployment-chosen Arabic TTF (same file backs both weights).
-   *   2. The {@link BUNDLED_FONT} DejaVu pair shipped with the app — the default, so no environment can
-   *      silently fall back to a Latin-only font.
-   *   3. Standard Helvetica — last resort only if the bundled files are somehow missing; Latin renders
-   *      as before but Arabic would need one of the above.
-   * Registering under our own names avoids PDFKit's reserved `Helvetica` cache entry (see FONT_BODY).
+   *   2. The bundled {@link BUNDLED_ARABIC} Noto Naskh pair shipped with the app (the default), so no
+   *      environment can silently fall back to a Latin-only font.
+   *   3. Helvetica — last resort only if the bundled files are missing (Arabic then needs option 1/2).
    */
   private registerFonts(doc: PDFKit.PDFDocument): void {
+    doc.registerFont(FONT_LATIN, 'Helvetica');
+    doc.registerFont(FONT_LATIN_BOLD, 'Helvetica-Bold');
+
     const envPath = process.env.PDF_ARABIC_FONT_PATH;
-    if (envPath && this.tryRegister(doc, envPath, envPath)) return;
+    if (envPath && this.tryRegisterArabic(doc, envPath, envPath)) return;
     if (
-      existsSync(BUNDLED_FONT) &&
-      existsSync(BUNDLED_FONT_BOLD) &&
-      this.tryRegister(doc, BUNDLED_FONT, BUNDLED_FONT_BOLD)
+      existsSync(BUNDLED_ARABIC) &&
+      existsSync(BUNDLED_ARABIC_BOLD) &&
+      this.tryRegisterArabic(doc, BUNDLED_ARABIC, BUNDLED_ARABIC_BOLD)
     ) {
       return;
     }
-    doc.registerFont(FONT_BODY, 'Helvetica');
-    doc.registerFont(FONT_BODY_BOLD, 'Helvetica-Bold');
+    doc.registerFont(FONT_ARABIC, 'Helvetica');
+    doc.registerFont(FONT_ARABIC_BOLD, 'Helvetica-Bold');
   }
 
-  /** Register both weight aliases from the given font files; returns false if the font cannot load. */
-  private tryRegister(doc: PDFKit.PDFDocument, regular: string, bold: string): boolean {
+  /** Register both Arabic weight aliases from the given font files; false if the font cannot load. */
+  private tryRegisterArabic(doc: PDFKit.PDFDocument, regular: string, bold: string): boolean {
     try {
-      doc.registerFont(FONT_BODY, regular);
-      doc.registerFont(FONT_BODY_BOLD, bold);
+      doc.registerFont(FONT_ARABIC, regular);
+      doc.registerFont(FONT_ARABIC_BOLD, bold);
       return true;
     } catch {
       return false;
     }
+  }
+
+  /** The font alias for a run: the Arabic family when the run contains Arabic, else the Latin family. */
+  private fontFor(logical: string, bold: boolean): string {
+    if (containsArabic(logical)) return bold ? FONT_ARABIC_BOLD : FONT_ARABIC;
+    return bold ? FONT_LATIN_BOLD : FONT_LATIN;
   }
 }
