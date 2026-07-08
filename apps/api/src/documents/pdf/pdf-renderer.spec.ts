@@ -222,6 +222,30 @@ describe('PdfRenderer', () => {
     },
   );
 
+  it('embeds the bundled Arabic font by default — no config, no Helvetica fallback', async () => {
+    // With PDF_ARABIC_FONT_PATH unset (the production default that produced unreadable Arabic in
+    // Acrobat), the renderer must still embed the bundled DejaVu font, never the Latin-only Helvetica.
+    const prev = process.env.PDF_ARABIC_FONT_PATH;
+    delete process.env.PDF_ARABIC_FONT_PATH;
+    try {
+      const layout: DocumentLayout = {
+        title: 'شهادة رسوم',
+        language: DocumentLanguage.AR,
+        blocks: [
+          { kind: 'heading', text: 'الطالب سيف أبو الحاج' },
+          { kind: 'paragraph', text: 'تشهد هذه الوثيقة بقيمة الرسوم المدفوعة.' },
+        ],
+      };
+      const out = await renderer.render(layout, branding);
+      const pdf = out.buffer.toString('latin1');
+      expect(pdf).toMatch(/\/FontFile2\b/); // an embedded TrueType is present
+      expect(pdf).not.toMatch(/\/BaseFont\s*\/[A-Z]*\+?Helvetica\b/); // and it is NOT Helvetica
+    } finally {
+      if (prev === undefined) delete process.env.PDF_ARABIC_FONT_PATH;
+      else process.env.PDF_ARABIC_FONT_PATH = prev;
+    }
+  });
+
   it('stores logical Arabic in the text layer via /ActualText (correct copy/search/accessibility)', async () => {
     // PDFKit draws Arabic in shaped, visual (reversed) order so the glyphs display correctly, which
     // would make the text layer extract as reversed presentation forms. drawText wraps each Arabic run

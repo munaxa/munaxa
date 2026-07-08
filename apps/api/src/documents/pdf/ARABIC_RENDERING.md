@@ -97,6 +97,16 @@ correctly. The renderer therefore binds its own aliases (`DocBody` / `DocBody-Bo
 `pdf-renderer.ts`) that PDFKit has not reserved, so the configured font backs every weight. This is
 covered by a regression test that asserts no Type1 Helvetica is embedded when a font is configured.
 
+**A font is bundled so Arabic works out of the box.** `registerFonts` resolves in priority order:
+`PDF_ARABIC_FONT_PATH` → the bundled `fonts/DejaVuSans{,-Bold}.ttf` → standard Helvetica (last resort).
+The bundled DejaVu pair is copied into `dist/documents/pdf/fonts/` by nest-cli's `assets` step, so
+`__dirname/fonts` resolves in both tests (src) and production (dist). This means an unconfigured
+deployment no longer silently falls back to Latin-only Helvetica — the exact cause of unreadable Arabic
+in Acrobat. DejaVu is chosen because its Arabic *presentation-form* glyphs are self-connecting (the
+shape we feed PDFKit); a heavier calligraphic font (Amiri, Noto Naskh) can be supplied via
+`PDF_ARABIC_FONT_PATH`, but only fonts whose presentation-form glyphs connect standalone will render
+our pre-shaped output without gaps.
+
 ### 5. Paragraph alignment
 The renderer keeps its existing left alignment; RTL text is shaped and correctly ordered but not
 right-aligned. Right-aligning RTL blocks would require renderer/layout changes and is intentionally
