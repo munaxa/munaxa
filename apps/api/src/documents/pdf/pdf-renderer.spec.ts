@@ -2,13 +2,12 @@ import { existsSync } from 'node:fs';
 import { DocumentLanguage } from '@prisma/client';
 import { PdfRenderer } from './pdf-renderer';
 import type { BrandingContext, DocumentLayout } from './document-layout';
-import { buildAgreementLayout, type AgreementSnapshot } from '../templates/agreement-template';
 import {
-  buildParentCommitmentLayout,
-  DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN,
-  DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR,
-  type ParentCommitmentSnapshot,
-} from '../templates/parent-commitment-template';
+  buildAgreementLayout,
+  DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN,
+  DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR,
+  type AgreementSnapshot,
+} from '../templates/agreement-template';
 
 /** Count the page objects in a PDF (the `/Type /Page` leaves, not the `/Pages` tree root). */
 const pageCount = (buffer: Buffer): number =>
@@ -77,26 +76,32 @@ describe('PdfRenderer', () => {
       version: 1,
       academicYearName: '2025/2026',
       registrationDate: '2026-06-28',
-      studentNameEn: 'John Doe',
-      studentNameAr: 'جون دو',
-      studentNationalId: '9990001112',
       parentNameEn: 'Jane Doe',
       parentNameAr: 'جين دو',
+      parentNationalId: '9990001112',
       parentPhone: '+962 79 000 0000',
-      gradeName: 'Grade 1',
-      sectionName: 'A',
-      paymentMode: 'INSTALLMENTS',
-      installments: 3,
-      lines: [{ label: 'Tuition', gross: '900.000', discount: '0.000', net: '900.000' }],
-      subtotal: '900.000',
-      totalDiscount: '0.000',
+      parentAddress: 'Amman, Jordan',
+      students: [
+        {
+          nameEn: 'John Doe',
+          nameAr: 'جون دو',
+          studentNumber: '20250001',
+          gradeName: 'Grade 1',
+          sectionName: 'A',
+          tuition: '900.000',
+          transportation: '0.000',
+          discount: '0.000',
+          net: '900.000',
+        },
+      ],
       grandTotal: '900.000',
       schedule: [
         { index: 1, dueDate: '2026-09-01', amount: '300.000' },
         { index: 2, dueDate: '2026-10-01', amount: '300.000' },
         { index: 3, dueDate: '2026-11-01', amount: '300.000' },
       ],
-      legalText: 'Binding commitment.',
+      legalClausesEn: DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN,
+      legalClausesAr: DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR,
       registrarName: 'Registrar User',
     };
     const layout = buildAgreementLayout(snapshot, DocumentLanguage.EN);
@@ -340,12 +345,13 @@ describe('PdfRenderer', () => {
     expect(a.byteSize).toBe(b.byteSize);
   });
 
-  // ── Parent Financial Commitment & Undertaking (the master enterprise template) ────────────────
-  describe('Parent Financial Commitment master template', () => {
-    const snapshot: ParentCommitmentSnapshot = {
-      commitmentNo: 123,
+  // ── Registration Agreement = the parent's financial commitment (the master enterprise template) ──
+  describe('Registration Agreement master template', () => {
+    const snapshot: AgreementSnapshot = {
+      agreementNo: 123,
+      version: 1,
       academicYearName: '2025/2026',
-      issueDate: '2026-07-09',
+      registrationDate: '2026-07-09',
       parentNameEn: 'Sara Ali',
       parentNameAr: 'سارة علي',
       parentNationalId: '9871234567',
@@ -389,16 +395,16 @@ describe('PdfRenderer', () => {
         'أتعهد بدفع الرسوم المبيّنة أعلاه في مواعيدها وفق الجدول المذكور.',
         'وأقر بأن هذا التزام مالي ملزم يخضع للقوانين النافذة.',
       ],
-      representativeName: 'د. سالم القاسم',
+      registrarName: 'د. سالم القاسم',
     };
 
     for (const language of [DocumentLanguage.BILINGUAL, DocumentLanguage.AR, DocumentLanguage.EN]) {
       it(`renders a compact, non-fragmented document in ${language}`, async () => {
-        const layout = buildParentCommitmentLayout(snapshot, language);
+        const layout = buildAgreementLayout(snapshot, language);
         expect(layout.density).toBe('compact');
         const out = await renderer.render(layout, branding);
         expectValidPdf(out);
-        // Single-language commitments fit one A4 page; the bilingual variant shows both full legal
+        // Single-language agreements fit one A4 page; the bilingual variant shows both full legal
         // columns so it may take a second page — but never fragments into phantom footer pages.
         const pages = pageCount(out.buffer);
         expect(pages).toBeGreaterThanOrEqual(1);
@@ -408,14 +414,14 @@ describe('PdfRenderer', () => {
 
     it('ships the verbatim default undertaking clauses (Arabic authoritative, English parallel)', () => {
       // Six parallel clauses; the Arabic is the final legal text embedded exactly as provided.
-      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR).toHaveLength(6);
-      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN).toHaveLength(6);
-      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR[0]).toContain('أتعهد، بصفتي الشخصية');
-      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR[5]).toContain('المحاكم الأردنية');
+      expect(DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR).toHaveLength(6);
+      expect(DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN).toHaveLength(6);
+      expect(DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR[0]).toContain('أتعهد، بصفتي الشخصية');
+      expect(DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR[5]).toContain('المحاكم الأردنية');
     });
 
     it('renders the bilingual legal declaration as a mirrored two-column block', () => {
-      const layout = buildParentCommitmentLayout(snapshot, DocumentLanguage.BILINGUAL);
+      const layout = buildAgreementLayout(snapshot, DocumentLanguage.BILINGUAL);
       const legal = layout.blocks.find((b) => b.kind === 'legal');
       expect(legal).toEqual({
         kind: 'legal',
@@ -425,10 +431,10 @@ describe('PdfRenderer', () => {
     });
 
     it('collapses to a single-language legal column for EN-only / AR-only documents', () => {
-      const en = buildParentCommitmentLayout(snapshot, DocumentLanguage.EN).blocks.find(
+      const en = buildAgreementLayout(snapshot, DocumentLanguage.EN).blocks.find(
         (b) => b.kind === 'legal',
       );
-      const ar = buildParentCommitmentLayout(snapshot, DocumentLanguage.AR).blocks.find(
+      const ar = buildAgreementLayout(snapshot, DocumentLanguage.AR).blocks.find(
         (b) => b.kind === 'legal',
       );
       expect(en).toMatchObject({ ar: [] });

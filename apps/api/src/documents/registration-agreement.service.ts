@@ -5,12 +5,19 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { DocumentLanguage, EnrollmentStatus, Prisma, QuotePaymentMode } from '@prisma/client';
+import {
+  DocumentLanguage,
+  EnrollmentStatus,
+  FeeItemKind,
+  Prisma,
+  QuotePaymentMode,
+} from '@prisma/client';
 import { DocumentEngineService } from './document-engine.service';
 import { DocumentRepository } from './document.repository';
 import {
   buildAgreementLayout,
-  DEFAULT_AGREEMENT_LEGAL_TEXT,
+  DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR,
+  DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN,
   type AgreementSnapshot,
 } from './templates/agreement-template';
 import { fullNameAr, fullNameEn } from './templates/util';
@@ -103,9 +110,9 @@ export class RegistrationAgreementService {
       sectionId: enrollment.student.section?.id ?? null,
       registrationDate: enrollment.createdAt,
       paymentMode: enrollment.paymentMode,
-      installments: snapshot.installments,
-      feeBreakdown: snapshot.lines,
-      installmentSchedule: snapshot.schedule,
+      installments: enrollment.paymentMode === QuotePaymentMode.FULL ? 1 : snapshot.schedule.length,
+      feeBreakdown: snapshot.students as unknown as Prisma.InputJsonValue,
+      installmentSchedule: snapshot.schedule as unknown as Prisma.InputJsonValue,
       grandTotal: new Prisma.Decimal(snapshot.grandTotal),
       title: layout.title,
       language,
@@ -125,20 +132,23 @@ export class RegistrationAgreementService {
     const student = enrollment.student;
     const parent = student.parentLinks[0]?.parent ?? null;
 
-    const lines = quote.items.map((it) => {
-      const gross = it.amount;
-      const discount = it.discountAmount;
-      const net = gross.minus(discount);
-      return {
-        label: it.label,
-        gross: gross.toFixed(3),
-        discount: discount.toFixed(3),
-        net: net.toFixed(3),
-      };
-    });
-    const subtotal = lines.reduce((s, l) => s + Number(l.gross), 0);
-    const totalDiscount = lines.reduce((s, l) => s + Number(l.discount), 0);
+    // Fold the student's fee lines into the contract's fixed columns: TRANSPORT items become the
+    // transport fee, everything else is tuition/charges; discount is the summed discount; net is the
+    // amount payable after discount. (tuition + transport − discount === grandTotal.)
+    let transport = new Prisma.Decimal(0);
+    let tuition = new Prisma.Decimal(0);
+    let discount = new Prisma.Decimal(0);
+    for (const it of quote.items) {
+      if (it.kind === FeeItemKind.TRANSPORT) transport = transport.plus(it.amount);
+      else tuition = tuition.plus(it.amount);
+      discount = discount.plus(it.discountAmount);
+    }
     const grandTotal = quote.grandTotal.toFixed(3);
+
+    const gradeName =
+      language === DocumentLanguage.AR
+        ? (enrollment.grade?.nameAr ?? '—')
+        : (enrollment.grade?.nameEn ?? '—');
 
     // Deterministically reproduce the committed payment schedule from the immutable quote (same
     // algorithm AdmissionsRepository.createEnrollmentCharges used), so the snapshot is permanent.
@@ -163,25 +173,28 @@ export class RegistrationAgreementService {
       version: 0, // assigned at persist time
       academicYearName: enrollment.academicYear?.name ?? '—',
       registrationDate: this.iso(enrollment.createdAt) ?? '',
-      studentNameEn: fullNameEn(student),
-      studentNameAr: fullNameAr(student),
-      studentNationalId: student.nationalId,
-      parentNameEn: parent ? fullNameEn(parent) : null,
+      parentNameEn: parent ? fullNameEn(parent) : '—',
       parentNameAr: parent ? fullNameAr(parent) : null,
+      parentNationalId: parent?.nationalId ?? null,
       parentPhone: parent?.phone ?? null,
-      gradeName:
-        language === DocumentLanguage.AR
-          ? (enrollment.grade?.nameAr ?? '—')
-          : (enrollment.grade?.nameEn ?? '—'),
-      sectionName: student.section?.name ?? null,
-      paymentMode: quote.paymentMode,
-      installments: quote.paymentMode === QuotePaymentMode.FULL ? 1 : quote.installments,
-      lines,
-      subtotal: subtotal.toFixed(3),
-      totalDiscount: totalDiscount.toFixed(3),
+      parentAddress: null,
+      students: [
+        {
+          nameEn: fullNameEn(student),
+          nameAr: fullNameAr(student),
+          studentNumber: student.nationalId ?? '',
+          gradeName,
+          sectionName: student.section?.name ?? null,
+          tuition: tuition.toFixed(3),
+          transportation: transport.toFixed(3),
+          discount: discount.toFixed(3),
+          net: grandTotal,
+        },
+      ],
       grandTotal,
       schedule,
-      legalText: DEFAULT_AGREEMENT_LEGAL_TEXT,
+      legalClausesEn: DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN,
+      legalClausesAr: DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR,
       registrarName: null,
     };
   }
