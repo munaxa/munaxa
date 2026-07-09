@@ -79,8 +79,9 @@ export class FinanceDocumentsService {
     const parent = ctx.parentLinks[0]?.parent ?? null;
     const grade = ctx.section?.grade;
     return [
-      { label: L(language, 'Student (EN)', 'الطالب (إنجليزي)'), value: fullNameEn(ctx) },
-      { label: L(language, 'Student (AR)', 'الطالب (عربي)'), value: fullNameAr(ctx) },
+      // Script-matched labels (no language suffix): the label's own script signals the name's language.
+      { label: 'Student', value: fullNameEn(ctx) },
+      { label: 'الطالب', value: fullNameAr(ctx) },
       { label: L(language, 'National ID', 'الرقم الوطني'), value: ctx.nationalId ?? '—' },
       {
         label: L(language, 'Grade / Section', 'الصف / الشعبة'),

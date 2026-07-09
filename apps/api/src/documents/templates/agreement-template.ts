@@ -39,11 +39,9 @@ export function buildAgreementLayout(
       kind: 'fields',
       columns: 2,
       rows: [
-        {
-          label: L(language, 'Student (EN)', 'الطالب (إنجليزي)'),
-          value: s.studentNameEn,
-        },
-        { label: L(language, 'Student (AR)', 'الطالب (عربي)'), value: s.studentNameAr },
+        // Script-matched labels (no language suffix): the label's own script signals the name's language.
+        { label: 'Student', value: s.studentNameEn },
+        { label: 'الطالب', value: s.studentNameAr },
         {
           label: L(language, 'National ID', 'الرقم الوطني'),
           value: s.studentNationalId ?? '—',

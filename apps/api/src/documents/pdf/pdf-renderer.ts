@@ -22,11 +22,37 @@ export interface RenderedPdf {
   byteSize: number;
 }
 
-const A4 = { margin: 48 } as const;
-const INK = '#0f172a';
-const MUTED = '#64748b';
-const LINE = '#cbd5e1';
-const ACCENT = '#1d4ed8';
+/**
+ * Visual tokens mirrored from the Munaxa Design System (`packages/design-tokens` — colors.ts /
+ * spacing.ts / typography.ts), the single source of truth. No colours, sizes or spacing are invented
+ * here; each maps to a DS token so the PDF reads as a natural extension of the web app.
+ */
+const A4 = { margin: 52 } as const; // ≈ DS space-16 outer margin
+const INK = '#090B0C'; // neutral.ink — primary text
+const INK_SOFT = '#394447'; // dataViz[3] — secondary body text
+const MUTED = '#67787C'; // neutral.mutedText — labels / captions
+const LINE = '#E3E7E8'; // neutral.border — hairlines / separators
+const SURFACE = '#F1F3F3'; // neutral.surface — panels / table-header fill
+const BRAND = '#007595'; // brand.DEFAULT — accent / section headings
+const BRAND_DARK = '#005066'; // brand.dark — emphasis (totals)
+
+/** Type ramp (pt) derived from the DS typography scale — keeps a consistent hierarchy. */
+const TYPE = {
+  brand: 15, // school name (header)
+  brandAr: 11,
+  title: 17, // document title
+  subtitle: 9.5,
+  heading: 11.5, // section heading
+  body: 10, // DS base
+  value: 10,
+  small: 9,
+  label: 7.5, // uppercase field/column labels (DS xs)
+  meta: 9.5,
+  footer: 7,
+} as const;
+
+/** Radius (pt) — DS radius.sm, for panels and the table header band. */
+const RADIUS = 6;
 
 /**
  * Separate Latin and Arabic font families, each in two weights. {@link drawText} picks the Arabic
@@ -101,60 +127,71 @@ export class PdfRenderer {
       }
     }
 
-    doc.fillColor(INK).fontSize(15);
+    doc.fillColor(INK).fontSize(TYPE.brand);
     this.drawText(doc, b.nameEn, textX, top, { width: right - textX }, true);
     if (b.nameAr) {
-      doc.fontSize(11).fillColor(INK);
-      this.drawText(doc, b.nameAr, textX, doc.y, { width: right - textX });
+      doc.fontSize(TYPE.brandAr).fillColor(INK_SOFT);
+      this.drawText(doc, b.nameAr, textX, doc.y + 1, { width: right - textX });
     }
     const contact = [b.addressLines.join(', '), b.phone, b.email, b.website]
       .filter((s): s is string => Boolean(s && s.trim()))
-      .join('  ·  ');
+      .join('   ·   ');
     if (contact) {
-      doc.fontSize(8).fillColor(MUTED);
-      this.drawText(doc, contact, textX, doc.y + 1, { width: right - textX });
+      doc.fontSize(TYPE.footer + 0.5).fillColor(MUTED);
+      this.drawText(doc, contact, textX, doc.y + 3, { width: right - textX });
     }
 
-    const headerBottom = Math.max(doc.y, top + (b.logo ? 64 : 0)) + 8;
+    // Brand rule under the letterhead.
+    const headerBottom = Math.max(doc.y, top + (b.logo ? 64 : 0)) + 10;
     doc
       .moveTo(left, headerBottom)
       .lineTo(right, headerBottom)
-      .lineWidth(1)
-      .strokeColor(ACCENT)
+      .lineWidth(1.5)
+      .strokeColor(BRAND)
       .stroke();
 
-    // Title + meta box.
-    doc.y = headerBottom + 14;
-    const titleWidth = layout.meta && layout.meta.length > 0 ? (right - left) * 0.6 : right - left;
+    // Title block (left) + meta panel (right).
+    doc.y = headerBottom + 18;
     const titleTop = doc.y;
-    doc.fillColor(INK).fontSize(16);
+    const hasMeta = Boolean(layout.meta && layout.meta.length > 0);
+    const titleWidth = hasMeta ? (right - left) * 0.58 : right - left;
+
+    doc.fillColor(INK).fontSize(TYPE.title);
     this.drawText(doc, layout.title, left, titleTop, { width: titleWidth }, true);
     if (layout.subtitle) {
-      doc.fontSize(9).fillColor(MUTED);
-      this.drawText(doc, layout.subtitle, left, doc.y + 1, { width: titleWidth });
+      doc.fontSize(TYPE.subtitle).fillColor(MUTED);
+      this.drawText(doc, layout.subtitle, left, doc.y + 3, { width: titleWidth, lineGap: 1 });
     }
     const afterTitle = doc.y;
 
-    if (layout.meta && layout.meta.length > 0) {
-      const boxW = (right - left) * 0.36;
+    let metaBottom = titleTop;
+    if (hasMeta) {
+      const boxW = (right - left) * 0.38;
       const boxX = right - boxW;
-      let metaY = titleTop;
-      for (const m of layout.meta) {
-        doc.fontSize(8).fillColor(MUTED);
+      const pad = 12;
+      const rowH = 24;
+      const panelH = layout.meta!.length * rowH + pad;
+      doc.roundedRect(boxX, titleTop - 2, boxW, panelH, RADIUS).fill(SURFACE);
+      let metaY = titleTop - 2 + pad / 2;
+      const innerW = boxW - pad * 2;
+      for (const m of layout.meta!) {
+        doc.fontSize(TYPE.label).fillColor(MUTED);
         this.drawText(
           doc,
           m.label.toUpperCase(),
-          boxX,
+          boxX + pad,
           metaY,
-          { width: boxW, align: 'right' },
+          { width: innerW, align: 'right' },
           true,
         );
-        doc.fontSize(10).fillColor(INK);
-        this.drawText(doc, m.value, boxX, doc.y, { width: boxW, align: 'right' });
-        metaY = doc.y + 4;
+        doc.fontSize(TYPE.meta).fillColor(INK);
+        this.drawText(doc, m.value, boxX + pad, metaY + 9, { width: innerW, align: 'right' }, true);
+        metaY += rowH;
       }
+      metaBottom = titleTop - 2 + panelH;
     }
-    doc.y = Math.max(afterTitle, doc.y) + 12;
+
+    doc.y = Math.max(afterTitle, metaBottom) + 20;
     doc.x = left;
   }
 
@@ -170,16 +207,20 @@ export class PdfRenderer {
       case 'spacer':
         doc.y += block.size ?? 10;
         return;
-      case 'heading':
-        doc.moveDown(0.3);
-        doc.fontSize(11).fillColor(ACCENT);
+      case 'heading': {
+        doc.moveDown(0.5);
+        doc.fontSize(TYPE.heading).fillColor(BRAND);
         this.drawText(doc, block.text, left, doc.y, { width }, true);
-        doc.moveDown(0.2);
+        // Hairline under the heading to group the section that follows.
+        const ruleY = doc.y + 3;
+        doc.moveTo(left, ruleY).lineTo(right, ruleY).lineWidth(0.75).strokeColor(LINE).stroke();
+        doc.y = ruleY + 6;
         return;
+      }
       case 'paragraph':
-        doc.fontSize(9.5).fillColor(block.muted ? MUTED : INK);
-        this.drawText(doc, block.text, left, doc.y, { width, align: 'left', lineGap: 2 });
-        doc.moveDown(0.4);
+        doc.fontSize(TYPE.body).fillColor(block.muted ? MUTED : INK_SOFT);
+        this.drawText(doc, block.text, left, doc.y, { width, align: 'left', lineGap: 3 });
+        doc.moveDown(0.5);
         return;
       case 'fields':
         this.drawFields(doc, block.rows, block.columns ?? 2);
@@ -204,17 +245,17 @@ export class PdfRenderer {
     const left = doc.page.margins.left;
     const width = doc.page.width - doc.page.margins.right - left;
     const colW = width / columns;
-    const rowH = 30;
+    const rowH = 34;
     let i = 0;
     for (const row of rows) {
       const col = i % columns;
       if (col === 0) this.ensureSpace(doc, rowH);
       const x = left + col * colW;
       const y = doc.y;
-      doc.fontSize(7.5).fillColor(MUTED);
-      this.drawText(doc, row.label.toUpperCase(), x, y, { width: colW - 8 });
-      doc.fontSize(10).fillColor(INK);
-      this.drawText(doc, row.value || '—', x, y + 11, { width: colW - 8 }, true);
+      doc.fontSize(TYPE.label).fillColor(MUTED);
+      this.drawText(doc, row.label.toUpperCase(), x, y, { width: colW - 10 });
+      doc.fontSize(TYPE.value).fillColor(INK);
+      this.drawText(doc, row.value || '—', x, y + 12, { width: colW - 10 }, true);
       i += 1;
       if (col === columns - 1) doc.y = y + rowH;
       else doc.y = y; // keep same row baseline for remaining columns
@@ -226,26 +267,35 @@ export class PdfRenderer {
 
   private drawTotals(doc: PDFKit.PDFDocument, rows: Array<{ label: string; value: string }>): void {
     const right = doc.page.width - doc.page.margins.right;
-    const boxW = 240;
+    const boxW = 260;
     const x = right - boxW;
+    const pad = 12;
+    const rowGap = 17;
+    this.ensureSpace(doc, rows.length * rowGap + pad + 6);
+    const top = doc.y;
+    // Subtle panel behind the totals to set them apart (DS surface + radius).
+    doc.roundedRect(x, top, boxW, rows.length * rowGap + pad, RADIUS).fill(SURFACE);
+    let y = top + pad / 2;
     for (const [idx, row] of rows.entries()) {
-      this.ensureSpace(doc, 18);
-      const y = doc.y;
       const last = idx === rows.length - 1;
-      doc.fontSize(last ? 11 : 9.5).fillColor(last ? INK : MUTED);
-      this.drawText(doc, row.label, x, y, { width: boxW * 0.55 }, last);
-      doc.fontSize(last ? 11 : 9.5).fillColor(last ? ACCENT : INK);
-      this.drawText(
-        doc,
-        row.value,
-        x + boxW * 0.55,
-        y,
-        { width: boxW * 0.45, align: 'right' },
-        true,
-      );
-      doc.y = y + (last ? 18 : 15);
+      if (last) {
+        // Divider above the grand total.
+        doc
+          .moveTo(x + pad, y - 2)
+          .lineTo(x + boxW - pad, y - 2)
+          .lineWidth(0.75)
+          .strokeColor(LINE)
+          .stroke();
+        y += 3;
+      }
+      doc.fontSize(last ? TYPE.body : TYPE.small).fillColor(last ? INK : MUTED);
+      this.drawText(doc, row.label, x + pad, y, { width: boxW * 0.5 }, last);
+      doc.fontSize(last ? TYPE.body + 1 : TYPE.small).fillColor(last ? BRAND_DARK : INK);
+      this.drawText(doc, row.value, x + pad, y, { width: boxW - pad * 2, align: 'right' }, true);
+      y += rowGap;
     }
-    doc.moveDown(0.3);
+    doc.y = top + rows.length * rowGap + pad + 6;
+    doc.x = doc.page.margins.left;
   }
 
   private drawTable(
@@ -262,25 +312,28 @@ export class PdfRenderer {
     const widths = weights.map((w) => (w / weightSum) * width);
     const colX = (i: number) => left + widths.slice(0, i).reduce((a, w) => a + w, 0);
 
-    const drawRow = (record: Record<string, string | number>, bold: boolean) => {
+    const cellPad = 8;
+    const drawRow = (record: Record<string, string | number>, bold: boolean, zebra: boolean) => {
       // Measure tallest cell for wrapping.
-      doc.fontSize(9);
+      doc.fontSize(TYPE.small);
       const heights = columns.map((c, i) => {
         const cell = String(record[c.key] ?? '');
         doc.font(this.fontFor(cell, bold));
-        return doc.heightOfString(cell, { width: widths[i]! - 8 });
+        return doc.heightOfString(cell, { width: widths[i]! - cellPad * 2 });
       });
-      const rowH = Math.max(14, ...heights) + 6;
+      const rowH = Math.max(16, ...heights) + 8;
       this.ensureSpace(doc, rowH);
       const y = doc.y;
+      if (zebra) doc.rect(left, y, width, rowH).fill(SURFACE);
+      if (bold) doc.rect(left, y, width, rowH).fill(SURFACE);
       columns.forEach((c, i) => {
-        doc.fillColor(bold ? INK : '#1e293b');
+        doc.fillColor(bold ? INK : INK_SOFT);
         this.drawText(
           doc,
           String(record[c.key] ?? ''),
-          colX(i) + 4,
-          y + 3,
-          { width: widths[i]! - 8, align: c.align ?? 'left' },
+          colX(i) + cellPad,
+          y + 5,
+          { width: widths[i]! - cellPad * 2, align: c.align ?? 'left' },
           bold,
         );
       });
@@ -288,27 +341,29 @@ export class PdfRenderer {
       doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.5).strokeColor(LINE).stroke();
     };
 
-    // Header band.
-    this.ensureSpace(doc, 20);
+    // Header band (brand-surface, rounded top).
+    const headH = 22;
+    this.ensureSpace(doc, headH + 4);
     const hy = doc.y;
-    doc.rect(left, hy, width, 18).fill('#eef2ff');
-    doc.fillColor(ACCENT).fontSize(8.5);
+    doc.roundedRect(left, hy, width, headH, RADIUS).fill(SURFACE);
+    doc.rect(left, hy + headH - RADIUS, width, RADIUS).fill(SURFACE); // square off the bottom corners
+    doc.fillColor(BRAND).fontSize(TYPE.label);
     columns.forEach((c, i) => {
       this.drawText(
         doc,
         c.header.toUpperCase(),
-        colX(i) + 4,
-        hy + 5,
-        { width: widths[i]! - 8, align: c.align ?? 'left' },
+        colX(i) + cellPad,
+        hy + 7,
+        { width: widths[i]! - cellPad * 2, align: c.align ?? 'left' },
         true,
       );
     });
-    doc.y = hy + 18;
-    doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.5).strokeColor(LINE).stroke();
+    doc.y = hy + headH;
+    doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.75).strokeColor(LINE).stroke();
 
-    for (const row of rows) drawRow(row, false);
-    if (totalsRow) drawRow(totalsRow, true);
-    doc.moveDown(0.4);
+    rows.forEach((row, i) => drawRow(row, false, i % 2 === 1));
+    if (totalsRow) drawRow(totalsRow, true, false);
+    doc.moveDown(0.6);
   }
 
   private drawSignatures(
@@ -319,23 +374,23 @@ export class PdfRenderer {
     const left = doc.page.margins.left;
     const width = doc.page.width - doc.page.margins.right - left;
     const colW = width / blocks.length;
-    const y = doc.y + 30;
+    const y = doc.y + 34;
     blocks.forEach((blk, i) => {
       const x = left + i * colW;
       doc
         .moveTo(x, y)
-        .lineTo(x + colW - 24, y)
-        .lineWidth(0.7)
-        .strokeColor(INK)
+        .lineTo(x + colW - 28, y)
+        .lineWidth(0.75)
+        .strokeColor(INK_SOFT)
         .stroke();
-      doc.fontSize(9).fillColor(INK);
-      this.drawText(doc, blk.label, x, y + 5, { width: colW - 24 }, true);
+      doc.fontSize(TYPE.small).fillColor(INK);
+      this.drawText(doc, blk.label, x, y + 7, { width: colW - 28 }, true);
       if (blk.name) {
-        doc.fontSize(8).fillColor(MUTED);
-        this.drawText(doc, blk.name, x, doc.y, { width: colW - 24 });
+        doc.fontSize(TYPE.footer + 1).fillColor(MUTED);
+        this.drawText(doc, blk.name, x, doc.y + 1, { width: colW - 28 });
       }
     });
-    doc.y = y + 50;
+    doc.y = y + 52;
   }
 
   // ── footer (buffered pages: page numbers + footer note) ───────────────────
@@ -346,11 +401,12 @@ export class PdfRenderer {
       doc.switchToPage(i);
       const left = doc.page.margins.left;
       const right = doc.page.width - doc.page.margins.right;
-      const y = doc.page.height - doc.page.margins.bottom + 8;
+      const y = doc.page.height - doc.page.margins.bottom + 10;
       doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(LINE).stroke();
-      doc.fontSize(7).fillColor(MUTED);
-      this.drawText(doc, note, left, y + 4, { width: (right - left) * 0.75 });
-      doc.text(`Page ${i - range.start + 1} of ${range.count}`, left, y + 4, {
+      doc.fontSize(TYPE.footer).fillColor(MUTED);
+      this.drawText(doc, note, left, y + 6, { width: (right - left) * 0.72 });
+      doc.font(FONT_LATIN).fontSize(TYPE.footer).fillColor(MUTED);
+      doc.text(`Page ${i - range.start + 1} of ${range.count}`, left, y + 6, {
         width: right - left,
         align: 'right',
       });
