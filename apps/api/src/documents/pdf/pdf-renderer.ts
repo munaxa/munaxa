@@ -54,6 +54,9 @@ const TYPE = {
 /** Radius (pt) — DS radius.sm, for panels and the table header band. */
 const RADIUS = 6;
 
+/** First Arabic-script character — used to split a bilingual "English / العربية" label into its halves. */
+const ARABIC_CHAR = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
 /**
  * Separate Latin and Arabic font families, each in two weights. {@link drawText} picks the Arabic
  * family for any run that contains Arabic (so it renders in the bundled naskh face) and the Latin family
@@ -176,14 +179,7 @@ export class PdfRenderer {
       const innerW = boxW - pad * 2;
       for (const m of layout.meta!) {
         doc.fontSize(TYPE.label).fillColor(MUTED);
-        this.drawText(
-          doc,
-          m.label.toUpperCase(),
-          boxX + pad,
-          metaY,
-          { width: innerW, align: 'right' },
-          true,
-        );
+        this.drawBilingual(doc, m.label.toUpperCase(), boxX + pad, metaY, innerW, true, 'right');
         doc.fontSize(TYPE.meta).fillColor(INK);
         this.drawText(doc, m.value, boxX + pad, metaY + 9, { width: innerW, align: 'right' }, true);
         metaY += rowH;
@@ -210,7 +206,7 @@ export class PdfRenderer {
       case 'heading': {
         doc.moveDown(0.5);
         doc.fontSize(TYPE.heading).fillColor(BRAND);
-        this.drawText(doc, block.text, left, doc.y, { width }, true);
+        this.drawBilingual(doc, block.text, left, doc.y, width, true);
         // Hairline under the heading to group the section that follows.
         const ruleY = doc.y + 3;
         doc.moveTo(left, ruleY).lineTo(right, ruleY).lineWidth(0.75).strokeColor(LINE).stroke();
@@ -253,9 +249,9 @@ export class PdfRenderer {
       const x = left + col * colW;
       const y = doc.y;
       doc.fontSize(TYPE.label).fillColor(MUTED);
-      this.drawText(doc, row.label.toUpperCase(), x, y, { width: colW - 10 });
+      this.drawBilingual(doc, row.label.toUpperCase(), x, y, colW - 10, false);
       doc.fontSize(TYPE.value).fillColor(INK);
-      this.drawText(doc, row.value || '—', x, y + 12, { width: colW - 10 }, true);
+      this.drawBilingual(doc, row.value || '—', x, y + 12, colW - 10, true);
       i += 1;
       if (col === columns - 1) doc.y = y + rowH;
       else doc.y = y; // keep same row baseline for remaining columns
@@ -289,7 +285,7 @@ export class PdfRenderer {
         y += 3;
       }
       doc.fontSize(last ? TYPE.body : TYPE.small).fillColor(last ? INK : MUTED);
-      this.drawText(doc, row.label, x + pad, y, { width: boxW * 0.5 }, last);
+      this.drawBilingual(doc, row.label, x + pad, y, boxW * 0.5, last);
       doc.fontSize(last ? TYPE.body + 1 : TYPE.small).fillColor(last ? BRAND_DARK : INK);
       this.drawText(doc, row.value, x + pad, y, { width: boxW - pad * 2, align: 'right' }, true);
       y += rowGap;
@@ -349,13 +345,14 @@ export class PdfRenderer {
     doc.rect(left, hy + headH - RADIUS, width, RADIUS).fill(SURFACE); // square off the bottom corners
     doc.fillColor(BRAND).fontSize(TYPE.label);
     columns.forEach((c, i) => {
-      this.drawText(
+      this.drawBilingual(
         doc,
         c.header.toUpperCase(),
         colX(i) + cellPad,
         hy + 7,
-        { width: widths[i]! - cellPad * 2, align: c.align ?? 'left' },
+        widths[i]! - cellPad * 2,
         true,
+        c.align ?? 'left',
       );
     });
     doc.y = hy + headH;
@@ -384,7 +381,7 @@ export class PdfRenderer {
         .strokeColor(INK_SOFT)
         .stroke();
       doc.fontSize(TYPE.small).fillColor(INK);
-      this.drawText(doc, blk.label, x, y + 7, { width: colW - 28 }, true);
+      this.drawBilingual(doc, blk.label, x, y + 7, colW - 28, true);
       if (blk.name) {
         doc.fontSize(TYPE.footer + 1).fillColor(MUTED);
         this.drawText(doc, blk.name, x, doc.y + 1, { width: colW - 28 });
@@ -484,6 +481,37 @@ export class PdfRenderer {
       if (i === 0) doc.text(run.text, x, y, runOptions);
       else doc.text(run.text, runOptions);
     });
+  }
+
+  /**
+   * Draws a label that may be bilingual ("English / العربية"). When both scripts are present the two
+   * halves are aligned to opposite edges of `width` on the same baseline — English flush-left, Arabic
+   * flush-right — the standard bilingual-form look. Mono labels (one script) draw normally, honouring
+   * `monoAlign` (so e.g. a numeric column header stays right-aligned when the document is English-only).
+   */
+  private drawBilingual(
+    doc: PDFKit.PDFDocument,
+    text: string,
+    x: number,
+    y: number,
+    width: number,
+    bold: boolean,
+    monoAlign: 'left' | 'right' | 'center' = 'left',
+  ): void {
+    const idx = text.search(ARABIC_CHAR);
+    const prefix = idx > 0 ? text.slice(0, idx) : '';
+    if (idx <= 0 || !/[A-Za-z]/.test(prefix)) {
+      this.drawText(doc, text, x, y, { width, align: monoAlign }, bold);
+      return;
+    }
+    const en = prefix.replace(/[\s/·|,-]+$/u, ''); // drop the trailing " / " separator
+    const ar = text.slice(idx);
+    const yBefore = doc.y;
+    this.drawText(doc, en, x, y, { width }, bold); // English → left
+    const yEn = doc.y;
+    doc.y = yBefore;
+    this.drawText(doc, ar, x, y, { width, align: 'right' }, bold); // Arabic → right
+    doc.y = Math.max(yEn, doc.y); // keep the taller of the two halves
   }
 
   /**
