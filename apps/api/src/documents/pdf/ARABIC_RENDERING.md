@@ -1,117 +1,79 @@
 # Arabic rendering in the PDF pipeline
 
-PDFKit embeds fonts but does **no complex-script processing**. `arabic-text.ts` closes that gap as a
-pure text-preprocessing step (`shapeForPdf`) applied to every string the renderer draws:
+PDFKit (via **fontkit**) *does* run the embedded font's OpenType shaper — hand it Arabic in **logical**
+order and the correctly joined glyphs come out — but it performs **no** Unicode bidirectional
+reordering. So the renderer keeps text in logical Unicode and supplies only the missing bidi step,
+letting the font shape natively. There is **no** hand-written presentation-form table.
 
-1. **NFC normalization** – decomposed sequences compose to the precomposed letters we map.
-2. **Contextual glyph shaping** – base letters → Arabic Presentation Forms (isolated/initial/medial/
-   final) + lam-alef ligatures, honouring **ZWJ/ZWNJ** and skipping transparent harakat.
-3. **Bidirectional reordering** – logical → visual order via `bidi-js` (UAX #9), applied **per line**.
-4. **Double-shape protection** – code points already in the Presentation Forms blocks pass through, so
-   shaping is idempotent.
+## How text is drawn
 
-Coverage includes standard Arabic plus common Persian/Urdu letters (peh, tcheh, gaf, keheh, farsi yeh,
-tteh, ddal, jeh, rreh, noon ghunna, heh doachashmee, …). The public API — `containsArabic`,
-`shapeArabic`, `shapeForPdf`, `baseDirection` — and the `DocumentLayout`/renderer contracts are
-unchanged; Latin/numeric strings take a fast path and are returned byte-identical.
+`arabic-text.ts` exposes `layoutRuns(logical)` (plus `containsArabic` and `baseDirection`):
+
+1. **NFC normalization** of the input.
+2. **Structured-identifier isolation** – runs of two-or-more space-separated ASCII tokens containing a
+   digit (phone numbers, national IDs, grouped IBANs, reference numbers) are wrapped in an
+   `LRI…PDI` isolate (`U+2066…U+2069`, UAX #9 §2.4) so their groups stay left-to-right instead of
+   reversing; the isolate controls are stripped from the returned runs.
+3. **Bidi run splitting** – `bidi-js` (UAX #9) assigns embedding levels; the string is split into
+   maximal same-level runs and returned in **visual** (left-to-right display) order, each run still in
+   **logical** order so the font can shape it.
+
+`PdfRenderer.drawText` then draws the runs as one `continued` sequence:
+
+- Each run is drawn in its script's font — **`MunaxaArabic`/`MunaxaArabicBold`** for Arabic runs (with
+  the `rtla` OpenType feature enabled) and **`MunaxaLatin`/`MunaxaLatinBold`** (Helvetica) for
+  Latin/numeric runs. The font shapes Arabic natively (GSUB/GPOS), so joining, ligatures, mark
+  positioning and spacing are the font's own — no presentation forms.
+- **Right/center alignment** is applied manually for multi-run lines (measure the runs, compute the
+  start x, draw left-to-right), because PDFKit's `align` is unreliable across `continued` fragments.
+- The whole run sequence is wrapped in an **`/ActualText`** marked-content span carrying the original
+  logical Unicode, so the text layer is correct even though the glyph stream is shaped/CID-encoded.
+
+Pure Latin/numeric strings take a fast path (a single unchanged run), so English documents are
+byte-for-byte identical to before. `DocumentLayout` and the renderer's public contract are unchanged.
 
 ## Logical text layer (copy / search / accessibility)
 
-Because Arabic is handed to PDFKit already shaped and in **visual** (bidi-reordered) order — the only
-way to make the glyphs display correctly, since PDFKit draws code points left-to-right with no bidi —
-that same visual-order string would otherwise become the PDF's text layer, so copy/search/screen-reader
-extraction returned reversed, presentation-form text (e.g. `ةيقافتاليجستلا` for `اتفاقية التسجيل`).
+Because Arabic is shaped by the font, the raw glyph stream's reverse mapping (ToUnicode) is not a
+reliable source of the original text. `drawText` therefore attaches the **original logical** Unicode as
+an `/ActualText` marked-content entry (UTF-16BE). Conforming consumers — Adobe Acrobat, Chrome/Edge
+(pdf.js), poppler `pdftotext`, PDF/UA screen readers — return that logical text on copy/search. Verified
+by decoding the spans out of a rendered document (`أكاديمية مناكسة الدولية`, `أحمد محمد الخطيب`, …).
+**Caveat:** extractors that ignore `/ActualText` (e.g. PyMuPDF's default `get_text`) return the shaped
+glyph order — a limitation of those tools, not of the document.
 
-The renderer fixes this without changing the drawn glyphs: `drawText` wraps every Arabic run in an
-`/ActualText` marked-content span (`U+2066`-free UTF-16BE) carrying the **original logical** Unicode.
-Conforming consumers — Adobe Acrobat, Chrome/Edge (pdf.js), poppler `pdftotext`, and PDF/UA screen
-readers — return the logical text; the painted glyphs are unchanged. Verified by decoding the spans out
-of a rendered agreement (`أكاديمية مناكسة الدولية`, `أحمد محمد الخطيب`, …) and by a unit test that
-inflates the content streams and asserts the logical UTF-16BE string is present and the reversed form is
-not. **Caveat:** extractors that ignore `/ActualText` (e.g. PyMuPDF's default `get_text`) still return
-the visual glyph order — that is a limitation of those tools, not of the document.
+## Fonts
 
-## Known limitations (require replacing PDFKit's text engine to fully fix)
+The renderer registers four aliases: `MunaxaLatin` / `MunaxaLatinBold` (built-in Helvetica) and
+`MunaxaArabic` / `MunaxaArabicBold` (an embedded Arabic TTF). The names are deliberately **not** the
+built-in `Helvetica`: PDFKit pre-caches its default font under that exact name at construction, so
+`registerFont('Helvetica', …)` is silently ignored and Arabic would fall back to the WinAnsi standard
+font — emitting each 16-bit code unit as two Latin-1 bytes (`þ®…` mojibake). Our own names sidestep it.
 
-These are inherent to doing shaping/bidi as a **preprocessing** step in front of a renderer that owns
-its own text layout. They are documented rather than worked around, per the project's "no
-architectural changes to the renderer" constraint.
+The Arabic family resolves in priority order: `PDF_ARABIC_FONT_PATH` → the bundled
+`fonts/NotoNaskhArabic-{Regular,Bold}.ttf` → Helvetica (last resort only if the bundle is missing). The
+bundled pair is copied into `dist/documents/pdf/fonts/` by nest-cli's `assets` step, so `__dirname/fonts`
+resolves in both tests (src) and production (dist) — an unconfigured deployment never silently loses
+Arabic. **Noto Naskh Arabic** (OFL) is the default. Because shaping is now the font's job, **any**
+OpenType Arabic font works — including GPOS-heavy faces like **Amiri** or Noto Sans Arabic — simply by
+pointing `PDF_ARABIC_FONT_PATH` at it.
 
-### 1. Automatic width-wrapping of long Arabic paragraphs
-Bidi reordering is line-relative and must run **after** line breaking. We reorder per **explicit**
-newline (`\n`), but when a long Arabic paragraph has no newlines, PDFKit performs width-based line
-breaking *internally, after* `shapeForPdf` has already produced one visual-ordered line. The result is
-that a paragraph which wraps onto several lines is ordered as a whole rather than per visual line, so
-the line breaks read in the wrong order.
+## Known limitations
 
-- **Not affected:** single-line values — titles, headings, table cells, fields, meta, signatures,
-  footers (the overwhelming majority of document text), and any multi-line text that carries explicit
-  `\n` line breaks (each line is shaped and reordered correctly).
-- **Affected:** a long, un-broken Arabic paragraph (e.g. free-form legal wording) that relies on
-  PDFKit's automatic wrapping.
-- **Mitigation without re-architecting:** insert explicit `\n` at intended break points in the source
-  text (the data layer already controls this wording); each line then reorders correctly.
-- **Full fix:** measure and break lines ourselves against PDFKit metrics and reorder each line before
-  drawing — i.e. take over text layout from PDFKit, which is out of scope, or move to an engine with
-  native shaping (HarfBuzz/browser).
+### 1. Automatic width-wrapping of long mixed-direction paragraphs
+Run order is computed per string. A single-direction paragraph (all Arabic *or* all Latin) wraps
+correctly because the font/PDFKit handle it. A long paragraph that **mixes** directions **and** relies
+on PDFKit's automatic width-wrapping can order runs incorrectly across a line break, because the visual
+run order is computed for the whole string, not per wrapped line. Not affected: the overwhelming
+majority of document text — single-line values (titles, headings, table cells, fields, meta,
+signatures, footers) and single-direction paragraphs. Mitigation: insert explicit `\n` at intended
+break points. Full fix: per-line bidi layout (take over line breaking from PDFKit).
 
-### 2. Space-separated identifiers — solved with LRI/PDI isolation
-Per UAX #9, whitespace-separated numeric runs in an RTL paragraph are ordered right-to-left, so a phone
-number typed with spaces (`+962 79 123 4567`) would display as `4567 123 79 962+`. This is
-standards-correct bidi, but not what a reader expects of an identifier.
+### 2. Copy/paste depends on `/ActualText`
+Correct copy/search/accessibility relies on `/ActualText`, honoured by Acrobat, Chrome/Edge, poppler
+and PDF/UA readers. Extractors that ignore it see the shaped glyph order.
 
-`shapeForPdf` fixes it the standards-compliant way: it wraps each run of two-or-more space-separated
-ASCII tokens **that contains a digit** in a **LEFT-TO-RIGHT ISOLATE** (`U+2066 … U+2069`, UAX #9 §2.4)
-before reordering, then strips the isolate controls from the visual output so PDFKit never sees a
-formatting code point (which could otherwise render as a `.notdef` box). This covers phone numbers,
-national IDs, grouped IBANs and reference numbers (`+962 79 123 4567`, `1234 5678 9012`,
-`JO94 CBJO 0010 …`, `REF 2026 00125`).
-
-Scope and safety of the heuristic:
-- It only fires on Arabic-bearing lines (English-only text takes the byte-identical fast path).
-- Wrapping already-LTR content is a visual no-op, so emails, URLs, single numbers, decimals
-  (`1025.000`) and prose are unaffected; only genuinely reversible multi-group identifiers change.
-- It is **detection-based**: an identifier with no digit (rare) or split by non-space punctuation is not
-  isolated. Callers that need a guaranteed isolate can still insert `U+2066…U+2069` themselves — the
-  post-reorder strip cleans those up too.
-- Residual UAX #9 behaviour: the isolate keeps the run left-to-right; it does not re-group tokens, which
-  is the correct outcome for identifiers.
-
-### 3. No GPOS mark positioning / no kashida justification
-Presentation Forms give correct letter **shapes** but not advanced glyph **positioning**. Precise
-stacking of multiple harakat (which needs the font's GPOS table) and kashida elongation are not
-performed — PDFKit applies neither. Unvocalized text (names, amounts, most official wording) is
-unaffected; heavily vocalized Quranic-style text may show marks at default positions.
-
-### 4. Font requirement
-Glyphs only appear when `PDF_ARABIC_FONT_PATH` points to a TTF that contains the Arabic Presentation
-Forms (`U+FB50–U+FEFF`); most Arabic fonts (Amiri, Cairo, Noto Naskh, …) do. PDFKit's built-in
-Helvetica has no Arabic glyphs, so without an embedded font Arabic will not render regardless of
-shaping.
-
-**Separate Latin and Arabic font families, selected per run.** The renderer registers four aliases —
-`MunaxaLatin` / `MunaxaLatinBold` (built-in Helvetica) and `MunaxaArabic` / `MunaxaArabicBold` (an
-embedded Arabic TTF). `drawText` picks the Arabic family for any run that `containsArabic`, and the
-Latin family for pure Latin/numeric text; mixed runs use the Arabic family (which also has Latin
-glyphs). The names are deliberately **not** the built-in `Helvetica`: PDFKit pre-caches its default
-font under that exact name at construction, so `registerFont('Helvetica', …)` is silently ignored (the
-cache wins) and Arabic would fall back to the WinAnsi standard font — emitting each 16-bit code unit as
-two Latin-1 bytes (`þ®…` mojibake). Our own names sidestep that cache.
-
-**A font is bundled so Arabic works out of the box.** The Arabic family resolves in priority order:
-`PDF_ARABIC_FONT_PATH` → the bundled `fonts/NotoNaskhArabic-{Regular,Bold}.ttf` → Helvetica (last
-resort only if the bundle is missing). The bundled pair is copied into `dist/documents/pdf/fonts/` by
-nest-cli's `assets` step, so `__dirname/fonts` resolves in both tests (src) and production (dist) — an
-unconfigured deployment no longer silently loses Arabic (the cause of unreadable Arabic in Acrobat).
-**Noto Naskh Arabic** (OFL) is the default: a production-quality naskh face whose *presentation-form*
-glyphs are self-connecting, so our pre-shaped output renders cleanly. Not every quality font qualifies —
-GPOS-only faces such as **Amiri** position joins on the *base* characters and leave gaps when handed
-pre-shaped presentation forms; a proven finding is that PDFKit/fontkit *does* run the font's GSUB shaper
-on base characters (so base input shapes beautifully) but performs **no bidi** on mixed Arabic/Latin,
-which is exactly why we pre-shape + reorder and feed presentation forms. A different Arabic font can be
-supplied via `PDF_ARABIC_FONT_PATH`, but only one whose presentation-form glyphs connect standalone.
-
-### 5. Paragraph alignment
-The renderer keeps its existing left alignment; RTL text is shaped and correctly ordered but not
-right-aligned. Right-aligning RTL blocks would require renderer/layout changes and is intentionally
-left out to preserve backward compatibility.
+### 3. Paragraph alignment
+The renderer keeps its existing left alignment for body paragraphs; RTL text is shaped and correctly
+ordered but not right-aligned. Right-aligning RTL blocks is intentionally left out to preserve backward
+compatibility (right/center alignment *is* handled for meta boxes, totals and table columns).
