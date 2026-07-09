@@ -90,7 +90,16 @@ const FONT_ARABIC_BOLD = 'MunaxaArabicBold';
  */
 @Injectable()
 export class PdfRenderer {
+  /** Density scale: 1 = default; <1 shrinks the type ramp and spacing so a dense document fits fewer
+   * pages. Set per-render from {@link DocumentLayout.density}; identity (1) leaves output unchanged. */
+  private s = 1;
+  /** Scale a size/spacing value by the current density. */
+  private z(v: number): number {
+    return v * this.s;
+  }
+
   async render(layout: DocumentLayout, branding: BrandingContext): Promise<RenderedPdf> {
+    this.s = layout.density === 'compact' ? 0.68 : 1;
     const PDFDocument = (await import('pdfkit')).default;
     const doc = new PDFDocument({ size: 'A4', margin: A4.margin, bufferPages: true });
     const chunks: Buffer[] = [];
@@ -130,22 +139,22 @@ export class PdfRenderer {
       }
     }
 
-    doc.fillColor(INK).fontSize(TYPE.brand);
+    doc.fillColor(INK).fontSize(this.z(TYPE.brand));
     this.drawText(doc, b.nameEn, textX, top, { width: right - textX }, true);
     if (b.nameAr) {
-      doc.fontSize(TYPE.brandAr).fillColor(INK_SOFT);
+      doc.fontSize(this.z(TYPE.brandAr)).fillColor(INK_SOFT);
       this.drawText(doc, b.nameAr, textX, doc.y + 1, { width: right - textX });
     }
     const contact = [b.addressLines.join(', '), b.phone, b.email, b.website]
       .filter((s): s is string => Boolean(s && s.trim()))
       .join('   ·   ');
     if (contact) {
-      doc.fontSize(TYPE.footer + 0.5).fillColor(MUTED);
+      doc.fontSize(this.z(TYPE.footer + 0.5)).fillColor(MUTED);
       this.drawText(doc, contact, textX, doc.y + 3, { width: right - textX });
     }
 
     // Brand rule under the letterhead.
-    const headerBottom = Math.max(doc.y, top + (b.logo ? 64 : 0)) + 10;
+    const headerBottom = Math.max(doc.y, top + (b.logo ? 64 : 0)) + this.z(10);
     doc
       .moveTo(left, headerBottom)
       .lineTo(right, headerBottom)
@@ -154,15 +163,15 @@ export class PdfRenderer {
       .stroke();
 
     // Title block (left) + meta panel (right).
-    doc.y = headerBottom + 18;
+    doc.y = headerBottom + this.z(18);
     const titleTop = doc.y;
     const hasMeta = Boolean(layout.meta && layout.meta.length > 0);
     const titleWidth = hasMeta ? (right - left) * 0.58 : right - left;
 
-    doc.fillColor(INK).fontSize(TYPE.title);
+    doc.fillColor(INK).fontSize(this.z(TYPE.title));
     this.drawText(doc, layout.title, left, titleTop, { width: titleWidth }, true);
     if (layout.subtitle) {
-      doc.fontSize(TYPE.subtitle).fillColor(MUTED);
+      doc.fontSize(this.z(TYPE.subtitle)).fillColor(MUTED);
       this.drawText(doc, layout.subtitle, left, doc.y + 3, { width: titleWidth, lineGap: 1 });
     }
     const afterTitle = doc.y;
@@ -171,23 +180,30 @@ export class PdfRenderer {
     if (hasMeta) {
       const boxW = (right - left) * 0.38;
       const boxX = right - boxW;
-      const pad = 12;
-      const rowH = 24;
+      const pad = this.z(12);
+      const rowH = this.z(24);
       const panelH = layout.meta!.length * rowH + pad;
       doc.roundedRect(boxX, titleTop - 2, boxW, panelH, RADIUS).fill(SURFACE);
       let metaY = titleTop - 2 + pad / 2;
       const innerW = boxW - pad * 2;
       for (const m of layout.meta!) {
-        doc.fontSize(TYPE.label).fillColor(MUTED);
+        doc.fontSize(this.z(TYPE.label)).fillColor(MUTED);
         this.drawBilingual(doc, m.label.toUpperCase(), boxX + pad, metaY, innerW, true, 'right');
-        doc.fontSize(TYPE.meta).fillColor(INK);
-        this.drawText(doc, m.value, boxX + pad, metaY + 9, { width: innerW, align: 'right' }, true);
+        doc.fontSize(this.z(TYPE.meta)).fillColor(INK);
+        this.drawText(
+          doc,
+          m.value,
+          boxX + pad,
+          metaY + this.z(9),
+          { width: innerW, align: 'right' },
+          true,
+        );
         metaY += rowH;
       }
       metaBottom = titleTop - 2 + panelH;
     }
 
-    doc.y = Math.max(afterTitle, metaBottom) + 20;
+    doc.y = Math.max(afterTitle, metaBottom) + this.z(20);
     doc.x = left;
   }
 
@@ -204,8 +220,8 @@ export class PdfRenderer {
         doc.y += block.size ?? 10;
         return;
       case 'heading': {
-        doc.moveDown(0.5);
-        doc.fontSize(TYPE.heading).fillColor(BRAND);
+        doc.moveDown(this.z(0.5));
+        doc.fontSize(this.z(TYPE.heading)).fillColor(BRAND);
         // A mono Arabic heading (RTL, no English) sits on the right in a pure-Arabic document; a
         // bilingual heading ignores this and splits English-left / Arabic-right as usual.
         const headingAlign = baseDirection(block.text) === 'rtl' ? 'right' : 'left';
@@ -213,11 +229,11 @@ export class PdfRenderer {
         // Hairline under the heading to group the section that follows.
         const ruleY = doc.y + 3;
         doc.moveTo(left, ruleY).lineTo(right, ruleY).lineWidth(0.75).strokeColor(LINE).stroke();
-        doc.y = ruleY + 6;
+        doc.y = ruleY + this.z(6);
         return;
       }
       case 'paragraph': {
-        doc.fontSize(TYPE.body).fillColor(block.muted ? MUTED : INK_SOFT);
+        doc.fontSize(this.z(TYPE.body)).fillColor(block.muted ? MUTED : INK_SOFT);
         // A single-direction Arabic paragraph (one run) is justified RTL — the flush, both-edges look
         // of a legal block. Only when it is a lone run: `justify` across `continued` fragments is
         // unreliable (see drawText), so mixed-direction paragraphs keep the safe left alignment.
@@ -253,17 +269,17 @@ export class PdfRenderer {
     const left = doc.page.margins.left;
     const width = doc.page.width - doc.page.margins.right - left;
     const colW = width / columns;
-    const rowH = 34;
+    const rowH = this.z(34);
     let i = 0;
     for (const row of rows) {
       const col = i % columns;
       if (col === 0) this.ensureSpace(doc, rowH);
       const x = left + col * colW;
       const y = doc.y;
-      doc.fontSize(TYPE.label).fillColor(MUTED);
+      doc.fontSize(this.z(TYPE.label)).fillColor(MUTED);
       this.drawBilingual(doc, row.label.toUpperCase(), x, y, colW - 10, false);
-      doc.fontSize(TYPE.value).fillColor(INK);
-      this.drawBilingual(doc, row.value || '—', x, y + 12, colW - 10, true);
+      doc.fontSize(this.z(TYPE.value)).fillColor(INK);
+      this.drawBilingual(doc, row.value || '—', x, y + this.z(12), colW - 10, true);
       i += 1;
       if (col === columns - 1) doc.y = y + rowH;
       else doc.y = y; // keep same row baseline for remaining columns
@@ -277,8 +293,8 @@ export class PdfRenderer {
     const right = doc.page.width - doc.page.margins.right;
     const boxW = 260;
     const x = right - boxW;
-    const pad = 12;
-    const rowGap = 17;
+    const pad = this.z(12);
+    const rowGap = this.z(17);
     this.ensureSpace(doc, rows.length * rowGap + pad + 6);
     const top = doc.y;
     // Subtle panel behind the totals to set them apart (DS surface + radius).
@@ -296,9 +312,9 @@ export class PdfRenderer {
           .stroke();
         y += 3;
       }
-      doc.fontSize(last ? TYPE.body : TYPE.small).fillColor(last ? INK : MUTED);
+      doc.fontSize(this.z(last ? TYPE.body : TYPE.small)).fillColor(last ? INK : MUTED);
       this.drawBilingual(doc, row.label, x + pad, y, boxW * 0.5, last);
-      doc.fontSize(last ? TYPE.body + 1 : TYPE.small).fillColor(last ? BRAND_DARK : INK);
+      doc.fontSize(this.z(last ? TYPE.body + 1 : TYPE.small)).fillColor(last ? BRAND_DARK : INK);
       this.drawText(doc, row.value, x + pad, y, { width: boxW - pad * 2, align: 'right' }, true);
       y += rowGap;
     }
@@ -323,13 +339,13 @@ export class PdfRenderer {
     const cellPad = 8;
     const drawRow = (record: Record<string, string | number>, bold: boolean, zebra: boolean) => {
       // Measure tallest cell for wrapping.
-      doc.fontSize(TYPE.small);
+      doc.fontSize(this.z(TYPE.small));
       const heights = columns.map((c, i) => {
         const cell = String(record[c.key] ?? '');
         doc.font(this.fontFor(cell, bold));
         return doc.heightOfString(cell, { width: widths[i]! - cellPad * 2 });
       });
-      const rowH = Math.max(16, ...heights) + 8;
+      const rowH = Math.max(this.z(16), ...heights) + this.z(8);
       this.ensureSpace(doc, rowH);
       const y = doc.y;
       if (zebra) doc.rect(left, y, width, rowH).fill(SURFACE);
@@ -340,7 +356,7 @@ export class PdfRenderer {
           doc,
           String(record[c.key] ?? ''),
           colX(i) + cellPad,
-          y + 5,
+          y + this.z(5),
           { width: widths[i]! - cellPad * 2, align: c.align ?? 'left' },
           bold,
         );
@@ -349,23 +365,32 @@ export class PdfRenderer {
       doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.5).strokeColor(LINE).stroke();
     };
 
-    // Header band (brand-surface, rounded top).
-    const headH = 22;
+    // Header band (brand-surface, rounded top). In compact density a bilingual header STACKS English
+    // over Arabic — a dense multi-column table is too narrow to place the two side by side without
+    // colliding. At default density they stay side-by-side (drawBilingual), so existing documents are
+    // unchanged.
+    const twoLine =
+      this.s < 1 && columns.some((c) => /[A-Za-z]/.test(c.header) && ARABIC_CHAR.test(c.header));
+    const headH = twoLine ? this.z(30) : this.z(22);
     this.ensureSpace(doc, headH + 4);
     const hy = doc.y;
     doc.roundedRect(left, hy, width, headH, RADIUS).fill(SURFACE);
     doc.rect(left, hy + headH - RADIUS, width, RADIUS).fill(SURFACE); // square off the bottom corners
-    doc.fillColor(BRAND).fontSize(TYPE.label);
+    doc.fillColor(BRAND).fontSize(this.z(TYPE.label));
     columns.forEach((c, i) => {
-      this.drawBilingual(
-        doc,
-        c.header.toUpperCase(),
-        colX(i) + cellPad,
-        hy + 7,
-        widths[i]! - cellPad * 2,
-        true,
-        c.align ?? 'left',
-      );
+      const cx = colX(i) + cellPad;
+      const cw = widths[i]! - cellPad * 2;
+      const ca = c.align ?? 'left';
+      const label = c.header.toUpperCase();
+      const idx = label.search(ARABIC_CHAR);
+      if (twoLine && idx > 0 && /[A-Za-z]/.test(label.slice(0, idx))) {
+        const en = label.slice(0, idx).replace(/[\s/·|,-]+$/u, '');
+        const ar = label.slice(idx);
+        this.drawText(doc, en, cx, hy + this.z(5), { width: cw, align: ca }, true);
+        this.drawText(doc, ar, cx, doc.y, { width: cw, align: ca }, true);
+      } else {
+        this.drawBilingual(doc, label, cx, hy + this.z(7), cw, true, ca);
+      }
     });
     doc.y = hy + headH;
     doc.moveTo(left, doc.y).lineTo(right, doc.y).lineWidth(0.75).strokeColor(LINE).stroke();
@@ -381,11 +406,11 @@ export class PdfRenderer {
    * own column. A one-language document (only `en` or only `ar`) fills the full width as one column.
    */
   private drawLegal(doc: PDFKit.PDFDocument, en: string[], ar: string[]): void {
-    this.ensureSpace(doc, 70);
+    this.ensureSpace(doc, this.z(70));
     const left = doc.page.margins.left;
     const fullW = doc.page.width - doc.page.margins.right - left;
     const top = doc.y;
-    doc.fontSize(TYPE.small);
+    doc.fontSize(this.z(TYPE.small));
     if (en.length > 0 && ar.length > 0) {
       const gap = 24;
       const colW = (fullW - gap) / 2;
@@ -417,19 +442,19 @@ export class PdfRenderer {
     clauses.forEach((clause, i) => {
       const marker = `${i + 1}.`;
       // The number is a hanging marker in the gutter: left of the text for LTR, right of it for RTL.
-      doc.fontSize(TYPE.small).fillColor(MUTED);
+      doc.fontSize(this.z(TYPE.small)).fillColor(MUTED);
       if (rtl)
         this.drawText(doc, marker, x + textW + 4, y, { width: indent - 4, align: 'left' }, true);
       else this.drawText(doc, marker, x, y, { width: indent - 4, align: 'left' }, true);
       // Clause body wraps within the column; RTL flushes right, LTR flushes left.
-      doc.fontSize(TYPE.small).fillColor(INK_SOFT);
+      doc.fontSize(this.z(TYPE.small)).fillColor(INK_SOFT);
       doc.y = y;
       this.drawText(doc, clause, textX, y, {
         width: textW,
         align: rtl ? 'right' : 'left',
-        lineGap: 1.5,
+        lineGap: this.z(1.5),
       });
-      y = doc.y + 7;
+      y = doc.y + this.z(6);
       doc.y = y;
     });
     return y;
@@ -439,11 +464,11 @@ export class PdfRenderer {
     doc: PDFKit.PDFDocument,
     blocks: Array<{ label: string; name?: string }>,
   ): void {
-    this.ensureSpace(doc, 80);
+    this.ensureSpace(doc, this.z(74));
     const left = doc.page.margins.left;
     const width = doc.page.width - doc.page.margins.right - left;
     const colW = width / blocks.length;
-    const y = doc.y + 34;
+    const y = doc.y + this.z(24);
     blocks.forEach((blk, i) => {
       const x = left + i * colW;
       doc
@@ -455,23 +480,23 @@ export class PdfRenderer {
       // A signature column is only a third of the page wide, so a bilingual caption is STACKED
       // (English over Arabic) rather than side-by-side, which would collide in the narrow column.
       const capW = colW - 28;
-      doc.fontSize(TYPE.small).fillColor(INK);
+      doc.fontSize(this.z(TYPE.small)).fillColor(INK);
       const idx = blk.label.search(ARABIC_CHAR);
       const hasEn = idx > 0 && /[A-Za-z]/.test(blk.label.slice(0, idx));
       if (hasEn) {
         const en = blk.label.slice(0, idx).replace(/[\s/·|,-]+$/u, '');
         const ar = blk.label.slice(idx);
-        this.drawText(doc, en, x, y + 7, { width: capW }, true);
+        this.drawText(doc, en, x, y + this.z(7), { width: capW }, true);
         this.drawText(doc, ar, x, doc.y + 1, { width: capW }, true);
       } else {
-        this.drawText(doc, blk.label, x, y + 7, { width: capW }, true);
+        this.drawText(doc, blk.label, x, y + this.z(7), { width: capW }, true);
       }
       if (blk.name) {
-        doc.fontSize(TYPE.footer + 1).fillColor(MUTED);
+        doc.fontSize(this.z(TYPE.footer + 1)).fillColor(MUTED);
         this.drawText(doc, blk.name, x, doc.y + 2, { width: capW });
       }
     });
-    doc.y = y + 66;
+    doc.y = y + this.z(66);
   }
 
   // ── footer (buffered pages: page numbers + footer note) ───────────────────

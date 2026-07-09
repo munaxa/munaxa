@@ -2,129 +2,132 @@ import { DocumentLanguage } from '@prisma/client';
 import type { DocumentLayout, LayoutBlock } from '../pdf/document-layout';
 import { L, amount, dateStr, docNumber, money } from './util';
 
+/** One student the parent is guardian of, with that student's own fee breakdown. */
+export interface CommitmentStudent {
+  nameEn: string;
+  nameAr: string;
+  studentNumber: string;
+  gradeName: string;
+  sectionName?: string | null;
+  /** Fee lines (fils-precision strings from the ledger; discount is a positive figure). */
+  registration: string;
+  tuition: string;
+  transportation: string;
+  activities: string;
+  discount: string;
+  /** Net payable for this student (charges − discount). */
+  net: string;
+}
+
 /**
- * The permanent snapshot a Parent Financial Commitment & Undertaking is rendered from. Stored verbatim
- * (never recomputed) so a printed/signed copy always reprints byte-identically — it is a legal record.
+ * The permanent snapshot a Parent Financial Commitment & Undertaking is rendered from. The PARENT /
+ * guardian is the primary party; the undertaking covers ALL students under their guardianship, each
+ * with its own fee line. Stored verbatim (never recomputed) so a signed copy always reprints
+ * byte-identically — it is a legal record.
  */
 export interface ParentCommitmentSnapshot {
   commitmentNo: number;
   academicYearName: string;
   issueDate: string;
-  /** Student identity (both scripts kept so the label's own script signals the name's language). */
-  studentNameEn: string;
-  studentNameAr: string;
-  studentNumber: string;
-  gradeName: string;
-  sectionName?: string | null;
-  /** Parent / guardian identity. */
+  /** Parent / guardian identity (primary party). */
   parentNameEn: string;
   parentNameAr?: string | null;
   parentNationalId: string;
   parentPhone: string;
   parentAddress?: string | null;
-  /** Financial summary lines (fils-precision strings from the ledger; discount is a positive figure). */
-  fees: {
-    registration: string;
-    tuition: string;
-    transportation: string;
-    activities: string;
-    discount: string;
-    total: string;
-  };
+  /** Every student the parent is guardian of, each with their fees. */
+  students: CommitmentStudent[];
+  /** Combined net total across all students. */
+  grandTotal: string;
+  /** Combined installment schedule for the family. */
   schedule: Array<{ index: number; dueDate: string | null; amount: string }>;
   /**
-   * Tenant-configurable legal undertaking, as an ordered list of clauses embedded verbatim (Part 7
-   * school settings). English and Arabic are parallel arrays rendered as a mirrored two-column,
-   * numbered declaration; a single-language document uses only its own side.
+   * Tenant-configurable legal undertaking, as parallel English/Arabic clause arrays embedded verbatim
+   * (Part 7 school settings), rendered as a mirrored two-column numbered declaration.
    */
   legalClausesEn: string[];
   legalClausesAr: string[];
   representativeName?: string | null;
 }
 
+/** Sum a set of fils-precision decimal strings and format to 3 decimals. */
+function sum(values: string[]): string {
+  return values.reduce((a, v) => a + Number(v), 0).toFixed(3);
+}
+
 /**
  * The master enterprise-document template. Every section is a reusable {@link LayoutBlock}, so this
- * document shares the exact same header/footer, information blocks, table, totals, legal-text and
- * signature components — and therefore the same spacing, typography, colours and branding — as every
- * other Munaxa document. New document types are built the same way: compose blocks, never draw.
+ * document shares the exact same header/footer, information blocks, table, legal-clause and signature
+ * components — and therefore the same spacing, typography, colours and branding — as every other
+ * Munaxa document. Rendered at `compact` density so the whole undertaking fits a single A4 page.
  */
 export function buildParentCommitmentLayout(
   s: ParentCommitmentSnapshot,
   language: DocumentLanguage,
 ): DocumentLayout {
   const blocks: LayoutBlock[] = [
-    // ---- Student information -------------------------------------------------------------------
-    { kind: 'heading', text: L(language, 'Student Information', 'معلومات الطالب') },
+    // ---- Parent / guardian (primary party) ----------------------------------------------------
+    { kind: 'heading', text: L(language, 'Parent / Guardian', 'ولي الأمر') },
     {
       kind: 'fields',
-      columns: 2,
+      columns: 3,
       rows: [
-        { label: 'Student', value: s.studentNameEn },
-        { label: 'الطالب', value: s.studentNameAr },
-        { label: L(language, 'Student No.', 'الرقم الطلابي'), value: s.studentNumber },
-        { label: L(language, 'Academic Year', 'العام الدراسي'), value: s.academicYearName },
-        { label: L(language, 'Grade', 'الصف'), value: s.gradeName },
-        { label: L(language, 'Section', 'الشعبة'), value: s.sectionName ?? '—' },
-      ],
-    },
-
-    // ---- Parent / guardian information ---------------------------------------------------------
-    { kind: 'heading', text: L(language, 'Parent / Guardian Information', 'معلومات ولي الأمر') },
-    {
-      kind: 'fields',
-      columns: 2,
-      rows: [
-        { label: 'Parent / Guardian', value: s.parentNameEn },
+        { label: 'Guardian', value: s.parentNameEn },
         { label: 'ولي الأمر', value: s.parentNameAr ?? s.parentNameEn },
         { label: L(language, 'National ID', 'الرقم الوطني'), value: s.parentNationalId },
         { label: L(language, 'Phone', 'الهاتف'), value: s.parentPhone },
         { label: L(language, 'Address', 'العنوان'), value: s.parentAddress ?? '—' },
+        { label: L(language, 'Academic Year', 'العام الدراسي'), value: s.academicYearName },
       ],
     },
 
-    // ---- Financial summary --------------------------------------------------------------------
-    { kind: 'heading', text: L(language, 'Financial Summary', 'الملخص المالي') },
+    // ---- Students under guardianship & their fees ---------------------------------------------
+    { kind: 'heading', text: L(language, 'Students & Fees', 'الطلبة والرسوم') },
     {
       kind: 'table',
       columns: [
-        { header: L(language, 'Item', 'البند'), key: 'item', width: 2 },
-        { header: L(language, 'Amount', 'المبلغ'), key: 'amount', align: 'right' },
+        { header: L(language, 'Student', 'الطالب'), key: 'student', width: 2.4 },
+        { header: L(language, 'Grade', 'الصف'), key: 'grade', width: 1.3 },
+        { header: L(language, 'Reg.', 'التسجيل'), key: 'registration', align: 'right' },
+        { header: L(language, 'Tuition', 'الدراسية'), key: 'tuition', align: 'right' },
+        { header: L(language, 'Transp.', 'النقل'), key: 'transportation', align: 'right' },
+        { header: L(language, 'Activ.', 'الأنشطة'), key: 'activities', align: 'right' },
+        { header: L(language, 'Disc.', 'الخصم'), key: 'discount', align: 'right' },
+        { header: L(language, 'Total', 'الإجمالي'), key: 'net', align: 'right' },
       ],
-      rows: [
-        {
-          item: L(language, 'Registration Fees', 'رسوم التسجيل'),
-          amount: amount(s.fees.registration),
-        },
-        { item: L(language, 'Tuition Fees', 'الرسوم الدراسية'), amount: amount(s.fees.tuition) },
-        { item: L(language, 'Transportation', 'النقل'), amount: amount(s.fees.transportation) },
-        { item: L(language, 'Activities', 'الأنشطة'), amount: amount(s.fees.activities) },
-        { item: L(language, 'Discounts', 'الخصومات'), amount: `-${amount(s.fees.discount)}` },
-      ],
+      rows: s.students.map((st) => ({
+        student: language === DocumentLanguage.AR ? st.nameAr : st.nameEn,
+        grade: st.sectionName ? `${st.gradeName} / ${st.sectionName}` : st.gradeName,
+        registration: amount(st.registration),
+        tuition: amount(st.tuition),
+        transportation: amount(st.transportation),
+        activities: amount(st.activities),
+        discount: `-${amount(st.discount)}`,
+        net: amount(st.net),
+      })),
       totalsRow: {
-        item: L(language, 'Total Amount', 'إجمالي المبلغ'),
-        amount: amount(s.fees.total),
+        student: L(language, 'Grand Total', 'الإجمالي النهائي'),
+        grade: '',
+        registration: amount(sum(s.students.map((x) => x.registration))),
+        tuition: amount(sum(s.students.map((x) => x.tuition))),
+        transportation: amount(sum(s.students.map((x) => x.transportation))),
+        activities: amount(sum(s.students.map((x) => x.activities))),
+        discount: `-${amount(sum(s.students.map((x) => x.discount)))}`,
+        net: amount(s.grandTotal),
       },
-    },
-    {
-      kind: 'totals',
-      rows: [{ label: L(language, 'Grand Total', 'الإجمالي النهائي'), value: money(s.fees.total) }],
     },
   ];
 
+  // ---- Combined installment schedule (compact strip to stay on one page) --------------------
   if (s.schedule.length > 0) {
     blocks.push(
       { kind: 'heading', text: L(language, 'Installment Schedule', 'جدول الأقساط') },
       {
-        kind: 'table',
-        columns: [
-          { header: '#', key: 'index', width: 0.5 },
-          { header: L(language, 'Due Date', 'تاريخ الاستحقاق'), key: 'dueDate' },
-          { header: L(language, 'Amount', 'المبلغ'), key: 'amount', align: 'right' },
-        ],
+        kind: 'fields',
+        columns: Math.min(s.schedule.length, 4),
         rows: s.schedule.map((i) => ({
-          index: i.index,
-          dueDate: i.dueDate ?? '—',
-          amount: amount(i.amount),
+          label: `${L(language, 'Installment', 'القسط')} ${i.index} · ${i.dueDate ?? '—'}`,
+          value: money(i.amount),
         })),
       },
     );
@@ -138,7 +141,6 @@ export function buildParentCommitmentLayout(
       en: language === DocumentLanguage.AR ? [] : s.legalClausesEn,
       ar: language === DocumentLanguage.EN ? [] : s.legalClausesAr,
     },
-    { kind: 'spacer', size: 8 },
     {
       kind: 'signatures',
       blocks: [
@@ -163,12 +165,13 @@ export function buildParentCommitmentLayout(
       'التزام مالي ملزم للعام الدراسي المذكور.',
     ),
     language,
+    density: 'compact',
     meta: [
       {
         label: L(language, 'Document No.', 'رقم الوثيقة'),
         value: docNumber('COM', s.commitmentNo),
       },
-      { label: L(language, 'Academic Year', 'العام الدراسي'), value: s.academicYearName },
+      { label: L(language, 'Total Due', 'المستحق'), value: money(s.grandTotal) },
       { label: L(language, 'Date', 'التاريخ'), value: dateStr(s.issueDate) },
     ],
     blocks,

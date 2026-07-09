@@ -70,4 +70,7 @@ export interface DocumentLayout {
   /** Overrides the branding footer note for this document. */
   footer?: string;
   language?: DocumentLanguage;
+  /** Type/spacing density. 'compact' shrinks the type ramp and spacing so a dense document fits fewer
+   * pages (e.g. a single-page commitment). Omitted / 'default' renders at the standard scale. */
+  density?: 'default' | 'compact';
 }
