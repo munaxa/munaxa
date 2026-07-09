@@ -3,6 +3,16 @@ import { DocumentLanguage } from '@prisma/client';
 import { PdfRenderer } from './pdf-renderer';
 import type { BrandingContext, DocumentLayout } from './document-layout';
 import { buildAgreementLayout, type AgreementSnapshot } from '../templates/agreement-template';
+import {
+  buildParentCommitmentLayout,
+  DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN,
+  DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR,
+  type ParentCommitmentSnapshot,
+} from '../templates/parent-commitment-template';
+
+/** Count the page objects in a PDF (the `/Type /Page` leaves, not the `/Pages` tree root). */
+const pageCount = (buffer: Buffer): number =>
+  (buffer.toString('latin1').match(/\/Type\s*\/Page(?![s])/g) ?? []).length;
 
 /** First available TrueType font on this machine (DejaVu ships almost everywhere), or null. */
 const SYSTEM_TTF = [
@@ -187,6 +197,25 @@ describe('PdfRenderer', () => {
     expect(out.byteSize).toBeGreaterThan(1000);
   });
 
+  // Regression guard: the footer draws BELOW the content box, which used to make pdfkit auto-append a
+  // blank page per footer line (a short document silently became 3 pages). The footer pass must not
+  // add pages — a one-page document stays exactly one page.
+  it('does not emit phantom pages for the footer (single-page document is 1 page)', async () => {
+    const layout: DocumentLayout = {
+      title: 'Short Document',
+      footer: 'Al-Test Academy · جميع الحقوق محفوظة',
+      language: DocumentLanguage.BILINGUAL,
+      meta: [{ label: 'No.', value: 'DOC-000001' }],
+      blocks: [
+        { kind: 'heading', text: 'Section / قسم' },
+        { kind: 'paragraph', text: 'A single short paragraph.' },
+        { kind: 'signatures', blocks: [{ label: 'Parent / ولي الأمر' }] },
+      ],
+    };
+    const out = await renderer.render(layout, branding);
+    expect(pageCount(out.buffer)).toBe(1);
+  });
+
   // Regression guard for the mojibake root cause: Arabic used to fall back to the WinAnsi standard
   // Helvetica (no embedded Arabic font at all), rendering each 16-bit code unit as two Latin-1 glyphs.
   // The renderer now uses a separate Arabic family, so an embedded Arabic TrueType (FontFile2) must be
@@ -309,5 +338,88 @@ describe('PdfRenderer', () => {
     // pdfkit embeds a creation date, so byte-for-byte equality is not guaranteed; assert the
     // renderer is stable in structure (same size) — checksum equality is asserted at the data layer.
     expect(a.byteSize).toBe(b.byteSize);
+  });
+
+  // ── Parent Financial Commitment & Undertaking (the master enterprise template) ────────────────
+  describe('Parent Financial Commitment master template', () => {
+    const snapshot: ParentCommitmentSnapshot = {
+      commitmentNo: 123,
+      academicYearName: '2025/2026',
+      issueDate: '2026-07-09',
+      studentNameEn: 'Ahmad Mohammad Al-Khatib',
+      studentNameAr: 'أحمد محمد الخطيب',
+      studentNumber: 'STD-2026-001025',
+      gradeName: 'Grade 1',
+      sectionName: 'A',
+      parentNameEn: 'Sara Ali',
+      parentNameAr: 'سارة علي',
+      parentNationalId: '9871234567',
+      parentPhone: '+962 79 123 4567',
+      parentAddress: 'Abdoun, Amman, Jordan',
+      fees: {
+        registration: '150.000',
+        tuition: '2400.000',
+        transportation: '400.000',
+        activities: '120.000',
+        discount: '270.000',
+        total: '2800.000',
+      },
+      schedule: [
+        { index: 1, dueDate: '2026-09-01', amount: '700.000' },
+        { index: 2, dueDate: '2026-11-01', amount: '700.000' },
+        { index: 3, dueDate: '2027-01-01', amount: '700.000' },
+        { index: 4, dueDate: '2027-03-01', amount: '700.000' },
+      ],
+      legalClausesEn: [
+        'I undertake to pay the fees stated above on their due dates in accordance with the schedule.',
+        'I acknowledge that this is a binding financial commitment governed by the applicable laws.',
+      ],
+      legalClausesAr: [
+        'أتعهد بدفع الرسوم المبيّنة أعلاه في مواعيدها وفق الجدول المذكور.',
+        'وأقر بأن هذا التزام مالي ملزم يخضع للقوانين النافذة.',
+      ],
+      representativeName: 'د. سالم القاسم',
+    };
+
+    for (const language of [DocumentLanguage.BILINGUAL, DocumentLanguage.AR, DocumentLanguage.EN]) {
+      it(`renders a valid, non-overflowing document in ${language}`, async () => {
+        const layout = buildParentCommitmentLayout(snapshot, language);
+        const out = await renderer.render(layout, branding);
+        expectValidPdf(out);
+        // The full document (two tables + justified legal block + signatures) fits on two A4 pages —
+        // and, crucially, does not balloon with phantom footer pages.
+        expect(pageCount(out.buffer)).toBe(2);
+      });
+    }
+
+    it('exposes placeholder legal defaults rather than inventing legal wording', () => {
+      // The binding clauses are configured per tenant; the defaults are obvious bracketed placeholders.
+      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN[0]).toMatch(/^\[/);
+      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN[0]).toContain('Organization settings');
+      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR[0]).toMatch(/^\[/);
+    });
+
+    it('renders the bilingual legal declaration as a mirrored two-column block', () => {
+      const layout = buildParentCommitmentLayout(snapshot, DocumentLanguage.BILINGUAL);
+      const legal = layout.blocks.find((b) => b.kind === 'legal');
+      expect(legal).toEqual({
+        kind: 'legal',
+        en: snapshot.legalClausesEn,
+        ar: snapshot.legalClausesAr,
+      });
+    });
+
+    it('collapses to a single-language legal column for EN-only / AR-only documents', () => {
+      const en = buildParentCommitmentLayout(snapshot, DocumentLanguage.EN).blocks.find(
+        (b) => b.kind === 'legal',
+      );
+      const ar = buildParentCommitmentLayout(snapshot, DocumentLanguage.AR).blocks.find(
+        (b) => b.kind === 'legal',
+      );
+      expect(en).toMatchObject({ ar: [] });
+      expect(en).toMatchObject({ en: snapshot.legalClausesEn });
+      expect(ar).toMatchObject({ en: [] });
+      expect(ar).toMatchObject({ ar: snapshot.legalClausesAr });
+    });
   });
 });

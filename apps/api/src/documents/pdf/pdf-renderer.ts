@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BrandingContext, DocumentLayout, LayoutBlock, TableColumn } from './document-layout';
-import { containsArabic, layoutRuns } from './arabic-text';
+import { baseDirection, containsArabic, layoutRuns } from './arabic-text';
 
 /**
  * Bundled Arabic font (Noto Naskh Arabic, OFL; see fonts/LICENSE.txt), copied next to the compiled
@@ -206,23 +206,35 @@ export class PdfRenderer {
       case 'heading': {
         doc.moveDown(0.5);
         doc.fontSize(TYPE.heading).fillColor(BRAND);
-        this.drawBilingual(doc, block.text, left, doc.y, width, true);
+        // A mono Arabic heading (RTL, no English) sits on the right in a pure-Arabic document; a
+        // bilingual heading ignores this and splits English-left / Arabic-right as usual.
+        const headingAlign = baseDirection(block.text) === 'rtl' ? 'right' : 'left';
+        this.drawBilingual(doc, block.text, left, doc.y, width, true, headingAlign);
         // Hairline under the heading to group the section that follows.
         const ruleY = doc.y + 3;
         doc.moveTo(left, ruleY).lineTo(right, ruleY).lineWidth(0.75).strokeColor(LINE).stroke();
         doc.y = ruleY + 6;
         return;
       }
-      case 'paragraph':
+      case 'paragraph': {
         doc.fontSize(TYPE.body).fillColor(block.muted ? MUTED : INK_SOFT);
-        this.drawText(doc, block.text, left, doc.y, { width, align: 'left', lineGap: 3 });
+        // A single-direction Arabic paragraph (one run) is justified RTL — the flush, both-edges look
+        // of a legal block. Only when it is a lone run: `justify` across `continued` fragments is
+        // unreliable (see drawText), so mixed-direction paragraphs keep the safe left alignment.
+        const rtl = baseDirection(block.text) === 'rtl' && layoutRuns(block.text).length === 1;
+        const align: 'left' | 'justify' = rtl ? 'justify' : 'left';
+        this.drawText(doc, block.text, left, doc.y, { width, align, lineGap: 3 });
         doc.moveDown(0.5);
         return;
+      }
       case 'fields':
         this.drawFields(doc, block.rows, block.columns ?? 2);
         return;
       case 'totals':
         this.drawTotals(doc, block.rows);
+        return;
+      case 'legal':
+        this.drawLegal(doc, block.en, block.ar);
         return;
       case 'table':
         this.drawTable(doc, block.columns, block.rows, block.totalsRow);
@@ -363,6 +375,66 @@ export class PdfRenderer {
     doc.moveDown(0.6);
   }
 
+  /**
+   * Mirrored bilingual legal clauses — English numbered list on the left, Arabic numbered list on the
+   * right, drawn as two independent columns from a shared top so clause N of each language sits in its
+   * own column. A one-language document (only `en` or only `ar`) fills the full width as one column.
+   */
+  private drawLegal(doc: PDFKit.PDFDocument, en: string[], ar: string[]): void {
+    this.ensureSpace(doc, 70);
+    const left = doc.page.margins.left;
+    const fullW = doc.page.width - doc.page.margins.right - left;
+    const top = doc.y;
+    doc.fontSize(TYPE.small);
+    if (en.length > 0 && ar.length > 0) {
+      const gap = 24;
+      const colW = (fullW - gap) / 2;
+      doc.y = top;
+      const enBottom = this.drawLegalColumn(doc, en, left, colW, false);
+      doc.y = top;
+      const arBottom = this.drawLegalColumn(doc, ar, left + colW + gap, colW, true);
+      doc.y = Math.max(enBottom, arBottom);
+    } else if (ar.length > 0) {
+      doc.y = this.drawLegalColumn(doc, ar, left, fullW, true);
+    } else {
+      doc.y = this.drawLegalColumn(doc, en, left, fullW, false);
+    }
+    doc.moveDown(0.5);
+  }
+
+  /** Draw one numbered clause list (hanging indent) in a column; returns the bottom y. */
+  private drawLegalColumn(
+    doc: PDFKit.PDFDocument,
+    clauses: string[],
+    x: number,
+    colW: number,
+    rtl: boolean,
+  ): number {
+    const indent = 18;
+    const textX = rtl ? x : x + indent;
+    const textW = colW - indent;
+    let y = doc.y;
+    clauses.forEach((clause, i) => {
+      const marker = `${i + 1}.`;
+      // The number is a hanging marker in the gutter: left of the text for LTR, right of it for RTL.
+      doc.fontSize(TYPE.small).fillColor(MUTED);
+      if (rtl)
+        this.drawText(doc, marker, x + textW + 4, y, { width: indent - 4, align: 'left' }, true);
+      else this.drawText(doc, marker, x, y, { width: indent - 4, align: 'left' }, true);
+      // Clause body wraps within the column; RTL flushes right, LTR flushes left.
+      doc.fontSize(TYPE.small).fillColor(INK_SOFT);
+      doc.y = y;
+      this.drawText(doc, clause, textX, y, {
+        width: textW,
+        align: rtl ? 'right' : 'left',
+        lineGap: 1.5,
+      });
+      y = doc.y + 7;
+      doc.y = y;
+    });
+    return y;
+  }
+
   private drawSignatures(
     doc: PDFKit.PDFDocument,
     blocks: Array<{ label: string; name?: string }>,
@@ -380,14 +452,26 @@ export class PdfRenderer {
         .lineWidth(0.75)
         .strokeColor(INK_SOFT)
         .stroke();
+      // A signature column is only a third of the page wide, so a bilingual caption is STACKED
+      // (English over Arabic) rather than side-by-side, which would collide in the narrow column.
+      const capW = colW - 28;
       doc.fontSize(TYPE.small).fillColor(INK);
-      this.drawBilingual(doc, blk.label, x, y + 7, colW - 28, true);
+      const idx = blk.label.search(ARABIC_CHAR);
+      const hasEn = idx > 0 && /[A-Za-z]/.test(blk.label.slice(0, idx));
+      if (hasEn) {
+        const en = blk.label.slice(0, idx).replace(/[\s/·|,-]+$/u, '');
+        const ar = blk.label.slice(idx);
+        this.drawText(doc, en, x, y + 7, { width: capW }, true);
+        this.drawText(doc, ar, x, doc.y + 1, { width: capW }, true);
+      } else {
+        this.drawText(doc, blk.label, x, y + 7, { width: capW }, true);
+      }
       if (blk.name) {
         doc.fontSize(TYPE.footer + 1).fillColor(MUTED);
-        this.drawText(doc, blk.name, x, doc.y + 1, { width: colW - 28 });
+        this.drawText(doc, blk.name, x, doc.y + 2, { width: capW });
       }
     });
-    doc.y = y + 52;
+    doc.y = y + 66;
   }
 
   // ── footer (buffered pages: page numbers + footer note) ───────────────────
@@ -399,6 +483,10 @@ export class PdfRenderer {
       const left = doc.page.margins.left;
       const right = doc.page.width - doc.page.margins.right;
       const y = doc.page.height - doc.page.margins.bottom + 10;
+      // The footer sits BELOW the content box, so a normal text draw there would overflow the bottom
+      // margin and make PDFKit auto-append a blank page per line. Zero the bottom margin for the pass
+      // (we're finalizing buffered pages — nothing else is laid out after this) so it draws in place.
+      doc.page.margins.bottom = 0;
       doc.moveTo(left, y).lineTo(right, y).lineWidth(0.5).strokeColor(LINE).stroke();
       doc.fontSize(TYPE.footer).fillColor(MUTED);
       this.drawText(doc, note, left, y + 6, { width: (right - left) * 0.72 });

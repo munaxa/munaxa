@@ -53,6 +53,10 @@ export type LayoutBlock =
       totalsRow?: Record<string, string | number>;
     }
   | { kind: 'totals'; rows: FieldRow[] }
+  // Mirrored bilingual legal clauses: English numbered list on the left, Arabic numbered list on the
+  // right. When only one side is present it fills the width as a single numbered column (LTR for `en`,
+  // RTL for `ar`) — so an English-only or Arabic-only document collapses to one column automatically.
+  | { kind: 'legal'; en: string[]; ar: string[] }
   | { kind: 'signatures'; blocks: Array<{ label: string; name?: string }> }
   | { kind: 'spacer'; size?: number };
 
