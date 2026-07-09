@@ -406,15 +406,23 @@ export class PdfRenderer {
    * own column. A one-language document (only `en` or only `ar`) fills the full width as one column.
    */
   private drawLegal(doc: PDFKit.PDFDocument, en: string[], ar: string[]): void {
-    this.ensureSpace(doc, this.z(70));
     const left = doc.page.margins.left;
     const fullW = doc.page.width - doc.page.margins.right - left;
-    const top = doc.y;
+    const bottom = doc.page.height - doc.page.margins.bottom;
     doc.fontSize(this.z(TYPE.small));
-    if (en.length > 0 && ar.length > 0) {
-      const gap = 24;
-      const colW = (fullW - gap) / 2;
-      doc.y = top;
+    const both = en.length > 0 && ar.length > 0;
+    const gap = 24;
+    const colW = both ? (fullW - gap) / 2 : fullW;
+    // Pre-measure the block. The two independent columns cannot be split across a page break without
+    // the mirrored clauses drifting apart, so if it does not fit the remaining space, start it on a
+    // fresh page — the whole declaration then renders cleanly together rather than fragmenting.
+    const needed = Math.max(
+      en.length ? this.measureLegalColumn(doc, en, colW, false) : 0,
+      ar.length ? this.measureLegalColumn(doc, ar, colW, true) : 0,
+    );
+    if (doc.y + needed > bottom) doc.addPage();
+    const top = doc.y;
+    if (both) {
       const enBottom = this.drawLegalColumn(doc, en, left, colW, false);
       doc.y = top;
       const arBottom = this.drawLegalColumn(doc, ar, left + colW + gap, colW, true);
@@ -425,6 +433,21 @@ export class PdfRenderer {
       doc.y = this.drawLegalColumn(doc, en, left, fullW, false);
     }
     doc.moveDown(0.5);
+  }
+
+  /** Estimate the height a numbered clause column will occupy (font must be sized by the caller). */
+  private measureLegalColumn(
+    doc: PDFKit.PDFDocument,
+    clauses: string[],
+    colW: number,
+    rtl: boolean,
+  ): number {
+    const textW = colW - 18;
+    doc.fontSize(this.z(TYPE.small)).font(this.fontFor(rtl ? 'ع' : 'a', false));
+    return clauses.reduce(
+      (h, c) => h + doc.heightOfString(c, { width: textW, lineGap: this.z(1.5) }) + this.z(6),
+      0,
+    );
   }
 
   /** Draw one numbered clause list (hanging indent) in a column; returns the bottom y. */

@@ -10,13 +10,20 @@ export interface CommitmentStudent {
   gradeName: string;
   sectionName?: string | null;
   /** Fee lines (fils-precision strings from the ledger; discount is a positive figure). */
-  registration: string;
   tuition: string;
   transportation: string;
-  activities: string;
   discount: string;
-  /** Net payable for this student (charges − discount). */
+  /** Net payable for this student (tuition + transport − discount). */
   net: string;
+}
+
+/** One scheduled payment. `paid` / `notes` are blank at signing — the printed contract tracks them by hand. */
+export interface CommitmentInstallment {
+  index: number;
+  dueDate: string | null;
+  amount: string;
+  paid?: string | null;
+  notes?: string | null;
 }
 
 /**
@@ -40,7 +47,7 @@ export interface ParentCommitmentSnapshot {
   /** Combined net total across all students. */
   grandTotal: string;
   /** Combined installment schedule for the family. */
-  schedule: Array<{ index: number; dueDate: string | null; amount: string }>;
+  schedule: CommitmentInstallment[];
   /**
    * Tenant-configurable legal undertaking, as parallel English/Arabic clause arrays embedded verbatim
    * (Part 7 school settings), rendered as a mirrored two-column numbered declaration.
@@ -86,49 +93,59 @@ export function buildParentCommitmentLayout(
     {
       kind: 'table',
       columns: [
-        { header: L(language, 'Student', 'الطالب'), key: 'student', width: 2.4 },
+        { header: L(language, 'Student', 'اسم الطالب'), key: 'student', width: 2.6 },
         { header: L(language, 'Grade', 'الصف'), key: 'grade', width: 1.3 },
-        { header: L(language, 'Reg.', 'التسجيل'), key: 'registration', align: 'right' },
-        { header: L(language, 'Tuition', 'الدراسية'), key: 'tuition', align: 'right' },
-        { header: L(language, 'Transp.', 'النقل'), key: 'transportation', align: 'right' },
-        { header: L(language, 'Activ.', 'الأنشطة'), key: 'activities', align: 'right' },
-        { header: L(language, 'Disc.', 'الخصم'), key: 'discount', align: 'right' },
-        { header: L(language, 'Total', 'الإجمالي'), key: 'net', align: 'right' },
+        { header: L(language, 'Tuition', 'قسط التعليم'), key: 'tuition', align: 'right' },
+        { header: L(language, 'Transport', 'رسم النقل'), key: 'transportation', align: 'right' },
+        { header: L(language, 'Discount', 'الحسومات'), key: 'discount', align: 'right' },
+        { header: L(language, 'Net', 'القسط بعد الخصم'), key: 'net', align: 'right', width: 1.3 },
       ],
       rows: s.students.map((st) => ({
         student: language === DocumentLanguage.AR ? st.nameAr : st.nameEn,
         grade: st.sectionName ? `${st.gradeName} / ${st.sectionName}` : st.gradeName,
-        registration: amount(st.registration),
         tuition: amount(st.tuition),
         transportation: amount(st.transportation),
-        activities: amount(st.activities),
         discount: `-${amount(st.discount)}`,
         net: amount(st.net),
       })),
       totalsRow: {
-        student: L(language, 'Grand Total', 'الإجمالي النهائي'),
+        student: L(language, 'Grand Total', 'المجموع'),
         grade: '',
-        registration: amount(sum(s.students.map((x) => x.registration))),
         tuition: amount(sum(s.students.map((x) => x.tuition))),
         transportation: amount(sum(s.students.map((x) => x.transportation))),
-        activities: amount(sum(s.students.map((x) => x.activities))),
         discount: `-${amount(sum(s.students.map((x) => x.discount)))}`,
         net: amount(s.grandTotal),
       },
     },
   ];
 
-  // ---- Combined installment schedule (compact strip to stay on one page) --------------------
+  // ---- Combined installment / payment schedule ----------------------------------------------
   if (s.schedule.length > 0) {
     blocks.push(
-      { kind: 'heading', text: L(language, 'Installment Schedule', 'جدول الأقساط') },
+      { kind: 'heading', text: L(language, 'Payment Schedule', 'طريقة الدفع') },
       {
-        kind: 'fields',
-        columns: Math.min(s.schedule.length, 4),
+        kind: 'table',
+        columns: [
+          { header: L(language, 'No.', 'رقم الدفعة'), key: 'index', width: 0.7 },
+          { header: L(language, 'Due Date', 'تاريخ الدفعة'), key: 'dueDate', width: 1.4 },
+          { header: L(language, 'Amount', 'قيمة الدفعة'), key: 'amount', align: 'right' },
+          { header: L(language, 'Paid', 'قيمة السداد'), key: 'paid', align: 'right' },
+          { header: L(language, 'Notes', 'ملاحظات'), key: 'notes', width: 1.6 },
+        ],
         rows: s.schedule.map((i) => ({
-          label: `${L(language, 'Installment', 'القسط')} ${i.index} · ${i.dueDate ?? '—'}`,
-          value: money(i.amount),
+          index: i.index,
+          dueDate: i.dueDate ?? '—',
+          amount: amount(i.amount),
+          paid: i.paid ? amount(i.paid) : '',
+          notes: i.notes ?? '',
         })),
+        totalsRow: {
+          index: '',
+          dueDate: L(language, 'Total', 'المجموع'),
+          amount: amount(sum(s.schedule.map((i) => i.amount))),
+          paid: '',
+          notes: '',
+        },
       },
     );
   }

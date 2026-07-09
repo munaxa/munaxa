@@ -353,38 +353,33 @@ describe('PdfRenderer', () => {
       parentAddress: 'Abdoun, Amman, Jordan',
       students: [
         {
-          nameEn: 'Ahmad Al-Khatib',
-          nameAr: 'أحمد الخطيب',
-          studentNumber: 'STD-1001',
-          gradeName: 'Grade 1',
-          sectionName: 'A',
-          registration: '150.000',
-          tuition: '2400.000',
-          transportation: '400.000',
-          activities: '120.000',
-          discount: '270.000',
-          net: '2800.000',
+          nameEn: 'Saif Abu Al-Hajj',
+          nameAr: 'سيف تامر أبو الحاج',
+          studentNumber: '20212115',
+          gradeName: 'KG',
+          sectionName: null,
+          tuition: '1350.000',
+          transportation: '350.000',
+          discount: '65.000',
+          net: '1635.000',
         },
         {
-          nameEn: 'Lina Al-Khatib',
-          nameAr: 'لينا الخطيب',
-          studentNumber: 'STD-1002',
-          gradeName: 'KG 2',
-          sectionName: 'B',
-          registration: '150.000',
-          tuition: '1800.000',
-          transportation: '400.000',
-          activities: '100.000',
-          discount: '150.000',
-          net: '2300.000',
+          nameEn: 'Thia Abu Al-Hajj',
+          nameAr: 'ثيا تامر أبو الحاج',
+          studentNumber: '20242228',
+          gradeName: 'KG',
+          sectionName: null,
+          tuition: '950.000',
+          transportation: '250.000',
+          discount: '95.000',
+          net: '1105.000',
         },
       ],
-      grandTotal: '5100.000',
+      grandTotal: '2740.000',
       schedule: [
-        { index: 1, dueDate: '2026-09-01', amount: '1275.000' },
-        { index: 2, dueDate: '2026-11-01', amount: '1275.000' },
-        { index: 3, dueDate: '2027-01-01', amount: '1275.000' },
-        { index: 4, dueDate: '2027-03-01', amount: '1275.000' },
+        { index: 1, dueDate: '2024-08-24', amount: '275.000' },
+        { index: 2, dueDate: '2024-09-01', amount: '310.000' },
+        { index: 3, dueDate: '2024-10-01', amount: '310.000' },
       ],
       legalClausesEn: [
         'I undertake to pay the fees stated above on their due dates in accordance with the schedule.',
@@ -398,14 +393,16 @@ describe('PdfRenderer', () => {
     };
 
     for (const language of [DocumentLanguage.BILINGUAL, DocumentLanguage.AR, DocumentLanguage.EN]) {
-      it(`renders a valid single-page document in ${language}`, async () => {
+      it(`renders a compact, non-fragmented document in ${language}`, async () => {
         const layout = buildParentCommitmentLayout(snapshot, language);
         expect(layout.density).toBe('compact');
         const out = await renderer.render(layout, branding);
         expectValidPdf(out);
-        // The whole commitment (parent, students-and-fees table, installments, mirrored legal and
-        // signatures) is rendered at compact density so it fits on a single A4 page.
-        expect(pageCount(out.buffer)).toBe(1);
+        // Single-language commitments fit one A4 page; the bilingual variant shows both full legal
+        // columns so it may take a second page — but never fragments into phantom footer pages.
+        const pages = pageCount(out.buffer);
+        expect(pages).toBeGreaterThanOrEqual(1);
+        expect(pages).toBeLessThanOrEqual(language === DocumentLanguage.BILINGUAL ? 2 : 1);
       });
     }
 
