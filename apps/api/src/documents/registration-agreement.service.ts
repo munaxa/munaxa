@@ -44,14 +44,39 @@ function addMonths(base: Date, n: number): Date {
   return dt;
 }
 
+/** One committed enrolment with the quote/grade/section/parent includes the snapshot needs. */
+type SourceEnrollment = Awaited<ReturnType<DocumentRepository['guardianEnrollments']>>[number];
+type SourceParent = SourceEnrollment['student']['parentLinks'][number]['parent'] | null;
+
 /**
- * Registration Agreement generator. Builds a permanent financial snapshot from the committed
- * enrollment's immutable quote, renders the legal agreement PDF, and stores it as THE (single,
- * immutable) RegistrationAgreement for that enrollment. Called automatically right after a successful
- * commit (and on approval of a held enrollment). Generation is **idempotent**: once an agreement
- * exists for the enrollment it is never regenerated or versioned — later financial changes live in
- * the billing ledger, not on the agreement. It also manages the parent's countersigned copy (upload
- * / replace / view / delete), stored in object storage and referenced by key.
+ * A stable content signature of the agreement's material data (student identities + fees + the merged
+ * schedule + grand total), independent of key order or language-specific labels. Two generations with
+ * the same signature are the same agreement (idempotent); a different signature means the guardian's
+ * enrolments/fees changed and the agreement must be superseded.
+ */
+function agreementFingerprint(
+  students: AgreementSnapshot['students'],
+  schedule: AgreementSnapshot['schedule'],
+  grandTotal: string,
+): string {
+  const s = students
+    .map((x) => [x.nameEn, x.tuition, x.transportation, x.discount, x.net].join('|'))
+    .sort()
+    .join(';');
+  const p = schedule.map((x) => [x.dueDate ?? '', x.amount].join('|')).join(';');
+  return `${s}#${p}#${grandTotal}`;
+}
+
+/**
+ * Registration Agreement generator. The registration agreement IS the parent's financial commitment:
+ * it builds a permanent snapshot covering ALL of a guardian's committed students for the academic year
+ * (each with its own fees), renders the legal PDF, and stores ONE current agreement per guardian+year.
+ * Called automatically right after a successful commit (and on approval of a held enrollment).
+ * Generation is **idempotent** on content: re-running with the same students/fees returns the current
+ * agreement unchanged; when the guardian's enrolments or fees have changed (e.g. a second child
+ * enrols), a NEW version is generated that supersedes the prior one — the superseded agreement is
+ * archived as immutable history, never mutated in place. It also manages the parent's countersigned
+ * copy (upload / replace / view / delete), stored in object storage and referenced by key.
  */
 @Injectable()
 export class RegistrationAgreementService {
@@ -79,32 +104,60 @@ export class RegistrationAgreementService {
   }
 
   /**
-   * Generate THE registration agreement for an enrollment. Idempotent: if a (non-cancelled)
-   * agreement already exists for the enrollment it is returned unchanged — the agreement is
-   * immutable and one-per-enrollment, never versioned or regenerated from later financial data.
+   * Generate the registration agreement (the parent's financial commitment). One agreement per
+   * guardian + academic year, covering ALL that guardian's committed students. Idempotent: if the
+   * current agreement already reflects the same students/fees it is returned unchanged. When the
+   * guardian's enrolments or fees have changed since (e.g. a second child enrols), a NEW version is
+   * generated that supersedes the prior one (which is archived as history) — signed legal records are
+   * never mutated in place.
    */
   async generate(enrollmentId: string, language: DocumentLanguage) {
     const enrollment = await this.repo.enrollmentContext(enrollmentId);
     if (!enrollment) throw new NotFoundException('Enrollment not found');
     if (!enrollment.quote) throw new NotFoundException('Enrollment has no quote to snapshot');
 
-    const existing = await this.repo.agreementByEnrollment(enrollmentId);
-    if (existing) {
-      const { document, ...agreement } = existing;
-      return { agreement, document };
+    const parent = enrollment.student.parentLinks[0]?.parent ?? null;
+    const academicYearId = enrollment.academicYearId;
+
+    // The agreement covers every one of the guardian's committed students for the year; fall back to
+    // just the triggering enrolment when the student has no linked guardian.
+    const guardianEnrollments = parent
+      ? (await this.repo.guardianEnrollments(parent.id, academicYearId)).filter((e) => e.quote)
+      : [];
+    const sources = guardianEnrollments.length > 0 ? guardianEnrollments : [enrollment];
+
+    const snapshot = this.buildSnapshot(sources, parent, enrollment, language);
+    const fingerprint = agreementFingerprint(
+      snapshot.students,
+      snapshot.schedule,
+      snapshot.grandTotal,
+    );
+
+    // One current agreement per parent+year: reuse it unchanged, else supersede it with a new version.
+    const current = parent
+      ? await this.repo.currentAgreementForParentYear(parent.id, academicYearId)
+      : await this.repo.agreementByEnrollment(enrollmentId);
+    if (current) {
+      const currentFingerprint = agreementFingerprint(
+        (current.feeBreakdown ?? []) as unknown as AgreementSnapshot['students'],
+        (current.installmentSchedule ?? []) as unknown as AgreementSnapshot['schedule'],
+        current.grandTotal.toFixed(3),
+      );
+      if (currentFingerprint === fingerprint) {
+        const { document, ...agreement } = current;
+        return { agreement, document };
+      }
     }
 
-    const snapshot = this.buildSnapshot(enrollment, language);
     const branding = await this.engine.resolveBranding();
     const layout = buildAgreementLayout(snapshot, language);
     const rendered = await this.engine.render(layout, branding);
 
-    const primaryParent = enrollment.student.parentLinks[0]?.parent ?? null;
-    const result = await this.repo.persistAgreement({
-      enrollmentId,
+    return this.repo.persistAgreement({
+      enrollmentId, // the triggering enrolment is the record's primary reference
       studentId: enrollment.studentId,
-      parentId: primaryParent?.id ?? null,
-      academicYearId: enrollment.academicYearId,
+      parentId: parent?.id ?? null,
+      academicYearId,
       campusId: enrollment.academicYear?.campusId ?? null,
       gradeId: enrollment.gradeId,
       sectionId: enrollment.student.section?.id ?? null,
@@ -120,83 +173,102 @@ export class RegistrationAgreementService {
       pdf: rendered.buffer,
       checksum: rendered.checksum,
       byteSize: rendered.byteSize,
+      version: current ? current.version + 1 : 1,
+      supersedesId: current ? current.id : null,
     });
-    return result;
   }
 
+  /**
+   * Build the parent-primary snapshot from every one of the guardian's committed enrolments. Each
+   * enrolment becomes one Students & Fees row (its quote folded into the fixed tuition/transport/
+   * discount/net columns); the family payment schedule is the enrolments' installments merged by due
+   * date. `triggering` supplies the header identity (academic year, registration date).
+   */
   private buildSnapshot(
-    enrollment: NonNullable<Awaited<ReturnType<DocumentRepository['enrollmentContext']>>>,
+    enrollments: SourceEnrollment[],
+    parent: SourceParent,
+    triggering: SourceEnrollment,
     language: DocumentLanguage,
   ): AgreementSnapshot {
-    const quote = enrollment.quote!;
-    const student = enrollment.student;
-    const parent = student.parentLinks[0]?.parent ?? null;
-
-    // Fold the student's fee lines into the contract's fixed columns: TRANSPORT items become the
-    // transport fee, everything else is tuition/charges; discount is the summed discount; net is the
-    // amount payable after discount. (tuition + transport − discount === grandTotal.)
-    let transport = new Prisma.Decimal(0);
-    let tuition = new Prisma.Decimal(0);
-    let discount = new Prisma.Decimal(0);
-    for (const it of quote.items) {
-      if (it.kind === FeeItemKind.TRANSPORT) transport = transport.plus(it.amount);
-      else tuition = tuition.plus(it.amount);
-      discount = discount.plus(it.discountAmount);
-    }
-    const grandTotal = quote.grandTotal.toFixed(3);
-
-    const gradeName =
-      language === DocumentLanguage.AR
-        ? (enrollment.grade?.nameAr ?? '—')
-        : (enrollment.grade?.nameEn ?? '—');
-
-    // Deterministically reproduce the committed payment schedule from the immutable quote (same
-    // algorithm AdmissionsRepository.createEnrollmentCharges used), so the snapshot is permanent.
-    const schedule: AgreementSnapshot['schedule'] = [];
-    const base = quote.firstDueDate ?? enrollment.createdAt;
-    if (quote.paymentMode === QuotePaymentMode.FULL) {
-      schedule.push({ index: 1, dueDate: this.iso(quote.firstDueDate), amount: grandTotal });
-    } else {
-      const months = quote.installments;
-      const parts = splitFils(toFils(grandTotal), months); // shared single source
-      for (let i = 0; i < months; i += 1) {
-        schedule.push({
-          index: i + 1,
-          dueDate: this.iso(addMonths(base, i)),
-          amount: (parts[i]! / 1000).toFixed(3),
-        });
+    const students: AgreementSnapshot['students'] = enrollments.map((e) => {
+      const quote = e.quote!;
+      // TRANSPORT items become the transport fee, everything else is tuition/charges; discount is the
+      // summed discount; net is the amount payable after discount. (tuition + transport − discount).
+      let transport = new Prisma.Decimal(0);
+      let tuition = new Prisma.Decimal(0);
+      let discount = new Prisma.Decimal(0);
+      for (const it of quote.items) {
+        if (it.kind === FeeItemKind.TRANSPORT) transport = transport.plus(it.amount);
+        else tuition = tuition.plus(it.amount);
+        discount = discount.plus(it.discountAmount);
       }
-    }
+      return {
+        nameEn: fullNameEn(e.student),
+        nameAr: fullNameAr(e.student),
+        studentNumber: e.student.nationalId ?? '',
+        gradeName:
+          language === DocumentLanguage.AR ? (e.grade?.nameAr ?? '—') : (e.grade?.nameEn ?? '—'),
+        sectionName: e.student.section?.name ?? null,
+        tuition: tuition.toFixed(3),
+        transportation: transport.toFixed(3),
+        discount: discount.toFixed(3),
+        net: quote.grandTotal.toFixed(3),
+      };
+    });
+    const grandTotal = students.reduce((a, s) => a + Number(s.net), 0).toFixed(3);
 
     return {
       agreementNo: 0, // assigned at persist time
       version: 0, // assigned at persist time
-      academicYearName: enrollment.academicYear?.name ?? '—',
-      registrationDate: this.iso(enrollment.createdAt) ?? '',
+      academicYearName: triggering.academicYear?.name ?? '—',
+      registrationDate: this.iso(triggering.createdAt) ?? '',
       parentNameEn: parent ? fullNameEn(parent) : '—',
       parentNameAr: parent ? fullNameAr(parent) : null,
       parentNationalId: parent?.nationalId ?? null,
       parentPhone: parent?.phone ?? null,
       parentAddress: null,
-      students: [
-        {
-          nameEn: fullNameEn(student),
-          nameAr: fullNameAr(student),
-          studentNumber: student.nationalId ?? '',
-          gradeName,
-          sectionName: student.section?.name ?? null,
-          tuition: tuition.toFixed(3),
-          transportation: transport.toFixed(3),
-          discount: discount.toFixed(3),
-          net: grandTotal,
-        },
-      ],
+      students,
       grandTotal,
-      schedule,
+      schedule: this.combineSchedules(enrollments),
       legalClausesEn: DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN,
       legalClausesAr: DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR,
       registrarName: null,
     };
+  }
+
+  /** The family payment schedule: each enrolment's installments merged by due date, then re-indexed. */
+  private combineSchedules(enrollments: SourceEnrollment[]): AgreementSnapshot['schedule'] {
+    const byDate = new Map<string, number>();
+    for (const e of enrollments) {
+      for (const { dueDate, fils } of this.installmentFils(e)) {
+        const key = dueDate ?? '￿'; // undated installments sort last
+        byDate.set(key, (byDate.get(key) ?? 0) + fils);
+      }
+    }
+    return [...byDate.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+      .map(([key, fils], i) => ({
+        index: i + 1,
+        dueDate: key === '￿' ? null : key,
+        amount: (fils / 1000).toFixed(3),
+      }));
+  }
+
+  /**
+   * One enrolment's installments in fils, deterministically reproduced from the immutable quote (same
+   * algorithm AdmissionsRepository.createEnrollmentCharges used), so the snapshot is permanent.
+   */
+  private installmentFils(e: SourceEnrollment): Array<{ dueDate: string | null; fils: number }> {
+    const quote = e.quote!;
+    const totalFils = toFils(quote.grandTotal.toFixed(3));
+    if (quote.paymentMode === QuotePaymentMode.FULL) {
+      return [{ dueDate: this.iso(quote.firstDueDate), fils: totalFils }];
+    }
+    const base = quote.firstDueDate ?? e.createdAt;
+    return splitFils(totalFils, quote.installments).map((fils, i) => ({
+      dueDate: this.iso(addMonths(base, i)),
+      fils,
+    }));
   }
 
   private iso(d: Date | null | undefined): string | null {
