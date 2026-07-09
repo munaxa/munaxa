@@ -1,6 +1,6 @@
 import { DocumentLanguage, QuotePaymentMode } from '@prisma/client';
 import { PdfRenderer } from './pdf-renderer';
-import { shapeForPdf } from './arabic-text';
+import { layoutRuns } from './arabic-text';
 import type { BrandingContext, DocumentLayout } from './document-layout';
 import { buildAgreementLayout, type AgreementSnapshot } from '../templates/agreement-template';
 
@@ -274,7 +274,7 @@ describe('PDF document regressions (Arabic / English / bilingual)', () => {
   });
 });
 
-// ── Item 5: LTR tokens embedded in Arabic must survive shaping + bidi reorder ──
+// ── Item 5: LTR tokens embedded in Arabic must survive bidi layout as one contiguous run ──
 describe('embedded LTR tokens inside Arabic (emails, URLs, IBANs, invoices, QR)', () => {
   const preserved: Array<[string, string, string]> = [
     ['email', 'البريد info@test.edu للتواصل', 'info@test.edu'],
@@ -285,14 +285,15 @@ describe('embedded LTR tokens inside Arabic (emails, URLs, IBANs, invoices, QR)'
   ];
 
   for (const [kind, input, token] of preserved) {
-    it(`keeps the ${kind} contiguous and in reading order`, () => {
-      expect(shapeForPdf(input)).toContain(token);
+    it(`keeps the ${kind} contiguous in a single left-to-right run`, () => {
+      // Some visual run holds the whole token, unbroken and unreversed.
+      expect(layoutRuns(input).some((r) => !r.rtl && r.text.includes(token))).toBe(true);
     });
   }
 
-  it('leaves a pure-ASCII QR payload completely untouched', () => {
+  it('leaves a pure-ASCII QR payload as one unchanged LTR run', () => {
     const qr = 'AQ1UZXN0IEFjYWRlbXkCD0lOVi0yMDI2LTAwMTAyNQ==';
-    expect(shapeForPdf(qr)).toBe(qr);
+    expect(layoutRuns(qr)).toEqual([{ text: qr, rtl: false }]);
   });
 });
 
@@ -311,9 +312,9 @@ describe('space-separated identifiers stay left-to-right inside Arabic', () => {
 
   for (const [kind, input, token] of spaced) {
     it(`keeps the ${kind} in reading order and drops all isolate controls`, () => {
-      const out = shapeForPdf(input);
-      expect(out).toContain(token);
-      expect(out).not.toMatch(/[⁦-⁩]/); // no U+2066..U+2069 leaked to the renderer
+      const runs = layoutRuns(input);
+      expect(runs.some((r) => !r.rtl && r.text.includes(token))).toBe(true);
+      expect(runs.every((r) => !/[⁦-⁩]/.test(r.text))).toBe(true); // no U+2066..U+2069 leaked
     });
   }
 

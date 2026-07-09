@@ -3,27 +3,18 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BrandingContext, DocumentLayout, LayoutBlock, TableColumn } from './document-layout';
-import { containsArabic, shapeForPdf } from './arabic-text';
+import { containsArabic, layoutRuns } from './arabic-text';
 
 /**
  * Bundled Arabic font (Noto Naskh Arabic, OFL; see fonts/LICENSE.txt), copied next to the compiled
  * output by nest-cli's asset step so it resolves from `__dirname` in both ts-jest (src) and production
- * (dist). Noto Naskh is a production-quality naskh face whose Arabic *presentation-form* glyphs are
- * self-connecting — the shape we hand PDFKit — so our pre-shaped output renders cleanly (GPOS-only faces
- * such as Amiri leave gaps on pre-shaped forms). Defaulting to it guarantees Arabic never silently falls
- * back to a Latin-only font (unreadable in Acrobat).
+ * (dist). Defaulting to it guarantees Arabic never silently falls back to a Latin-only font (unreadable
+ * in Acrobat). Shaping is the font's own OpenType job now, so any Arabic OpenType face works — point
+ * PDF_ARABIC_FONT_PATH at Amiri, Noto Sans Arabic, etc. to override.
  */
 const FONTS_DIR = join(__dirname, 'fonts');
 const BUNDLED_ARABIC = join(FONTS_DIR, 'NotoNaskhArabic-Regular.ttf');
 const BUNDLED_ARABIC_BOLD = join(FONTS_DIR, 'NotoNaskhArabic-Bold.ttf');
-
-/**
- * Logical→visual text transform applied to every string before it reaches PDFKit. It shapes Arabic
- * glyphs and applies bidirectional reordering (see {@link shapeForPdf}); Latin/numeric strings pass
- * through untouched, so callers stay backward compatible. Used for width/height measurement; text is
- * actually drawn via {@link PdfRenderer.drawText}, which also preserves the logical text layer.
- */
-const t = (value: string): string => shapeForPdf(value);
 
 export interface RenderedPdf {
   buffer: Buffer;
@@ -58,15 +49,15 @@ const FONT_ARABIC_BOLD = 'MunaxaArabicBold';
  * renderer is deliberately layout-agnostic: it knows how to draw a header, fields, tables, totals
  * and a signature block, and every official document is expressed as data for it to render.
  *
- * Arabic note: pdfkit's built-in fonts cover Latin only, and even with an embedded Arabic TTF pdfkit
- * does no complex-script processing — it draws code points in logical order with no glyph shaping or
- * bidirectional reordering, which makes raw Arabic unreadable. Two things therefore cooperate here:
- *   1. An Arabic-capable TTF is embedded when PDF_ARABIC_FONT_PATH is configured (see
- *      {@link registerFonts}) so the glyphs exist in the font.
- *   2. Text is drawn via {@link PdfRenderer.drawText}: Arabic is shaped and reordered to visual order
- *      by {@link shapeForPdf} so the glyphs display correctly, and the *original logical* Unicode is
- *      attached as an `/ActualText` marked-content span so copy/search/screen readers still get correct,
- *      un-reversed text. Latin/numeric text is untouched, so this is fully backward compatible.
+ * Arabic note: pdfkit (via fontkit) DOES run the embedded font's OpenType shaper, so Arabic handed to
+ * it in *logical* order comes out correctly joined — but pdfkit does no bidirectional reordering. So:
+ *   1. An Arabic-capable TTF is embedded (bundled Noto Naskh, or PDF_ARABIC_FONT_PATH; see
+ *      {@link registerFonts}), and the Latin family stays Helvetica.
+ *   2. Text is drawn via {@link PdfRenderer.drawText}, which uses {@link layoutRuns} to split each
+ *      string into directional runs in visual order and draws them left-to-right — each in its script's
+ *      font, with the font shaping Arabic natively (no presentation-form table). The *original logical*
+ *      Unicode is attached as an `/ActualText` marked-content span so copy/search/screen readers get
+ *      correct text. Pure Latin/numeric text is drawn unchanged, so it is fully backward compatible.
  */
 @Injectable()
 export class PdfRenderer {
@@ -277,7 +268,7 @@ export class PdfRenderer {
       const heights = columns.map((c, i) => {
         const cell = String(record[c.key] ?? '');
         doc.font(this.fontFor(cell, bold));
-        return doc.heightOfString(t(cell), { width: widths[i]! - 8 });
+        return doc.heightOfString(cell, { width: widths[i]! - 8 });
       });
       const rowH = Math.max(14, ...heights) + 6;
       this.ensureSpace(doc, rowH);
@@ -373,17 +364,14 @@ export class PdfRenderer {
   }
 
   /**
-   * Draws a text run while keeping the PDF's logical text layer correct. Arabic must be handed to
-   * pdfkit shaped and in visual (bidi-reordered) order to *display* correctly (pdfkit draws code points
-   * left-to-right in the given order and does no bidi), but that same string is what pdfkit stores as
-   * the text layer — so copy, search and screen readers would otherwise get reversed, presentation-form
-   * text. For Arabic-bearing runs we therefore wrap the drawn glyphs in an `/ActualText` marked-content
-   * span carrying the original *logical* Unicode, which conforming consumers (Acrobat, Chrome/Edge,
-   * poppler, PDF/UA readers) return instead of the visual glyphs. Latin-only runs are drawn plainly.
-   *
-   * `logical` is the pre-shaping string; the visually-ordered glyphs come from {@link shapeForPdf}. The
-   * cursor/layout behaviour is identical to a bare `doc.text` — the marked-content operators paint
-   * nothing and pdfkit balances them automatically across page breaks.
+   * Draws a text run with correct bidirectional layout and a correct logical text layer.
+   * {@link layoutRuns} splits the logical string into directional runs in visual (left-to-right) order;
+   * we draw them as one continued sequence, each run in its script's font (Arabic runs enable the
+   * `rtla` OpenType feature and let the font shape natively), so mixed Arabic/Latin/number text reads
+   * correctly. The whole span is wrapped in an `/ActualText` marked-content entry carrying the original
+   * *logical* Unicode, so copy/search/screen readers (Acrobat, Chrome/Edge, poppler, PDF/UA) get correct
+   * text. Pure Latin/numeric text draws as a single unchanged run. The marked-content operators paint
+   * nothing and pdfkit balances them across page breaks; cursor/layout behaviour matches `doc.text`.
    */
   private drawText(
     doc: PDFKit.PDFDocument,
@@ -393,15 +381,53 @@ export class PdfRenderer {
     options?: PDFKit.Mixins.TextOptions,
     bold = false,
   ): void {
-    doc.font(this.fontFor(logical, bold));
-    const visual = shapeForPdf(logical);
-    if (!containsArabic(logical)) {
-      doc.text(visual, x, y, options);
-      return;
+    const runs = layoutRuns(logical);
+    const tagged = containsArabic(logical);
+    if (tagged) doc.markContent('Span', { actual: logical });
+
+    const align = options?.align;
+    if ((align === 'right' || align === 'center') && runs.length > 1) {
+      // PDFKit's `align` is unreliable across `continued` runs (fragments overlap), so we position the
+      // line ourselves: measure the runs and start them at the correct x, then draw left-to-right.
+      const width = options?.width ?? doc.page.width - doc.page.margins.right - x;
+      let total = 0;
+      for (const run of runs) {
+        doc.font(this.fontFor(run.text, bold));
+        total += doc.widthOfString(
+          run.text,
+          containsArabic(run.text) ? { features: ['rtla'] } : {},
+        );
+      }
+      const startX = align === 'right' ? x + width - total : x + (width - total) / 2;
+      this.drawRunsInline(doc, runs, startX, y, bold, {
+        ...options,
+        align: undefined,
+        width: undefined,
+      });
+    } else {
+      this.drawRunsInline(doc, runs, x, y, bold, options);
     }
-    doc.markContent('Span', { actual: logical });
-    doc.text(visual, x, y, options);
-    doc.endMarkedContent();
+
+    if (tagged) doc.endMarkedContent();
+  }
+
+  /** Draw already-ordered runs as one continued sequence starting at (x, y), each in its script font. */
+  private drawRunsInline(
+    doc: PDFKit.PDFDocument,
+    runs: ReturnType<typeof layoutRuns>,
+    x: number,
+    y: number,
+    bold: boolean,
+    options?: PDFKit.Mixins.TextOptions,
+  ): void {
+    runs.forEach((run, i) => {
+      const runArabic = containsArabic(run.text);
+      doc.font(this.fontFor(run.text, bold));
+      const runOptions: PDFKit.Mixins.TextOptions = { ...options, continued: i < runs.length - 1 };
+      if (runArabic) runOptions.features = ['rtla'];
+      if (i === 0) doc.text(run.text, x, y, runOptions);
+      else doc.text(run.text, runOptions);
+    });
   }
 
   /**
