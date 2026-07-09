@@ -392,11 +392,12 @@ describe('PdfRenderer', () => {
       });
     }
 
-    it('exposes placeholder legal defaults rather than inventing legal wording', () => {
-      // The binding clauses are configured per tenant; the defaults are obvious bracketed placeholders.
-      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN[0]).toMatch(/^\[/);
-      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN[0]).toContain('Organization settings');
-      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR[0]).toMatch(/^\[/);
+    it('ships the verbatim default undertaking clauses (Arabic authoritative, English parallel)', () => {
+      // Six parallel clauses; the Arabic is the final legal text embedded exactly as provided.
+      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR).toHaveLength(6);
+      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN).toHaveLength(6);
+      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR[0]).toContain('أتعهد، بصفتي الشخصية');
+      expect(DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR[5]).toContain('المحاكم الأردنية');
     });
 
     it('renders the bilingual legal declaration as a mirrored two-column block', () => {

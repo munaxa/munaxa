@@ -176,13 +176,24 @@ export function buildParentCommitmentLayout(
 }
 
 /**
- * Placeholder default ONLY. The real, legally binding undertaking clauses are set per school in the
- * Organization settings and embedded verbatim — they are never authored or edited here. These neutral
- * bracketed notes make an unconfigured tenant obvious rather than shipping invented legal text.
+ * The default binding undertaking clauses, embedded VERBATIM. The Arabic is the authoritative legal
+ * text (final — never reworded, reordered, or re-punctuated); the English is its parallel translation
+ * for the bilingual two-column declaration. A tenant may override both in Organization settings, but
+ * the Arabic must always be stored and rendered exactly as provided.
  */
-export const DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN: string[] = [
-  '[ The binding undertaking clauses are configured per school in Organization settings and embedded verbatim. ]',
-];
 export const DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_AR: string[] = [
-  '[ تُضبط بنود التعهد والالتزام المالي من إعدادات المدرسة وتُدرج كما هي. ]',
+  'أتعهد، بصفتي الشخصية، بدفع الأقساط الدراسية والرسوم المبينة أعلاه في المواعيد المحددة. وفي حال تخلفي عن سداد أي قسط أو رسم عند استحقاقه، يحق للمدرسة المطالبة بجميع المبالغ المستحقة واتخاذ الإجراءات القانونية اللازمة وفقاً لأحكام القوانين النافذة في المملكة الأردنية الهاشمية، مع استحقاق الفائدة القانونية بالحدود التي يجيزها القانون.',
+  'وأقر بأن الأقساط الدراسية تشمل خدمة التعليم المعتمدة من وزارة التربية والتعليم، سواء كانت داخل المدرسة أو من خلال التعليم عن بُعد. كما أتعهد بعدم المطالبة باسترداد أي مبالغ دفعتها كأقساط أو رسوم أو بدلات، إلا وفقاً لشروط التسجيل المعتمدة لدى المدرسة وأحكام القوانين النافذة، بما في ذلك في حال انسحاب أي من أبنائي من المدرسة خلال السنة الدراسية.',
+  'كما ألتزم بنظام النقل والمواصلات الساري في المدرسة طوال مدة الاشتراك بالخدمة، ويحق للمدرسة حجب الخدمات الاختيارية، ومنها خدمة النقل والمواصلات، عند التأخر في سداد المستحقات وفقاً لأنظمتها النافذة.',
+  'وأتعهد برد قيمة خصم التفوق المشروط الذي منحته المدرسة لابني/ابنتي في المرحلة الثانوية إذا انسحب أو انتقل أو انفصل قبل إتمام المرحلة الثانوية، وذلك وفقاً لشروط الخصم المعتمدة.',
+  'وأقر بأنني أفقد حق الاستفادة من أي خصومات أو مزايا منحتها المدرسة في حال عدم الالتزام بسداد أي دفعة في موعد استحقاقها، أو في حال إعادة أي شيك أو كمبيالة محررة لصالح المدرسة دون صرف، أو في حال انتقال أي من أبنائي أو الخاضعين لسلطتي القانونية من المدرسة خلال السنة الدراسية، وذلك وفقاً لشروط الخصومات وأحكام القانون.',
+  'ويخضع هذا التعهد لأحكام القوانين النافذة في المملكة الأردنية الهاشمية، وتختص المحاكم الأردنية بالنظر في أي نزاع ينشأ عنه.',
+];
+export const DEFAULT_PARENT_COMMITMENT_LEGAL_CLAUSES_EN: string[] = [
+  'I, the undersigned, personally undertake to pay the tuition fees and charges stated above on the due dates. If I fail to pay any installment or fee when due, the school has the right to claim all outstanding amounts and take the necessary legal actions in accordance with the provisions of the applicable laws in the Hashemite Kingdom of Jordan, with entitlement to legal interest within the limits permitted by law.',
+  'I acknowledge that tuition fees include the education service accredited by the Ministry of Education, whether provided on-campus or via distance learning. I also undertake not to request a refund of any amounts paid as installments, fees, or other charges, except in accordance with the school’s registration terms and the applicable laws, including in the event of withdrawal of any of my children from the school during the academic year.',
+  'I commit to the school’s transportation system throughout the subscription period, and the school has the right to withhold optional services, including transportation, in case of delay in paying due amounts in accordance with its policies.',
+  'I undertake to repay the value of the conditional academic excellence discount granted by the school to my son/daughter in the secondary stage if he/she withdraws, transfers, or leaves before completing the secondary stage, in accordance with the approved discount terms.',
+  'I acknowledge that I lose the right to benefit from any discounts or privileges granted by the school in case of failure to pay any installment on its due date, or in case any cheque or promissory note issued in favor of the school is returned unpaid, or in case any of my children or those under my legal authority transfers from the school during the academic year, in accordance with the discount terms and the provisions of the law.',
+  'I understand that this undertaking is governed by the applicable laws in the Hashemite Kingdom of Jordan, and the Jordanian courts have jurisdiction over any dispute arising herefrom.',
 ];
