@@ -1,4 +1,4 @@
-import { DocumentLanguage, QuotePaymentMode } from '@prisma/client';
+import { DocumentLanguage } from '@prisma/client';
 import { PdfRenderer } from './pdf-renderer';
 import { layoutRuns } from './arabic-text';
 import type { BrandingContext, DocumentLayout } from './document-layout';
@@ -199,30 +199,34 @@ function agreementSnapshot(): AgreementSnapshot {
     version: 1,
     academicYearName: '2025/2026',
     registrationDate: '2026-06-28',
-    studentNameEn: 'Ahmad Mohammad',
-    studentNameAr: 'أحمد محمد',
-    studentNationalId: '9990001112',
     parentNameEn: 'Sara Ali',
     parentNameAr: 'سارة علي',
+    parentNationalId: '9990001112',
     parentPhone: '+962 79 000 0000',
-    gradeName: 'Grade 1',
-    sectionName: 'A',
-    paymentMode: QuotePaymentMode.INSTALLMENTS,
-    installments: 3,
-    lines: [
-      { label: 'رسوم دراسية / Tuition', gross: '900.000', discount: '0.000', net: '900.000' },
+    parentAddress: 'Amman, Jordan',
+    students: [
+      {
+        nameEn: 'Ahmad Mohammad',
+        nameAr: 'أحمد محمد',
+        studentNumber: '20250001',
+        gradeName: 'Grade 1',
+        sectionName: 'A',
+        tuition: '900.000',
+        transportation: '0.000',
+        discount: '0.000',
+        net: '900.000',
+      },
     ],
-    subtotal: '900.000',
-    totalDiscount: '0.000',
     grandTotal: '900.000',
     schedule: [
       { index: 1, dueDate: '2026-09-01', amount: '300.000' },
       { index: 2, dueDate: '2026-10-01', amount: '300.000' },
       { index: 3, dueDate: '2026-11-01', amount: '300.000' },
     ],
-    legalText:
-      'بالتوقيع أدناه، يقر ولي الأمر بالموافقة على الرسوم وجدول الدفع المذكور أعلاه للعام الدراسي ' +
-      'المحدد، ويتعهد بسداد جميع المبالغ المستحقة في تواريخها. This is a binding commitment.',
+    legalClausesEn: ['This is a binding commitment governed by the applicable laws.'],
+    legalClausesAr: [
+      'بالتوقيع أدناه، يقر ولي الأمر بالموافقة على الرسوم وجدول الدفع المذكور أعلاه.',
+    ],
     registrarName: 'المسجل',
   };
 }

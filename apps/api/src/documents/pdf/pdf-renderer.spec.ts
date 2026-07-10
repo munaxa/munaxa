@@ -2,7 +2,16 @@ import { existsSync } from 'node:fs';
 import { DocumentLanguage } from '@prisma/client';
 import { PdfRenderer } from './pdf-renderer';
 import type { BrandingContext, DocumentLayout } from './document-layout';
-import { buildAgreementLayout, type AgreementSnapshot } from '../templates/agreement-template';
+import {
+  buildAgreementLayout,
+  DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN,
+  DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR,
+  type AgreementSnapshot,
+} from '../templates/agreement-template';
+
+/** Count the page objects in a PDF (the `/Type /Page` leaves, not the `/Pages` tree root). */
+const pageCount = (buffer: Buffer): number =>
+  (buffer.toString('latin1').match(/\/Type\s*\/Page(?![s])/g) ?? []).length;
 
 /** First available TrueType font on this machine (DejaVu ships almost everywhere), or null. */
 const SYSTEM_TTF = [
@@ -67,26 +76,32 @@ describe('PdfRenderer', () => {
       version: 1,
       academicYearName: '2025/2026',
       registrationDate: '2026-06-28',
-      studentNameEn: 'John Doe',
-      studentNameAr: 'جون دو',
-      studentNationalId: '9990001112',
       parentNameEn: 'Jane Doe',
       parentNameAr: 'جين دو',
+      parentNationalId: '9990001112',
       parentPhone: '+962 79 000 0000',
-      gradeName: 'Grade 1',
-      sectionName: 'A',
-      paymentMode: 'INSTALLMENTS',
-      installments: 3,
-      lines: [{ label: 'Tuition', gross: '900.000', discount: '0.000', net: '900.000' }],
-      subtotal: '900.000',
-      totalDiscount: '0.000',
+      parentAddress: 'Amman, Jordan',
+      students: [
+        {
+          nameEn: 'John Doe',
+          nameAr: 'جون دو',
+          studentNumber: '20250001',
+          gradeName: 'Grade 1',
+          sectionName: 'A',
+          tuition: '900.000',
+          transportation: '0.000',
+          discount: '0.000',
+          net: '900.000',
+        },
+      ],
       grandTotal: '900.000',
       schedule: [
         { index: 1, dueDate: '2026-09-01', amount: '300.000' },
         { index: 2, dueDate: '2026-10-01', amount: '300.000' },
         { index: 3, dueDate: '2026-11-01', amount: '300.000' },
       ],
-      legalText: 'Binding commitment.',
+      legalClausesEn: DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN,
+      legalClausesAr: DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR,
       registrarName: 'Registrar User',
     };
     const layout = buildAgreementLayout(snapshot, DocumentLanguage.EN);
@@ -185,6 +200,25 @@ describe('PdfRenderer', () => {
     const out = await renderer.render(layout, branding);
     expectValidPdf(out);
     expect(out.byteSize).toBeGreaterThan(1000);
+  });
+
+  // Regression guard: the footer draws BELOW the content box, which used to make pdfkit auto-append a
+  // blank page per footer line (a short document silently became 3 pages). The footer pass must not
+  // add pages — a one-page document stays exactly one page.
+  it('does not emit phantom pages for the footer (single-page document is 1 page)', async () => {
+    const layout: DocumentLayout = {
+      title: 'Short Document',
+      footer: 'Al-Test Academy · جميع الحقوق محفوظة',
+      language: DocumentLanguage.BILINGUAL,
+      meta: [{ label: 'No.', value: 'DOC-000001' }],
+      blocks: [
+        { kind: 'heading', text: 'Section / قسم' },
+        { kind: 'paragraph', text: 'A single short paragraph.' },
+        { kind: 'signatures', blocks: [{ label: 'Parent / ولي الأمر' }] },
+      ],
+    };
+    const out = await renderer.render(layout, branding);
+    expect(pageCount(out.buffer)).toBe(1);
   });
 
   // Regression guard for the mojibake root cause: Arabic used to fall back to the WinAnsi standard
@@ -309,5 +343,104 @@ describe('PdfRenderer', () => {
     // pdfkit embeds a creation date, so byte-for-byte equality is not guaranteed; assert the
     // renderer is stable in structure (same size) — checksum equality is asserted at the data layer.
     expect(a.byteSize).toBe(b.byteSize);
+  });
+
+  // ── Registration Agreement = the parent's financial commitment (the master enterprise template) ──
+  describe('Registration Agreement master template', () => {
+    const snapshot: AgreementSnapshot = {
+      agreementNo: 123,
+      version: 1,
+      academicYearName: '2025/2026',
+      registrationDate: '2026-07-09',
+      parentNameEn: 'Sara Ali',
+      parentNameAr: 'سارة علي',
+      parentNationalId: '9871234567',
+      parentPhone: '+962 79 123 4567',
+      parentAddress: 'Abdoun, Amman, Jordan',
+      students: [
+        {
+          nameEn: 'Saif Abu Al-Hajj',
+          nameAr: 'سيف تامر أبو الحاج',
+          studentNumber: '20212115',
+          gradeName: 'KG',
+          sectionName: null,
+          tuition: '1350.000',
+          transportation: '350.000',
+          discount: '65.000',
+          net: '1635.000',
+        },
+        {
+          nameEn: 'Thia Abu Al-Hajj',
+          nameAr: 'ثيا تامر أبو الحاج',
+          studentNumber: '20242228',
+          gradeName: 'KG',
+          sectionName: null,
+          tuition: '950.000',
+          transportation: '250.000',
+          discount: '95.000',
+          net: '1105.000',
+        },
+      ],
+      grandTotal: '2740.000',
+      schedule: [
+        { index: 1, dueDate: '2024-08-24', amount: '275.000' },
+        { index: 2, dueDate: '2024-09-01', amount: '310.000' },
+        { index: 3, dueDate: '2024-10-01', amount: '310.000' },
+      ],
+      legalClausesEn: [
+        'I undertake to pay the fees stated above on their due dates in accordance with the schedule.',
+        'I acknowledge that this is a binding financial commitment governed by the applicable laws.',
+      ],
+      legalClausesAr: [
+        'أتعهد بدفع الرسوم المبيّنة أعلاه في مواعيدها وفق الجدول المذكور.',
+        'وأقر بأن هذا التزام مالي ملزم يخضع للقوانين النافذة.',
+      ],
+      registrarName: 'د. سالم القاسم',
+    };
+
+    for (const language of [DocumentLanguage.BILINGUAL, DocumentLanguage.AR, DocumentLanguage.EN]) {
+      it(`renders a compact, non-fragmented document in ${language}`, async () => {
+        const layout = buildAgreementLayout(snapshot, language);
+        expect(layout.density).toBe('compact');
+        const out = await renderer.render(layout, branding);
+        expectValidPdf(out);
+        // Single-language agreements fit one A4 page; the bilingual variant shows both full legal
+        // columns so it may take a second page — but never fragments into phantom footer pages.
+        const pages = pageCount(out.buffer);
+        expect(pages).toBeGreaterThanOrEqual(1);
+        expect(pages).toBeLessThanOrEqual(language === DocumentLanguage.BILINGUAL ? 2 : 1);
+      });
+    }
+
+    it('ships the verbatim default undertaking clauses (Arabic authoritative, English parallel)', () => {
+      // Six parallel clauses; the Arabic is the final legal text embedded exactly as provided.
+      expect(DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR).toHaveLength(6);
+      expect(DEFAULT_AGREEMENT_LEGAL_CLAUSES_EN).toHaveLength(6);
+      expect(DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR[0]).toContain('أتعهد، بصفتي الشخصية');
+      expect(DEFAULT_AGREEMENT_LEGAL_CLAUSES_AR[5]).toContain('المحاكم الأردنية');
+    });
+
+    it('renders the bilingual legal declaration as a mirrored two-column block', () => {
+      const layout = buildAgreementLayout(snapshot, DocumentLanguage.BILINGUAL);
+      const legal = layout.blocks.find((b) => b.kind === 'legal');
+      expect(legal).toEqual({
+        kind: 'legal',
+        en: snapshot.legalClausesEn,
+        ar: snapshot.legalClausesAr,
+      });
+    });
+
+    it('collapses to a single-language legal column for EN-only / AR-only documents', () => {
+      const en = buildAgreementLayout(snapshot, DocumentLanguage.EN).blocks.find(
+        (b) => b.kind === 'legal',
+      );
+      const ar = buildAgreementLayout(snapshot, DocumentLanguage.AR).blocks.find(
+        (b) => b.kind === 'legal',
+      );
+      expect(en).toMatchObject({ ar: [] });
+      expect(en).toMatchObject({ en: snapshot.legalClausesEn });
+      expect(ar).toMatchObject({ en: [] });
+      expect(ar).toMatchObject({ ar: snapshot.legalClausesAr });
+    });
   });
 });

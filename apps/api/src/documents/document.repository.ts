@@ -5,6 +5,7 @@ import {
   DocumentLanguage,
   DocumentPersistence,
   DocumentType,
+  EnrollmentStatus,
   Prisma,
   RegistrationAgreementStatus,
 } from '@prisma/client';
@@ -361,10 +362,10 @@ export class DocumentRepository extends TenantRepository {
   }
 
   /**
-   * Persist THE registration agreement for an enrollment (exactly one, immutable — no versioning):
-   * allocate the agreement + document numbers, store the permanent snapshot + rendered PDF, and link
-   * them. The caller (RegistrationAgreementService) guarantees no agreement yet exists for the
-   * enrollment, so this never supersedes/archives anything.
+   * Persist a registration agreement (the current version for a guardian+year): allocate the
+   * agreement + document numbers, store the permanent snapshot + rendered PDF, and link them. When
+   * `supersedesId` is set this is a new version — the prior agreement is archived in the same
+   * transaction so it remains immutable history but is no longer the current one.
    */
   persistAgreement(input: {
     enrollmentId: string;
@@ -386,9 +387,14 @@ export class DocumentRepository extends TenantRepository {
     pdf: Buffer;
     checksum: string;
     byteSize: number;
+    /** New version number (1 for the first agreement; N+1 when superseding). */
+    version?: number;
+    /** When set, this agreement supersedes an existing one (which is archived in the same tx). */
+    supersedesId?: string | null;
   }) {
     return this.run(async (tx, tenantId) => {
       const agreementNo = await this.nextNumber(tx, tenantId, 'AGREEMENT');
+      const version = input.version ?? 1;
       const document = await this.archiveInTx(tx, tenantId, {
         type: DocumentType.REGISTRATION_AGREEMENT,
         title: input.title,
@@ -397,18 +403,27 @@ export class DocumentRepository extends TenantRepository {
         parentId: input.parentId,
         academicYearId: input.academicYearId,
         enrollmentId: input.enrollmentId,
-        version: 1,
+        version,
         dataSnapshot: input.dataSnapshot,
         pdf: input.pdf,
         checksum: input.checksum,
         byteSize: input.byteSize,
       });
 
+      // Superseding: archive the prior version so it stays as immutable history but is no longer the
+      // current agreement for the parent+year.
+      if (input.supersedesId) {
+        await tx.registrationAgreement.update({
+          where: { id: input.supersedesId },
+          data: { status: RegistrationAgreementStatus.ARCHIVED },
+        });
+      }
+
       const agreement = await tx.registrationAgreement.create({
         data: {
           tenantId,
           agreementNo,
-          version: 1, // deprecated field — always 1 (no versioning)
+          version,
           status: RegistrationAgreementStatus.GENERATED,
           enrollmentId: input.enrollmentId,
           studentId: input.studentId,
@@ -424,6 +439,7 @@ export class DocumentRepository extends TenantRepository {
           installmentSchedule: input.installmentSchedule,
           grandTotal: input.grandTotal,
           documentId: document.id,
+          supersedesId: input.supersedesId ?? null,
           registrarId: this.actor(),
         },
       });
@@ -431,10 +447,56 @@ export class DocumentRepository extends TenantRepository {
         action: 'document.registrationAgreement.generate',
         entityType: 'RegistrationAgreement',
         entityId: agreement.id,
-        metadata: { agreementNo, enrollmentId: input.enrollmentId },
+        metadata: { agreementNo, enrollmentId: input.enrollmentId, version },
       });
       return { agreement, document };
     });
+  }
+
+  /**
+   * All of a guardian's COMMITTED enrollments for an academic year (with the immutable quote, grade
+   * and section), so one registration agreement can cover every student under that guardian. Ordered
+   * by creation so the students table is stable.
+   */
+  guardianEnrollments(parentId: string, academicYearId: string) {
+    return this.run((tx) =>
+      tx.enrollment.findMany({
+        where: {
+          academicYearId,
+          status: EnrollmentStatus.COMMITTED,
+          student: { parentLinks: { some: { parentId } } },
+        },
+        orderBy: { createdAt: 'asc' },
+        include: {
+          quote: { include: { items: true } },
+          academicYear: { select: { id: true, name: true, campusId: true } },
+          grade: { select: { id: true, nameEn: true, nameAr: true } },
+          student: {
+            include: {
+              section: { select: { id: true, name: true } },
+              parentLinks: { include: { parent: true }, orderBy: { isPrimary: 'desc' } },
+            },
+          },
+        },
+      }),
+    );
+  }
+
+  /** The current (non-archived, non-cancelled) agreement for a parent+year — the highest version. */
+  currentAgreementForParentYear(parentId: string, academicYearId: string) {
+    return this.run((tx) =>
+      tx.registrationAgreement.findFirst({
+        where: {
+          parentId,
+          academicYearId,
+          status: {
+            notIn: [RegistrationAgreementStatus.ARCHIVED, RegistrationAgreementStatus.CANCELLED],
+          },
+        },
+        include: { document: { select: META_SELECT } },
+        orderBy: { version: 'desc' },
+      }),
+    );
   }
 
   /**
