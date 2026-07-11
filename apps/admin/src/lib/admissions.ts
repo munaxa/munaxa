@@ -94,6 +94,8 @@ export interface CommitRequest {
     email?: string;
     relation?: 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER';
   };
+  /** Existing parent to link (chosen instead of entering a new parent). */
+  existingParentId?: string;
   sectionId?: string;
   /** Fleet route to assign the student to (bus tracking). */
   busRouteId?: string;

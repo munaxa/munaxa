@@ -6,6 +6,7 @@ import {
   DocumentPersistence,
   DocumentType,
   EnrollmentStatus,
+  PaymentStatus,
   Prisma,
   RegistrationAgreementStatus,
 } from '@prisma/client';
@@ -356,7 +357,25 @@ export class DocumentRepository extends TenantRepository {
     return this.run((tx) =>
       tx.registrationAgreement.findFirst({
         where: { id },
+        // Presence of a signed copy is signalled by signedFileName/signedFileKey — never load the
+        // (potentially large) inline bytes here; stream them via signedBlob() when actually needed.
+        omit: { signedFileData: true },
         include: { document: { select: META_SELECT } },
+      }),
+    );
+  }
+
+  /** The signed copy's storage reference + inline bytes + display metadata (for streaming it back). */
+  signedBlob(id: string) {
+    return this.run((tx) =>
+      tx.registrationAgreement.findFirst({
+        where: { id },
+        select: {
+          signedFileKey: true,
+          signedFileData: true,
+          signedFileName: true,
+          signedFileType: true,
+        },
       }),
     );
   }
@@ -507,6 +526,9 @@ export class DocumentRepository extends TenantRepository {
   private effectiveAgreementStatus(a: {
     status: RegistrationAgreementStatus;
     signedFileKey: string | null;
+    // signedFileName is set whenever a countersigned copy is attached (bucket OR inline), so it is a
+    // cheap presence signal that avoids loading the (potentially large) inline bytes in list queries.
+    signedFileName: string | null;
     document: { printedCount: number } | null;
   }): RegistrationAgreementStatus {
     if (
@@ -515,7 +537,7 @@ export class DocumentRepository extends TenantRepository {
     ) {
       return a.status;
     }
-    if (a.signedFileKey) return RegistrationAgreementStatus.SIGNED;
+    if (a.signedFileKey || a.signedFileName) return RegistrationAgreementStatus.SIGNED;
     if ((a.document?.printedCount ?? 0) > 0) return RegistrationAgreementStatus.PRINTED;
     return RegistrationAgreementStatus.GENERATED;
   }
@@ -528,6 +550,9 @@ export class DocumentRepository extends TenantRepository {
           ...(filter.studentId ? { studentId: filter.studentId } : {}),
           ...(filter.enrollmentId ? { enrollmentId: filter.enrollmentId } : {}),
         },
+        // Never pull the (potentially multi-MB) inline signed bytes into a list — presence is
+        // signalled by signedFileName/signedFileKey; the bytes are streamed on demand.
+        omit: { signedFileData: true },
         include: { document: { select: META_SELECT } },
         orderBy: [{ enrollmentId: 'asc' }, { createdAt: 'desc' }],
         take: 500,
@@ -567,7 +592,7 @@ export class DocumentRepository extends TenantRepository {
         signedBy: r.signedBy,
         signedUploadedAt: r.signedUploadedAt,
         signedUploadedByName: nameOf(r.signedUploadedById),
-        hasSigned: Boolean(r.signedFileKey),
+        hasSigned: Boolean(r.signedFileKey || r.signedFileName),
       }));
     });
   }
@@ -575,7 +600,9 @@ export class DocumentRepository extends TenantRepository {
   /** Attach (or replace) the parent's countersigned copy. Stores only a storage-key reference. */
   attachSignedAgreement(input: {
     agreementId: string;
-    fileKey: string;
+    // Exactly one of fileKey (bucket) / fileData (inline) is set; the other is cleared.
+    fileKey: string | null;
+    fileData: Uint8Array<ArrayBuffer> | null;
     fileName: string;
     contentType: string;
     size: number | null;
@@ -583,7 +610,7 @@ export class DocumentRepository extends TenantRepository {
     signedAt: Date | null;
     mode: 'upload' | 'replace';
     ctx?: AccessContext;
-  }): Promise<{ signedFileKey: string; priorKey: string | null }> {
+  }): Promise<{ signedFileKey: string | null; priorKey: string | null }> {
     return this.run(async (tx, tenantId) => {
       const existing = await tx.registrationAgreement.findFirst({
         where: { id: input.agreementId },
@@ -594,6 +621,7 @@ export class DocumentRepository extends TenantRepository {
         where: { id: input.agreementId },
         data: {
           signedFileKey: input.fileKey,
+          signedFileData: input.fileData,
           signedFileName: input.fileName,
           signedFileType: input.contentType,
           signedFileSize: input.size,
@@ -632,6 +660,7 @@ export class DocumentRepository extends TenantRepository {
         where: { id },
         data: {
           signedFileKey: null,
+          signedFileData: null,
           signedFileName: null,
           signedFileType: null,
           signedFileSize: null,
@@ -747,6 +776,31 @@ export class DocumentRepository extends TenantRepository {
         orderBy: { createdAt: 'desc' },
       }),
     );
+  }
+
+  /**
+   * The whole amount the student actually PAID within a calendar year (1 Jan … 31 Dec) — the sum of
+   * every verified payment received in that window, regardless of which charge/category it settled.
+   * This is the figure the Annual Tuition Certificate certifies (used for annual/tax purposes). A
+   * payment's date is its verification date, falling back to when it was recorded.
+   */
+  async paidInCalendarYear(studentId: string, year: number): Promise<string> {
+    return this.run(async (tx) => {
+      const start = new Date(Date.UTC(year, 0, 1));
+      const end = new Date(Date.UTC(year + 1, 0, 1));
+      const agg = await tx.payment.aggregate({
+        where: {
+          studentId,
+          status: PaymentStatus.VERIFIED,
+          OR: [
+            { verifiedAt: { gte: start, lt: end } },
+            { verifiedAt: null, createdAt: { gte: start, lt: end } },
+          ],
+        },
+        _sum: { amount: true },
+      });
+      return (agg._sum.amount ?? new Prisma.Decimal(0)).toFixed(3);
+    });
   }
 
   /** Sum of verified payments allocated to the installments of an enrollment's charges (paid/year). */

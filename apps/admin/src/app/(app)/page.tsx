@@ -651,8 +651,9 @@ function StudentDirectoryCard({
                       <TD>
                         <button
                           type="button"
-                          className="flex items-center gap-3 text-start"
+                          className="group flex items-center gap-3 text-start"
                           onClick={() => onSelect(s)}
+                          title={t('dashboard.studentProfilePreview')}
                         >
                           <span
                             aria-hidden="true"
@@ -661,7 +662,7 @@ function StudentDirectoryCard({
                             {(s.firstNameEn.trim()[0] ?? '?').toUpperCase()}
                           </span>
                           <span className="min-w-0">
-                            <span className="block truncate font-medium text-foreground">
+                            <span className="block truncate font-medium text-foreground group-hover:underline">
                               {s.firstNameEn} {s.lastNameEn}
                             </span>
                             <span

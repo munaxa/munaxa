@@ -12,6 +12,8 @@ export interface DocumentParams {
   studentId?: string;
   paymentId?: string;
   academicYearId?: string;
+  /** Calendar year (e.g. 2026) for the Annual Tuition Certificate — 1 Jan … 31 Dec of this year. */
+  year?: number;
   includeKinds?: FeeItemKind[];
 }
 

@@ -115,7 +115,11 @@ class StudentInfoDto {
   @ApiPropertyOptional() @IsOptional() @IsString() lastNameAr?: string;
   @ApiPropertyOptional({ enum: Gender }) @IsOptional() @IsEnum(Gender) gender?: Gender;
   @ApiPropertyOptional({ example: '2015-05-01' }) @IsOptional() @IsString() dateOfBirth?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() nationalId?: string;
+  // National ID is mandatory for every new student (student information requirement).
+  @ApiProperty({ description: 'National ID (mandatory)' })
+  @IsString()
+  @MinLength(1)
+  nationalId!: string;
 }
 
 class ParentInfoDto {
@@ -161,6 +165,13 @@ export class CommitDto {
   @ValidateNested()
   @Type(() => ParentInfoDto)
   parent?: ParentInfoDto;
+
+  @ApiPropertyOptional({
+    description: 'Existing parent to link (chosen instead of entering a new parent).',
+  })
+  @IsOptional()
+  @IsUUID()
+  existingParentId?: string;
 
   @ApiPropertyOptional({ description: 'Section to place the student into' })
   @IsOptional()

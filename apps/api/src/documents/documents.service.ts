@@ -60,7 +60,7 @@ export class DocumentsService {
       ...(dto.studentId ? { studentId: dto.studentId } : {}),
       ...(dto.paymentId ? { paymentId: dto.paymentId } : {}),
       ...(dto.academicYearId ? { academicYearId: dto.academicYearId } : {}),
-      ...(dto.includeKinds ? { includeKinds: dto.includeKinds } : {}),
+      ...(dto.year ? { year: dto.year } : {}),
     };
     const built = await this.finance.build(params);
     return this.engine.persist(built, params);
@@ -101,6 +101,11 @@ export class DocumentsService {
 
   viewSignedAgreement(agreementId: string, ctx?: AccessContext) {
     return this.agreements.viewSigned(agreementId, ctx);
+  }
+
+  /** Stream the signed copy's bytes back through the API (works with or without object storage). */
+  streamSignedAgreement(agreementId: string, ctx?: AccessContext) {
+    return this.agreements.streamSigned(agreementId, ctx);
   }
 
   deleteSignedAgreement(agreementId: string, ctx?: AccessContext) {

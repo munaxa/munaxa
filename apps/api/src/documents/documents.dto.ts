@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { DocumentLanguage, DocumentType, FeeItemKind } from '@prisma/client';
+import { DocumentLanguage, DocumentType } from '@prisma/client';
 import {
   IsArray,
   IsBoolean,
@@ -24,18 +24,19 @@ export class GenerateDocumentDto {
   @IsEnum(DocumentLanguage)
   language?: DocumentLanguage;
 
-  /** Required for ANNUAL_TUITION_CERTIFICATE. */
+  /** Retained for other academic-year-scoped documents; the tuition certificate uses `year`. */
   @ApiPropertyOptional() @IsOptional() @IsUUID() academicYearId?: string;
+
+  /** Required for ANNUAL_TUITION_CERTIFICATE: the calendar year (1 Jan … 31 Dec) to certify. */
+  @ApiPropertyOptional({ example: 2026, description: 'Calendar year for the tuition certificate' })
+  @IsOptional()
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
 
   /** Required for PAYMENT_RECEIPT. */
   @ApiPropertyOptional() @IsOptional() @IsUUID() paymentId?: string;
-
-  /** ANNUAL_TUITION_CERTIFICATE: optional categories to include alongside tuition. */
-  @ApiPropertyOptional({ enum: FeeItemKind, isArray: true })
-  @IsOptional()
-  @IsArray()
-  @IsEnum(FeeItemKind, { each: true })
-  includeKinds?: FeeItemKind[];
 }
 
 /** (Re)generate the registration agreement for an enrollment (creates a new version). */
@@ -66,12 +67,23 @@ export class PresignSignedAgreementDto {
   size!: number;
 }
 
-/** Confirm an uploaded signed registration agreement (echoes the server-issued fileKey). */
+/**
+ * Confirm/record a signed registration agreement. Two mutually exclusive paths:
+ *  - Direct (default): the file bytes are sent base64-encoded in `fileData` and the API stores them
+ *    (to the bucket when S3 is configured, otherwise inline). This avoids any browser→bucket PUT.
+ *  - Presigned (legacy): the browser PUT the file straight to storage and echoes back `fileKey`.
+ */
 export class ConfirmSignedAgreementDto {
-  @ApiProperty({ description: 'The tenant-scoped storage key returned by presign.' })
+  @ApiPropertyOptional({ description: 'The tenant-scoped storage key returned by presign.' })
+  @IsOptional()
   @IsString()
   @MaxLength(512)
-  fileKey!: string;
+  fileKey?: string;
+
+  @ApiPropertyOptional({ description: 'Base64-encoded file bytes (API-proxied upload path).' })
+  @IsOptional()
+  @IsString()
+  fileData?: string;
 
   @ApiProperty({ example: 'signed-agreement.pdf' })
   @IsString()

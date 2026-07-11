@@ -728,8 +728,11 @@ model Student {
   generatedDocuments    GeneratedDocument[]
   registrationAgreements RegistrationAgreement[]
 
-  @@unique([tenantId, moeStudentNumber])
-  @@unique([tenantId, nationalId])
+  // Uniqueness of nationalId / moeStudentNumber is enforced by PARTIAL unique indexes
+  // (WHERE "deletedAt" IS NULL) created in migration 20260711120000_student_unique_partial —
+  // NOT by Prisma @@unique — so that a soft-deleted student does not reserve their national-id /
+  // MoE number and the same identifier can be registered again. Do not add @@unique here (it would
+  // create plain indexes and reintroduce the "record already exists" bug against deleted rows).
   @@index([tenantId])
   @@index([tenantId, sectionId])
   @@index([tenantId, status])
@@ -3601,6 +3604,10 @@ model RegistrationAgreement {
   signedFileName     String?
   signedFileType     String? // application/pdf | image/jpeg | image/png
   signedFileSize     Int?
+  // Inline fallback: when object storage (S3) is NOT configured, the countersigned copy is stored
+  // here (bytea) so the upload/view flow works without cloud credentials. When S3 IS configured this
+  // stays NULL and the file lives in the bucket, referenced by signedFileKey.
+  signedFileData     Bytes?
   signedAt           DateTime? @db.Date // the date the parent signed (as recorded by staff)
   signedBy           String? // name of the signatory (the parent), recorded by staff
   signedUploadedById String?   @db.Uuid // staff user who uploaded the signed copy

@@ -1254,6 +1254,7 @@
     "documentType": "Document",
     "generateDocument": "Generate document",
     "language": "Language",
+    "tuitionYear": "Year (tuition certificate)",
     "includeCategories": "Include categories (tuition certificate)",
     "download": "Download",
     "emailDocument": "Email",
