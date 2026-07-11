@@ -34,6 +34,9 @@ const SIGNED_UPLOAD_MIME: ReadonlySet<string> = new Set([
   'image/png',
 ]);
 
+/** Hard ceiling for a countersigned copy (matches the presign DTO limit). */
+const MAX_SIGNED_BYTES = 15 * 1024 * 1024;
+
 function addMonths(base: Date, n: number): Date {
   const dt = new Date(base);
   const day = dt.getDate();
@@ -309,31 +312,92 @@ export class RegistrationAgreementService {
     ctx?: AccessContext,
   ) {
     this.assertSignedType(dto.contentType);
-    this.storage.assertKeyInTenant(dto.fileKey);
     const agreement = await this.repo.agreementById(agreementId);
     if (!agreement) throw new NotFoundException('Registration agreement not found');
-    if (mode === 'upload' && agreement.signedFileKey) {
+    if (mode === 'upload' && (agreement.signedFileKey || agreement.signedFileName)) {
       throw new ConflictException(
         'A signed agreement already exists — use replace to overwrite it',
       );
     }
-    const { priorKey } = await this.repo.attachSignedAgreement({
+
+    // Resolve where the bytes live. The default (API-proxied) path sends the file base64-encoded and
+    // the server stores it — to the bucket when S3 is configured, otherwise inline on the row. The
+    // legacy path echoes a presigned `fileKey`. This removes the browser→bucket PUT that failed with
+    // "failed to fetch" when storage was unconfigured (a stub host) or the bucket lacked CORS.
+    let fileKey: string | null = null;
+    let fileData: Uint8Array<ArrayBuffer> | null = null;
+    let size = dto.size ?? null;
+
+    if (dto.fileData) {
+      const buffer = Buffer.from(dto.fileData, 'base64');
+      if (buffer.length === 0) throw new BadRequestException('Uploaded file is empty');
+      if (buffer.length > MAX_SIGNED_BYTES) {
+        throw new BadRequestException('Signed agreement exceeds the maximum allowed size (15 MB)');
+      }
+      size = buffer.length;
+      if (this.storage.configured) {
+        const key = this.storage.buildKey(requireTenantId(), 'agreements-signed', dto.fileName);
+        await this.storage.putObject(key, buffer, dto.contentType);
+        fileKey = key;
+      } else {
+        // Fresh ArrayBuffer-backed copy so the type matches Prisma's Bytes input exactly.
+        fileData = Uint8Array.from(buffer);
+      }
+    } else if (dto.fileKey) {
+      this.storage.assertKeyInTenant(dto.fileKey);
+      fileKey = dto.fileKey;
+    } else {
+      throw new BadRequestException('No file provided (fileData or fileKey is required)');
+    }
+
+    const priorKey = agreement.signedFileKey;
+    await this.repo.attachSignedAgreement({
       agreementId,
-      fileKey: dto.fileKey,
+      fileKey,
+      fileData,
       fileName: dto.fileName,
       contentType: dto.contentType,
-      size: dto.size ?? null,
+      size,
       signedBy: dto.signedBy ?? null,
       signedAt: dto.signedAt ? new Date(dto.signedAt) : null,
       mode,
       ...(ctx ? { ctx } : {}),
     });
-    if (priorKey && priorKey !== dto.fileKey) {
+    // Remove the previously stored bucket object (if any) so no orphaned copy remains.
+    if (priorKey && priorKey !== fileKey) {
       await this.storage.deleteObject(priorKey).catch((err) => {
         this.logger.error(`failed to delete superseded signed copy: ${String(err)}`);
       });
     }
     return { signed: true };
+  }
+
+  /**
+   * Stream the signed copy's bytes back through the API (same-origin, audited as a VIEW). Serves the
+   * inline fallback bytes directly, or fetches the object from the bucket server-side — so viewing
+   * works whether or not object storage is configured, and never depends on browser→bucket CORS.
+   */
+  async streamSigned(
+    agreementId: string,
+    ctx?: AccessContext,
+  ): Promise<{ buffer: Buffer; contentType: string; fileName: string }> {
+    const blob = await this.repo.signedBlob(agreementId);
+    if (!blob || (!blob.signedFileKey && !blob.signedFileData)) {
+      throw new NotFoundException('No signed agreement has been uploaded');
+    }
+    let buffer: Buffer;
+    if (blob.signedFileData) {
+      buffer = Buffer.from(blob.signedFileData);
+    } else {
+      this.storage.assertKeyInTenant(blob.signedFileKey!);
+      buffer = await this.storage.getObject(blob.signedFileKey!);
+    }
+    await this.repo.auditSignedView(agreementId, ctx);
+    return {
+      buffer,
+      contentType: blob.signedFileType ?? 'application/octet-stream',
+      fileName: blob.signedFileName ?? 'signed-agreement',
+    };
   }
 
   /** Issue a short-lived presigned download URL for the signed copy (audited as a VIEW). */
@@ -353,7 +417,7 @@ export class RegistrationAgreementService {
   async deleteSigned(agreementId: string, ctx?: AccessContext): Promise<{ deleted: boolean }> {
     const agreement = await this.repo.agreementById(agreementId);
     if (!agreement) throw new NotFoundException('Registration agreement not found');
-    if (!agreement.signedFileKey) {
+    if (!agreement.signedFileKey && !agreement.signedFileName) {
       throw new NotFoundException('No signed agreement has been uploaded');
     }
     const { priorKey } = await this.repo.clearSignedAgreement(agreementId, ctx);

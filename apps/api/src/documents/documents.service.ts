@@ -103,6 +103,11 @@ export class DocumentsService {
     return this.agreements.viewSigned(agreementId, ctx);
   }
 
+  /** Stream the signed copy's bytes back through the API (works with or without object storage). */
+  streamSignedAgreement(agreementId: string, ctx?: AccessContext) {
+    return this.agreements.streamSigned(agreementId, ctx);
+  }
+
   deleteSignedAgreement(agreementId: string, ctx?: AccessContext) {
     return this.agreements.deleteSigned(agreementId, ctx);
   }

@@ -176,7 +176,8 @@ export function FinanceTab({ studentId }: { studentId: string }) {
   async function submitPayment() {
     const amount = Number(payForm.amount);
     if (!amount || amount <= 0) return toast.error('Enter an amount in JOD');
-    await run(async () => {
+    setBusy(true);
+    try {
       const p = await financeApi.recordPayment({
         studentId,
         amount,
@@ -185,7 +186,26 @@ export function FinanceTab({ studentId }: { studentId: string }) {
       });
       await financeApi.verify(p.id); // record + verify (auto-allocates FIFO to installments)
       setPayForm({ amount: '', method: 'CASH', reference: '' });
-    }, 'Payment recorded and allocated');
+      await load();
+      // Confirm the outcome to the cashier: when the payment clears the account, say so — and if it
+      // over-pays, make it explicit that the surplus is kept as credit for the student.
+      const fresh = await financeApi.statement(studentId);
+      const outstanding = Number(fresh.totals.outstanding);
+      const credit = Number(fresh.totals.creditBalance);
+      if (outstanding <= 0 && credit > 0) {
+        toast.success(
+          `Payment recorded — no outstanding balance remains. ${num(credit)} JOD is kept as credit for the student.`,
+        );
+      } else if (outstanding <= 0) {
+        toast.success('Payment recorded — the account is fully settled, no outstanding balance.');
+      } else {
+        toast.success('Payment recorded and allocated');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function submitPlan() {

@@ -186,10 +186,11 @@ export function StudentEditor({
               required
             />
           </Field>
-          <Field label={t('people.nationalId')}>
+          <Field label={`${t('people.nationalId')} *`}>
             <Input
               value={form.nationalId ?? ''}
               onChange={(e) => set({ nationalId: e.target.value })}
+              required
             />
           </Field>
           <Field label={t('people.moeNumber')}>

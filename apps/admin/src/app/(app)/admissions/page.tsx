@@ -258,7 +258,7 @@ export default function AdmissionsPage() {
   // A new student needs their own details AND a mandatory guardian (name + primary mobile).
   const newStudentReady =
     mode === 'NEW'
-      ? Boolean(sFirstEn && sLastEn && pFirstEn && pLastEn && pPhone.trim())
+      ? Boolean(sFirstEn && sLastEn && sNationalId.trim() && pFirstEn && pLastEn && pPhone.trim())
       : Boolean(returningId);
 
   async function commit() {
@@ -268,6 +268,15 @@ export default function AdmissionsPage() {
     }
     if (!newStudentReady) {
       toast.error('Enter the student details first.');
+      return;
+    }
+    // The area is mandatory whenever transport is requested — it drives the route and the fee.
+    if (transportDirection !== 'NONE' && !transportAreaId) {
+      toast.error('Select the transport area — it drives the route and the fee.');
+      return;
+    }
+    if (dobError) {
+      toast.error(dobError);
       return;
     }
     setBusy(true);
@@ -332,12 +341,44 @@ export default function AdmissionsPage() {
     [quote],
   );
 
+  // Age/grade guard: children start Grade 1 (level 1) at age 6, so a student is expected to be
+  // (5 + grade level) years old at the start of the academic year. We validate the entered date of
+  // birth against that expected birth year (with a ±1-year tolerance for early/late starters), so an
+  // out-of-range birthday — e.g. an adult date on Grade 1 — is caught before the student is created.
+  const academicYearStartYear = useMemo(() => {
+    const y = years.find((x) => x.id === academicYearId);
+    return y ? new Date(y.startDate).getFullYear() : null;
+  }, [years, academicYearId]);
+  const gradeLevel = useMemo(
+    () => grades.find((g) => g.id === gradeId)?.level ?? null,
+    [grades, gradeId],
+  );
+  const gradeName = useMemo(
+    () => grades.find((g) => g.id === gradeId)?.nameEn ?? 'this grade',
+    [grades, gradeId],
+  );
+  const expectedBirthYear =
+    academicYearStartYear != null && gradeLevel != null
+      ? academicYearStartYear - (5 + gradeLevel)
+      : null;
+  const dobYear = sDob ? new Date(sDob).getFullYear() : null;
+  const dobError =
+    mode === 'NEW' &&
+    dobYear != null &&
+    expectedBirthYear != null &&
+    Math.abs(dobYear - expectedBirthYear) > 1
+      ? `A ${gradeName} student is expected to be born around ${expectedBirthYear} (based on the academic year). Please verify the date of birth.`
+      : null;
+
   // Step-completion signals — derived from existing state, purely for the progress summary.
   // Order matches STEPS: enrollment, transport, quotation, student, guardian, review.
   const enrollmentDone = Boolean(gradeId && academicYearId);
   const transportDone = transportDirection === 'NONE' ? true : Boolean(transportAreaId);
   const quoteDone = Boolean(quote);
-  const studentDone = mode === 'NEW' ? Boolean(sFirstEn && sLastEn) : Boolean(returningId);
+  const studentDone =
+    mode === 'NEW'
+      ? Boolean(sFirstEn && sLastEn && sNationalId.trim()) && !dobError
+      : Boolean(returningId);
   const guardianDone =
     mode === 'NEW' ? Boolean(pFirstEn && pLastEn && pPhone.trim()) : Boolean(returningId);
   const confirmDone = Boolean(quote && newStudentReady);
@@ -359,6 +400,8 @@ export default function AdmissionsPage() {
   // Gate "Next": can't price without placement, and can't collect details before a quote exists.
   const nextDisabled =
     (step === 0 && !canQuote) ||
+    // Transport requires an area — the area drives the route and the fee, so it cannot be skipped.
+    (step === 1 && !transportDone) ||
     (step === 2 && !quote) ||
     (step === 3 && !studentDone) ||
     (step === 4 && !guardianDone);
@@ -571,10 +614,10 @@ export default function AdmissionsPage() {
                 {transportDirection !== 'NONE' ? (
                   <>
                     <Field
-                      label="Area"
+                      label="Area *"
                       hint={
                         areas.length
-                          ? 'The route is resolved automatically from the area'
+                          ? 'Required — the area drives the route and the fee'
                           : 'No active areas configured yet (add them under Fleet → Setup)'
                       }
                     >
@@ -864,16 +907,28 @@ export default function AdmissionsPage() {
                         <option value="FEMALE">Female</option>
                       </Select>
                     </Field>
-                    <Field label="Date of birth">
+                    <Field
+                      label="Date of birth"
+                      {...(expectedBirthYear != null
+                        ? { hint: `Expected birth year for ${gradeName}: ~${expectedBirthYear}` }
+                        : {})}
+                    >
                       <Input
                         type="date"
                         value={sDob}
                         onChange={(e) => setSDob(e.target.value)}
                         dir="ltr"
+                        aria-invalid={dobError ? true : undefined}
                       />
+                      {dobError ? <p className="mt-1 text-xs text-danger">{dobError}</p> : null}
                     </Field>
-                    <Field label="National ID" className="sm:col-span-2">
-                      <Input value={sNationalId} onChange={(e) => setSNationalId(e.target.value)} />
+                    <Field label="National ID *" className="sm:col-span-2">
+                      <Input
+                        value={sNationalId}
+                        onChange={(e) => setSNationalId(e.target.value)}
+                        required
+                        aria-invalid={!sNationalId.trim() ? true : undefined}
+                      />
                     </Field>
                   </div>
                 )}

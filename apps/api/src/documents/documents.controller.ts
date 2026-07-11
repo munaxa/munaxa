@@ -126,6 +126,27 @@ export class DocumentsController {
     return this.service.viewSignedAgreement(agreementId, this.ctx(req));
   }
 
+  @Get('agreements/:agreementId/signed/blob')
+  @RequirePermissions(Permission.DOCUMENT_READ)
+  @ApiOperation({
+    summary: 'Stream the signed agreement bytes through the API (works without object storage)',
+  })
+  async viewSignedBlob(
+    @Param('agreementId') agreementId: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, contentType, fileName } = await this.service.streamSignedAgreement(
+      agreementId,
+      this.ctx(req),
+    );
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `inline; filename="${fileName.replace(/[^A-Za-z0-9._-]/g, '_')}"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
   @Delete('agreements/:agreementId/signed')
   @RequirePermissions(Permission.DOCUMENT_DELETE_SIGNED)
   @ApiOperation({ summary: 'Delete the uploaded signed agreement (audited)' })

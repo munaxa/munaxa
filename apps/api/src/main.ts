@@ -2,6 +2,7 @@
 import './observability/instrument';
 
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -12,8 +13,13 @@ import { AppModule } from './app.module';
 import { PrismaExceptionFilter } from './common/prisma-exception.filter';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: false });
   const logger = new Logger('Bootstrap');
+
+  // Allow larger JSON bodies so base64-encoded uploads (e.g. a countersigned agreement PDF/photo
+  // sent through the API instead of direct-to-bucket) are not rejected by the default ~100kb limit.
+  app.useBodyParser('json', { limit: '20mb' });
+  app.useBodyParser('urlencoded', { extended: true, limit: '20mb' });
 
   const port = Number(process.env.PORT ?? '4000');
   const globalPrefix = process.env.API_GLOBAL_PREFIX ?? 'api';

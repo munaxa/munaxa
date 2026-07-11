@@ -147,6 +147,20 @@ async function openPdf(res: Response): Promise<void> {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+/** Read a File into a bare base64 string (without the `data:<mime>;base64,` prefix). */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      const comma = result.indexOf(',');
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 const qs = (params: Record<string, string | undefined>) => {
   const usp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v) usp.set(k, v);
@@ -192,30 +206,22 @@ export const documentsApi = {
     authFetch(`/documents/${id}/history`).then((r) => json<DocumentAccessLog[]>(r)),
 
   /**
-   * Upload (or replace) the parent's countersigned agreement: presign a tenant-scoped key, PUT the
-   * file straight to storage, then confirm so the API records it as the school's legal copy.
+   * Upload (or replace) the parent's countersigned agreement. The file is sent base64-encoded to the
+   * API in a single request; the server stores it (to the bucket when object storage is configured,
+   * otherwise inline) and records it as the school's legal copy. This replaces the old presign +
+   * direct-to-bucket PUT, which failed with "failed to fetch" when storage was unconfigured or the
+   * bucket lacked browser CORS.
    */
   uploadSignedAgreement: async (
     agreementId: string,
     file: File,
     opts: { signedBy?: string; signedAt?: string; replace?: boolean } = {},
   ): Promise<{ signed: boolean }> => {
-    const presign = await authFetch(`/documents/agreements/${agreementId}/signed/presign`, {
-      method: 'POST',
-      body: JSON.stringify({ fileName: file.name, contentType: file.type, size: file.size }),
-    }).then((r) => json<{ uploadUrl: string; fileKey: string }>(r));
-
-    const put = await fetch(presign.uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': file.type },
-      body: file,
-    });
-    if (!put.ok) throw new Error(`Upload to storage failed (${put.status})`);
-
+    const fileData = await fileToBase64(file);
     return authFetch(`/documents/agreements/${agreementId}/signed`, {
       method: opts.replace ? 'PUT' : 'POST',
       body: JSON.stringify({
-        fileKey: presign.fileKey,
+        fileData,
         fileName: file.name,
         contentType: file.type,
         size: file.size,
@@ -225,12 +231,10 @@ export const documentsApi = {
     }).then((r) => json<{ signed: boolean }>(r));
   },
 
-  /** Open the signed agreement in a new tab via a short-lived, tenant-scoped storage URL. */
+  /** Open the signed agreement in a new tab — streamed through the API (no storage/CORS dependency). */
   viewSignedAgreement: async (agreementId: string): Promise<void> => {
-    const { url } = await authFetch(`/documents/agreements/${agreementId}/signed`).then((r) =>
-      json<{ url: string }>(r),
-    );
-    window.open(url, '_blank', 'noopener');
+    const res = await authFetch(`/documents/agreements/${agreementId}/signed/blob`);
+    await openPdf(res);
   },
 
   deleteSignedAgreement: (agreementId: string) =>

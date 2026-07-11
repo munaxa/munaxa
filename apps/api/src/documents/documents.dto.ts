@@ -66,12 +66,23 @@ export class PresignSignedAgreementDto {
   size!: number;
 }
 
-/** Confirm an uploaded signed registration agreement (echoes the server-issued fileKey). */
+/**
+ * Confirm/record a signed registration agreement. Two mutually exclusive paths:
+ *  - Direct (default): the file bytes are sent base64-encoded in `fileData` and the API stores them
+ *    (to the bucket when S3 is configured, otherwise inline). This avoids any browser→bucket PUT.
+ *  - Presigned (legacy): the browser PUT the file straight to storage and echoes back `fileKey`.
+ */
 export class ConfirmSignedAgreementDto {
-  @ApiProperty({ description: 'The tenant-scoped storage key returned by presign.' })
+  @ApiPropertyOptional({ description: 'The tenant-scoped storage key returned by presign.' })
+  @IsOptional()
   @IsString()
   @MaxLength(512)
-  fileKey!: string;
+  fileKey?: string;
+
+  @ApiPropertyOptional({ description: 'Base64-encoded file bytes (API-proxied upload path).' })
+  @IsOptional()
+  @IsString()
+  fileData?: string;
 
   @ApiProperty({ example: 'signed-agreement.pdf' })
   @IsString()
