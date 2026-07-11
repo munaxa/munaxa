@@ -6,14 +6,12 @@ import { usePrincipal } from '@/components/shell';
 import { useToast } from '@/components/toast';
 import {
   documentsApi,
-  type AcademicYearOption,
   type AgreementStatus,
   type DocumentAccessLog,
   type DocumentMeta,
   type DocumentType,
   type DocumentLanguage,
   type EmailDocumentInput,
-  type FeeItemKind,
   type RegistrationAgreementRow,
 } from '@/lib/documents';
 import {
@@ -51,15 +49,8 @@ const GENERATABLE: DocumentType[] = [
   'ANNUAL_TUITION_CERTIFICATE',
 ];
 
-/** Optional categories the Annual Tuition Certificate can include alongside tuition. */
-const OPTIONAL_KINDS: FeeItemKind[] = [
-  'TRANSPORT',
-  'REGISTRATION',
-  'BOOKS',
-  'ACTIVITY',
-  'UNIFORM',
-  'INSURANCE',
-];
+/** Recent calendar years offered for the Annual Tuition Certificate (current year first). */
+const CERT_YEARS: number[] = Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - i);
 
 const dateStr = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : '—');
 const docNo = (n: number) => String(n).padStart(6, '0');
@@ -94,13 +85,12 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
 
   const [docs, setDocs] = useState<DocumentMeta[]>([]);
   const [agreements, setAgreements] = useState<RegistrationAgreementRow[]>([]);
-  const [years, setYears] = useState<AcademicYearOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
 
   const [language, setLanguage] = useState<DocumentLanguage>('EN');
-  const [yearId, setYearId] = useState('');
-  const [includeKinds, setIncludeKinds] = useState<Set<FeeItemKind>>(new Set());
+  // Calendar year to certify on the Annual Tuition Certificate (defaults to the current year).
+  const [certYear, setCertYear] = useState<number>(new Date().getFullYear());
 
   // Email dialog state.
   const [emailDoc, setEmailDoc] = useState<DocumentMeta | null>(null);
@@ -134,21 +124,18 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, a, y] = await Promise.all([
+      const [d, a] = await Promise.all([
         documentsApi.list(studentId),
         documentsApi.listAgreements(studentId).catch(() => []),
-        documentsApi.academicYears().catch(() => []),
       ]);
       setDocs(d);
       setAgreements(a);
-      setYears(y);
-      if (!yearId) setYearId(y.find((yy) => yy.isCurrent)?.id ?? y[0]?.id ?? '');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load documents');
     } finally {
       setLoading(false);
     }
-  }, [studentId, yearId, toast]);
+  }, [studentId, toast]);
 
   useEffect(() => {
     void load();
@@ -158,7 +145,7 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
     t(`studentProfile.docTypes.${type}`) || type.replace(/_/g, ' ');
 
   async function generate(type: DocumentType) {
-    if (type === 'ANNUAL_TUITION_CERTIFICATE' && !yearId) {
+    if (type === 'ANNUAL_TUITION_CERTIFICATE' && !certYear) {
       toast.error(t('studentProfile.selectYear'));
       return;
     }
@@ -168,9 +155,7 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
         type,
         studentId,
         language,
-        ...(type === 'ANNUAL_TUITION_CERTIFICATE'
-          ? { academicYearId: yearId, includeKinds: [...includeKinds] }
-          : {}),
+        ...(type === 'ANNUAL_TUITION_CERTIFICATE' ? { year: certYear } : {}),
       });
       toast.success(t('studentProfile.documentGenerated'));
       await load();
@@ -290,14 +275,6 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
       </div>
     );
   }
-
-  const toggleKind = (k: FeeItemKind) =>
-    setIncludeKinds((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
 
   return (
     <div className="space-y-6">
@@ -451,33 +428,19 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                 ))}
               </Select>
             </Field>
-            <Field label={t('studentProfile.academicYear')}>
-              <Select value={yearId} onChange={(e) => setYearId(e.target.value)}>
-                <option value="">—</option>
-                {years.map((y) => (
-                  <option key={y.id} value={y.id}>
-                    {y.name}
+            {/* Calendar year (1 Jan – 31 Dec) certified by the Annual Tuition Certificate. */}
+            <Field label={t('studentProfile.tuitionYear')}>
+              <Select
+                value={String(certYear)}
+                onChange={(e) => setCertYear(Number(e.target.value))}
+              >
+                {CERT_YEARS.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
                   </option>
                 ))}
               </Select>
             </Field>
-          </div>
-
-          {/* Annual Tuition Certificate optional categories */}
-          <div>
-            <div className="mb-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-              {t('studentProfile.includeCategories')}
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {OPTIONAL_KINDS.map((k) => (
-                <Checkbox
-                  key={k}
-                  label={k}
-                  checked={includeKinds.has(k)}
-                  onChange={() => toggleKind(k)}
-                />
-              ))}
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">

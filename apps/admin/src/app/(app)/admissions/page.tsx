@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/toast';
 import { EntityPicker } from '@/components/entity-picker';
 import { FeeModifiedBadge } from '@/components/fee-modified-badge';
-import { loadStudentOptions } from '@/lib/pickers';
+import { loadStudentOptions, loadParentOptions } from '@/lib/pickers';
 import {
   admissionsApi,
   type ComputedQuote,
@@ -105,6 +105,9 @@ export default function AdmissionsPage() {
   const [sGender, setSGender] = useState('');
   const [sDob, setSDob] = useState('');
   const [sNationalId, setSNationalId] = useState('');
+  // Parent: either link an EXISTING parent (search) or enter a NEW one.
+  const [parentMode, setParentMode] = useState<'NEW' | 'EXISTING'>('NEW');
+  const [existingParentId, setExistingParentId] = useState('');
   const [pFirstEn, setPFirstEn] = useState('');
   const [pLastEn, setPLastEn] = useState('');
   const [pPhone, setPPhone] = useState('');
@@ -256,9 +259,14 @@ export default function AdmissionsPage() {
   }
 
   // A new student needs their own details AND a mandatory guardian (name + primary mobile).
+  // The guardian is ready when an existing parent is chosen, or a new one has name + primary mobile.
+  const parentReady =
+    parentMode === 'EXISTING'
+      ? Boolean(existingParentId)
+      : Boolean(pFirstEn && pLastEn && pPhone.trim());
   const newStudentReady =
     mode === 'NEW'
-      ? Boolean(sFirstEn && sLastEn && sNationalId.trim() && pFirstEn && pLastEn && pPhone.trim())
+      ? Boolean(sFirstEn && sLastEn && sNationalId.trim()) && parentReady
       : Boolean(returningId);
 
   async function commit() {
@@ -311,14 +319,19 @@ export default function AdmissionsPage() {
                 ...(sDob ? { dateOfBirth: sDob } : {}),
                 ...(sNationalId ? { nationalId: sNationalId } : {}),
               },
-              parent: {
-                firstNameEn: pFirstEn,
-                lastNameEn: pLastEn,
-                phone: pPhone,
-                relation: pRelation,
-                ...(pPhoneAlt ? { phoneAlt: pPhoneAlt } : {}),
-                ...(pEmail ? { email: pEmail } : {}),
-              },
+              // Link an existing parent, or create a new one from the entered details.
+              ...(parentMode === 'EXISTING'
+                ? { existingParentId }
+                : {
+                    parent: {
+                      firstNameEn: pFirstEn,
+                      lastNameEn: pLastEn,
+                      phone: pPhone,
+                      relation: pRelation,
+                      ...(pPhoneAlt ? { phoneAlt: pPhoneAlt } : {}),
+                      ...(pEmail ? { email: pEmail } : {}),
+                    },
+                  }),
             }
           : {}),
       });
@@ -379,8 +392,7 @@ export default function AdmissionsPage() {
     mode === 'NEW'
       ? Boolean(sFirstEn && sLastEn && sNationalId.trim()) && !dobError
       : Boolean(returningId);
-  const guardianDone =
-    mode === 'NEW' ? Boolean(pFirstEn && pLastEn && pPhone.trim()) : Boolean(returningId);
+  const guardianDone = mode === 'NEW' ? parentReady : Boolean(returningId);
   const confirmDone = Boolean(quote && newStudentReady);
   const stepComplete = [
     enrollmentDone,
@@ -953,63 +965,93 @@ export default function AdmissionsPage() {
                 ) : (
                   <>
                     <p className="text-xs text-muted-foreground">
-                      A parent / guardian with a primary mobile number is required for every new
-                      student.
+                      Link an existing parent / guardian, or add a new one with a primary mobile
+                      number.
                     </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Relation to student *" className="sm:col-span-2">
-                        <Select
-                          value={pRelation}
-                          onChange={(e) =>
-                            setPRelation(
-                              e.target.value as 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER',
-                            )
-                          }
-                        >
-                          <option value="FATHER">Father</option>
-                          <option value="MOTHER">Mother</option>
-                          <option value="GUARDIAN">Guardian</option>
-                          <option value="OTHER">Other</option>
-                        </Select>
-                      </Field>
-                      <Field label="Parent / guardian first name (EN) *">
-                        <Input
-                          value={pFirstEn}
-                          onChange={(e) => setPFirstEn(e.target.value)}
-                          required
-                        />
-                      </Field>
-                      <Field label="Parent / guardian last name (EN) *">
-                        <Input
-                          value={pLastEn}
-                          onChange={(e) => setPLastEn(e.target.value)}
-                          required
-                        />
-                      </Field>
-                      <Field label="Mobile *">
-                        <Input
-                          value={pPhone}
-                          onChange={(e) => setPPhone(e.target.value)}
-                          dir="ltr"
-                          required
-                        />
-                      </Field>
-                      <Field label="Alternate mobile">
-                        <Input
-                          value={pPhoneAlt}
-                          onChange={(e) => setPPhoneAlt(e.target.value)}
-                          dir="ltr"
-                        />
-                      </Field>
-                      <Field label="Email" className="sm:col-span-2">
-                        <Input
-                          type="email"
-                          value={pEmail}
-                          onChange={(e) => setPEmail(e.target.value)}
-                          dir="ltr"
-                        />
-                      </Field>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={parentMode === 'EXISTING' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setParentMode('EXISTING')}
+                      >
+                        Existing parent
+                      </Button>
+                      <Button
+                        variant={parentMode === 'NEW' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setParentMode('NEW')}
+                      >
+                        New parent
+                      </Button>
                     </div>
+
+                    {parentMode === 'EXISTING' ? (
+                      <Field
+                        label="Find parent *"
+                        hint="Search an existing parent / guardian by name or mobile"
+                      >
+                        <EntityPicker
+                          value={existingParentId}
+                          onChange={setExistingParentId}
+                          load={loadParentOptions}
+                        />
+                      </Field>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="Relation to student *" className="sm:col-span-2">
+                          <Select
+                            value={pRelation}
+                            onChange={(e) =>
+                              setPRelation(
+                                e.target.value as 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER',
+                              )
+                            }
+                          >
+                            <option value="FATHER">Father</option>
+                            <option value="MOTHER">Mother</option>
+                            <option value="GUARDIAN">Guardian</option>
+                            <option value="OTHER">Other</option>
+                          </Select>
+                        </Field>
+                        <Field label="Parent / guardian first name (EN) *">
+                          <Input
+                            value={pFirstEn}
+                            onChange={(e) => setPFirstEn(e.target.value)}
+                            required
+                          />
+                        </Field>
+                        <Field label="Parent / guardian last name (EN) *">
+                          <Input
+                            value={pLastEn}
+                            onChange={(e) => setPLastEn(e.target.value)}
+                            required
+                          />
+                        </Field>
+                        <Field label="Mobile *">
+                          <Input
+                            value={pPhone}
+                            onChange={(e) => setPPhone(e.target.value)}
+                            dir="ltr"
+                            required
+                          />
+                        </Field>
+                        <Field label="Alternate mobile">
+                          <Input
+                            value={pPhoneAlt}
+                            onChange={(e) => setPPhoneAlt(e.target.value)}
+                            dir="ltr"
+                          />
+                        </Field>
+                        <Field label="Email" className="sm:col-span-2">
+                          <Input
+                            type="email"
+                            value={pEmail}
+                            onChange={(e) => setPEmail(e.target.value)}
+                            dir="ltr"
+                          />
+                        </Field>
+                      </div>
+                    )}
                   </>
                 )}
               </CardContent>
@@ -1057,11 +1099,15 @@ export default function AdmissionsPage() {
                     <Recap
                       label="Guardian"
                       value={
-                        [pFirstEn, pLastEn].filter(Boolean).join(' ')
-                          ? `${[pFirstEn, pLastEn].filter(Boolean).join(' ')}${
-                              pPhone ? ` · ${pPhone}` : ''
-                            }`
-                          : '—'
+                        parentMode === 'EXISTING'
+                          ? existingParentId
+                            ? 'Existing parent (linked)'
+                            : '—'
+                          : [pFirstEn, pLastEn].filter(Boolean).join(' ')
+                            ? `${[pFirstEn, pLastEn].filter(Boolean).join(' ')}${
+                                pPhone ? ` · ${pPhone}` : ''
+                              }`
+                            : '—'
                       }
                     />
                   ) : null}

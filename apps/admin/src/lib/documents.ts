@@ -120,8 +120,9 @@ export interface GenerateDocumentInput {
   studentId: string;
   language?: DocumentLanguage;
   academicYearId?: string;
+  /** Calendar year (1 Jan … 31 Dec) for the Annual Tuition Certificate. */
+  year?: number;
   paymentId?: string;
-  includeKinds?: FeeItemKind[];
 }
 
 async function json<T>(res: Response): Promise<T> {

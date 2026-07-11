@@ -6,6 +6,7 @@ import {
   DocumentPersistence,
   DocumentType,
   EnrollmentStatus,
+  PaymentStatus,
   Prisma,
   RegistrationAgreementStatus,
 } from '@prisma/client';
@@ -775,6 +776,31 @@ export class DocumentRepository extends TenantRepository {
         orderBy: { createdAt: 'desc' },
       }),
     );
+  }
+
+  /**
+   * The whole amount the student actually PAID within a calendar year (1 Jan … 31 Dec) — the sum of
+   * every verified payment received in that window, regardless of which charge/category it settled.
+   * This is the figure the Annual Tuition Certificate certifies (used for annual/tax purposes). A
+   * payment's date is its verification date, falling back to when it was recorded.
+   */
+  async paidInCalendarYear(studentId: string, year: number): Promise<string> {
+    return this.run(async (tx) => {
+      const start = new Date(Date.UTC(year, 0, 1));
+      const end = new Date(Date.UTC(year + 1, 0, 1));
+      const agg = await tx.payment.aggregate({
+        where: {
+          studentId,
+          status: PaymentStatus.VERIFIED,
+          OR: [
+            { verifiedAt: { gte: start, lt: end } },
+            { verifiedAt: null, createdAt: { gte: start, lt: end } },
+          ],
+        },
+        _sum: { amount: true },
+      });
+      return (agg._sum.amount ?? new Prisma.Decimal(0)).toFixed(3);
+    });
   }
 
   /** Sum of verified payments allocated to the installments of an enrollment's charges (paid/year). */

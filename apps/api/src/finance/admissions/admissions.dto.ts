@@ -166,6 +166,13 @@ export class CommitDto {
   @Type(() => ParentInfoDto)
   parent?: ParentInfoDto;
 
+  @ApiPropertyOptional({
+    description: 'Existing parent to link (chosen instead of entering a new parent).',
+  })
+  @IsOptional()
+  @IsUUID()
+  existingParentId?: string;
+
   @ApiPropertyOptional({ description: 'Section to place the student into' })
   @IsOptional()
   @IsUUID()

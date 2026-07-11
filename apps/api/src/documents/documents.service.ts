@@ -60,7 +60,7 @@ export class DocumentsService {
       ...(dto.studentId ? { studentId: dto.studentId } : {}),
       ...(dto.paymentId ? { paymentId: dto.paymentId } : {}),
       ...(dto.academicYearId ? { academicYearId: dto.academicYearId } : {}),
-      ...(dto.includeKinds ? { includeKinds: dto.includeKinds } : {}),
+      ...(dto.year ? { year: dto.year } : {}),
     };
     const built = await this.finance.build(params);
     return this.engine.persist(built, params);
