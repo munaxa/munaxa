@@ -100,7 +100,9 @@ export class RegistrationAgreementService {
     try {
       const enrollment = await this.repo.enrollmentContext(enrollmentId);
       if (!enrollment || enrollment.status !== EnrollmentStatus.COMMITTED) return;
-      await this.generate(enrollmentId, DocumentLanguage.EN);
+      // Registration agreements are legal records for an Arabic-and-English audience, so they are
+      // rendered bilingually (Arabic + English) by default.
+      await this.generate(enrollmentId, DocumentLanguage.BILINGUAL);
     } catch (err) {
       this.logger.error(`auto-generation of registration agreement failed: ${String(err)}`);
     }
@@ -146,7 +148,10 @@ export class RegistrationAgreementService {
         (current.installmentSchedule ?? []) as unknown as AgreementSnapshot['schedule'],
         current.grandTotal.toFixed(3),
       );
-      if (currentFingerprint === fingerprint) {
+      // Reuse the current agreement only when BOTH the material data AND the rendering language are
+      // unchanged; a different language (e.g. regenerating an English agreement as bilingual) still
+      // produces a new version so the requested language actually takes effect.
+      if (currentFingerprint === fingerprint && current.document?.language === language) {
         const { document, ...agreement } = current;
         return { agreement, document };
       }

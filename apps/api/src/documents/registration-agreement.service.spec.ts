@@ -167,7 +167,8 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
       feeBreakdown: students,
       installmentSchedule: schedule,
       grandTotal: dec('2740.000'),
-      document: { id: 'doc1' },
+      // Existing agreement was rendered in English; regenerating in the same language is idempotent.
+      document: { id: 'doc1', language: DocumentLanguage.EN },
     };
     const repo = {
       enrollmentContext: jest.fn().mockResolvedValue(child1),
@@ -183,8 +184,52 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     expect(engine.render).not.toHaveBeenCalled();
     expect(result).toEqual({
       agreement: expect.objectContaining({ id: 'a1' }),
-      document: { id: 'doc1' },
+      document: { id: 'doc1', language: DocumentLanguage.EN },
     });
+  });
+
+  it('regenerates a new version when the language changes (e.g. English → bilingual)', async () => {
+    const persistAgreement = jest.fn().mockResolvedValue({ agreement: { id: 'a2' }, document: {} });
+    const students = [
+      {
+        nameEn: 'Saif AbuHajj',
+        tuition: '1350.000',
+        transportation: '350.000',
+        discount: '65.000',
+        net: '1635.000',
+      },
+      {
+        nameEn: 'Thia AbuHajj',
+        tuition: '950.000',
+        transportation: '250.000',
+        discount: '95.000',
+        net: '1105.000',
+      },
+    ];
+    // Same material content as the current agreement, but that one was rendered in English.
+    const current = {
+      id: 'a1',
+      version: 1,
+      feeBreakdown: students,
+      installmentSchedule: [{ index: 1, dueDate: '2026-09-01', amount: '2740.000' }],
+      grandTotal: dec('2740.000'),
+      document: { id: 'doc1', language: DocumentLanguage.EN },
+    };
+    const repo = {
+      enrollmentContext: jest.fn().mockResolvedValue(child1),
+      guardianEnrollments: jest.fn().mockResolvedValue([child1, child2]),
+      currentAgreementForParentYear: jest.fn().mockResolvedValue(current),
+      persistAgreement,
+    };
+    const { service } = makeService(repo);
+
+    await service.generate('e1', DocumentLanguage.BILINGUAL);
+
+    expect(persistAgreement).toHaveBeenCalledTimes(1);
+    const arg = persistAgreement.mock.calls[0]![0];
+    expect(arg.version).toBe(2);
+    expect(arg.supersedesId).toBe('a1');
+    expect(arg.language).toBe(DocumentLanguage.BILINGUAL);
   });
 
   it('supersedes with a new version when a second child enrols', async () => {
