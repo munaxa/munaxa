@@ -313,7 +313,26 @@
     "admissionDate": "Admission date",
     "showingRange": "Showing {from}–{to} of {total}",
     "perPage": "per page",
-    "searchStudents": "Search students…"
+    "searchStudents": "Search students…",
+    "target": "Target",
+    "presentToday": "present today",
+    "live": "Live",
+    "feesAtRisk": "Fees at risk",
+    "feesAtRiskSub": "Overdue balances — prioritised for collections",
+    "openCollections": "Open collections",
+    "current": "Current",
+    "status": "Status"
+  },
+  "privacy": {
+    "on": "Hidden",
+    "off": "Visible",
+    "hide": "Hide financial figures",
+    "reveal": "Show financial figures",
+    "revealForSession": "Reveal for session",
+    "restricted": "Restricted",
+    "requiresFinance": "Requires finance access — not in your role.",
+    "hiddenTitle": "Financial figures are hidden",
+    "hiddenBody": "Reveal for this session — every reveal is written to the audit log."
   },
   "reports": {
     "subtitle": "Summaries across attendance, academics, finance, and behavior — view or export.",

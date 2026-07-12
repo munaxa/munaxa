@@ -16,6 +16,7 @@ export interface DashboardOverview {
     excused: number;
     total: number;
   };
+  /** Financial figures — `null` when the caller lacks `finance:read` (never sent over the wire). */
   finance: {
     billed: string;
     discounts: string;
@@ -23,8 +24,9 @@ export interface DashboardOverview {
     outstanding: string;
     overdue: string;
     collectedThisMonth: string;
-  };
-  einvoice: { accepted: number; pending: number; rejected: number };
+  } | null;
+  /** e-Invoice status counts — `null` when the caller lacks `finance:read`. */
+  einvoice: { accepted: number; pending: number; rejected: number } | null;
   /** Daily student-attendance rate for the last {@link TREND_DAYS} days (oldest first). */
   attendanceTrend: Array<{
     date: string;
@@ -73,7 +75,40 @@ function monthlyBuckets(
 /** Read-only tenant-wide aggregates for the admin dashboard (RLS-scoped like everything else). */
 @Injectable()
 export class DashboardRepository extends TenantRepository {
-  overview(): Promise<DashboardOverview> {
+  /**
+   * Records (audits) a reveal of masked financial figures. The figures themselves are already
+   * authorised (the endpoint requires `finance:read`); this writes the who/what/when to the audit
+   * trail so every unmask of sensitive money is accountable.
+   */
+  recordReveal(input: {
+    actorUserId: string;
+    actorRole: string | null;
+    scope: string;
+    ip?: string | null;
+    userAgent?: string | null;
+  }): Promise<void> {
+    return this.run(async (tx, tenantId) => {
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          actorUserId: input.actorUserId,
+          actorRole: input.actorRole ?? undefined,
+          action: 'finance.reveal',
+          entityType: 'Dashboard',
+          entityId: input.scope,
+          metadata: { scope: input.scope },
+          ip: input.ip ?? undefined,
+          userAgent: input.userAgent ?? undefined,
+        },
+      });
+    });
+  }
+
+  /**
+   * @param includeFinance whether the caller holds `finance:read`. When false the `finance` and
+   * `einvoice` blocks are returned as `null` so sensitive money never leaves the server.
+   */
+  overview(includeFinance: boolean): Promise<DashboardOverview> {
     return this.run(async (tx, tenantId) => {
       const now = new Date();
       const todayUtc = new Date(
@@ -280,15 +315,18 @@ export class DashboardRepository extends TenantRepository {
         students,
         staff,
         attendanceToday: att,
-        finance: {
-          billed: billed.toFixed(3),
-          discounts: discounts.toFixed(3),
-          paid: paid.toFixed(3),
-          outstanding: outstanding.toFixed(3),
-          overdue: overdue.toFixed(3),
-          collectedThisMonth: (monthAgg._sum.amount ?? ZERO).toFixed(3),
-        },
-        einvoice,
+        // Finance is permission-gated: omitted entirely (null) for callers without finance:read.
+        finance: includeFinance
+          ? {
+              billed: billed.toFixed(3),
+              discounts: discounts.toFixed(3),
+              paid: paid.toFixed(3),
+              outstanding: outstanding.toFixed(3),
+              overdue: overdue.toFixed(3),
+              collectedThisMonth: (monthAgg._sum.amount ?? ZERO).toFixed(3),
+            }
+          : null,
+        einvoice: includeFinance ? einvoice : null,
         attendanceTrend,
         studentsByGrade,
         deltas: { studentsThisMonth, staffThisMonth },

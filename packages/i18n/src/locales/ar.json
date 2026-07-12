@@ -313,7 +313,26 @@
     "admissionDate": "تاريخ القبول",
     "showingRange": "عرض {from}–{to} من {total}",
     "perPage": "لكل صفحة",
-    "searchStudents": "ابحث عن الطلاب…"
+    "searchStudents": "ابحث عن الطلاب…",
+    "target": "الهدف",
+    "presentToday": "حاضر اليوم",
+    "live": "مباشر",
+    "feesAtRisk": "رسوم متعثّرة",
+    "feesAtRiskSub": "أرصدة متأخّرة — أولوية للتحصيل",
+    "openCollections": "فتح التحصيل",
+    "current": "منتظم",
+    "status": "الحالة"
+  },
+  "privacy": {
+    "on": "مخفي",
+    "off": "ظاهر",
+    "hide": "إخفاء الأرقام المالية",
+    "reveal": "إظهار الأرقام المالية",
+    "revealForSession": "إظهار لهذه الجلسة",
+    "restricted": "مقيّد",
+    "requiresFinance": "يتطلّب صلاحية مالية — غير متاح لدورك.",
+    "hiddenTitle": "الأرقام المالية مخفية",
+    "hiddenBody": "أظهرها لهذه الجلسة — يُسجَّل كل إظهار في سجل التدقيق."
   },
   "reports": {
     "subtitle": "ملخّصات للحضور والشؤون الأكاديمية والمالية والسلوك — للعرض أو التصدير.",
