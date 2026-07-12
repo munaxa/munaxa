@@ -137,6 +137,20 @@ export interface HouseholdMember {
   outstanding: string;
 }
 
+export interface ParentStudent {
+  studentId: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  gradeNameEn: string | null;
+  gradeNameAr: string | null;
+  transportRequested: boolean;
+  relation: string;
+  isPrimary: boolean;
+  outstanding: string;
+}
+
 export type CollectionsStatus = 'NONE' | 'FINANCIAL_ISSUE' | 'LEGAL';
 
 export interface CollectionsProfile {
@@ -310,6 +324,8 @@ export const financeApi = {
     authFetch(`/finance/students/${studentId}/statement`).then((r) => json<Statement>(r)),
   household: (studentId: string) =>
     authFetch(`/finance/students/${studentId}/household`).then((r) => json<HouseholdMember[]>(r)),
+  parentStudents: (parentId: string) =>
+    authFetch(`/finance/students/by-parent/${parentId}`).then((r) => json<ParentStudent[]>(r)),
   charges: (studentId: string) =>
     authFetch(`/finance/charges?studentId=${encodeURIComponent(studentId)}`).then((r) =>
       json<ChargeView[]>(r),

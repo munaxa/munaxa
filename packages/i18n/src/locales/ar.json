@@ -426,6 +426,7 @@
   "people": {
     "parentProfile": "ملف ولي الأمر",
     "children": "الأبناء",
+    "transport": "النقل",
     "requestedAmount": "المبلغ المطلوب",
     "addStudent": "إضافة طالب",
     "bulkImport": "استيراد جماعي",
