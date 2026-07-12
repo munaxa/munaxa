@@ -82,12 +82,15 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
   const canUploadSigned = can('document:upload_signed');
   const canReplaceSigned = can('document:replace_signed');
   const canDeleteSigned = can('document:delete_signed');
+  const canGenerateAgreement = can('document:generate');
 
   const [docs, setDocs] = useState<DocumentMeta[]>([]);
   const [agreements, setAgreements] = useState<RegistrationAgreementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
 
+  // Language the registration agreement is (re)generated in — bilingual (Arabic + English) default.
+  const [agreementLang, setAgreementLang] = useState<DocumentLanguage>('BILINGUAL');
   const [language, setLanguage] = useState<DocumentLanguage>('EN');
   // Calendar year to certify on the Annual Tuition Certificate (defaults to the current year).
   const [certYear, setCertYear] = useState<number>(new Date().getFullYear());
@@ -164,6 +167,14 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
     } finally {
       setBusy(null);
     }
+  }
+
+  async function regenerateAgreement(agreement: RegistrationAgreementRow) {
+    await withBusy(`regen-${agreement.id}`, async () => {
+      await documentsApi.generateAgreement(agreement.enrollmentId, agreementLang);
+      toast.success(t('studentProfile.agreementRegenerated'));
+      await load();
+    });
   }
 
   function openSign(agreement: RegistrationAgreementRow, replace: boolean) {
@@ -281,7 +292,23 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
       {/* Registration Agreement (legal commitment, auto-generated at registration) */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('studentProfile.docTypes.REGISTRATION_AGREEMENT')}</CardTitle>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <CardTitle>{t('studentProfile.docTypes.REGISTRATION_AGREEMENT')}</CardTitle>
+            {canGenerateAgreement && agreements.length > 0 ? (
+              <Field label={t('studentProfile.agreementLanguage')}>
+                <Select
+                  value={agreementLang}
+                  onChange={(e) => setAgreementLang(e.target.value as DocumentLanguage)}
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {agreements.length === 0 ? (
@@ -379,6 +406,18 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                             {t('studentProfile.viewSigned')}
                           </Button>
                         ) : null}
+                        {canGenerateAgreement ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy !== null}
+                            onClick={() => void regenerateAgreement(a)}
+                          >
+                            {busy === `regen-${a.id}`
+                              ? t('common.recording')
+                              : t('studentProfile.regenerateAgreement')}
+                          </Button>
+                        ) : null}
                         {!a.hasSigned && canUploadSigned ? (
                           <Button size="sm" variant="ghost" onClick={() => openSign(a, false)}>
                             {t('studentProfile.uploadSigned')}
@@ -392,8 +431,8 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                         {a.hasSigned && canDeleteSigned ? (
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="text-danger"
+                            variant="outline"
+                            className="border-danger/40 text-danger hover:bg-danger/10"
                             onClick={() => setDeleteSignedFor(a)}
                           >
                             {t('common.delete')}
