@@ -23,6 +23,13 @@ export class ParentRepository extends TenantRepository {
     return this.run((tx) => tx.parent.findFirst({ where: { phone, deletedAt: null } }));
   }
 
+  /** How many non-deleted students this parent is still linked to as a guardian. */
+  countActiveStudents(parentId: string): Promise<number> {
+    return this.run((tx) =>
+      tx.parentStudent.count({ where: { parentId, student: { deletedAt: null } } }),
+    );
+  }
+
   /** Parents linked to a given student (used by the parent portal in later phases). */
   findByStudent(studentId: string): Promise<Parent[]> {
     return this.run((tx) =>

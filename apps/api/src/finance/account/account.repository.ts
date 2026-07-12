@@ -142,4 +142,55 @@ export class AccountRepository extends TenantRepository {
       });
     });
   }
+
+  /** A guardian's students with grade + transport demand (for the parent drill-down). */
+  studentsForParent(parentId: string): Promise<
+    Array<{
+      id: string;
+      firstNameEn: string;
+      lastNameEn: string;
+      firstNameAr: string;
+      lastNameAr: string;
+      transportRequested: boolean;
+      relation: string;
+      isPrimary: boolean;
+      section: { grade: { nameEn: string; nameAr: string } | null } | null;
+    }>
+  > {
+    return this.run(async (tx) => {
+      const links = await tx.parentStudent.findMany({
+        where: { parentId },
+        select: {
+          relation: true,
+          isPrimary: true,
+          student: {
+            select: {
+              id: true,
+              firstNameEn: true,
+              lastNameEn: true,
+              firstNameAr: true,
+              lastNameAr: true,
+              transportRequested: true,
+              deletedAt: true,
+              section: { select: { grade: { select: { nameEn: true, nameAr: true } } } },
+            },
+          },
+        },
+        orderBy: { isPrimary: 'desc' },
+      });
+      return links
+        .filter((l) => l.student && l.student.deletedAt === null)
+        .map((l) => ({
+          id: l.student.id,
+          firstNameEn: l.student.firstNameEn,
+          lastNameEn: l.student.lastNameEn,
+          firstNameAr: l.student.firstNameAr,
+          lastNameAr: l.student.lastNameAr,
+          transportRequested: l.student.transportRequested,
+          relation: l.relation,
+          isPrimary: l.isPrimary,
+          section: l.student.section,
+        }));
+    });
+  }
 }

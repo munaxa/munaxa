@@ -29,6 +29,20 @@ export interface HouseholdMember {
   outstanding: string;
 }
 
+export interface ParentStudent {
+  studentId: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  gradeNameEn: string | null;
+  gradeNameAr: string | null;
+  transportRequested: boolean;
+  relation: string;
+  isPrimary: boolean;
+  outstanding: string;
+}
+
 /**
  * Student financial statement: the hierarchical account view (Account → Charges → Plans →
  * Installments) plus payments, adjustments, credits, refunds and the derived totals — every
@@ -67,6 +81,26 @@ export class StatementService {
       refunds,
       totals,
     };
+  }
+
+  /** A guardian's students with grade, transport demand and each one's outstanding balance. */
+  async parentStudents(parentId: string): Promise<ParentStudent[]> {
+    const students = await this.accounts.studentsForParent(parentId);
+    return Promise.all(
+      students.map(async (s) => ({
+        studentId: s.id,
+        firstNameEn: s.firstNameEn,
+        lastNameEn: s.lastNameEn,
+        firstNameAr: s.firstNameAr,
+        lastNameAr: s.lastNameAr,
+        gradeNameEn: s.section?.grade?.nameEn ?? null,
+        gradeNameAr: s.section?.grade?.nameAr ?? null,
+        transportRequested: s.transportRequested,
+        relation: s.relation,
+        isPrimary: s.isPrimary,
+        outstanding: (await this.ledger.accountSummary(s.id)).outstanding,
+      })),
+    );
   }
 
   /** Siblings (students sharing a guardian) with each one's outstanding balance. */

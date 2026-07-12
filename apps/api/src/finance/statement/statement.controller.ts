@@ -23,4 +23,13 @@ export class StatementController {
   household(@Param('studentId') studentId: string) {
     return this.service.household(studentId);
   }
+
+  @Get('by-parent/:parentId')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({
+    summary: "A guardian's students with grade, transport demand and outstanding balances",
+  })
+  byParent(@Param('parentId') parentId: string) {
+    return this.service.parentStudents(parentId);
+  }
 }

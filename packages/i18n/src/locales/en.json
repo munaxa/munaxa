@@ -426,6 +426,7 @@
   "people": {
     "parentProfile": "Parent / guardian profile",
     "children": "Children",
+    "transport": "Transport",
     "requestedAmount": "Requested amount",
     "addStudent": "Add a student",
     "bulkImport": "Bulk import",

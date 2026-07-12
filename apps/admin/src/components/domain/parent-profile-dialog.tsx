@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@/components/i18n-provider';
-import { financeApi, type HouseholdMember } from '@/lib/finance';
-import { fullNameEn, type Parent, type Student } from '@/lib/people';
+import { financeApi, type ParentStudent } from '@/lib/finance';
+import { type Parent, type Student } from '@/lib/people';
 import {
   Badge,
   Button,
@@ -22,14 +23,11 @@ import {
 } from '@/components/ui';
 import { RecordHeader } from './record-header';
 
-type Child = { id: string; name: string; outstanding: string | null; isCurrent?: boolean };
-
 /**
  * Parent profile — the "related records" drill-down opened by clicking a parent name.
- * Shows the guardian's contact details and their children with each child's outstanding
- * ("requested") amount. Children + balances come from the existing finance household endpoint
- * (siblings sharing a guardian), keyed by a known child (`contextStudent`); when no child context
- * is available (e.g. the global Parents list) the children section is omitted.
+ * Shows the guardian's contact details and their students (children) with each one's grade,
+ * transport demand and outstanding balance. Clicking a student opens that student's profile.
+ * Students + balances come from the finance parent-students endpoint (keyed by the parent id).
  */
 export function ParentProfileDialog({
   parent,
@@ -43,40 +41,31 @@ export function ParentProfileDialog({
   onEdit?: (() => void) | undefined;
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const initials = `${parent.firstNameEn[0] ?? ''}${parent.lastNameEn[0] ?? ''}`.toUpperCase();
-  const [children, setChildren] = useState<Child[] | null>(contextStudent ? null : []);
+  const [students, setStudents] = useState<ParentStudent[] | null>(null);
 
   useEffect(() => {
-    if (!contextStudent) return;
     let active = true;
-    void Promise.all([
-      financeApi
-        .statement(contextStudent.id)
-        .then((s) => s.totals.outstanding)
-        .catch(() => null),
-      financeApi.household(contextStudent.id).catch(() => [] as HouseholdMember[]),
-    ]).then(([own, siblings]) => {
-      if (!active) return;
-      setChildren([
-        {
-          id: contextStudent.id,
-          name: fullNameEn(contextStudent),
-          outstanding: own,
-          isCurrent: true,
-        },
-        ...siblings.map((s) => ({
-          id: s.studentId,
-          name: `${s.firstNameEn} ${s.lastNameEn}`,
-          outstanding: s.outstanding,
-        })),
-      ]);
-    });
+    financeApi
+      .parentStudents(parent.id)
+      .then((list) => {
+        if (active) setStudents(list);
+      })
+      .catch(() => {
+        if (active) setStudents([]);
+      });
     return () => {
       active = false;
     };
-  }, [contextStudent]);
+  }, [parent.id]);
 
   const money = (v: string | null) => (v == null ? '—' : `${Number(v).toFixed(3)} JOD`);
+
+  function openStudent(id: string) {
+    onClose();
+    router.push(`/people/students/${id}`);
+  }
 
   return (
     <div
@@ -126,52 +115,64 @@ export function ParentProfileDialog({
           </CardContent>
         </Card>
 
-        {contextStudent ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('people.children')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {children === null ? (
-                <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
-                  <Spinner /> {t('common.loading')}
-                </div>
-              ) : children.length === 0 ? (
-                <EmptyState title={t('people.noStudents')} />
-              ) : (
-                <Table>
-                  <THead>
-                    <TR>
-                      <TH>{t('common.name')}</TH>
-                      <TH className="text-end">{t('people.requestedAmount')}</TH>
-                    </TR>
-                  </THead>
-                  <TBody>
-                    {children.map((c) => (
-                      <TR key={c.id}>
-                        <TD>
-                          {c.name}
-                          {c.isCurrent ? (
-                            <Badge tone="muted" className="ms-2">
-                              {t('people.primary')}
-                            </Badge>
-                          ) : null}
-                        </TD>
-                        <TD
-                          className={`text-end font-mono ${
-                            c.outstanding && Number(c.outstanding) > 0 ? 'text-coral' : ''
-                          }`}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('people.children')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {students === null ? (
+              <div className="flex items-center gap-2 p-2 text-sm text-muted-foreground">
+                <Spinner /> {t('common.loading')}
+              </div>
+            ) : students.length === 0 ? (
+              <EmptyState title={t('people.noStudents')} />
+            ) : (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>{t('common.name')}</TH>
+                    <TH>{t('structure.grade')}</TH>
+                    <TH>{t('people.transport')}</TH>
+                    <TH className="text-end">{t('finance.outstanding')}</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {students.map((s) => (
+                    <TR key={s.studentId}>
+                      <TD>
+                        <button
+                          type="button"
+                          className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                          onClick={() => openStudent(s.studentId)}
                         >
-                          {money(c.outstanding)}
-                        </TD>
-                      </TR>
-                    ))}
-                  </TBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        ) : null}
+                          {s.firstNameEn} {s.lastNameEn}
+                        </button>
+                        {contextStudent?.id === s.studentId ? (
+                          <Badge tone="muted" className="ms-2">
+                            {t('people.primary')}
+                          </Badge>
+                        ) : null}
+                      </TD>
+                      <TD>{s.gradeNameEn ?? '—'}</TD>
+                      <TD>
+                        <Badge tone={s.transportRequested ? 'success' : 'muted'}>
+                          {s.transportRequested ? t('common.yes') : t('common.no')}
+                        </Badge>
+                      </TD>
+                      <TD
+                        className={`text-end font-mono ${
+                          Number(s.outstanding) > 0 ? 'text-coral' : ''
+                        }`}
+                      >
+                        {money(s.outstanding)}
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
