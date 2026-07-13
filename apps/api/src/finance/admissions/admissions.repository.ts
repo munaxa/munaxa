@@ -3,6 +3,7 @@ import {
   ApprovalStatus,
   ChargeStatus,
   EnrollmentStatus,
+  FeeItemKind,
   ParentRelation,
   Prisma,
   QuotePaymentMode,
@@ -242,8 +243,11 @@ export class AdmissionsRepository extends TenantRepository {
   /**
    * Materialise the AR ledger for a committed enrollment on the new model (ADR-001):
    *   FULL  → one Charge per fee line (net of discount), each with an implicit single installment.
-   *   INSTALLMENTS → one "Tuition & fees" Charge for the grand total + a PaymentPlan whose N
-   *                  monthly installments sum exactly to it (via the shared schedule generator).
+   *   INSTALLMENTS → a one-time "Registration fee" Charge (due at registration, never spread), plus
+   *                  one "Tuition & fees" Charge for the REMAINING net + a PaymentPlan whose N
+   *                  monthly installments sum exactly to that remainder (shared schedule generator).
+   * The registration fee is a one-off obligation payable when the student registers, so it is carved
+   * out of the amount that gets divided into monthly installments (BR: registration is paid once).
    * Every charge is linked to the account + enrollment + academic-year/grade dimensions (RR-2).
    */
   private async createEnrollmentCharges(
@@ -252,6 +256,7 @@ export class AdmissionsRepository extends TenantRepository {
     studentId: string,
     enrollmentId: string,
     quote: Prisma.EnrollmentQuoteGetPayload<{ include: { items: true } }>,
+    registrationFeePaid = true,
   ) {
     const account = await this.accounts.ensureAccountTx(tx, tenantId, studentId);
     const dims = {
@@ -286,21 +291,58 @@ export class AdmissionsRepository extends TenantRepository {
       return;
     }
 
-    // INSTALLMENTS: one obligation for the grand total + a scheduled plan.
+    // INSTALLMENTS. When the registration fee was paid at registration (the usual case), carve it out
+    // as its own one-off charge due at registration — it is never divided across the monthly plan, so
+    // only the remaining fees are scheduled. When it was NOT paid up front, it stays folded into the
+    // grand total and is spread across the installments like any other fee (registrationNet = 0 here).
+    const registrationNet = registrationFeePaid
+      ? quote.items
+          .filter((it) => it.kind === FeeItemKind.REGISTRATION)
+          .reduce((sum, it) => sum.plus(it.amount.minus(it.discountAmount)), new Prisma.Decimal(0))
+      : new Prisma.Decimal(0);
+    if (registrationNet.greaterThan(0)) {
+      const regDue = new Date(); // payable once, at the moment of registration
+      const regCharge = await tx.charge.create({
+        data: {
+          tenantId,
+          studentId,
+          ...dims,
+          description: 'Registration fee',
+          amount: registrationNet,
+          dueDate: regDue,
+          status: ChargeStatus.PENDING,
+          createdById: this.actor(),
+        },
+      });
+      await tx.installment.create({
+        data: {
+          tenantId,
+          chargeId: regCharge.id,
+          seq: 1,
+          dueDate: regDue,
+          amount: registrationNet,
+        },
+      });
+    }
+
+    // The remaining net (grand total minus the registration fee) is what gets spread over the plan.
+    const remainder = quote.grandTotal.minus(registrationNet);
+    if (remainder.lessThanOrEqualTo(0)) return; // registration-only quote — nothing left to schedule
+
     const charge = await tx.charge.create({
       data: {
         tenantId,
         studentId,
         ...dims,
         description: 'Tuition & fees',
-        amount: quote.grandTotal,
+        amount: remainder,
         dueDate,
         status: ChargeStatus.PENDING,
         createdById: this.actor(),
       },
     });
     const first = (quote.firstDueDate ?? new Date()).toISOString().slice(0, 10);
-    const lines = this.schedule.generate(toFils(quote.grandTotal.toString()), {
+    const lines = this.schedule.generate(toFils(remainder.toFixed(3)), {
       cadence: 'MONTHLY',
       installments: quote.installments,
       firstDueDate: first,
@@ -460,6 +502,9 @@ export class AdmissionsRepository extends TenantRepository {
           status: held ? EnrollmentStatus.PENDING_APPROVAL : EnrollmentStatus.COMMITTED,
           paymentMode: quote.paymentMode,
           feeModified: quote.feeModified,
+          // Usual case: the registration fee is paid at registration (its own one-off charge). If the
+          // registrar marks it unpaid it is folded into the installment plan instead.
+          registrationFeePaid: dto.registrationFeePaid ?? true,
           createdById: this.actor(),
         },
       });
@@ -468,7 +513,14 @@ export class AdmissionsRepository extends TenantRepository {
       //    enrollment for finance approval, charge creation is deferred until approval so nothing
       //    financial is committed before the decision — see decideModification().
       if (!held) {
-        await this.createEnrollmentCharges(tx, tenantId, studentId, enrollment.id, quote);
+        await this.createEnrollmentCharges(
+          tx,
+          tenantId,
+          studentId,
+          enrollment.id,
+          quote,
+          dto.registrationFeePaid ?? true,
+        );
       }
 
       // 5) Fee-modification tracking. Every change is recorded for the audit trail. When the
@@ -683,6 +735,7 @@ export class AdmissionsRepository extends TenantRepository {
               enrollment.studentId,
               enrollment.id,
               enrollment.quote,
+              enrollment.registrationFeePaid,
             );
           }
         }

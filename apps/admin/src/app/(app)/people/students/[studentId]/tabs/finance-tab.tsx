@@ -1109,6 +1109,33 @@ function ChargeNode({
 
       {open && (
         <div className="border-t border-border px-4 py-3">
+          {/* Fee-line breakdown for an aggregate charge: the details, then the sum. */}
+          {cv.lineItems && cv.lineItems.length > 0 && (
+            <div className="mb-3">
+              <div className="mb-2 text-sm font-medium">Fee breakdown</div>
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Fee</TH>
+                    <TH>Amount</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {cv.lineItems.map((li, i) => (
+                    <TR key={`${li.label}-${i}`}>
+                      <TD>{li.label}</TD>
+                      <TD>{num(li.amount)}</TD>
+                    </TR>
+                  ))}
+                  <TR>
+                    <TD className="font-semibold">Total</TD>
+                    <TD className="font-semibold">{num(cv.gross)}</TD>
+                  </TR>
+                </TBody>
+              </Table>
+            </div>
+          )}
+
           <div className="mb-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <Stat label="Gross" value={num(cv.gross)} />
             <Stat label="Discount" value={num(cv.discount)} />

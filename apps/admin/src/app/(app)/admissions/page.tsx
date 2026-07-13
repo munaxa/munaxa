@@ -24,6 +24,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Checkbox,
   EmptyState,
   Field,
   Input,
@@ -88,6 +89,9 @@ export default function AdmissionsPage() {
   const [paymentMode, setPaymentMode] = useState<QuotePaymentMode>('INSTALLMENTS');
   const [installments, setInstallments] = useState('1');
   const [firstDueDate, setFirstDueDate] = useState(new Date().toISOString().slice(0, 10));
+  // The registration fee is normally paid at registration (its own one-off charge); unchecking folds
+  // it into the installment plan instead.
+  const [registrationFeePaid, setRegistrationFeePaid] = useState(true);
 
   const [quote, setQuote] = useState<ComputedQuote | null>(null);
   const [busy, setBusy] = useState(false);
@@ -294,6 +298,11 @@ export default function AdmissionsPage() {
         idempotencyKey: crypto.randomUUID(),
         ...(mode === 'RETURNING' ? { existingStudentId: returningId } : {}),
         ...(sectionId ? { sectionId } : {}),
+        // Whether the one-time registration fee was collected at registration. Only meaningful for
+        // an installment plan with a registration fee; harmless (defaults true) otherwise.
+        ...(paymentMode === 'INSTALLMENTS' && registrationFee != null
+          ? { registrationFeePaid }
+          : {}),
         // Transportation demand: "Yes" = any direction other than NONE. This records the
         // request + home area on the student so Fleet's Unassigned queue and Area Planning
         // use real data; it does not change billing (charges still come from TransportFare).
@@ -353,6 +362,14 @@ export default function AdmissionsPage() {
     () => (quote && quote.schedule[0] ? quote.schedule[0].amount : null),
     [quote],
   );
+
+  // A registration fee only needs the "paid at registration" choice when there is one to bill.
+  const registrationFee = useMemo(() => {
+    const line = (quote?.lines ?? []).find((l) => l.kind === 'REGISTRATION');
+    if (!line) return null;
+    const net = Number(line.amount) - Number(line.discountAmount);
+    return net > 0 ? net : null;
+  }, [quote]);
 
   // Age/grade guard: children start Grade 1 (level 1) at age 6, so a student is expected to be
   // (5 + grade level) years old at the start of the academic year. We validate the entered date of
@@ -587,6 +604,20 @@ export default function AdmissionsPage() {
                           dir="ltr"
                         />
                       </Field>
+                      {registrationFee != null ? (
+                        <div className="sm:col-span-2">
+                          <Checkbox
+                            checked={registrationFeePaid}
+                            onChange={(e) => setRegistrationFeePaid(e.target.checked)}
+                            label={`Registration fee (${jod(registrationFee)}) paid at registration`}
+                          />
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {registrationFeePaid
+                              ? 'Billed as a one-off charge due now; only the remaining fees are split into installments.'
+                              : 'Not paid up front — the registration fee is folded into the monthly installments.'}
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">
