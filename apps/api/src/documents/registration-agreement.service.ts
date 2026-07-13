@@ -131,7 +131,20 @@ export class RegistrationAgreementService {
       : [];
     const sources = guardianEnrollments.length > 0 ? guardianEnrollments : [enrollment];
 
+    // Prefer the authoritative FAMILY payment plan schedule (Family Admission) over merging the
+    // per-student quote schedules; the merge remains the fallback for legacy student-billed guardians.
+    const familyPlan = parent
+      ? await this.repo.familyPlanSchedule(parent.id, academicYearId)
+      : { hasPlan: false, schedule: [] };
+
     const snapshot = this.buildSnapshot(sources, parent, enrollment, language);
+    if (familyPlan.hasPlan) {
+      snapshot.schedule = familyPlan.schedule.map((row, i) => ({
+        index: i + 1,
+        dueDate: row.dueDate,
+        amount: row.amount,
+      }));
+    }
     const fingerprint = agreementFingerprint(
       snapshot.students,
       snapshot.schedule,

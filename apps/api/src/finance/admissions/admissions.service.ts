@@ -8,6 +8,7 @@ import type {
   CommitDto,
   CreateArrangementDto,
   CreateFeeItemDto,
+  FamilyCommitDto,
   QuoteDto,
   UpdateFeeItemDto,
   UpsertGradeFeeItemDto,
@@ -85,6 +86,19 @@ export class AdmissionsService {
       this.scheduleAgreement(enrollment.id);
     }
     return enrollment;
+  }
+
+  /**
+   * Atomic FAMILY registration commit: one guardian/customer pays for one or more students through a
+   * single family payment plan. After commit, generate the ONE family Registration Agreement (from the
+   * committed snapshot / family plan) in the background — same fire-and-forget pattern as commit().
+   */
+  async familyCommit(dto: FamilyCommitDto) {
+    const result = await this.repo.familyCommit(dto);
+    // The agreement is one-per-guardian+year; scheduling it for any of the family's enrolments
+    // produces the single family agreement covering all the children.
+    if (result.enrollmentIds.length > 0) this.scheduleAgreement(result.enrollmentIds[0]!);
+    return result;
   }
 
   loadReturning(studentId: string) {

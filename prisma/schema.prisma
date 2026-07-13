@@ -137,6 +137,23 @@ enum AccountStatus {
   WRITTEN_OFF
 }
 
+/// WHO the financial customer of a FinancialAccount is. The payer is not always a parent forever:
+/// schools may bill a company (employee benefit), a charity, a sponsor, a government programme, a
+/// scholarship organisation, a court order, or another relative. Students consume services; a
+/// FinancialAccount pays for them (ADR-family-billing).
+enum FinancialAccountOwnerType {
+  GUARDIAN
+  GRANDPARENT
+  COMPANY
+  CHARITY
+  SPONSOR
+  GOVERNMENT
+  SCHOLARSHIP_ORG
+  COURT_ORDER
+  RELATIVE
+  OTHER
+}
+
 /// Charge lifecycle (§3.1, ADR-007). OVERDUE is derived, never stored.
 enum ChargeStatus {
   PENDING
@@ -416,6 +433,8 @@ model Tenant {
   gradeRecords             GradeRecord[]
   payers                   Payer[]
   financialAccounts        StudentFinancialAccount[]
+  financialAccountOwners   FinancialAccount[]
+  financialAccountPlans    FinancialAccountPlan[]
   charges                  Charge[]
   paymentPlans             PaymentPlan[]
   installments             Installment[]
@@ -550,19 +569,20 @@ model AcademicYear {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campus           Campus             @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  semesters        Semester[]
-  feeSchedules     GradeFeeSchedule[]
-  transportFares   TransportFare[]
-  gradeFeeItems    GradeFeeItem[]
-  charges          Charge[]
-  enrollmentQuotes EnrollmentQuote[]
-  enrollments      Enrollment[]
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus                 Campus                  @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  semesters              Semester[]
+  feeSchedules           GradeFeeSchedule[]
+  transportFares         TransportFare[]
+  gradeFeeItems          GradeFeeItem[]
+  charges                Charge[]
+  enrollmentQuotes       EnrollmentQuote[]
+  enrollments            Enrollment[]
+  financialAccountPlans  FinancialAccountPlan[]
   generatedDocuments     GeneratedDocument[]
   registrationAgreements RegistrationAgreement[]
-  busRoutes        BusRoute[]
-  serviceAreas     Area[]
+  busRoutes              BusRoute[]
+  serviceAreas           Area[]
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
@@ -666,66 +686,66 @@ model Section {
 // ----------------------------------------------------------------------------
 
 model Student {
-  id               String        @id @default(uuid()) @db.Uuid
-  tenantId         String        @db.Uuid
-  userId           String?       @unique @db.Uuid
-  moeStudentNumber String? // Ministry of Education student number
-  nationalId       String? // Jordanian National ID (Raqam Watani)
-  firstNameEn      String
-  lastNameEn       String
-  firstNameAr      String
-  lastNameAr       String
+  id                 String        @id @default(uuid()) @db.Uuid
+  tenantId           String        @db.Uuid
+  userId             String?       @unique @db.Uuid
+  moeStudentNumber   String? // Ministry of Education student number
+  nationalId         String? // Jordanian National ID (Raqam Watani)
+  firstNameEn        String
+  lastNameEn         String
+  firstNameAr        String
+  lastNameAr         String
   // Full Arab/MoE name parts (given · father · grandfather · family). Optional/back-compat.
-  fatherNameEn     String?
-  fatherNameAr     String?
-  thirdNameEn      String?
-  thirdNameAr      String?
-  dateOfBirth      DateTime?     @db.Date
-  gender           Gender?
-  sectionId        String?       @db.Uuid
-  qrCode           String        @unique
-  status           StudentStatus @default(ACTIVE)
+  fatherNameEn       String?
+  fatherNameAr       String?
+  thirdNameEn        String?
+  thirdNameAr        String?
+  dateOfBirth        DateTime?     @db.Date
+  gender             Gender?
+  sectionId          String?       @db.Uuid
+  qrCode             String        @unique
+  status             StudentStatus @default(ACTIVE)
   // Transportation demand, set during registration (additive — Fleet remains the
   // operational source of truth via StudentBusAssignment).
-  areaId             String?     @db.Uuid // home area (geographic), drives Area Planning
-  transportRequested Boolean     @default(false) // parent requested transport → Unassigned queue
-  enrollmentDate   DateTime      @default(now()) @db.Timestamptz(6)
-  createdAt        DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime      @updatedAt @db.Timestamptz(6)
-  deletedAt        DateTime?     @db.Timestamptz(6)
+  areaId             String?       @db.Uuid // home area (geographic), drives Area Planning
+  transportRequested Boolean       @default(false) // parent requested transport → Unassigned queue
+  enrollmentDate     DateTime      @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
+  deletedAt          DateTime?     @db.Timestamptz(6)
 
-  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user                  User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  section               Section?               @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  area                  Area?                  @relation(fields: [areaId], references: [id], onDelete: SetNull)
-  parentLinks           ParentStudent[]
-  attendance            StudentAttendance[]
-  behaviorLogs          BehaviorLog[]
-  gradeRecords          GradeRecord[]
-  financialAccount      StudentFinancialAccount?
-  charges               Charge[]
-  payments              Payment[]
-  leaveRequests         LeaveRequest[]
-  ptmBookings           PtmBooking[]
-  documents             Document[]
-  achievements          StudentAchievement[]
-  gamification          StudentGamification?
-  busAssignments        StudentBusAssignment[]
-  bookLoans             BookLoan[]
-  medicalRecord         StudentMedicalRecord?
-  clinicVisits          ClinicVisit[]
-  einvoiceDocuments     EInvoiceDocument[]
-  adjustments           FeeAdjustment[]
-  refunds               Refund[]
-  billingProfile        StudentBillingProfile?
-  presenceEvents        StudentPresenceEvent[]
-  busAttendanceEvents   BusAttendanceEvent[]
-  cards                 StudentCard[]
-  vaccines              StudentVaccine[]
-  enrollments           Enrollment[]
-  enrollmentQuotes      EnrollmentQuote[]
-  financialArrangements FinancialArrangement[]
-  generatedDocuments    GeneratedDocument[]
+  tenant                 Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                   User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  section                Section?                 @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  area                   Area?                    @relation(fields: [areaId], references: [id], onDelete: SetNull)
+  parentLinks            ParentStudent[]
+  attendance             StudentAttendance[]
+  behaviorLogs           BehaviorLog[]
+  gradeRecords           GradeRecord[]
+  financialAccount       StudentFinancialAccount?
+  charges                Charge[]
+  payments               Payment[]
+  leaveRequests          LeaveRequest[]
+  ptmBookings            PtmBooking[]
+  documents              Document[]
+  achievements           StudentAchievement[]
+  gamification           StudentGamification?
+  busAssignments         StudentBusAssignment[]
+  bookLoans              BookLoan[]
+  medicalRecord          StudentMedicalRecord?
+  clinicVisits           ClinicVisit[]
+  einvoiceDocuments      EInvoiceDocument[]
+  adjustments            FeeAdjustment[]
+  refunds                Refund[]
+  billingProfile         StudentBillingProfile?
+  presenceEvents         StudentPresenceEvent[]
+  busAttendanceEvents    BusAttendanceEvent[]
+  cards                  StudentCard[]
+  vaccines               StudentVaccine[]
+  enrollments            Enrollment[]
+  enrollmentQuotes       EnrollmentQuote[]
+  financialArrangements  FinancialArrangement[]
+  generatedDocuments     GeneratedDocument[]
   registrationAgreements RegistrationAgreement[]
 
   // Uniqueness of nationalId / moeStudentNumber is enforced by PARTIAL unique indexes
@@ -761,6 +781,7 @@ model Parent {
   user                   User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
   studentLinks           ParentStudent[]
   payers                 Payer[]
+  financialAccounts      FinancialAccount[]
   generatedDocuments     GeneratedDocument[]
   registrationAgreements RegistrationAgreement[]
 
@@ -1326,12 +1347,13 @@ model Payer {
   createdAt   DateTime @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent   Parent?                   @relation(fields: [parentId], references: [id], onDelete: SetNull)
-  accounts StudentFinancialAccount[]
-  payments Payment[]
-  credits  Credit[]
-  refunds  Refund[]
+  tenant            Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent            Parent?                   @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  accounts          StudentFinancialAccount[]
+  payments          Payment[]
+  credits           Credit[]
+  refunds           Refund[]
+  financialAccounts FinancialAccount[]
 
   @@index([tenantId])
   @@index([tenantId, parentId])
@@ -1340,29 +1362,34 @@ model Payer {
 /// The AR ledger owner for one student: currency, status, optional payer. Every
 /// financial row for the student hangs off this account (BR-1, BR-2, BR-4).
 model StudentFinancialAccount {
-  id        String        @id @default(uuid()) @db.Uuid
-  tenantId  String        @db.Uuid
-  studentId String        @unique @db.Uuid
-  payerId   String?       @db.Uuid
-  currency  String        @default("JOD")
-  status    AccountStatus @default(ACTIVE)
-  openedAt  DateTime      @default(now()) @db.Timestamptz(6)
-  closedAt  DateTime?     @db.Timestamptz(6)
-  createdAt DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime      @updatedAt @db.Timestamptz(6)
+  id                 String        @id @default(uuid()) @db.Uuid
+  tenantId           String        @db.Uuid
+  studentId          String        @unique @db.Uuid
+  payerId            String?       @db.Uuid
+  // The financial customer this student's charges are billed through. NULL for legacy student-only
+  // billing; set for students admitted through the Family Admission workflow.
+  financialAccountId String?       @db.Uuid
+  currency           String        @default("JOD")
+  status             AccountStatus @default(ACTIVE)
+  openedAt           DateTime      @default(now()) @db.Timestamptz(6)
+  closedAt           DateTime?     @db.Timestamptz(6)
+  createdAt          DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
 
-  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student         Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  payer           Payer?            @relation(fields: [payerId], references: [id], onDelete: SetNull)
-  charges         Charge[]
-  payments        Payment[]
-  adjustments     FeeAdjustment[]
-  credits         Credit[]
-  refunds         Refund[]
-  collectionsCase CollectionsCase?
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student          Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  payer            Payer?            @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  financialAccount FinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: SetNull)
+  charges          Charge[]
+  payments         Payment[]
+  adjustments      FeeAdjustment[]
+  credits          Credit[]
+  refunds          Refund[]
+  collectionsCase  CollectionsCase?
 
   @@index([tenantId])
   @@index([tenantId, payerId])
+  @@index([tenantId, financialAccountId])
 }
 
 /// A single financial OBLIGATION owed by one account (e.g. "Annual Tuition 2026/27").
@@ -1408,25 +1435,30 @@ model Charge {
 /// HOW a charge may be paid over time: cadence, count, terms, status. 0..1 active per
 /// charge; superseding regenerates the schedule for the remaining balance (BR-11..13, ADR-001).
 model PaymentPlan {
-  id           String             @id @default(uuid()) @db.Uuid
-  tenantId     String             @db.Uuid
-  chargeId     String             @db.Uuid
-  cadence      PaymentPlanCadence @default(MONTHLY)
-  installments Int
-  firstDueDate DateTime           @db.Date
-  balloonFinal Boolean            @default(false)
-  status       PaymentPlanStatus  @default(ACTIVE)
-  createdById  String?            @db.Uuid
-  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime           @updatedAt @db.Timestamptz(6)
+  id              String             @id @default(uuid()) @db.Uuid
+  tenantId        String             @db.Uuid
+  chargeId        String             @db.Uuid
+  // The family/customer plan this per-charge plan is aligned to (shared cadence + due dates), when the
+  // charge is billed through a FinancialAccount. NULL for legacy per-student plans.
+  financialPlanId String?            @db.Uuid
+  cadence         PaymentPlanCadence @default(MONTHLY)
+  installments    Int
+  firstDueDate    DateTime           @db.Date
+  balloonFinal    Boolean            @default(false)
+  status          PaymentPlanStatus  @default(ACTIVE)
+  createdById     String?            @db.Uuid
+  createdAt       DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @db.Timestamptz(6)
 
-  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  charge          Charge        @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  charge          Charge                @relation(fields: [chargeId], references: [id], onDelete: Cascade)
+  financialPlan   FinancialAccountPlan? @relation(fields: [financialPlanId], references: [id], onDelete: SetNull)
   installmentRows Installment[]
 
   // At most one ACTIVE plan per charge is enforced by a partial unique index (see migration).
   @@index([tenantId, chargeId])
   @@index([tenantId, status])
+  @@index([tenantId, financialPlanId])
 }
 
 /// WHEN a scheduled portion of a charge's net is expected. A schedule line — never a
@@ -1458,29 +1490,35 @@ model Installment {
 /// and start PENDING until a FinanceOfficer verifies them; a gapless receiptNo is assigned
 /// once, at verify. Allocations apply the money to installments (BR-17..25).
 model Payment {
-  id               String              @id @default(uuid()) @db.Uuid
-  tenantId         String              @db.Uuid
-  accountId        String              @db.Uuid
-  studentId        String              @db.Uuid
-  payerId          String?             @db.Uuid
-  amount           Decimal             @db.Decimal(12, 3)
-  currency         String              @default("JOD")
-  method           PaymentMethod
-  reference        String? // e.g. CliQ reference
-  receiptKey       String? // S3 object key for an uploaded receipt
-  receiptNo        Int? // gapless per-tenant official receipt number (assigned at verify)
-  status           PaymentStatus       @default(PENDING)
-  note             String?
-  recordedById     String?             @db.Uuid
-  verifiedById     String?             @db.Uuid
-  verifiedAt       DateTime?           @db.Timestamptz(6)
-  parentNotifiedAt DateTime?           @db.Timestamptz(6)
-  createdAt        DateTime            @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime            @updatedAt @db.Timestamptz(6)
+  id                 String        @id @default(uuid()) @db.Uuid
+  tenantId           String        @db.Uuid
+  accountId          String        @db.Uuid
+  studentId          String        @db.Uuid
+  // The financial customer this payment belongs to (Family Admission workflow). When set, verify
+  // auto-allocates the money across ALL the account's students' open installments (cross-student
+  // FIFO). NULL = legacy student-scoped payment (allocates within accountId/studentId only). studentId
+  // stays populated for backward compatibility; new major versions may deprecate direct student pay.
+  financialAccountId String?       @db.Uuid
+  payerId            String?       @db.Uuid
+  amount             Decimal       @db.Decimal(12, 3)
+  currency           String        @default("JOD")
+  method             PaymentMethod
+  reference          String? // e.g. CliQ reference
+  receiptKey         String? // S3 object key for an uploaded receipt
+  receiptNo          Int? // gapless per-tenant official receipt number (assigned at verify)
+  status             PaymentStatus @default(PENDING)
+  note               String?
+  recordedById       String?       @db.Uuid
+  verifiedById       String?       @db.Uuid
+  verifiedAt         DateTime?     @db.Timestamptz(6)
+  parentNotifiedAt   DateTime?     @db.Timestamptz(6)
+  createdAt          DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
 
   tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   account           StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
   student           Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  financialAccount  FinancialAccount?       @relation(fields: [financialAccountId], references: [id], onDelete: SetNull)
   payer             Payer?                  @relation(fields: [payerId], references: [id], onDelete: SetNull)
   allocations       PaymentAllocation[]
   credits           Credit[]
@@ -1490,6 +1528,7 @@ model Payment {
   @@index([tenantId, accountId])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
+  @@index([tenantId, financialAccountId])
 }
 
 /// Row-locked, per-tenant counter that hands out gapless receipt numbers for verified payments
@@ -1500,6 +1539,70 @@ model PaymentReceiptCounter {
   nextReceiptNo Int    @default(1)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// The FINANCIAL CUSTOMER: whoever pays for one or more students' educational services. Owns the
+/// payment plan(s), installments (via the plan), payments, credits, refunds, collections, statements
+/// and agreements. Students remain the owners of their charges/discounts/scholarships/academic
+/// history; the allocation engine connects the two. Additive & backward-compatible: legacy student
+/// billing (payments with financialAccountId NULL) keeps working unchanged. A payer is usually the
+/// primary guardian but may be a company/charity/sponsor/government/etc (ownerType).
+model FinancialAccount {
+  id          String                    @id @default(uuid()) @db.Uuid
+  tenantId    String                    @db.Uuid
+  ownerType   FinancialAccountOwnerType @default(GUARDIAN)
+  parentId    String?                   @db.Uuid // set when a guardian owns the account
+  payerId     String?                   @db.Uuid // reuse the existing Payer as the billing identity
+  nameEn      String
+  nameAr      String
+  phone       String?
+  email       String?
+  currency    String                    @default("JOD")
+  status      AccountStatus             @default(ACTIVE)
+  createdById String?                   @db.Uuid
+  createdAt   DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime                  @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent   Parent?                   @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  payer    Payer?                    @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  accounts StudentFinancialAccount[] // the students' AR accounts billed through this account
+  plans    FinancialAccountPlan[]
+  payments Payment[]
+  credits  Credit[]
+  refunds  Refund[]
+
+  @@index([tenantId])
+  @@index([tenantId, parentId])
+  @@index([tenantId, payerId])
+}
+
+/// HOW a FinancialAccount pays over time: the family/customer-level cadence, count and first due
+/// date. It owns the family installment schedule as a coordination layer over the per-charge
+/// PaymentPlans (each student charge keeps its own plan, aligned to this one via
+/// PaymentPlan.financialPlanId) so a chosen "9 installments" always yields exactly 9 family
+/// installments. The allocation engine still settles individual student-charge installments (BR-11,
+/// ADR-001) — this never changes the ledger.
+model FinancialAccountPlan {
+  id                 String             @id @default(uuid()) @db.Uuid
+  tenantId           String             @db.Uuid
+  financialAccountId String             @db.Uuid
+  academicYearId     String             @db.Uuid
+  cadence            PaymentPlanCadence @default(MONTHLY)
+  installments       Int
+  firstDueDate       DateTime           @db.Date
+  status             PaymentPlanStatus  @default(ACTIVE)
+  createdById        String?            @db.Uuid
+  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  financialAccount FinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Cascade)
+  academicYear     AcademicYear     @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  studentPlans     PaymentPlan[]
+
+  @@index([tenantId, financialAccountId])
+  @@index([tenantId, status])
 }
 
 // ----------------------------------------------------------------------------
@@ -1690,7 +1793,7 @@ model OrganizationSettings {
   mission          String?
   vision           String?
   establishedYear  Int?
-  description       String?
+  description      String?
   timezone         String                 @default("Asia/Amman")
   defaultLanguage  String                 @default("en")
   academicCalendar String?
@@ -2581,60 +2684,69 @@ model PaymentAllocation {
 /// An independent asset lot the account holds (over-payment, credit-memo, …), with provenance
 /// and a derived remaining balance. Refunds and future credit-applications draw it down (CR-1..5).
 model Credit {
-  id           String       @id @default(uuid()) @db.Uuid
-  tenantId     String       @db.Uuid
-  accountId    String       @db.Uuid
-  payerId      String?      @db.Uuid
-  source       CreditSource
-  amount       Decimal      @db.Decimal(12, 3)
-  adjustmentId String?      @unique @db.Uuid // provenance when granted by a CREDIT_MEMO
-  paymentId    String?      @db.Uuid // provenance when from an over-payment
-  reason       String?
-  expiresAt    DateTime?    @db.Date
-  createdById  String?      @db.Uuid
-  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+  id                 String       @id @default(uuid()) @db.Uuid
+  tenantId           String       @db.Uuid
+  accountId          String       @db.Uuid
+  // When the credit belongs to a FinancialAccount (e.g. a family over-payment), it is set here so the
+  // balance is owned by the payer, not one student. NULL for legacy student-owned credit.
+  financialAccountId String?      @db.Uuid
+  payerId            String?      @db.Uuid
+  source             CreditSource
+  amount             Decimal      @db.Decimal(12, 3)
+  adjustmentId       String?      @unique @db.Uuid // provenance when granted by a CREDIT_MEMO
+  paymentId          String?      @db.Uuid // provenance when from an over-payment
+  reason             String?
+  expiresAt          DateTime?    @db.Date
+  createdById        String?      @db.Uuid
+  createdAt          DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(6)
 
-  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  account      StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  payer        Payer?                  @relation(fields: [payerId], references: [id], onDelete: SetNull)
-  adjustment   FeeAdjustment?          @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
-  payment      Payment?                @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  consumptions RefundConsumption[]
+  tenant           Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account          StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  financialAccount FinancialAccount?       @relation(fields: [financialAccountId], references: [id], onDelete: SetNull)
+  payer            Payer?                  @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  adjustment       FeeAdjustment?          @relation(fields: [adjustmentId], references: [id], onDelete: SetNull)
+  payment          Payment?                @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  consumptions     RefundConsumption[]
 
   @@index([tenantId, accountId])
   @@index([tenantId, payerId])
+  @@index([tenantId, financialAccountId])
 }
 
 /// A refund of available credit back to the payer. Consumes specific Credit lots FIFO. Same
 /// verify workflow as a payment (BR-33..35, CR-2).
 model Refund {
-  id           String        @id @default(uuid()) @db.Uuid
-  tenantId     String        @db.Uuid
-  accountId    String        @db.Uuid
-  studentId    String        @db.Uuid
-  payerId      String?       @db.Uuid
-  amount       Decimal       @db.Decimal(12, 3)
-  method       PaymentMethod
-  reference    String?
-  reason       String
-  status       RefundStatus  @default(PENDING)
-  recordedById String?       @db.Uuid
-  verifiedById String?       @db.Uuid
-  verifiedAt   DateTime?     @db.Timestamptz(6)
-  note         String?
-  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime      @updatedAt @db.Timestamptz(6)
+  id                 String        @id @default(uuid()) @db.Uuid
+  tenantId           String        @db.Uuid
+  accountId          String        @db.Uuid
+  studentId          String        @db.Uuid
+  // The financial customer refunded, when the refund draws family/account credit. NULL = legacy.
+  financialAccountId String?       @db.Uuid
+  payerId            String?       @db.Uuid
+  amount             Decimal       @db.Decimal(12, 3)
+  method             PaymentMethod
+  reference          String?
+  reason             String
+  status             RefundStatus  @default(PENDING)
+  recordedById       String?       @db.Uuid
+  verifiedById       String?       @db.Uuid
+  verifiedAt         DateTime?     @db.Timestamptz(6)
+  note               String?
+  createdAt          DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
 
-  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  account      StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  student      Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  payer        Payer?                  @relation(fields: [payerId], references: [id], onDelete: SetNull)
-  consumptions RefundConsumption[]
+  tenant           Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account          StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  student          Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  financialAccount FinancialAccount?       @relation(fields: [financialAccountId], references: [id], onDelete: SetNull)
+  payer            Payer?                  @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  consumptions     RefundConsumption[]
 
   @@index([tenantId, accountId])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
+  @@index([tenantId, financialAccountId])
 }
 
 /// A single Credit lot drawn by a Refund (FIFO). Σ consumptions == refund.amount (BR-34).
@@ -2739,15 +2851,15 @@ model CollectionsCase {
 
 /// A recorded commitment (amount + date) within a collections case (BR: PromiseToPay).
 model PromiseToPay {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @db.Uuid
-  caseId    String   @db.Uuid
-  amount    Decimal  @db.Decimal(12, 3)
-  promiseBy DateTime @db.Date
-  kept      Boolean? // null = open, true = kept, false = broken
-  note      String?
-  createdById String? @db.Uuid
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  caseId      String   @db.Uuid
+  amount      Decimal  @db.Decimal(12, 3)
+  promiseBy   DateTime @db.Date
+  kept        Boolean? // null = open, true = kept, false = broken
+  note        String?
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
 
   tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   case   CollectionsCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
@@ -2758,23 +2870,23 @@ model PromiseToPay {
 /// Append-only log of a dunning action (reminder/note/status change/promise/escalation).
 /// Reminder events also snapshot the outstanding/overdue amounts at send time.
 model DunningEvent {
-  id             String            @id @default(uuid()) @db.Uuid
-  tenantId       String            @db.Uuid
-  caseId         String            @db.Uuid
+  id             String               @id @default(uuid()) @db.Uuid
+  tenantId       String               @db.Uuid
+  caseId         String               @db.Uuid
   type           DunningEventType
   channels       ReminderChannel[]
   /// Contact medium — only set on COMMUNICATION events (the Communication Log).
   medium         CommunicationMedium?
   /// Escalation level — only set on REMINDER events (friendly → suspension notice).
   level          ReminderLevel?
-  outstanding    Decimal?          @db.Decimal(12, 3)
-  dueThisMonth   Decimal?          @db.Decimal(12, 3)
-  overdue        Decimal?          @db.Decimal(12, 3)
-  recipientCount Int               @default(0)
-  smsSentCount   Int               @default(0)
+  outstanding    Decimal?             @db.Decimal(12, 3)
+  dueThisMonth   Decimal?             @db.Decimal(12, 3)
+  overdue        Decimal?             @db.Decimal(12, 3)
+  recipientCount Int                  @default(0)
+  smsSentCount   Int                  @default(0)
   detail         String?
-  actorId        String?           @db.Uuid
-  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  actorId        String?              @db.Uuid
+  createdAt      DateTime             @default(now()) @db.Timestamptz(6)
 
   tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   case   CollectionsCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
@@ -2786,29 +2898,29 @@ model DunningEvent {
 /// One per student: cached collections headline + permanent financial flags + reminder cadence
 /// bookkeeping. Single-writer projection (Collections/Admissions) — never a money source (§4).
 model StudentBillingProfile {
-  id                   String            @id @default(uuid()) @db.Uuid
-  tenantId             String            @db.Uuid
-  studentId            String            @unique @db.Uuid
-  collectionsStatus    CollectionsStatus @default(NONE)
-  legalNote            String?
-  flaggedById          String?           @db.Uuid
-  flaggedAt            DateTime?         @db.Timestamptz(6)
-  lastReminderAt       DateTime?         @db.Timestamptz(6)
+  id                       String            @id @default(uuid()) @db.Uuid
+  tenantId                 String            @db.Uuid
+  studentId                String            @unique @db.Uuid
+  collectionsStatus        CollectionsStatus @default(NONE)
+  legalNote                String?
+  flaggedById              String?           @db.Uuid
+  flaggedAt                DateTime?         @db.Timestamptz(6)
+  lastReminderAt           DateTime?         @db.Timestamptz(6)
   /// Transport service suspended for non-payment (BillingPolicy.suspendTransportAfterOverdue).
   /// Persisted state so boarding/transport flows can consult it; auto-restored when caught up.
-  transportSuspended   Boolean           @default(false)
-  transportSuspendedAt DateTime?         @db.Timestamptz(6)
+  transportSuspended       Boolean           @default(false)
+  transportSuspendedAt     DateTime?         @db.Timestamptz(6)
   /// Why/who/when for the current or last transport suspension (additive — audit-friendly display).
   transportSuspendedReason String?
-  transportSuspendedById   String?       @db.Uuid
-  transportReinstatedAt    DateTime?     @db.Timestamptz(6)
+  transportSuspendedById   String?           @db.Uuid
+  transportReinstatedAt    DateTime?         @db.Timestamptz(6)
   /// Set true when this student's fees deviate from the standard school plan (registrar override),
   /// driving the permanent "Fee Modified" badge. customArrangement marks a bespoke schedule.
-  feeModified          Boolean           @default(false)
-  customArrangement    Boolean           @default(false)
-  financialNote        String?
-  createdAt            DateTime          @default(now()) @db.Timestamptz(6)
-  updatedAt            DateTime          @updatedAt @db.Timestamptz(6)
+  feeModified              Boolean           @default(false)
+  customArrangement        Boolean           @default(false)
+  financialNote            String?
+  createdAt                DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime          @updatedAt @db.Timestamptz(6)
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -3278,14 +3390,14 @@ model Enrollment {
   createdAt           DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime           @updatedAt @db.Timestamptz(6)
 
-  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  student       Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  academicYear  AcademicYear            @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  grade         Grade                   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
-  quote         EnrollmentQuote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
-  modifications FeeModification[]
-  arrangements  FinancialArrangement[]
-  commitment    RegistrationCommitment?
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student                Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  academicYear           AcademicYear            @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  grade                  Grade                   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  quote                  EnrollmentQuote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  modifications          FeeModification[]
+  arrangements           FinancialArrangement[]
+  commitment             RegistrationCommitment?
   registrationAgreements RegistrationAgreement[]
 
   @@unique([tenantId, studentId, academicYearId])
@@ -3465,15 +3577,15 @@ model DocumentSequence {
 /// captures the inputs needed to re-render a DYNAMIC document; `dataSnapshot` captures the data a
 /// SNAPSHOT PDF was built from. Tenant-scoped (RLS); every action is recorded in DocumentAccessLog.
 model GeneratedDocument {
-  id           String                  @id @default(uuid()) @db.Uuid
-  tenantId     String                  @db.Uuid
-  documentNo   Int // gapless per tenant+type
-  type         DocumentType
-  persistence  DocumentPersistence     @default(SNAPSHOT)
-  title        String
-  language     DocumentLanguage        @default(EN)
-  status       GeneratedDocumentStatus @default(ARCHIVED)
-  version      Int                     @default(1)
+  id          String                  @id @default(uuid()) @db.Uuid
+  tenantId    String                  @db.Uuid
+  documentNo  Int // gapless per tenant+type
+  type        DocumentType
+  persistence DocumentPersistence     @default(SNAPSHOT)
+  title       String
+  language    DocumentLanguage        @default(EN)
+  status      GeneratedDocumentStatus @default(ARCHIVED)
+  version     Int                     @default(1)
 
   // Optional subjects/links (all SetNull so the archive survives record deletion).
   studentId      String? @db.Uuid
@@ -3523,18 +3635,18 @@ model GeneratedDocument {
 /// email and view events, with the actor and request context. The counters on GeneratedDocument are
 /// a denormalised cache of these rows. Tenant-scoped (RLS); each row mirrors an AuditLog entry.
 model DocumentAccessLog {
-  id          String               @id @default(uuid()) @db.Uuid
-  tenantId    String               @db.Uuid
-  documentId  String               @db.Uuid
+  id           String               @id @default(uuid()) @db.Uuid
+  tenantId     String               @db.Uuid
+  documentId   String               @db.Uuid
   documentType DocumentType
-  action      DocumentAccessAction
-  status      DocumentAccessStatus @default(SUCCESS)
-  actorUserId String?              @db.Uuid
-  ip          String?
-  userAgent   String?
-  device      String?
-  detail      String?
-  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+  action       DocumentAccessAction
+  status       DocumentAccessStatus @default(SUCCESS)
+  actorUserId  String?              @db.Uuid
+  ip           String?
+  userAgent    String?
+  device       String?
+  detail       String?
+  createdAt    DateTime             @default(now()) @db.Timestamptz(6)
 
   tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   document GeneratedDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
@@ -3590,13 +3702,13 @@ model RegistrationAgreement {
   gradeId        String? @db.Uuid
   sectionId      String? @db.Uuid
 
-  registrationDate DateTime         @db.Date
-  paymentMode      QuotePaymentMode @default(INSTALLMENTS)
-  installments     Int              @default(1)
+  registrationDate    DateTime         @db.Date
+  paymentMode         QuotePaymentMode @default(INSTALLMENTS)
+  installments        Int              @default(1)
   // Permanent financial snapshot at commit time (fee lines, discounts, schedule).
   feeBreakdown        Json
   installmentSchedule Json
-  grandTotal          Decimal @db.Decimal(12, 3)
+  grandTotal          Decimal          @db.Decimal(12, 3)
 
   // The archived PDF document (the stored, reprintable snapshot).
   documentId   String? @unique @db.Uuid

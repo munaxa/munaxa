@@ -128,14 +128,24 @@ export class LedgerService {
   }
 
   /**
-   * On verify, auto-allocate a payment across the account's open installments (FIFO by due date),
-   * then bank any residue as an over-payment Credit (AR-2, AR-5, BR-23, BR-24).
+   * On verify, auto-allocate a payment across the open installments (FIFO by due date), then bank
+   * any residue as an over-payment Credit (AR-2, AR-5, BR-23, BR-24).
+   *
+   * When the payment belongs to a FinancialAccount (Family Admission), the scope is the union of ALL
+   * the account's students' open installments (cross-student FIFO — the declared CROSS_STUDENT seam)
+   * and the residue banks to the family credit. A legacy student payment (financialAccountId null)
+   * allocates within its own student only — unchanged behaviour. The allocation policy is identical
+   * either way; only the set of candidate installments differs.
    */
   async allocateOnVerify(payment: Payment): Promise<void> {
     let remaining = await this.repo.unallocatedFor(payment.id);
     if (remaining.lessThanOrEqualTo(ZERO)) return;
 
-    const open = await this.repo.openInstallments(payment.studentId);
+    const open = payment.financialAccountId
+      ? await this.repo.openInstallmentsForStudents(
+          await this.repo.studentIdsForFinancialAccount(payment.financialAccountId),
+        )
+      : await this.repo.openInstallments(payment.studentId);
     const lines = this.fifo.allocate(
       remaining,
       open.map((o, i) => ({ id: o.id, dueDate: o.dueDate, seq: i, balance: o.balance })),
@@ -154,6 +164,7 @@ export class LedgerService {
         payerId: payment.payerId,
         paymentId: payment.id,
         amount: remaining,
+        financialAccountId: payment.financialAccountId,
       });
     }
   }

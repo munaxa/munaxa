@@ -9,6 +9,7 @@ import {
   CommitDto,
   CreateArrangementDto,
   CreateFeeItemDto,
+  FamilyCommitDto,
   QuoteDto,
   UpdateFeeItemDto,
   UpsertGradeFeeItemDto,
@@ -95,6 +96,16 @@ export class AdmissionsController {
   @ApiOperation({ summary: 'Atomically create the student/parent/enrollment/charges (idempotent)' })
   commit(@Body() dto: CommitDto) {
     return this.service.commit(dto);
+  }
+
+  @Post('family/commit')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary:
+      'Atomic family registration: one guardian/customer, one payment plan, one or more students (idempotent)',
+  })
+  familyCommit(@Body() dto: FamilyCommitDto) {
+    return this.service.familyCommit(dto);
   }
 
   // ── Enrollments / reporting ──
