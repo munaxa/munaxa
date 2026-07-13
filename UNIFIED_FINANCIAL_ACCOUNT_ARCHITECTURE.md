@@ -242,3 +242,23 @@ Later / optional: account-owned collections cases; guided migration tool for exi
 ---
 
 **Nothing is implemented yet. Please review the four challenges in §0 (naming, payer de-duplication [Option A], single-student unification, collections phasing) and approve or adjust before I begin.**
+
+---
+
+## 18. APPROVED — finalized decisions (locked)
+
+Approved by the product owner with one architecture-improving refinement:
+
+1. **One workflow.** Remove the duplicated Admission/Family-Admission and Finance/Family-Finance flows; a single context-aware flow operates on the Financial Account. UI vocabulary is **Financial Account** (payer-neutral), not "Family".
+2. **Collapse `FinancialAccount` into `Payer` (Option A, refined).** `Payer` becomes the **canonical Financial Account** — the single financial-identity entity. Do NOT keep two identity models.
+   - Verified premise: siblings under one guardian **already share one `Payer`** (`ensurePayerForStudentTx` dedupes by `parentId`), and every ledger FK already references `payerId` (`Payment`, `Credit`, `Refund`, `StudentFinancialAccount`). `Payer` is therefore already the grouping entity; the shipped `FinancialAccount` table is redundant.
+   - **Extend `Payer`** with `ownerType` (guardian/company/government/sponsor/…), `status`, `currency` (+ optional `nationalId`/`taxId` for JoFotara buyer identity).
+   - **Drop** the redundant `FinancialAccount` table and the parallel `financialAccountId` columns; reuse the existing `payerId` everywhere. Repoint the account payment plan (`FinancialAccountPlan`) to `payerId`.
+   - No historical migration of payments/ledger; existing schools keep working (their `payerId` links are unchanged).
+   - Physical table name stays `Payer` (heavily FK'd) — the *domain concept* is "Financial Account".
+3. **One write path (N=1).** Every new admission creates/loads a Financial Account (Payer) and adds 1..N students. Single-student is the degenerate case of the same code. Legacy account-less records untouched.
+4. **Full account-owned collections now.** `CollectionsCase` moves to the account (Payer) level; migrate existing per-student cases into one account case using the most-severe status (LEGAL > FINANCIAL_ISSUE > NONE), merging notes and preserving history for audit. Students expose a **read-only** collections status that references the account's case; students never own a case again.
+
+**Cross-cutting mitigation (approved §16):** add a CI smoke test that boots the Nest application (resolves the DI graph + maps routes) — the class of failure that caused the recent outage and that typecheck/unit tests do not catch.
+
+Implementation proceeds in the §17 order, adjusted for the Payer consolidation, in coherent, compiling, tested increments.
