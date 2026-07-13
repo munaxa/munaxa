@@ -37,22 +37,69 @@ export class CollectionsRepository extends TenantRepository {
     return this.run((tx) => tx.studentBillingProfile.findUnique({ where: { studentId } }));
   }
 
+  /**
+   * The key that owns a student's collections case: the FINANCIAL ACCOUNT (payerId) when the student
+   * has one — so all siblings share ONE account case — else the legacy per-student-account key.
+   */
+  private async caseKey(
+    tx: TxClient,
+    studentId: string,
+  ): Promise<{ payerId: string | null; accountId: string } | null> {
+    const account = await tx.studentFinancialAccount.findFirst({
+      where: { studentId },
+      select: { id: true, payerId: true },
+    });
+    if (!account) return null;
+    return { payerId: account.payerId, accountId: account.id };
+  }
+
+  /** Find the account's case by its owner key (payer-first, account fallback). */
+  private findCase(tx: TxClient, key: { payerId: string | null; accountId: string }) {
+    return key.payerId
+      ? tx.collectionsCase.findUnique({ where: { payerId: key.payerId } })
+      : tx.collectionsCase.findUnique({ where: { accountId: key.accountId } });
+  }
+
   /** Find-or-open the account's CollectionsCase; returns its id (null if the account is missing). */
   private async ensureCaseId(
     tx: TxClient,
     tenantId: string,
     studentId: string,
   ): Promise<string | null> {
-    const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
-    if (!account) return null;
-    const existing = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+    const key = await this.caseKey(tx, studentId);
+    if (!key) return null;
+    const existing = await this.findCase(tx, key);
     if (existing) return existing.id;
     const created = await tx.collectionsCase.create({
-      data: { tenantId, accountId: account.id, status: 'OPEN', openedById: this.actor() },
+      data: {
+        tenantId,
+        ...(key.payerId ? { payerId: key.payerId } : { accountId: key.accountId }),
+        status: 'OPEN',
+        openedById: this.actor(),
+      },
     });
     return created.id;
   }
 
+  /** The student ids that share a collections case with `studentId` (its account's students). */
+  private async accountStudentIds(tx: TxClient, studentId: string): Promise<string[]> {
+    const account = await tx.studentFinancialAccount.findFirst({
+      where: { studentId },
+      select: { payerId: true },
+    });
+    if (!account?.payerId) return [studentId]; // no account → student stands alone
+    const rows = await tx.studentFinancialAccount.findMany({
+      where: { payerId: account.payerId },
+      select: { studentId: true },
+    });
+    return rows.length > 0 ? rows.map((r) => r.studentId) : [studentId];
+  }
+
+  /**
+   * Set the collections status on the FINANCIAL ACCOUNT: updates the account's single CollectionsCase
+   * and projects the headline status to EVERY student on the account (a student only references the
+   * account's status — it never owns a case). Returns the acted-on student's projected profile.
+   */
   setCollectionsStatus(
     studentId: string,
     status: CollectionsStatus,
@@ -60,26 +107,34 @@ export class CollectionsRepository extends TenantRepository {
   ): Promise<StudentBillingProfile> {
     return this.run(async (tx, tenantId) => {
       const flagged = status !== 'NONE';
-      const profile = await tx.studentBillingProfile.upsert({
-        where: { studentId },
-        create: {
-          tenantId,
-          studentId,
-          collectionsStatus: status,
-          legalNote,
-          ...(flagged ? { flaggedById: this.actor(), flaggedAt: new Date() } : {}),
-        },
-        update: {
-          collectionsStatus: status,
-          legalNote,
-          flaggedById: flagged ? this.actor() : null,
-          flaggedAt: flagged ? new Date() : null,
-        },
-      });
-      const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
-      if (account) {
+      const siblingIds = await this.accountStudentIds(tx, studentId);
+
+      // Project the headline status to every student on the account.
+      for (const sid of siblingIds) {
+        await tx.studentBillingProfile.upsert({
+          where: { studentId: sid },
+          create: {
+            tenantId,
+            studentId: sid,
+            collectionsStatus: status,
+            legalNote,
+            ...(flagged ? { flaggedById: this.actor(), flaggedAt: new Date() } : {}),
+          },
+          update: {
+            collectionsStatus: status,
+            legalNote,
+            flaggedById: flagged ? this.actor() : null,
+            flaggedAt: flagged ? new Date() : null,
+          },
+        });
+      }
+      const profile = await tx.studentBillingProfile.findUniqueOrThrow({ where: { studentId } });
+
+      // Update (or open) the ONE account case.
+      const key = await this.caseKey(tx, studentId);
+      if (key) {
         const caseStatus = caseStatusFor(status);
-        const existing = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+        const existing = await this.findCase(tx, key);
         if (existing) {
           await tx.collectionsCase.update({
             where: { id: existing.id },
@@ -102,7 +157,7 @@ export class CollectionsRepository extends TenantRepository {
           const created = await tx.collectionsCase.create({
             data: {
               tenantId,
-              accountId: account.id,
+              ...(key.payerId ? { payerId: key.payerId } : { accountId: key.accountId }),
               status: caseStatus,
               lawyerRef: status === 'LEGAL' ? legalNote : null,
               openedById: this.actor(),
@@ -123,7 +178,7 @@ export class CollectionsRepository extends TenantRepository {
         action: 'finance.collections.set',
         entityType: 'StudentBillingProfile',
         entityId: profile.id,
-        metadata: { studentId, status, legalNote },
+        metadata: { studentId, status, legalNote, accountStudents: siblingIds.length },
       });
       return profile;
     });
@@ -344,9 +399,9 @@ export class CollectionsRepository extends TenantRepository {
 
   listReminders(studentId: string): Promise<DunningEvent[]> {
     return this.run(async (tx) => {
-      const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
-      if (!account) return [];
-      const kase = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+      const key = await this.caseKey(tx, studentId);
+      if (!key) return [];
+      const kase = await this.findCase(tx, key);
       if (!kase) return [];
       return tx.dunningEvent.findMany({
         where: { caseId: kase.id, type: 'REMINDER' },
@@ -413,9 +468,9 @@ export class CollectionsRepository extends TenantRepository {
 
   listPromises(studentId: string): Promise<PromiseToPay[]> {
     return this.run(async (tx) => {
-      const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
-      if (!account) return [];
-      const kase = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+      const key = await this.caseKey(tx, studentId);
+      if (!key) return [];
+      const kase = await this.findCase(tx, key);
       if (!kase) return [];
       return tx.promiseToPay.findMany({
         where: { caseId: kase.id },
@@ -488,9 +543,9 @@ export class CollectionsRepository extends TenantRepository {
   /** The account's communication log (logged contacts), newest first. */
   listCommunications(studentId: string): Promise<DunningEvent[]> {
     return this.run(async (tx) => {
-      const account = await tx.studentFinancialAccount.findFirst({ where: { studentId } });
-      if (!account) return [];
-      const kase = await tx.collectionsCase.findUnique({ where: { accountId: account.id } });
+      const key = await this.caseKey(tx, studentId);
+      if (!key) return [];
+      const kase = await this.findCase(tx, key);
       if (!kase) return [];
       return tx.dunningEvent.findMany({
         where: { caseId: kase.id, type: 'COMMUNICATION' },
@@ -518,7 +573,17 @@ export class CollectionsRepository extends TenantRepository {
     return this.run(async (tx) => {
       const [promises, suspensions, openCaseCount] = await Promise.all([
         tx.promiseToPay.findMany({
-          include: { case: { select: { account: { select: { studentId: true } } } } },
+          include: {
+            case: {
+              select: {
+                // A case is owned by the account (payer) or, legacy, a single student account.
+                payer: {
+                  select: { nameEn: true, accounts: { select: { studentId: true }, take: 1 } },
+                },
+                account: { select: { studentId: true } },
+              },
+            },
+          },
           orderBy: { promiseBy: 'asc' },
           take: 300,
         }),
@@ -528,9 +593,13 @@ export class CollectionsRepository extends TenantRepository {
         }),
         tx.collectionsCase.count({ where: { status: { notIn: ['RESOLVED'] } } }),
       ]);
+      // Representative student per promise (for click-through); the display name is the account
+      // holder when the case is account-owned, else the student's own name.
+      const repStudentOf = (p: (typeof promises)[number]) =>
+        p.case.account?.studentId ?? p.case.payer?.accounts[0]?.studentId ?? '';
       const ids = [
         ...new Set([
-          ...promises.map((p) => p.case.account.studentId),
+          ...promises.map(repStudentOf).filter(Boolean),
           ...suspensions.map((s) => s.studentId),
         ]),
       ];
@@ -542,14 +611,17 @@ export class CollectionsRepository extends TenantRepository {
         students.map((s) => [s.id, `${s.firstNameEn} ${s.lastNameEn}`.trim()]),
       );
       return {
-        promises: promises.map((p) => ({
-          id: p.id,
-          studentId: p.case.account.studentId,
-          studentName: nameOf.get(p.case.account.studentId) ?? '—',
-          amount: p.amount,
-          promiseBy: p.promiseBy,
-          kept: p.kept,
-        })),
+        promises: promises.map((p) => {
+          const rep = repStudentOf(p);
+          return {
+            id: p.id,
+            studentId: rep,
+            studentName: p.case.payer?.nameEn ?? nameOf.get(rep) ?? '—',
+            amount: p.amount,
+            promiseBy: p.promiseBy,
+            kept: p.kept,
+          };
+        }),
         suspensions: suspensions.map((s) => ({
           studentId: s.studentId,
           studentName: nameOf.get(s.studentId) ?? '—',

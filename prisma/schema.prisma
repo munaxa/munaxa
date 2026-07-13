@@ -1357,13 +1357,14 @@ model Payer {
   createdAt   DateTime                  @default(now()) @db.Timestamptz(6)
   updatedAt   DateTime                  @updatedAt @db.Timestamptz(6)
 
-  tenant   Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  parent   Parent?                   @relation(fields: [parentId], references: [id], onDelete: SetNull)
-  accounts StudentFinancialAccount[]
-  payments Payment[]
-  credits  Credit[]
-  refunds  Refund[]
-  plans    FinancialAccountPlan[]
+  tenant          Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent          Parent?                   @relation(fields: [parentId], references: [id], onDelete: SetNull)
+  accounts        StudentFinancialAccount[]
+  payments        Payment[]
+  credits         Credit[]
+  refunds         Refund[]
+  plans           FinancialAccountPlan[]
+  collectionsCase CollectionsCase?
 
   @@index([tenantId])
   @@index([tenantId, parentId])
@@ -2797,12 +2798,16 @@ enum ReminderChannel {
   EMAIL
 }
 
-/// The dunning workflow over an account's overdue installments: status, promises, events,
-/// lawyer ref (ADR-010). At most one open case per account.
+/// The dunning workflow over a FINANCIAL ACCOUNT's overdue installments: status, promises, events,
+/// lawyer ref (ADR-010). Owned by the account (Payer) — one case per account, shared by all its
+/// students, so collections (reminders / promises / legal) happen at the account level and a student
+/// only references the account's status. `accountId` is a legacy per-student fallback key for
+/// accounts that have no payer yet (kept for backward compatibility); new cases key on `payerId`.
 model CollectionsCase {
   id         String                @id @default(uuid()) @db.Uuid
   tenantId   String                @db.Uuid
-  accountId  String                @unique @db.Uuid
+  payerId    String?               @unique @db.Uuid // the Financial Account (preferred owner)
+  accountId  String?               @unique @db.Uuid // legacy per-student key (no-payer fallback)
   status     CollectionsCaseStatus @default(OPEN)
   lawyerRef  String?
   notes      String?
@@ -2812,8 +2817,9 @@ model CollectionsCase {
   createdAt  DateTime              @default(now()) @db.Timestamptz(6)
   updatedAt  DateTime              @updatedAt @db.Timestamptz(6)
 
-  tenant   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  account  StudentFinancialAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenant   Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payer    Payer?                   @relation(fields: [payerId], references: [id], onDelete: Cascade)
+  account  StudentFinancialAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
   promises PromiseToPay[]
   events   DunningEvent[]
 
