@@ -51,6 +51,8 @@ export type LayoutBlock =
       columns: TableColumn[];
       rows: Array<Record<string, string | number>>;
       totalsRow?: Record<string, string | number>;
+      /** Tighten row height + vertical padding to save vertical space (e.g. a long payment schedule). */
+      dense?: boolean;
     }
   | { kind: 'totals'; rows: FieldRow[] }
   // Mirrored bilingual legal clauses: English numbered list on the left, Arabic numbered list on the

@@ -253,7 +253,7 @@ export class PdfRenderer {
         this.drawLegal(doc, block.en, block.ar);
         return;
       case 'table':
-        this.drawTable(doc, block.columns, block.rows, block.totalsRow);
+        this.drawTable(doc, block.columns, block.rows, block.totalsRow, block.dense ?? false);
         return;
       case 'signatures':
         this.drawSignatures(doc, block.blocks);
@@ -327,6 +327,7 @@ export class PdfRenderer {
     columns: TableColumn[],
     rows: Array<Record<string, string | number>>,
     totalsRow?: Record<string, string | number>,
+    dense = false,
   ): void {
     const left = doc.page.margins.left;
     const right = doc.page.width - doc.page.margins.right;
@@ -336,7 +337,12 @@ export class PdfRenderer {
     const widths = weights.map((w) => (w / weightSum) * width);
     const colX = (i: number) => left + widths.slice(0, i).reduce((a, w) => a + w, 0);
 
-    const cellPad = 8;
+    // Dense tables tighten the row min-height and vertical padding so a long list (e.g. the payment
+    // schedule) takes noticeably less vertical space; the header band is shortened to match.
+    const cellPad = dense ? 6 : 8;
+    const rowMin = dense ? 11 : 16;
+    const rowExtra = dense ? 4 : 8;
+    const textPadY = dense ? 3 : 5;
     const drawRow = (record: Record<string, string | number>, bold: boolean, zebra: boolean) => {
       // Measure tallest cell for wrapping.
       doc.fontSize(this.z(TYPE.small));
@@ -345,7 +351,7 @@ export class PdfRenderer {
         doc.font(this.fontFor(cell, bold));
         return doc.heightOfString(cell, { width: widths[i]! - cellPad * 2 });
       });
-      const rowH = Math.max(this.z(16), ...heights) + this.z(8);
+      const rowH = Math.max(this.z(rowMin), ...heights) + this.z(rowExtra);
       this.ensureSpace(doc, rowH);
       const y = doc.y;
       if (zebra) doc.rect(left, y, width, rowH).fill(SURFACE);
@@ -356,7 +362,7 @@ export class PdfRenderer {
           doc,
           String(record[c.key] ?? ''),
           colX(i) + cellPad,
-          y + this.z(5),
+          y + this.z(textPadY),
           { width: widths[i]! - cellPad * 2, align: c.align ?? 'left' },
           bold,
         );
@@ -371,7 +377,7 @@ export class PdfRenderer {
     // unchanged.
     const twoLine =
       this.s < 1 && columns.some((c) => /[A-Za-z]/.test(c.header) && ARABIC_CHAR.test(c.header));
-    const headH = twoLine ? this.z(30) : this.z(22);
+    const headH = twoLine ? this.z(dense ? 26 : 30) : this.z(dense ? 17 : 22);
     this.ensureSpace(doc, headH + 4);
     const hy = doc.y;
     doc.roundedRect(left, hy, width, headH, RADIUS).fill(SURFACE);
