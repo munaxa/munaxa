@@ -5,10 +5,12 @@ import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { AdmissionsService } from './admissions.service';
 import {
+  AddFamilyStudentDto,
   ApprovalDecisionDto,
   CommitDto,
   CreateArrangementDto,
   CreateFeeItemDto,
+  FamilyCommitDto,
   QuoteDto,
   UpdateFeeItemDto,
   UpsertGradeFeeItemDto,
@@ -95,6 +97,29 @@ export class AdmissionsController {
   @ApiOperation({ summary: 'Atomically create the student/parent/enrollment/charges (idempotent)' })
   commit(@Body() dto: CommitDto) {
     return this.service.commit(dto);
+  }
+
+  @Post('family/commit')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary:
+      'Atomic family registration: one guardian/customer, one payment plan, one or more students (idempotent)',
+  })
+  familyCommit(@Body() dto: FamilyCommitDto) {
+    return this.service.familyCommit(dto);
+  }
+
+  @Post('family/:financialAccountId/add-student')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary:
+      'Add a child to an existing family (MERGE remaining plan / SEPARATE plan / NEW_PLAN — never touches paid history)',
+  })
+  addFamilyStudent(
+    @Param('financialAccountId') financialAccountId: string,
+    @Body() dto: AddFamilyStudentDto,
+  ) {
+    return this.service.addStudentToFamily(financialAccountId, dto);
   }
 
   // ── Enrollments / reporting ──

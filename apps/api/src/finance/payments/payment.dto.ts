@@ -46,6 +46,41 @@ export class CreatePaymentDto {
   note?: string;
 }
 
+/**
+ * Record a single family/customer payment against a FinancialAccount. The money is recorded once and
+ * the allocation engine distributes it across the account's students' open installments on verify
+ * (cross-student FIFO). No studentId — the payment belongs to the financial account, not one child.
+ */
+export class CreateFinancialAccountPaymentDto {
+  @ApiProperty({ example: 700, description: 'Amount received in JOD' })
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0.001)
+  @Max(100000000)
+  amount!: number;
+
+  @ApiProperty({ enum: PaymentMethod })
+  @IsEnum(PaymentMethod)
+  method!: PaymentMethod;
+
+  @ApiPropertyOptional({ description: 'CliQ reference / e-wallet transfer id' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  reference?: string;
+
+  @ApiPropertyOptional({ description: 'S3 key of an uploaded receipt (from presign)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(400)
+  receiptKey?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  note?: string;
+}
+
 export class PresignReceiptDto {
   @ApiProperty({ example: 'receipt.jpg' })
   @IsString()

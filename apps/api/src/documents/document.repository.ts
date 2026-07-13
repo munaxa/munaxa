@@ -503,6 +503,54 @@ export class DocumentRepository extends TenantRepository {
     );
   }
 
+  /**
+   * The authoritative FAMILY installment schedule for a guardian+year, sourced from the persisted
+   * FinancialAccountPlan and its aligned charge installments (grouped by due date), when the family was
+   * admitted through the Family Admission workflow. Returns `hasPlan: false` for legacy student-billed
+   * guardians (the agreement then falls back to merging the per-student quote schedules). Because every
+   * child's plan is aligned to the family plan (same cadence + due dates), grouping by due date yields
+   * exactly the family's N installments — never N per student.
+   */
+  async familyPlanSchedule(
+    parentId: string,
+    academicYearId: string,
+  ): Promise<{ hasPlan: boolean; schedule: Array<{ dueDate: string | null; amount: string }> }> {
+    return this.run(async (tx) => {
+      const plan = await tx.financialAccountPlan.findFirst({
+        where: { academicYearId, status: 'ACTIVE', financialAccount: { parentId } },
+        select: { id: true, financialAccountId: true },
+      });
+      if (!plan) return { hasPlan: false, schedule: [] };
+
+      // Every installment of a charge owned by a student billed through this financial account, for
+      // this year. Includes the one-off registration-fee charge (due at registration) + the aligned
+      // monthly installments. Grouped by due date → the family schedule.
+      const installments = await tx.installment.findMany({
+        where: {
+          charge: {
+            academicYearId,
+            status: { notIn: ['CANCELLED', 'WRITTEN_OFF'] },
+            account: { financialAccountId: plan.financialAccountId },
+          },
+          status: { notIn: ['CANCELLED', 'WAIVED'] },
+        },
+        select: { dueDate: true, amount: true },
+      });
+      const byDate = new Map<string, Prisma.Decimal>();
+      for (const inst of installments) {
+        const key = inst.dueDate ? inst.dueDate.toISOString().slice(0, 10) : '￿';
+        byDate.set(key, (byDate.get(key) ?? new Prisma.Decimal(0)).plus(inst.amount));
+      }
+      const schedule = [...byDate.entries()]
+        .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+        .map(([key, amount]) => ({
+          dueDate: key === '￿' ? null : key,
+          amount: amount.toFixed(3),
+        }));
+      return { hasPlan: true, schedule };
+    });
+  }
+
   /** The current (non-archived, non-cancelled) agreement for a parent+year — the highest version. */
   currentAgreementForParentYear(parentId: string, academicYearId: string) {
     return this.run((tx) =>

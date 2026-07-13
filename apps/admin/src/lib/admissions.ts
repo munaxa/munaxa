@@ -112,6 +112,81 @@ export interface CommitRequest {
   registrationFeePaid?: boolean;
 }
 
+export type FinancialAccountOwnerType =
+  | 'GUARDIAN'
+  | 'GRANDPARENT'
+  | 'COMPANY'
+  | 'CHARITY'
+  | 'SPONSOR'
+  | 'GOVERNMENT'
+  | 'SCHOLARSHIP_ORG'
+  | 'COURT_ORDER'
+  | 'RELATIVE'
+  | 'OTHER';
+
+/** One student entry in a family registration — carries its own persisted quote. */
+export interface FamilyStudentEntry {
+  quoteId: string;
+  existingStudentId?: string;
+  student?: {
+    firstNameEn: string;
+    lastNameEn: string;
+    firstNameAr?: string;
+    lastNameAr?: string;
+    gender?: 'MALE' | 'FEMALE';
+    dateOfBirth?: string;
+    nationalId?: string;
+  };
+  sectionId?: string;
+  busRouteId?: string;
+  busTripRound?: number;
+  areaId?: string;
+  transportRequested?: boolean;
+}
+
+/** Atomic family registration: one guardian/customer, one payment plan, one or more students. */
+export interface FamilyCommitRequest {
+  idempotencyKey: string;
+  academicYearId: string;
+  existingParentId?: string;
+  parent?: {
+    firstNameEn: string;
+    lastNameEn: string;
+    firstNameAr?: string;
+    lastNameAr?: string;
+    phone: string;
+    phoneAlt?: string;
+    email?: string;
+    relation?: 'FATHER' | 'MOTHER' | 'GUARDIAN' | 'OTHER';
+  };
+  ownerType?: FinancialAccountOwnerType;
+  paymentMode: QuotePaymentMode;
+  installments?: number;
+  firstDueDate?: string;
+  registrationFeePaid?: boolean;
+  students: FamilyStudentEntry[];
+}
+
+export type AddFamilyStudentMode = 'MERGE' | 'SEPARATE' | 'NEW_PLAN';
+
+export interface AddFamilyStudentRequest {
+  idempotencyKey: string;
+  quoteId: string;
+  mode: AddFamilyStudentMode;
+  existingStudentId?: string;
+  student?: FamilyStudentEntry['student'];
+  sectionId?: string;
+  busRouteId?: string;
+  busTripRound?: number;
+  areaId?: string;
+  transportRequested?: boolean;
+  registrationFeePaid?: boolean;
+  paymentMode?: QuotePaymentMode;
+  installments?: number;
+  firstDueDate?: string;
+  confirm?: boolean;
+}
+
 export interface EnrollmentRow {
   id: string;
   status: string;
@@ -193,6 +268,20 @@ export const admissionsApi = {
     authFetch('/admissions/commit', { method: 'POST', body: JSON.stringify(req) }).then((r) =>
       json<{ id: string; status: string; studentId: string }>(r),
     ),
+  familyCommit: (req: FamilyCommitRequest) =>
+    authFetch('/admissions/family/commit', { method: 'POST', body: JSON.stringify(req) }).then(
+      (r) =>
+        json<{
+          financialAccount: { id: string; nameEn: string } | null;
+          plan: { id: string; installments: number } | null;
+          enrollmentIds: string[];
+        }>(r),
+    ),
+  addFamilyStudent: (financialAccountId: string, req: AddFamilyStudentRequest) =>
+    authFetch(`/admissions/family/${financialAccountId}/add-student`, {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }).then((r) => json<{ enrollmentId: string; mode: string; planId: string | null }>(r)),
   loadReturning: (studentId: string) =>
     authFetch(`/admissions/returning/${studentId}`).then((r) => json<ReturningStudent>(r)),
   listEnrollments: (

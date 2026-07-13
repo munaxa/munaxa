@@ -85,6 +85,14 @@ export interface AccountSummary {
   refunded: string; // Σ verified refunds
 }
 
+/** Family/customer-level derived figures — the KPIs behind the Family Finance Dashboard. */
+export interface FinancialAccountSummary extends AccountSummary {
+  nextDue: { dueDate: string; amount: string } | null;
+  lastPayment: { date: string; amount: string } | null;
+  collectionStatus: 'NONE' | 'FINANCIAL_ISSUE' | 'LEGAL';
+  childrenCount: number;
+}
+
 const isToday = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 /**
@@ -428,6 +436,186 @@ export class LedgerRepository extends TenantRepository {
     });
   }
 
+  /**
+   * All open installments across a SET of students (the students billed through one financial
+   * account), ordered by due date for cross-student FIFO allocation. Reuses the same open-balance
+   * rule as {@link openInstallments}; the allocation policy is unchanged — it simply receives the
+   * union of the family's installments (the declared CROSS_STUDENT seam, AR-8/ADR-005).
+   */
+  openInstallmentsForStudents(
+    studentIds: string[],
+  ): Promise<Array<{ id: string; dueDate: Date | null; balance: Prisma.Decimal }>> {
+    return this.run(async (tx) => {
+      if (studentIds.length === 0) return [];
+      const installments = await tx.installment.findMany({
+        where: {
+          charge: {
+            studentId: { in: studentIds },
+            status: { notIn: ['CANCELLED', 'WRITTEN_OFF'] },
+          },
+          status: { notIn: ['CANCELLED', 'WAIVED'] },
+        },
+        select: { id: true, dueDate: true, amount: true, seq: true, chargeId: true },
+        // Deterministic across students: due date, then charge, then seq.
+        orderBy: [{ dueDate: 'asc' }, { chargeId: 'asc' }, { seq: 'asc' }],
+      });
+      const paidBy = await this.paidByInstallment(
+        tx,
+        installments.map((i) => i.id),
+      );
+      const out: Array<{ id: string; dueDate: Date | null; balance: Prisma.Decimal }> = [];
+      for (const inst of installments) {
+        const balance = floorZero(inst.amount.minus(paidBy.get(inst.id) ?? ZERO));
+        if (balance.greaterThan(ZERO)) out.push({ id: inst.id, dueDate: inst.dueDate, balance });
+      }
+      return out;
+    });
+  }
+
+  /**
+   * Family/customer summary for the Family Finance Dashboard: the account's students' AR figures
+   * rolled up (Σ per-student — same source rows as the per-student ledger, no parallel accounting)
+   * plus family credit, next due, last payment, a collections rollup and the children count.
+   */
+  financialAccountSummary(financialAccountId: string): Promise<FinancialAccountSummary> {
+    return this.run(async (tx) => {
+      const accounts = await tx.studentFinancialAccount.findMany({
+        where: { financialAccountId },
+        select: { id: true, studentId: true },
+      });
+      const studentIds = accounts.map((a) => a.studentId);
+      const empty: FinancialAccountSummary = {
+        charged: '0.000',
+        discounts: '0.000',
+        netCharged: '0.000',
+        paid: '0.000',
+        outstanding: '0.000',
+        creditBalance: '0.000',
+        refunded: '0.000',
+        nextDue: null,
+        lastPayment: null,
+        collectionStatus: 'NONE',
+        childrenCount: studentIds.length,
+      };
+      if (studentIds.length === 0) return empty;
+
+      const [chargeAgg, discountAgg, refundAgg, paidAgg] = await Promise.all([
+        tx.charge.aggregate({
+          where: { studentId: { in: studentIds }, status: { notIn: ['CANCELLED', 'WRITTEN_OFF'] } },
+          _sum: { amount: true },
+        }),
+        tx.feeAdjustment.aggregate({
+          where: { studentId: { in: studentIds }, status: 'APPLIED', chargeId: { not: null } },
+          _sum: { amount: true },
+        }),
+        tx.refund.aggregate({
+          where: { studentId: { in: studentIds }, status: 'VERIFIED' },
+          _sum: { amount: true },
+        }),
+        tx.paymentAllocation.aggregate({
+          where: { reversedAt: null, installment: { charge: { studentId: { in: studentIds } } } },
+          _sum: { amount: true },
+        }),
+      ]);
+      const charged = chargeAgg._sum.amount ?? ZERO;
+      const discounts = discountAgg._sum.amount ?? ZERO;
+
+      // Outstanding + next due from the union of open installments.
+      const open = await this.openInstallmentsForStudents(studentIds);
+      const outstanding = open.reduce((s, i) => s.plus(i.balance), ZERO);
+      const dated = open
+        .filter((i) => i.dueDate)
+        .sort((a, b) => a.dueDate!.getTime() - b.dueDate!.getTime());
+      const nextDue = dated[0]
+        ? {
+            dueDate: dated[0].dueDate!.toISOString().slice(0, 10),
+            amount: dated[0].balance.toFixed(3),
+          }
+        : null;
+
+      // Family credit: credit lots owned by the account, or by any of its students' AR accounts.
+      const creditBalance = await this.financialAccountCreditBalanceTx(
+        tx,
+        financialAccountId,
+        studentIds,
+      );
+
+      // Last verified payment across the family (by the account or any student).
+      const lastPay = await tx.payment.findFirst({
+        where: {
+          status: 'VERIFIED',
+          OR: [{ financialAccountId }, { studentId: { in: studentIds } }],
+        },
+        orderBy: [{ verifiedAt: 'desc' }, { createdAt: 'desc' }],
+        select: { amount: true, verifiedAt: true, createdAt: true },
+      });
+      const lastPayment = lastPay
+        ? {
+            date: (lastPay.verifiedAt ?? lastPay.createdAt).toISOString().slice(0, 10),
+            amount: lastPay.amount.toFixed(3),
+          }
+        : null;
+
+      // Collections rollup: the most severe headline status across the children.
+      const profiles = await tx.studentBillingProfile.findMany({
+        where: { studentId: { in: studentIds } },
+        select: { collectionsStatus: true },
+      });
+      const collectionStatus = profiles.some((p) => p.collectionsStatus === 'LEGAL')
+        ? 'LEGAL'
+        : profiles.some((p) => p.collectionsStatus === 'FINANCIAL_ISSUE')
+          ? 'FINANCIAL_ISSUE'
+          : 'NONE';
+
+      return {
+        charged: charged.toFixed(3),
+        discounts: discounts.toFixed(3),
+        netCharged: charged.minus(discounts).toFixed(3),
+        paid: (paidAgg._sum.amount ?? ZERO).toFixed(3),
+        outstanding: outstanding.toFixed(3),
+        creditBalance: creditBalance.toFixed(3),
+        refunded: (refundAgg._sum.amount ?? ZERO).toFixed(3),
+        nextDue,
+        lastPayment,
+        collectionStatus,
+        childrenCount: studentIds.length,
+      };
+    });
+  }
+
+  /** Available family credit = credit lots tagged to the account, or held by its students' accounts. */
+  private async financialAccountCreditBalanceTx(
+    tx: TxClient,
+    financialAccountId: string,
+    studentIds: string[],
+  ): Promise<Prisma.Decimal> {
+    const credits = await tx.credit.findMany({
+      where: {
+        OR: [{ financialAccountId }, { account: { studentId: { in: studentIds } } }],
+      },
+      select: { id: true, amount: true },
+    });
+    const consumedBy = await this.consumedByCredit(
+      tx,
+      credits.map((c) => c.id),
+    );
+    return credits.reduce(
+      (total, c) => total.plus(floorZero(c.amount.minus(consumedBy.get(c.id) ?? ZERO))),
+      ZERO,
+    );
+  }
+
+  /** The student ids billed through a financial account (allocation scope). */
+  studentIdsForFinancialAccount(financialAccountId: string): Promise<string[]> {
+    return this.run(async (tx) => {
+      const rows = await tx.studentFinancialAccount.findMany({
+        where: { financialAccountId },
+        select: { studentId: true },
+      });
+      return rows.map((r) => r.studentId);
+    });
+  }
+
   /** Account summary (LR-4..6). */
   accountSummary(studentId: string): Promise<AccountSummary> {
     return this.run(async (tx) => this.accountSummaryTx(tx, studentId));
@@ -676,12 +864,15 @@ export class LedgerRepository extends TenantRepository {
     });
   }
 
-  /** Grant an over-payment credit for a verified payment's unallocated residue (AR-5, CR-4). */
+  /** Grant an over-payment credit for a verified payment's unallocated residue (AR-5, CR-4). When
+   * `financialAccountId` is set the residue is banked to the family/customer account (a family
+   * over-payment belongs to the payer, not one student); `accountId` still records a student AR home. */
   grantOverpaymentCredit(data: {
     accountId: string;
     payerId: string | null;
     paymentId: string;
     amount: Prisma.Decimal;
+    financialAccountId?: string | null;
   }): Promise<Credit> {
     return this.run(async (tx, tenantId) => {
       const credit = await tx.credit.create({
@@ -692,6 +883,7 @@ export class LedgerRepository extends TenantRepository {
           source: 'OVERPAYMENT',
           amount: data.amount,
           paymentId: data.paymentId,
+          ...(data.financialAccountId ? { financialAccountId: data.financialAccountId } : {}),
           createdById: this.actor(),
         },
       });

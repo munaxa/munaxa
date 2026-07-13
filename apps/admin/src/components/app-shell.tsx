@@ -45,6 +45,12 @@ const NAV_GROUPS: NavGroup[] = [
         perm: 'enrollment:manage',
       },
       {
+        href: '/admissions/family',
+        labelKey: 'nav.familyAdmission',
+        icon: 'enrollment',
+        perm: 'enrollment:manage',
+      },
+      {
         href: '/admissions/approvals',
         labelKey: 'nav.feeApprovals',
         icon: 'finance',
@@ -85,6 +91,12 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'nav.section.finance',
     items: [
       { href: '/finance', labelKey: 'nav.finance', icon: 'finance', perm: 'finance:read' },
+      {
+        href: '/finance/families',
+        labelKey: 'nav.familyFinance',
+        icon: 'finance',
+        perm: 'finance:read',
+      },
       {
         href: '/finance/dashboard',
         labelKey: 'nav.financeDashboard',

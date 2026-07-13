@@ -147,6 +147,8 @@
   "nav": {
     "dashboard": "Dashboard",
     "admissions": "Admissions",
+    "familyAdmission": "Family admission",
+    "familyFinance": "Family finance",
     "feeApprovals": "Fee approvals",
     "admissionsReports": "Admissions reports",
     "feeCatalog": "Fee catalog",

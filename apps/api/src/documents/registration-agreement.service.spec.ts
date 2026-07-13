@@ -122,6 +122,7 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     const repo = {
       enrollmentContext: jest.fn().mockResolvedValue(child1),
       guardianEnrollments: jest.fn().mockResolvedValue([child1, child2]),
+      familyPlanSchedule: jest.fn().mockResolvedValue({ hasPlan: false, schedule: [] }),
       currentAgreementForParentYear: jest.fn().mockResolvedValue(null),
       persistAgreement,
     };
@@ -174,6 +175,7 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     const repo = {
       enrollmentContext: jest.fn().mockResolvedValue(child1),
       guardianEnrollments: jest.fn().mockResolvedValue([child1, child2]),
+      familyPlanSchedule: jest.fn().mockResolvedValue({ hasPlan: false, schedule: [] }),
       currentAgreementForParentYear: jest.fn().mockResolvedValue(current),
       persistAgreement,
     };
@@ -219,6 +221,7 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     const repo = {
       enrollmentContext: jest.fn().mockResolvedValue(child1),
       guardianEnrollments: jest.fn().mockResolvedValue([child1, child2]),
+      familyPlanSchedule: jest.fn().mockResolvedValue({ hasPlan: false, schedule: [] }),
       currentAgreementForParentYear: jest.fn().mockResolvedValue(current),
       persistAgreement,
     };
@@ -255,6 +258,7 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     const repo = {
       enrollmentContext: jest.fn().mockResolvedValue(child1),
       guardianEnrollments: jest.fn().mockResolvedValue([child1, child2]),
+      familyPlanSchedule: jest.fn().mockResolvedValue({ hasPlan: false, schedule: [] }),
       currentAgreementForParentYear: jest.fn().mockResolvedValue(current),
       persistAgreement,
     };
@@ -297,6 +301,7 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     const repo = {
       enrollmentContext: jest.fn().mockResolvedValue(enrollment),
       guardianEnrollments: jest.fn().mockResolvedValue([enrollment]),
+      familyPlanSchedule: jest.fn().mockResolvedValue({ hasPlan: false, schedule: [] }),
       currentAgreementForParentYear: jest.fn().mockResolvedValue(null),
       persistAgreement,
     };
@@ -345,6 +350,7 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     const repo = {
       enrollmentContext: jest.fn().mockResolvedValue(enrollment),
       guardianEnrollments: jest.fn().mockResolvedValue([enrollment]),
+      familyPlanSchedule: jest.fn().mockResolvedValue({ hasPlan: false, schedule: [] }),
       currentAgreementForParentYear: jest.fn().mockResolvedValue(null),
       persistAgreement,
     };

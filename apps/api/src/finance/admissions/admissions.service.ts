@@ -5,9 +5,11 @@ import { QuoteService } from './quote.service';
 import { RegistrationAgreementService } from '../../documents/registration-agreement.service';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import type {
+  AddFamilyStudentDto,
   CommitDto,
   CreateArrangementDto,
   CreateFeeItemDto,
+  FamilyCommitDto,
   QuoteDto,
   UpdateFeeItemDto,
   UpsertGradeFeeItemDto,
@@ -85,6 +87,29 @@ export class AdmissionsService {
       this.scheduleAgreement(enrollment.id);
     }
     return enrollment;
+  }
+
+  /**
+   * Atomic FAMILY registration commit: one guardian/customer pays for one or more students through a
+   * single family payment plan. After commit, generate the ONE family Registration Agreement (from the
+   * committed snapshot / family plan) in the background — same fire-and-forget pattern as commit().
+   */
+  async familyCommit(dto: FamilyCommitDto) {
+    const result = await this.repo.familyCommit(dto);
+    // The agreement is one-per-guardian+year; scheduling it for any of the family's enrolments
+    // produces the single family agreement covering all the children.
+    if (result.enrollmentIds.length > 0) this.scheduleAgreement(result.enrollmentIds[0]!);
+    return result;
+  }
+
+  /**
+   * Add a child to an EXISTING family (the existing-family wizard: MERGE / SEPARATE / NEW_PLAN). Never
+   * touches paid installments. Regenerates the ONE family agreement from the updated snapshot.
+   */
+  async addStudentToFamily(financialAccountId: string, dto: AddFamilyStudentDto) {
+    const result = await this.repo.addStudentToFamily(financialAccountId, dto);
+    if (result.enrollmentId) this.scheduleAgreement(result.enrollmentId);
+    return result;
   }
 
   loadReturning(studentId: string) {

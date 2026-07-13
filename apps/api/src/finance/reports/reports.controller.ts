@@ -21,4 +21,14 @@ export class FinanceReportsController {
   summary(@Query('dimension') dimension: FinanceDimension = 'category') {
     return this.repo.summaryByDimension(dimension);
   }
+
+  @Get('outstanding')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({
+    summary: 'Outstanding/collection grouped by family (default) or student (drill-down)',
+  })
+  @ApiQuery({ name: 'groupBy', enum: ['family', 'student'], required: false })
+  outstanding(@Query('groupBy') groupBy: 'family' | 'student' = 'family') {
+    return this.repo.outstandingBy(groupBy === 'student' ? 'student' : 'family');
+  }
 }

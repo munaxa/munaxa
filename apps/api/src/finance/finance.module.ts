@@ -6,6 +6,9 @@ import { DocumentsModule } from '../documents/documents.module';
 import { AccountController } from './account/account.controller';
 import { AccountService } from './account/account.service';
 import { AccountRepository } from './account/account.repository';
+import { FinancialAccountController } from './financial-account/financial-account.controller';
+import { FinancialAccountService } from './financial-account/financial-account.service';
+import { FinancialAccountRepository } from './financial-account/financial-account.repository';
 import { ChargeController } from './charges/charge.controller';
 import { ChargeService } from './charges/charge.service';
 import { ChargeRepository } from './charges/charge.repository';
@@ -48,6 +51,7 @@ import { FinanceReportsRepository } from './reports/reports.repository';
   imports: [EInvoicingModule, CommunicationModule, DocumentsModule],
   controllers: [
     AccountController,
+    FinancialAccountController,
     ChargeController,
     PaymentController,
     StatementController,
@@ -62,6 +66,8 @@ import { FinanceReportsRepository } from './reports/reports.repository';
     StorageService,
     AccountService,
     AccountRepository,
+    FinancialAccountService,
+    FinancialAccountRepository,
     ChargeService,
     ChargeRepository,
     InstallmentScheduleService,

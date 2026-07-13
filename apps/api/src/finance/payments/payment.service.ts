@@ -16,7 +16,12 @@ import { LedgerService } from '../ledger/ledger.service';
 import { FinanceDocumentsService } from '../../documents/finance-documents.service';
 import { DocumentEngineService } from '../../documents/document-engine.service';
 import { docNumber } from '../../documents/templates/util';
-import type { CreatePaymentDto, PresignReceiptDto, RejectPaymentDto } from './payment.dto';
+import type {
+  CreateFinancialAccountPaymentDto,
+  CreatePaymentDto,
+  PresignReceiptDto,
+  RejectPaymentDto,
+} from './payment.dto';
 
 /**
  * Payment context: recording money received (CliQ/e-wallet receipt upload → verify/reject),
@@ -57,6 +62,36 @@ export class PaymentService {
       receiptKey: dto.receiptKey ?? null,
       note: dto.note ?? null,
     });
+  }
+
+  /**
+   * Record a single family/customer payment against a FinancialAccount (recorded once). On verify the
+   * money is auto-allocated across ALL the account's students' open installments (cross-student FIFO)
+   * and any residue banks to the family credit — see LedgerService.allocateOnVerify.
+   */
+  async createForFinancialAccount(
+    financialAccountId: string,
+    dto: CreateFinancialAccountPaymentDto,
+  ): Promise<Payment> {
+    if (!(await this.repo.financialAccountExists(financialAccountId))) {
+      throw new BadRequestException('Financial account not found in this tenant');
+    }
+    if ((dto.method === 'CLIQ' || dto.method === 'EWALLET') && !dto.receiptKey && !dto.reference) {
+      throw new BadRequestException('CliQ/e-wallet payments require a receipt or a reference');
+    }
+    if (dto.receiptKey) this.storage.assertKeyInTenant(dto.receiptKey);
+    return this.repo.createForFinancialAccount({
+      financialAccountId,
+      amount: dto.amount,
+      method: dto.method,
+      reference: dto.reference ?? null,
+      receiptKey: dto.receiptKey ?? null,
+      note: dto.note ?? null,
+    });
+  }
+
+  listForFinancialAccount(financialAccountId: string): Promise<Payment[]> {
+    return this.repo.findByFinancialAccount(financialAccountId);
   }
 
   async verify(id: string): Promise<Payment> {

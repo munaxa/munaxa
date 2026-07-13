@@ -67,6 +67,80 @@ export class PaymentRepository extends TenantRepository {
   }
 
   /**
+   * Record a PENDING family/customer payment against a FinancialAccount. The payment belongs to the
+   * account (financialAccountId); studentId/accountId stay populated with a REPRESENTATIVE child for
+   * backward compatibility (both columns are NOT NULL and legacy readers expect them), but allocation
+   * is driven by financialAccountId — the ledger spreads the money across ALL the account's students.
+   */
+  createForFinancialAccount(data: {
+    financialAccountId: string;
+    amount: number;
+    method: Payment['method'];
+    reference: string | null;
+    receiptKey: string | null;
+    note: string | null;
+  }): Promise<Payment> {
+    return this.run(async (tx, tenantId) => {
+      const fa = await tx.financialAccount.findFirst({
+        where: { id: data.financialAccountId },
+        select: { id: true, payerId: true },
+      });
+      if (!fa) throw new Error('Financial account not found');
+      // A representative student AR account is required for the NOT-NULL accountId/studentId columns.
+      // Prefer the account linked to the primary guardian; else the first linked student.
+      const repAccount = await tx.studentFinancialAccount.findFirst({
+        where: { financialAccountId: data.financialAccountId },
+        orderBy: { openedAt: 'asc' },
+        select: { id: true, studentId: true, payerId: true },
+      });
+      if (!repAccount) {
+        throw new Error('Financial account has no linked student to record the payment against');
+      }
+      const payment = await tx.payment.create({
+        data: {
+          tenantId,
+          accountId: repAccount.id,
+          studentId: repAccount.studentId,
+          financialAccountId: data.financialAccountId,
+          payerId: fa.payerId ?? repAccount.payerId,
+          amount: new Prisma.Decimal(data.amount),
+          method: data.method,
+          reference: data.reference,
+          receiptKey: data.receiptKey,
+          note: data.note,
+          status: 'PENDING',
+          recordedById: this.actor(),
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.payment.create',
+        entityType: 'Payment',
+        entityId: payment.id,
+        metadata: {
+          financialAccountId: data.financialAccountId,
+          amount: payment.amount.toString(),
+          method: payment.method,
+        },
+      });
+      return payment;
+    });
+  }
+
+  /** Payments recorded against a financial account (family payment history). */
+  findByFinancialAccount(financialAccountId: string): Promise<Payment[]> {
+    return this.run((tx) =>
+      tx.payment.findMany({ where: { financialAccountId }, orderBy: { createdAt: 'desc' } }),
+    );
+  }
+
+  financialAccountExists(financialAccountId: string): Promise<boolean> {
+    return this.run(
+      async (tx) =>
+        (await tx.financialAccount.findFirst({ where: { id: financialAccountId } })) !== null,
+    );
+  }
+
+  /**
    * Set a PENDING payment to VERIFIED or REJECTED. On VERIFY, allocate the gapless per-tenant
    * receipt number from the row-locked PaymentReceiptCounter in the same transaction (BR-18, MT-3).
    */
@@ -111,6 +185,49 @@ export class PaymentRepository extends TenantRepository {
     return this.run(async (tx) => {
       const payments = await tx.payment.findMany({
         where: { studentId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          einvoiceDocuments: {
+            select: { invoiceNumber: true, status: true, docType: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+      const recordedIds = [
+        ...new Set(payments.map((p) => p.recordedById).filter(Boolean)),
+      ] as string[];
+      const users = recordedIds.length
+        ? await tx.user.findMany({
+            where: { id: { in: recordedIds } },
+            select: { id: true, firstNameEn: true, lastNameEn: true, email: true },
+          })
+        : [];
+      const nameById = new Map(
+        users.map((u) => [
+          u.id,
+          [u.firstNameEn, u.lastNameEn].filter(Boolean).join(' ').trim() || u.email,
+        ]),
+      );
+      return payments.map(({ einvoiceDocuments, ...p }) => ({
+        ...p,
+        recordedByName: p.recordedById ? (nameById.get(p.recordedById) ?? null) : null,
+        einvoice: einvoiceDocuments[0]
+          ? {
+              invoiceNumber: einvoiceDocuments[0].invoiceNumber,
+              status: einvoiceDocuments[0].status,
+              docType: einvoiceDocuments[0].docType,
+            }
+          : null,
+      }));
+    });
+  }
+
+  /** Family payment history enriched like findDetailedByStudent (statement drill-down). */
+  findDetailedByFinancialAccount(financialAccountId: string): Promise<DetailedPayment[]> {
+    return this.run(async (tx) => {
+      const payments = await tx.payment.findMany({
+        where: { financialAccountId },
         orderBy: { createdAt: 'desc' },
         include: {
           einvoiceDocuments: {

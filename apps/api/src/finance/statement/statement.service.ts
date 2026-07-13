@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import type { Credit, FeeAdjustment, Refund } from '@prisma/client';
 import { PaymentRepository, type DetailedPayment } from '../payments/payment.repository';
 import { AccountRepository } from '../account/account.repository';
+import { FinancialAccountRepository } from '../financial-account/financial-account.repository';
 import {
   LedgerRepository,
   type AccountSummary,
+  type FinancialAccountSummary,
   type ChargeView,
 } from '../ledger/ledger.repository';
 
@@ -48,13 +50,56 @@ export interface ParentStudent {
  * Installments) plus payments, adjustments, credits, refunds and the derived totals — every
  * figure recomputed from the ledger (the single source of truth), never stored (§13, LR-*).
  */
+/** A family statement: the account's family totals + each child's per-student totals (drill-down). */
+export interface FamilyStatement {
+  financialAccountId: string;
+  totals: FinancialAccountSummary;
+  children: Array<{
+    studentId: string;
+    firstNameEn: string;
+    lastNameEn: string;
+    firstNameAr: string;
+    lastNameAr: string;
+    gradeNameEn: string | null;
+    gradeNameAr: string | null;
+    totals: AccountSummary;
+  }>;
+  payments: DetailedPayment[];
+}
+
 @Injectable()
 export class StatementService {
   constructor(
     private readonly ledger: LedgerRepository,
     private readonly payments: PaymentRepository,
     private readonly accounts: AccountRepository,
+    private readonly financialAccounts: FinancialAccountRepository,
   ) {}
+
+  /**
+   * Family statement — the finance-first default: the family totals (KPIs) plus each child's own
+   * per-student totals for drill-down. Every figure comes from the ledger (single source of truth).
+   */
+  async forFamily(financialAccountId: string): Promise<FamilyStatement> {
+    const [totals, students] = await Promise.all([
+      this.ledger.financialAccountSummary(financialAccountId),
+      this.financialAccounts.studentsOf(financialAccountId),
+    ]);
+    const children = await Promise.all(
+      students.map(async (s) => ({
+        studentId: s.studentId,
+        firstNameEn: s.firstNameEn,
+        lastNameEn: s.lastNameEn,
+        firstNameAr: s.firstNameAr,
+        lastNameAr: s.lastNameAr,
+        gradeNameEn: s.gradeNameEn,
+        gradeNameAr: s.gradeNameAr,
+        totals: await this.ledger.accountSummary(s.studentId),
+      })),
+    );
+    const payments = await this.payments.findDetailedByFinancialAccount(financialAccountId);
+    return { financialAccountId, totals, children, payments };
+  }
 
   async forStudent(studentId: string): Promise<StudentStatement> {
     const account = await this.accounts.ensureAccount(studentId);

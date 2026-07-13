@@ -1,0 +1,45 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import type { FinancialAccount } from '@prisma/client';
+import { FinancialAccountRepository, type AccountStudent } from './financial-account.repository';
+import { LedgerRepository, type FinancialAccountSummary } from '../ledger/ledger.repository';
+
+/** The Family Finance Dashboard payload: account header, family totals, and the children. */
+export interface FinancialAccountDashboard {
+  account: FinancialAccount;
+  summary: FinancialAccountSummary;
+  students: AccountStudent[];
+}
+
+/**
+ * Financial-account context service — the family-first finance dashboard. Resolves the account,
+ * aggregates the family totals from the ledger (Σ per-student, sharing the single source of truth),
+ * and lists the children. Students are always the owners of their charges; this reads across them.
+ */
+@Injectable()
+export class FinancialAccountService {
+  constructor(
+    private readonly repo: FinancialAccountRepository,
+    private readonly ledger: LedgerRepository,
+  ) {}
+
+  /** Family-first search by guardian / father / mother / family name / phone / national id / student. */
+  search(query: string) {
+    return this.repo.search(query ?? '');
+  }
+
+  /** Ensure (find-or-create) a financial account for a guardian. */
+  ensureForParent(parentId: string) {
+    return this.repo.ensureForParent(parentId);
+  }
+
+  /** The Family Finance Dashboard for a financial account (KPIs default to family totals). */
+  async dashboard(financialAccountId: string): Promise<FinancialAccountDashboard> {
+    const account = await this.repo.findById(financialAccountId);
+    if (!account) throw new NotFoundException('Financial account not found');
+    const [summary, students] = await Promise.all([
+      this.ledger.financialAccountSummary(financialAccountId),
+      this.repo.studentsOf(financialAccountId),
+    ]);
+    return { account, summary, students };
+  }
+}
