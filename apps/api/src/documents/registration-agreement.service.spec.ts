@@ -267,4 +267,51 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     expect(arg.supersedesId).toBe('a1');
     expect(arg.feeBreakdown).toHaveLength(2);
   });
+
+  it('bills the registration fee once and spreads only the remainder across installments', async () => {
+    // A single INSTALLMENTS enrolment: 300 registration (one-off) + 900 tuition over 3 months.
+    const enrollment = {
+      ...mockEnrollment({
+        id: 'e1',
+        studentId: 's1',
+        nameEn: 'Omar AbuHajj',
+        nameAr: 'عمر أبوحاج',
+        nationalId: '30303030',
+        tuition: '900.000',
+        grandTotal: '1200.000',
+      }),
+      paymentMode: QuotePaymentMode.INSTALLMENTS,
+      quote: {
+        grandTotal: dec('1200.000'),
+        paymentMode: QuotePaymentMode.INSTALLMENTS,
+        installments: 3,
+        firstDueDate: new Date('2026-09-01T00:00:00Z'),
+        items: [
+          { kind: FeeItemKind.REGISTRATION, amount: dec('300.000'), discountAmount: dec('0.000') },
+          { kind: FeeItemKind.TUITION, amount: dec('900.000'), discountAmount: dec('0.000') },
+        ],
+      },
+    };
+    const persistAgreement = jest.fn().mockResolvedValue({ agreement: { id: 'a1' }, document: {} });
+    const repo = {
+      enrollmentContext: jest.fn().mockResolvedValue(enrollment),
+      guardianEnrollments: jest.fn().mockResolvedValue([enrollment]),
+      currentAgreementForParentYear: jest.fn().mockResolvedValue(null),
+      persistAgreement,
+    };
+    const { service } = makeService(repo);
+
+    await service.generate('e1', DocumentLanguage.EN);
+
+    const arg = persistAgreement.mock.calls[0]![0];
+    // Registration is a single line due at registration; the 900 remainder is split into 3 × 300.
+    expect(arg.installmentSchedule).toEqual([
+      { index: 1, dueDate: '2026-06-28', amount: '300.000' },
+      { index: 2, dueDate: '2026-09-01', amount: '300.000' },
+      { index: 3, dueDate: '2026-10-01', amount: '300.000' },
+      { index: 4, dueDate: '2026-11-01', amount: '300.000' },
+    ]);
+    // The family grand total still includes the registration fee.
+    expect(arg.grandTotal.toFixed(3)).toBe('1200.000');
+  });
 });

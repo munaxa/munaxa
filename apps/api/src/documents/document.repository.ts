@@ -483,7 +483,9 @@ export class DocumentRepository extends TenantRepository {
         where: {
           academicYearId,
           status: EnrollmentStatus.COMMITTED,
-          student: { parentLinks: { some: { parentId } } },
+          // Exclude soft-deleted students: a student removed after committing must not keep
+          // appearing on the guardian's agreement (fee breakdown + installment schedule).
+          student: { deletedAt: null, parentLinks: { some: { parentId } } },
         },
         orderBy: { createdAt: 'asc' },
         include: {

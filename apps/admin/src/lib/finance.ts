@@ -74,6 +74,8 @@ export interface ChargeView {
   installments: Installment[];
   /** Superseded/completed plans, hidden by default and shown in a history view. */
   history?: PlanHistory[];
+  /** Underlying fee-line breakdown of an aggregate charge (details then sum). Empty otherwise. */
+  lineItems?: Array<{ label: string; amount: string }>;
 }
 
 export interface Adjustment {

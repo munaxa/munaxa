@@ -60,6 +60,18 @@ export interface ChargeView {
   installments: InstallmentView[];
   /** Superseded/completed plans + their retained installments, for a history/audit view. */
   history: PlanHistoryView[];
+  /**
+   * For an aggregate charge (e.g. "Tuition & fees" covering several fee lines) the underlying fee
+   * breakdown, reconstructed from the enrollment quote, so the UI can show the details then the sum.
+   * Empty for single-line charges (which already are their own detail).
+   */
+  lineItems: ChargeLineItem[];
+}
+
+/** One underlying fee line of an aggregate charge (net of its own discount). */
+export interface ChargeLineItem {
+  label: string;
+  amount: string;
 }
 
 /** Account-level derived figures — the numbers behind the statement (LR-4..6). */
@@ -243,6 +255,34 @@ export class LedgerRepository extends TenantRepository {
         },
       });
       const today = isToday(new Date());
+
+      // Aggregate "Tuition & fees" charges bundle several fee lines under one obligation. Reconstruct
+      // their per-line breakdown from the enrollment quote (one batched query) so the statement can
+      // show the details then the sum. The one-time registration fee is billed as its own charge, so
+      // it is excluded here — the breakdown reconciles exactly to the aggregate charge's net.
+      const aggregateEnrollmentIds = [
+        ...new Set(
+          charges
+            .filter((c) => c.enrollmentId && c.description === 'Tuition & fees')
+            .map((c) => c.enrollmentId as string),
+        ),
+      ];
+      const lineItemsByEnrollment = new Map<string, ChargeLineItem[]>();
+      if (aggregateEnrollmentIds.length > 0) {
+        const enrollments = await tx.enrollment.findMany({
+          where: { id: { in: aggregateEnrollmentIds } },
+          select: { id: true, quote: { select: { items: true } } },
+        });
+        for (const e of enrollments) {
+          const items = (e.quote?.items ?? [])
+            .filter((it) => it.kind !== 'REGISTRATION')
+            .map((it) => ({
+              label: it.label,
+              amount: it.amount.minus(it.discountAmount).toFixed(3),
+            }));
+          if (items.length > 0) lineItemsByEnrollment.set(e.id, items);
+        }
+      }
       return Promise.all(
         charges.map(async (c) => {
           const discountAgg = await tx.feeAdjustment.aggregate({
@@ -348,6 +388,12 @@ export class LedgerRepository extends TenantRepository {
               : null,
             installments,
             history,
+            // Only the aggregate "Tuition & fees" charge carries a breakdown; sibling charges of the
+            // same enrolment (e.g. the one-off registration fee) are already single-line.
+            lineItems:
+              c.enrollmentId && c.description === 'Tuition & fees'
+                ? (lineItemsByEnrollment.get(c.enrollmentId) ?? [])
+                : [],
           };
         }),
       );

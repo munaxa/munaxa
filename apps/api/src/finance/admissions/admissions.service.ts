@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ApprovalStatus, EnrollmentStatus } from '@prisma/client';
 import { AdmissionsRepository } from './admissions.repository';
 import { QuoteService } from './quote.service';
 import { RegistrationAgreementService } from '../../documents/registration-agreement.service';
+import { TenantContextStore } from '../../prisma/tenant-context';
 import type {
   CommitDto,
   CreateArrangementDto,
@@ -19,11 +20,28 @@ import type {
  */
 @Injectable()
 export class AdmissionsService {
+  private readonly logger = new Logger(AdmissionsService.name);
+
   constructor(
     private readonly repo: AdmissionsRepository,
     private readonly quotes: QuoteService,
     private readonly agreements: RegistrationAgreementService,
   ) {}
+
+  /**
+   * Generate the Registration Agreement AFTER the commit response is sent — rendering the bilingual
+   * PDF is the slow part of a registration, and the agreement is regenerable from the immutable
+   * snapshot, so it must never keep the registrar waiting. The current tenant context is captured and
+   * re-bound because the request's async scope has already unwound by the time this runs. Best-effort:
+   * tryAutoGenerate never throws, and any failure here is logged, not surfaced to the caller.
+   */
+  private scheduleAgreement(enrollmentId: string): void {
+    const context = TenantContextStore.get();
+    const runner = () => this.agreements.tryAutoGenerate(enrollmentId);
+    void Promise.resolve()
+      .then(() => (context ? TenantContextStore.run(context, runner) : runner()))
+      .catch((err) => this.logger.error(`background agreement generation failed: ${String(err)}`));
+  }
 
   // Catalog
   listFeeItems() {
@@ -62,7 +80,9 @@ export class AdmissionsService {
   async commit(dto: CommitDto) {
     const enrollment = await this.repo.commit(dto);
     if (enrollment.status === EnrollmentStatus.COMMITTED) {
-      await this.agreements.tryAutoGenerate(enrollment.id);
+      // Fire-and-forget: return the committed enrollment immediately; the agreement PDF renders in
+      // the background so the registrar isn't blocked on it (see scheduleAgreement).
+      this.scheduleAgreement(enrollment.id);
     }
     return enrollment;
   }
@@ -89,7 +109,7 @@ export class AdmissionsService {
   async approve(modificationId: string, note?: string) {
     const decision = await this.repo.decideModification(modificationId, true, note);
     const enrollmentId = await this.repo.enrollmentIdForModification(modificationId);
-    if (enrollmentId) await this.agreements.tryAutoGenerate(enrollmentId);
+    if (enrollmentId) this.scheduleAgreement(enrollmentId);
     return decision;
   }
   reject(modificationId: string, note?: string) {
