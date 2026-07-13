@@ -208,6 +208,35 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     }
   }
 
+  /**
+   * Settle a one-time charge (the registration fee) in full: record a cash payment for its
+   * outstanding balance and verify it. Verification auto-allocates FIFO, and the registration fee is
+   * the earliest-due obligation, so the payment lands on it. For anything else (method, part payment)
+   * the cashier uses the Record payment form below.
+   */
+  async function payCharge(cv: ChargeView) {
+    const balance = Number(cv.balance);
+    if (!balance || balance <= 0) return;
+    if (
+      !window.confirm(
+        `Record a cash payment of ${num(cv.balance)} JOD for "${cv.charge.description}"?`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const p = await financeApi.recordPayment({ studentId, amount: balance, method: 'CASH' });
+      await financeApi.verify(p.id);
+      toast.success(`${cv.charge.description} paid`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not record the payment');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitPlan() {
     if (!planForm) return;
     const installments = Number(planForm.installments);
@@ -427,6 +456,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
               onDiscount={() =>
                 setAdjForm({ chargeId: cv.charge.id, type: 'DISCOUNT', amount: '', reason: '' })
               }
+              onPay={() => void payCharge(cv)}
             />
           ))}
         </CardContent>
@@ -1076,6 +1106,7 @@ function ChargeNode({
   onToggle,
   onPlan,
   onDiscount,
+  onPay,
 }: {
   cv: ChargeView;
   open: boolean;
@@ -1083,10 +1114,15 @@ function ChargeNode({
   onToggle: () => void;
   onPlan: () => void;
   onDiscount: () => void;
+  onPay: () => void;
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const history = cv.history ?? [];
+  // The one-time registration fee is paid in full when the student registers — it is never put on a
+  // payment plan, so it gets a "Pay" action instead of the installment/plan controls.
+  const isRegistrationFee = cv.charge.description === 'Registration fee';
+  const outstanding = Number(cv.balance) > 0;
   return (
     <div className="rounded-lg border border-border">
       <button
@@ -1145,52 +1181,69 @@ function ChargeNode({
 
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-medium">
-              {cv.plan
-                ? `Payment Plan · ${cv.plan.cadence} × ${cv.plan.installments}`
-                : 'No payment plan'}
+              {isRegistrationFee
+                ? 'One-time registration fee'
+                : cv.plan
+                  ? `Payment Plan · ${cv.plan.cadence} × ${cv.plan.installments}`
+                  : 'No payment plan'}
             </span>
             <div className="flex gap-2">
               <Button size="sm" variant="ghost" onClick={onDiscount} disabled={busy}>
                 Adjust
               </Button>
-              {/* Creating the first plan is a normal action; REPLACING an existing plan is an
-                  exceptional admin action moved under Advanced actions below. */}
-              {!cv.plan && (
-                <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
-                  Create plan
-                </Button>
-              )}
+              {/* The registration fee is paid once, in full — a single "Pay" action, never a plan. */}
+              {isRegistrationFee
+                ? outstanding && (
+                    <Button size="sm" onClick={onPay} disabled={busy}>
+                      Pay
+                    </Button>
+                  )
+                : // Creating the first plan is a normal action; REPLACING an existing plan is an
+                  // exceptional admin action moved under Advanced actions below.
+                  !cv.plan && (
+                    <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
+                      Create plan
+                    </Button>
+                  )}
             </div>
           </div>
 
-          <Table>
-            <THead>
-              <TR>
-                <TH>#</TH>
-                <TH>Due</TH>
-                <TH>Amount</TH>
-                <TH>Paid</TH>
-                <TH>Balance</TH>
-                <TH>Status</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {cv.installments.map((inst) => (
-                <TR key={inst.id}>
-                  <TD>{inst.seq}</TD>
-                  <TD>{dateStr(inst.dueDate)}</TD>
-                  <TD>{num(inst.amount)}</TD>
-                  <TD>{num(inst.paid)}</TD>
-                  <TD>{num(inst.balance)}</TD>
-                  <TD>
-                    <Badge tone={installmentTone(inst)}>
-                      {inst.overdue ? 'OVERDUE' : inst.status}
-                    </Badge>
-                  </TD>
+          {isRegistrationFee ? (
+            <div className="text-sm text-muted-foreground">
+              {outstanding
+                ? `Due ${dateStr(cv.installments[0]?.dueDate)} · ${num(cv.balance)} outstanding.`
+                : 'Paid in full.'}
+            </div>
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>#</TH>
+                  <TH>Due</TH>
+                  <TH>Amount</TH>
+                  <TH>Paid</TH>
+                  <TH>Balance</TH>
+                  <TH>Status</TH>
                 </TR>
-              ))}
-            </TBody>
-          </Table>
+              </THead>
+              <TBody>
+                {cv.installments.map((inst) => (
+                  <TR key={inst.id}>
+                    <TD>{inst.seq}</TD>
+                    <TD>{dateStr(inst.dueDate)}</TD>
+                    <TD>{num(inst.amount)}</TD>
+                    <TD>{num(inst.paid)}</TD>
+                    <TD>{num(inst.balance)}</TD>
+                    <TD>
+                      <Badge tone={installmentTone(inst)}>
+                        {inst.overdue ? 'OVERDUE' : inst.status}
+                      </Badge>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
 
           {history.length > 0 && (
             <div className="mt-4 border-t border-border pt-3">
