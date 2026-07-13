@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { StorageService } from '../common/storage.service';
 import { OrganizationModule } from '../organization/organization.module';
 import { AccountRepository } from '../finance/account/account.repository';
+import { FinancialAccountRepository } from '../finance/financial-account/financial-account.repository';
 import { PaymentRepository } from '../finance/payments/payment.repository';
 import { LedgerRepository } from '../finance/ledger/ledger.repository';
 import { StatementService } from '../finance/statement/statement.service';
@@ -39,6 +40,7 @@ import { RegistrationAgreementService } from './registration-agreement.service';
     // Read-only finance collaborators reused by the document collectors.
     StatementService,
     AccountRepository,
+    FinancialAccountRepository,
     PaymentRepository,
     LedgerRepository,
   ],
