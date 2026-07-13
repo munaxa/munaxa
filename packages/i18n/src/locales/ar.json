@@ -147,6 +147,8 @@
   "nav": {
     "dashboard": "الرئيسية",
     "admissions": "القبول والتسجيل",
+    "familyAdmission": "تسجيل عائلي",
+    "familyFinance": "مالية العائلة",
     "feeApprovals": "اعتمادات الرسوم",
     "admissionsReports": "تقارير القبول",
     "feeCatalog": "دليل الرسوم",
