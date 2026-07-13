@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { FinancialAccount } from '@prisma/client';
+import type { Payer } from '@prisma/client';
 import { FinancialAccountRepository, type AccountStudent } from './financial-account.repository';
 import { LedgerRepository, type FinancialAccountSummary } from '../ledger/ledger.repository';
 
-/** The Family Finance Dashboard payload: account header, family totals, and the children. */
+/** The Financial Account dashboard payload: account (Payer) header, account totals, and the children. */
 export interface FinancialAccountDashboard {
-  account: FinancialAccount;
+  account: Payer;
   summary: FinancialAccountSummary;
   students: AccountStudent[];
 }

@@ -477,10 +477,10 @@ export class LedgerRepository extends TenantRepository {
    * rolled up (Σ per-student — same source rows as the per-student ledger, no parallel accounting)
    * plus family credit, next due, last payment, a collections rollup and the children count.
    */
-  financialAccountSummary(financialAccountId: string): Promise<FinancialAccountSummary> {
+  financialAccountSummary(payerId: string): Promise<FinancialAccountSummary> {
     return this.run(async (tx) => {
       const accounts = await tx.studentFinancialAccount.findMany({
-        where: { financialAccountId },
+        where: { payerId },
         select: { id: true, studentId: true },
       });
       const studentIds = accounts.map((a) => a.studentId);
@@ -533,18 +533,14 @@ export class LedgerRepository extends TenantRepository {
           }
         : null;
 
-      // Family credit: credit lots owned by the account, or by any of its students' AR accounts.
-      const creditBalance = await this.financialAccountCreditBalanceTx(
-        tx,
-        financialAccountId,
-        studentIds,
-      );
+      // Account credit: credit lots owned by the account (Payer), or by any of its students' accounts.
+      const creditBalance = await this.financialAccountCreditBalanceTx(tx, payerId, studentIds);
 
-      // Last verified payment across the family (by the account or any student).
+      // Last verified payment across the account (by the account or any student).
       const lastPay = await tx.payment.findFirst({
         where: {
           status: 'VERIFIED',
-          OR: [{ financialAccountId }, { studentId: { in: studentIds } }],
+          OR: [{ payerId }, { studentId: { in: studentIds } }],
         },
         orderBy: [{ verifiedAt: 'desc' }, { createdAt: 'desc' }],
         select: { amount: true, verifiedAt: true, createdAt: true },
@@ -583,15 +579,15 @@ export class LedgerRepository extends TenantRepository {
     });
   }
 
-  /** Available family credit = credit lots tagged to the account, or held by its students' accounts. */
+  /** Available account credit = credit lots owned by the account (Payer), or held by its students. */
   private async financialAccountCreditBalanceTx(
     tx: TxClient,
-    financialAccountId: string,
+    payerId: string,
     studentIds: string[],
   ): Promise<Prisma.Decimal> {
     const credits = await tx.credit.findMany({
       where: {
-        OR: [{ financialAccountId }, { account: { studentId: { in: studentIds } } }],
+        OR: [{ payerId }, { account: { studentId: { in: studentIds } } }],
       },
       select: { id: true, amount: true },
     });
@@ -605,11 +601,11 @@ export class LedgerRepository extends TenantRepository {
     );
   }
 
-  /** The student ids billed through a financial account (allocation scope). */
-  studentIdsForFinancialAccount(financialAccountId: string): Promise<string[]> {
+  /** The student ids billed through a financial account / Payer (allocation scope). */
+  studentIdsForFinancialAccount(payerId: string): Promise<string[]> {
     return this.run(async (tx) => {
       const rows = await tx.studentFinancialAccount.findMany({
-        where: { financialAccountId },
+        where: { payerId },
         select: { studentId: true },
       });
       return rows.map((r) => r.studentId);
@@ -864,15 +860,14 @@ export class LedgerRepository extends TenantRepository {
     });
   }
 
-  /** Grant an over-payment credit for a verified payment's unallocated residue (AR-5, CR-4). When
-   * `financialAccountId` is set the residue is banked to the family/customer account (a family
-   * over-payment belongs to the payer, not one student); `accountId` still records a student AR home. */
+  /** Grant an over-payment credit for a verified payment's unallocated residue (AR-5, CR-4). The
+   * credit is owned by the Financial Account via `payerId` (for an account over-payment the balance
+   * belongs to the payer across all its students); `accountId` records a student AR home. */
   grantOverpaymentCredit(data: {
     accountId: string;
     payerId: string | null;
     paymentId: string;
     amount: Prisma.Decimal;
-    financialAccountId?: string | null;
   }): Promise<Credit> {
     return this.run(async (tx, tenantId) => {
       const credit = await tx.credit.create({
@@ -883,7 +878,6 @@ export class LedgerRepository extends TenantRepository {
           source: 'OVERPAYMENT',
           amount: data.amount,
           paymentId: data.paymentId,
-          ...(data.financialAccountId ? { financialAccountId: data.financialAccountId } : {}),
           createdById: this.actor(),
         },
       });

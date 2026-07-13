@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { type FinancialAccount, type FinancialAccountOwnerType } from '@prisma/client';
+import { type Payer, type FinancialAccountOwnerType } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import type { TxClient } from '../../prisma/tenant.helpers';
@@ -16,9 +16,9 @@ export interface AccountStudent {
   gradeNameAr: string | null;
 }
 
-/** A financial account matched by the multi-key family search. */
+/** A financial account matched by the multi-key search. */
 export interface FamilySearchHit {
-  financialAccountId: string | null; // null when the guardian has no account yet (legacy family)
+  financialAccountId: string | null; // the Payer id — null when the guardian has no account yet
   parentId: string | null;
   ownerType: FinancialAccountOwnerType | 'GUARDIAN';
   nameEn: string;
@@ -30,11 +30,12 @@ export interface FamilySearchHit {
 }
 
 /**
- * FinancialAccount data access — the financial customer that pays for one or more students. The
- * account is the owner of payment plans / payments / credits / refunds; students remain the owners
- * of their charges. `ensureForParentTx` is the single entry point that lazily creates the account
- * (reusing the existing Payer) so every family receivable has a payer home. Tenant-scoped, RLS-
- * enforced, audited — mirrors {@link AccountRepository} for the student side.
+ * Financial Account data access. The Financial Account IS the {@link Payer} (the customer that pays
+ * for one or more students — usually a guardian, but the payer is not hard-coded: ownerType supports
+ * company/government/sponsor/…). It owns the payment plans / payments / credits / refunds; students
+ * remain the owners of their charges. `Payer` already groups a guardian's students (siblings share
+ * one Payer, and StudentFinancialAccount.payerId links them), so there is no separate account table.
+ * Tenant-scoped, RLS-enforced, audited — mirrors {@link AccountRepository} for the student side.
  */
 @Injectable()
 export class FinancialAccountRepository extends TenantRepository {
@@ -42,14 +43,14 @@ export class FinancialAccountRepository extends TenantRepository {
     return TenantContextStore.get()?.actorUserId ?? null;
   }
 
-  findById(id: string): Promise<FinancialAccount | null> {
-    return this.run((tx) => tx.financialAccount.findFirst({ where: { id } }));
+  findById(id: string): Promise<Payer | null> {
+    return this.run((tx) => tx.payer.findFirst({ where: { id } }));
   }
 
-  /** The active financial account for a guardian, if one exists (most-recent first). */
-  findByParent(parentId: string): Promise<FinancialAccount | null> {
+  /** The active financial account (Payer) for a guardian, if one exists (most-recent first). */
+  findByParent(parentId: string): Promise<Payer | null> {
     return this.run((tx) =>
-      tx.financialAccount.findFirst({
+      tx.payer.findFirst({
         where: { parentId, status: 'ACTIVE' },
         orderBy: { createdAt: 'desc' },
       }),
@@ -57,56 +58,38 @@ export class FinancialAccountRepository extends TenantRepository {
   }
 
   /**
-   * Find-or-create the financial account owned by a guardian, reusing the guardian's Payer (created
-   * if missing) as the billing identity. Composable in a larger transaction (family commit).
+   * Find-or-create the financial account (Payer) owned by a guardian. The same Payer is created by the
+   * student-side ledger (`AccountRepository.ensurePayerForStudentTx`), so this is idempotent per
+   * guardian. Composable in a larger transaction (the unified admission commit).
    */
   async ensureForParentTx(
     tx: TxClient,
     tenantId: string,
     parentId: string,
     ownerType: FinancialAccountOwnerType = 'GUARDIAN',
-  ): Promise<FinancialAccount> {
-    const existing = await tx.financialAccount.findFirst({
-      where: { parentId, status: 'ACTIVE' },
-      orderBy: { createdAt: 'desc' },
-    });
+  ): Promise<Payer> {
+    const existing = await tx.payer.findFirst({ where: { parentId } });
     if (existing) return existing;
 
     const parent = await tx.parent.findFirst({ where: { id: parentId, deletedAt: null } });
     if (!parent) throw new BadRequestException('Guardian not found in this tenant');
 
-    // Reuse the guardian's Payer (the student-side ledger creates the same one), or create it.
-    let payer = await tx.payer.findFirst({ where: { parentId } });
-    if (!payer) {
-      payer = await tx.payer.create({
-        data: {
-          tenantId,
-          parentId,
-          nameEn: `${parent.firstNameEn} ${parent.lastNameEn}`.trim(),
-          nameAr: `${parent.firstNameAr} ${parent.lastNameAr}`.trim(),
-          phone: parent.phone,
-          email: parent.email,
-          createdById: this.actor(),
-        },
-      });
-    }
-
-    const account = await tx.financialAccount.create({
+    const account = await tx.payer.create({
       data: {
         tenantId,
-        ownerType,
         parentId,
-        payerId: payer.id,
+        ownerType,
         nameEn: `${parent.firstNameEn} ${parent.lastNameEn}`.trim(),
         nameAr: `${parent.firstNameAr} ${parent.lastNameAr}`.trim(),
         phone: parent.phone,
         email: parent.email,
+        nationalId: parent.nationalId,
         createdById: this.actor(),
       },
     });
     await this.writeAudit(tx, tenantId, {
       action: 'finance.financialAccount.open',
-      entityType: 'FinancialAccount',
+      entityType: 'Payer',
       entityId: account.id,
       metadata: { parentId, ownerType },
     });
@@ -116,30 +99,30 @@ export class FinancialAccountRepository extends TenantRepository {
   ensureForParent(
     parentId: string,
     ownerType: FinancialAccountOwnerType = 'GUARDIAN',
-  ): Promise<FinancialAccount> {
+  ): Promise<Payer> {
     return this.run((tx, tenantId) => this.ensureForParentTx(tx, tenantId, parentId, ownerType));
   }
 
   /**
-   * Link a student's AR account to a financial account (idempotent). The student's charges stay
-   * student-owned; this only records who the paying customer is.
+   * Link a student's AR account to a financial account (Payer). The student's charges stay
+   * student-owned; this only records who the paying customer is (sets StudentFinancialAccount.payerId).
    */
   async linkStudentAccountTx(
     tx: TxClient,
     studentAccountId: string,
-    financialAccountId: string,
+    payerId: string,
   ): Promise<void> {
     await tx.studentFinancialAccount.update({
       where: { id: studentAccountId },
-      data: { financialAccountId },
+      data: { payerId },
     });
   }
 
   /** The students billed through a financial account (dashboard children section). */
-  studentsOf(financialAccountId: string): Promise<AccountStudent[]> {
+  studentsOf(payerId: string): Promise<AccountStudent[]> {
     return this.run(async (tx) => {
       const accounts = await tx.studentFinancialAccount.findMany({
-        where: { financialAccountId },
+        where: { payerId },
         select: {
           id: true,
           student: {
@@ -170,10 +153,10 @@ export class FinancialAccountRepository extends TenantRepository {
   }
 
   /** Student ids billed through a financial account (allocation / summary scope). */
-  studentIdsOf(financialAccountId: string): Promise<string[]> {
+  studentIdsOf(payerId: string): Promise<string[]> {
     return this.run(async (tx) => {
       const rows = await tx.studentFinancialAccount.findMany({
-        where: { financialAccountId },
+        where: { payerId },
         select: { studentId: true },
       });
       return rows.map((r) => r.studentId);
@@ -181,9 +164,8 @@ export class FinancialAccountRepository extends TenantRepository {
   }
 
   /**
-   * Family-first search. Matches guardians by name / phone / national id, and by any linked
-   * student's name / national id, then projects each onto its financial account (or the guardian
-   * when no account exists yet — a legacy family that can still be opened into one). Deduped by
+   * Account-first search. Matches guardians by name / phone / national id, and by any linked
+   * student's name / national id, then projects each onto its financial account (Payer). Deduped by
    * guardian, capped for the picker.
    */
   search(query: string): Promise<FamilySearchHit[]> {
@@ -230,7 +212,7 @@ export class FinancialAccountRepository extends TenantRepository {
           email: true,
           nationalId: true,
           _count: { select: { studentLinks: true } },
-          financialAccounts: {
+          payers: {
             where: { status: 'ACTIVE' },
             orderBy: { createdAt: 'desc' },
             take: 1,
@@ -241,9 +223,9 @@ export class FinancialAccountRepository extends TenantRepository {
         orderBy: [{ firstNameEn: 'asc' }],
       });
       return parents.map((p) => ({
-        financialAccountId: p.financialAccounts[0]?.id ?? null,
+        financialAccountId: p.payers[0]?.id ?? null,
         parentId: p.id,
-        ownerType: p.financialAccounts[0]?.ownerType ?? 'GUARDIAN',
+        ownerType: p.payers[0]?.ownerType ?? 'GUARDIAN',
         nameEn: `${p.firstNameEn} ${p.lastNameEn}`.trim(),
         nameAr: `${p.firstNameAr} ${p.lastNameAr}`.trim(),
         phone: p.phone,
@@ -254,12 +236,12 @@ export class FinancialAccountRepository extends TenantRepository {
     });
   }
 
-  /** The active family payment plan for an account + year (if any). */
-  activePlanFor(financialAccountId: string, academicYearId?: string) {
+  /** The active account payment plan for an account (Payer) + year (if any). */
+  activePlanFor(payerId: string, academicYearId?: string) {
     return this.run((tx) =>
       tx.financialAccountPlan.findFirst({
         where: {
-          financialAccountId,
+          payerId,
           status: 'ACTIVE',
           ...(academicYearId ? { academicYearId } : {}),
         },

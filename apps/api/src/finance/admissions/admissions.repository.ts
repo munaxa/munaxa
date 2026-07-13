@@ -4,6 +4,7 @@ import {
   ChargeStatus,
   EnrollmentStatus,
   FeeItemKind,
+  FinancialAccountOwnerType,
   ParentRelation,
   Prisma,
   QuotePaymentMode,
@@ -392,265 +393,84 @@ export class AdmissionsRepository extends TenantRepository {
     }
   }
 
+  // ── Registration commit (single student = the N=1 case of the account commit) ──
+  /**
+   * Commit a single-student registration. This is a thin adapter over {@link familyCommit}: it
+   * resolves the guardian (from the request, or the returning student's primary guardian), reads the
+   * plan parameters from the quote, and commits exactly one student — so EVERY new admission creates a
+   * Financial Account (Payer) and a single unified write path handles one or many students. Returns
+   * the created enrollment (unchanged contract for existing callers).
+   */
   async commit(dto: CommitDto) {
-    return this.run(async (tx, tenantId) => {
-      // Idempotency: a prior commit with the same key returns the same enrollment.
-      const existing = await tx.registrationCommitment.findUnique({
-        where: { tenantId_idempotencyKey: { tenantId, idempotencyKey: dto.idempotencyKey } },
-        include: { enrollment: true },
-      });
-      if (existing) return existing.enrollment;
-
-      const quote = await tx.enrollmentQuote.findFirst({
+    const quote = await this.run((tx) =>
+      tx.enrollmentQuote.findFirst({
         where: { id: dto.quoteId },
-        include: { items: true },
-      });
-      if (!quote) throw new BadRequestException('Quote not found');
-      if (quote.items.length === 0) throw new BadRequestException('Quote has no fee lines');
+        select: {
+          academicYearId: true,
+          paymentMode: true,
+          installments: true,
+          firstDueDate: true,
+        },
+      }),
+    );
+    if (!quote) throw new BadRequestException('Quote not found');
 
-      // 1) Student — reuse (returning) or create (new).
-      let studentId = dto.existingStudentId ?? null;
-      if (!studentId) {
-        if (!dto.student)
-          throw new BadRequestException('Student information is required for a new registration');
-        // A guardian is mandatory for every new student — either an existing parent (chosen by id)
-        // or a brand-new one (which requires a primary mobile).
-        if (!dto.existingParentId && !dto.parent)
-          throw new BadRequestException('A parent/guardian is required for a new registration');
-        if (!dto.existingParentId && !dto.parent?.phone?.trim())
-          throw new BadRequestException('A parent mobile number is required');
-        const s = dto.student;
-        const created = await tx.student.create({
-          data: {
-            tenantId,
-            firstNameEn: s.firstNameEn,
-            lastNameEn: s.lastNameEn,
-            firstNameAr: s.firstNameAr || s.firstNameEn,
-            lastNameAr: s.lastNameAr || s.lastNameEn,
-            ...(s.gender ? { gender: s.gender } : {}),
-            ...(s.dateOfBirth ? { dateOfBirth: new Date(s.dateOfBirth) } : {}),
-            ...(s.nationalId ? { nationalId: s.nationalId } : {}),
-            ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
-            // Transportation demand captured at registration (additive; Fleet stays the
-            // operational source of truth via the StudentBusAssignment created in step 6).
-            ...(dto.areaId ? { areaId: dto.areaId } : {}),
-            ...(dto.transportRequested !== undefined
-              ? { transportRequested: dto.transportRequested }
-              : {}),
-            status: StudentStatus.ACTIVE,
-            qrCode: generateStudentQrCode(),
-          },
-        });
-        studentId = created.id;
+    // Resolve the guardian: given explicitly, or (returning student) their primary guardian.
+    let existingParentId = dto.existingParentId;
+    if (!existingParentId && !dto.parent && dto.existingStudentId) {
+      const link = await this.run((tx) =>
+        tx.parentStudent.findFirst({
+          where: { studentId: dto.existingStudentId },
+          orderBy: { isPrimary: 'desc' },
+          select: { parentId: true },
+        }),
+      );
+      existingParentId = link?.parentId;
+    }
 
-        // 2) Parent — the registrar either chose an EXISTING guardian (by id) or entered a new one
-        //    (de-duped by mobile). Then link the guardian to the student.
-        const relation = dto.parent?.relation ?? ParentRelation.GUARDIAN;
-        let parent: { id: string };
-        if (dto.existingParentId) {
-          const chosen = await tx.parent.findFirst({
-            where: { id: dto.existingParentId, tenantId, deletedAt: null },
-          });
-          if (!chosen)
-            throw new BadRequestException('The selected parent was not found in this tenant');
-          parent = chosen;
-        } else {
-          const p = dto.parent!;
-          const existingParent = p.phone
-            ? await tx.parent.findFirst({ where: { tenantId, phone: p.phone, deletedAt: null } })
-            : null;
-          parent =
-            existingParent ??
-            (await tx.parent.create({
-              data: {
-                tenantId,
-                firstNameEn: p.firstNameEn,
-                lastNameEn: p.lastNameEn,
-                firstNameAr: p.firstNameAr || p.firstNameEn,
-                lastNameAr: p.lastNameAr || p.lastNameEn,
-                ...(p.phone ? { phone: p.phone } : {}),
-                ...(p.phoneAlt ? { phoneAlt: p.phoneAlt } : {}),
-                ...(p.email ? { email: p.email } : {}),
-              },
-            }));
-        }
-        // Link the guardian to the new student (skip if reusing a parent already linked).
-        const existingLink = await tx.parentStudent.findFirst({
-          where: { tenantId, parentId: parent.id, studentId },
-        });
-        if (!existingLink) {
-          await tx.parentStudent.create({
-            data: { tenantId, parentId: parent.id, studentId, relation, isPrimary: true },
-          });
-        }
-      } else {
-        // Returning student: keep their profile but refresh placement + transport demand
-        // from this registration (all additive/optional).
-        const data: Prisma.StudentUpdateInput = {
-          ...(dto.sectionId ? { section: { connect: { id: dto.sectionId } } } : {}),
-          ...(dto.areaId ? { area: { connect: { id: dto.areaId } } } : {}),
+    const result = await this.familyCommit({
+      idempotencyKey: dto.idempotencyKey,
+      academicYearId: quote.academicYearId,
+      ...(existingParentId ? { existingParentId } : {}),
+      ...(dto.parent ? { parent: dto.parent } : {}),
+      ownerType: FinancialAccountOwnerType.GUARDIAN,
+      paymentMode: quote.paymentMode,
+      installments: quote.installments,
+      ...(quote.firstDueDate
+        ? { firstDueDate: quote.firstDueDate.toISOString().slice(0, 10) }
+        : {}),
+      registrationFeePaid: dto.registrationFeePaid ?? true,
+      students: [
+        {
+          quoteId: dto.quoteId,
+          ...(dto.existingStudentId ? { existingStudentId: dto.existingStudentId } : {}),
+          ...(dto.student ? { student: dto.student } : {}),
+          ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
+          ...(dto.busRouteId ? { busRouteId: dto.busRouteId } : {}),
+          ...(dto.busTripRound ? { busTripRound: dto.busTripRound } : {}),
+          ...(dto.areaId ? { areaId: dto.areaId } : {}),
           ...(dto.transportRequested !== undefined
             ? { transportRequested: dto.transportRequested }
             : {}),
-        };
-        if (Object.keys(data).length > 0) {
-          await tx.student.update({ where: { id: studentId }, data });
-        }
-      }
-
-      // 3) Enrollment (one per student+year). A fee change only holds the enrollment in
-      //    PENDING_APPROVAL when the tenant has opted into the finance-approval workflow
-      //    (BillingPolicy.requireFinanceApprovalForFeeChanges). By default that flag is false:
-      //    the person admitting the student — typically the finance officer, who already holds
-      //    fee authority (FEE_OVERRIDE) — commits in a single step with no pending state. The
-      //    modification is still recorded and auto-approved for the audit trail (step 5). Schools
-      //    that want separation of duties flip the toggle on to require a separate approval.
-      const policy = await tx.billingPolicy.findUnique({
-        where: { tenantId },
-        select: { requireFinanceApprovalForFeeChanges: true },
-      });
-      const requireApproval = policy?.requireFinanceApprovalForFeeChanges ?? false;
-      const held = quote.feeModified && requireApproval;
-      const enrollment = await tx.enrollment.create({
-        data: {
-          tenantId,
-          studentId,
-          academicYearId: quote.academicYearId,
-          gradeId: quote.gradeId,
-          ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
-          quoteId: quote.id,
-          transportDirection: quote.transportDirection,
-          status: held ? EnrollmentStatus.PENDING_APPROVAL : EnrollmentStatus.COMMITTED,
-          paymentMode: quote.paymentMode,
-          feeModified: quote.feeModified,
-          // Usual case: the registration fee is paid at registration (its own one-off charge). If the
-          // registrar marks it unpaid it is folded into the installment plan instead.
-          registrationFeePaid: dto.registrationFeePaid ?? true,
-          createdById: this.actor(),
         },
-      });
-
-      // 4) AR ledger (Account + Charge + Plan + Installments). When a fee change holds the
-      //    enrollment for finance approval, charge creation is deferred until approval so nothing
-      //    financial is committed before the decision — see decideModification().
-      if (!held) {
-        await this.createEnrollmentCharges(
-          tx,
-          tenantId,
-          studentId,
-          enrollment.id,
-          quote,
-          dto.registrationFeePaid ?? true,
-        );
-      }
-
-      // 5) Fee-modification tracking. Every change is recorded for the audit trail. When the
-      //    enrollment is held (step 3) the approval is PENDING so it surfaces in the finance
-      //    approval inbox; otherwise it is auto-approved (decided now by the committing actor)
-      //    so there is no pending item but the who/original/new history is preserved.
-      const decidedNow = new Date();
-      for (const item of quote.items) {
-        if (!item.overridden || item.originalAmount === null) continue;
-        const diff = item.amount.minus(item.originalAmount);
-        const mod = await tx.feeModification.create({
-          data: {
-            tenantId,
-            enrollmentId: enrollment.id,
-            studentId,
-            field: item.kind,
-            originalValue: item.originalAmount.toFixed(3),
-            newValue: item.amount.toFixed(3),
-            difference: diff.toFixed(3),
-            reason: item.overrideReason ?? 'Registrar override',
-            modifiedById: this.actor(),
-          },
-        });
-        await tx.feeModificationApproval.create({
-          data: held
-            ? { tenantId, modificationId: mod.id, status: ApprovalStatus.PENDING }
-            : {
-                tenantId,
-                modificationId: mod.id,
-                status: ApprovalStatus.APPROVED,
-                approverId: this.actor(),
-                decidedAt: decidedNow,
-                note: 'Auto-approved: tenant does not require finance approval for fee changes',
-              },
-        });
-      }
-
-      // 6) Permanent "Fee Modified" badge on the student's billing profile.
-      if (quote.feeModified) {
-        await tx.studentBillingProfile.upsert({
-          where: { studentId },
-          create: { tenantId, studentId, feeModified: true },
-          update: { feeModified: true },
-        });
-      }
-
-      // 6b) Bus route + trip assignment (one per student): mirror the admission choice into the
-      //     fleet so it shows under Fleet → Route detail and on the student's profile.
-      if (dto.busRouteId) {
-        const route = await tx.busRoute.findFirst({
-          where: { id: dto.busRouteId, deletedAt: null },
-          select: { id: true },
-        });
-        if (!route) throw new BadRequestException('Bus route not found in this tenant');
-        const existingAssignment = await tx.studentBusAssignment.findFirst({
-          where: { studentId },
-        });
-        if (existingAssignment) {
-          await tx.studentBusAssignment.update({
-            where: { id: existingAssignment.id },
-            data: { routeId: dto.busRouteId, stopId: null, tripRound: dto.busTripRound ?? null },
-          });
-        } else {
-          await tx.studentBusAssignment.create({
-            data: {
-              tenantId,
-              studentId,
-              routeId: dto.busRouteId,
-              tripRound: dto.busTripRound ?? null,
-            },
-          });
-        }
-      }
-
-      // 7) Idempotent commitment record + audit.
-      await tx.registrationCommitment.create({
-        data: {
-          tenantId,
-          enrollmentId: enrollment.id,
-          studentId,
-          idempotencyKey: dto.idempotencyKey,
-          committedById: this.actor(),
-        },
-      });
-      await this.writeAudit(tx, tenantId, {
-        action: 'admissions.registration.commit',
-        entityType: 'Enrollment',
-        entityId: enrollment.id,
-        metadata: {
-          studentId,
-          academicYearId: quote.academicYearId,
-          grandTotal: quote.grandTotal.toString(),
-          feeModified: quote.feeModified,
-          returning: Boolean(dto.existingStudentId),
-        },
-      });
-      return enrollment;
+      ],
     });
+
+    const enrollmentId = result.enrollmentIds[0];
+    if (!enrollmentId) throw new BadRequestException('Commit produced no enrollment');
+    return this.run((tx) => tx.enrollment.findFirstOrThrow({ where: { id: enrollmentId } }));
   }
 
-  // ── Atomic FAMILY registration commit ──
+  // ── Atomic account registration commit (the single canonical write path) ──
   /**
-   * Register a whole family in one transaction: one guardian/customer (FinancialAccount) pays for one
-   * or more students. Creates — for each student — Student → guardian link → Enrollment → per-student
-   * Charges, all aligned to ONE family FinancialAccountPlan (shared cadence + installment count + first
-   * due date), so a chosen "9 installments" yields exactly 9 FAMILY installments. Students remain the
-   * owners of their charges; the FinancialAccount owns the plan/payments. Idempotent per student
-   * (keyed `<idempotencyKey>:<index>`). Fee overrides are recorded + auto-approved (family v1 always
-   * commits; the finance-approval hold workflow stays on the single-student path).
+   * Register one or more students under one Financial Account (Payer) in a single transaction. Creates
+   * — for each student — Student → guardian link → Enrollment → per-student Charges, all aligned to ONE
+   * account FinancialAccountPlan (shared cadence + installment count + first due date), so a chosen "9
+   * installments" yields exactly 9 account installments. Students remain the owners of their charges;
+   * the account owns the plan/payments. Single-student admission is the N=1 case (see {@link commit}).
+   * Idempotent per student (keyed `<idempotencyKey>:<index>`). Fee overrides are recorded and, when the
+   * tenant requires finance approval, hold that student's enrollment in PENDING_APPROVAL (charges
+   * deferred until approval — see decideModification); otherwise auto-approved.
    */
   async familyCommit(dto: FamilyCommitDto) {
     return this.run(async (tx, tenantId) => {
@@ -704,7 +524,7 @@ export class AdmissionsRepository extends TenantRepository {
           ).id;
       }
 
-      // 2) The financial customer (find-or-create) + 3) the ONE family payment plan.
+      // 2) The financial customer (find-or-create Payer) + 3) the ONE account payment plan.
       const financialAccount = await this.financialAccounts.ensureForParentTx(
         tx,
         tenantId,
@@ -716,7 +536,7 @@ export class AdmissionsRepository extends TenantRepository {
       const familyPlan = await tx.financialAccountPlan.create({
         data: {
           tenantId,
-          financialAccountId: financialAccount.id,
+          payerId: financialAccount.id,
           academicYearId: dto.academicYearId,
           cadence: 'MONTHLY',
           installments,
@@ -730,7 +550,16 @@ export class AdmissionsRepository extends TenantRepository {
         firstDueDate: firstDue,
       };
 
-      // 4) Each student: resolve/create, link the guardian, enroll, and bill through the family plan.
+      // A fee change only holds an enrollment in PENDING_APPROVAL when the tenant opts into the
+      // finance-approval workflow (default off); the account + plan are created regardless, and the
+      // held student's charges are deferred until approval (see decideModification).
+      const policy = await tx.billingPolicy.findUnique({
+        where: { tenantId },
+        select: { requireFinanceApprovalForFeeChanges: true },
+      });
+      const requireApproval = policy?.requireFinanceApprovalForFeeChanges ?? false;
+
+      // 4) Each student: resolve/create, link the guardian, enroll, and bill through the account plan.
       const enrollmentIds: string[] = [];
       for (const [i, entry] of dto.students.entries()) {
         const quote = await tx.enrollmentQuote.findFirst({
@@ -793,6 +622,7 @@ export class AdmissionsRepository extends TenantRepository {
           });
         }
 
+        const held = quote.feeModified && requireApproval;
         const enrollment = await tx.enrollment.create({
           data: {
             tenantId,
@@ -802,7 +632,7 @@ export class AdmissionsRepository extends TenantRepository {
             ...(entry.sectionId ? { sectionId: entry.sectionId } : {}),
             quoteId: quote.id,
             transportDirection: quote.transportDirection,
-            status: EnrollmentStatus.COMMITTED,
+            status: held ? EnrollmentStatus.PENDING_APPROVAL : EnrollmentStatus.COMMITTED,
             paymentMode: dto.paymentMode,
             feeModified: quote.feeModified,
             registrationFeePaid: dto.registrationFeePaid ?? true,
@@ -810,20 +640,25 @@ export class AdmissionsRepository extends TenantRepository {
           },
         });
 
-        // Link the student's AR account to the family account, then bill it through the family plan.
+        // Link the student's AR account to the account (Payer), then bill it through the account plan.
+        // When held for finance approval, charge creation is deferred until approval so nothing
+        // financial is committed before the decision (charges are aligned to the plan at approval).
         const account = await this.accounts.ensureAccountTx(tx, tenantId, studentId);
         await this.financialAccounts.linkStudentAccountTx(tx, account.id, financialAccount.id);
-        await this.createEnrollmentCharges(
-          tx,
-          tenantId,
-          studentId,
-          enrollment.id,
-          quote,
-          dto.registrationFeePaid ?? true,
-          planOverride,
-        );
+        if (!held) {
+          await this.createEnrollmentCharges(
+            tx,
+            tenantId,
+            studentId,
+            enrollment.id,
+            quote,
+            dto.registrationFeePaid ?? true,
+            planOverride,
+          );
+        }
 
-        // Fee-modification tracking (recorded + auto-approved on the family path).
+        // Fee-modification tracking. Held → PENDING (surfaces in the finance approval inbox);
+        // otherwise auto-approved (decided now by the committing actor) so history is preserved.
         const decidedNow = new Date();
         for (const item of quote.items) {
           if (!item.overridden || item.originalAmount === null) continue;
@@ -841,14 +676,16 @@ export class AdmissionsRepository extends TenantRepository {
             },
           });
           await tx.feeModificationApproval.create({
-            data: {
-              tenantId,
-              modificationId: mod.id,
-              status: ApprovalStatus.APPROVED,
-              approverId: this.actor(),
-              decidedAt: decidedNow,
-              note: 'Auto-approved: family admission',
-            },
+            data: held
+              ? { tenantId, modificationId: mod.id, status: ApprovalStatus.PENDING }
+              : {
+                  tenantId,
+                  modificationId: mod.id,
+                  status: ApprovalStatus.APPROVED,
+                  approverId: this.actor(),
+                  decidedAt: decidedNow,
+                  note: 'Auto-approved: tenant does not require finance approval for fee changes',
+                },
           });
         }
         if (quote.feeModified) {
@@ -931,15 +768,15 @@ export class AdmissionsRepository extends TenantRepository {
     const account = firstStudent
       ? await tx.studentFinancialAccount.findFirst({
           where: { studentId: firstStudent },
-          select: { financialAccountId: true },
+          select: { payerId: true },
         })
       : null;
-    const financialAccount = account?.financialAccountId
-      ? await tx.financialAccount.findFirst({ where: { id: account.financialAccountId } })
+    const financialAccount = account?.payerId
+      ? await tx.payer.findFirst({ where: { id: account.payerId } })
       : null;
     const plan = financialAccount
       ? await tx.financialAccountPlan.findFirst({
-          where: { financialAccountId: financialAccount.id },
+          where: { payerId: financialAccount.id },
           orderBy: { createdAt: 'desc' },
         })
       : null;
@@ -965,7 +802,7 @@ export class AdmissionsRepository extends TenantRepository {
       });
       if (prior) return { enrollmentId: prior.enrollmentId, mode: dto.mode, reused: true };
 
-      const fa = await tx.financialAccount.findFirst({
+      const fa = await tx.payer.findFirst({
         where: { id: financialAccountId },
         select: { id: true, parentId: true },
       });
@@ -1036,7 +873,7 @@ export class AdmissionsRepository extends TenantRepository {
         }
         const plan = await tx.financialAccountPlan.findFirst({
           where: {
-            financialAccountId,
+            payerId: financialAccountId,
             academicYearId: quote.academicYearId,
             status: 'ACTIVE',
           },
@@ -1044,7 +881,7 @@ export class AdmissionsRepository extends TenantRepository {
         });
         if (!plan) {
           throw new BadRequestException(
-            'No active family plan to merge into — use NEW_PLAN or SEPARATE instead',
+            'No active account plan to merge into — use NEW_PLAN or SEPARATE instead',
           );
         }
         // Only the REMAINING (today-or-later) family installment dates get the new student's tuition;
@@ -1078,7 +915,7 @@ export class AdmissionsRepository extends TenantRepository {
         const plan = await tx.financialAccountPlan.create({
           data: {
             tenantId,
-            financialAccountId,
+            payerId: financialAccountId,
             academicYearId: quote.academicYearId,
             cadence: 'MONTHLY',
             installments,
@@ -1278,6 +1115,30 @@ export class AdmissionsRepository extends TenantRepository {
             include: { quote: { include: { items: true } } },
           });
           if (enrollment.quote) {
+            // Align the now-created charges to the account plan (Payer's active plan for the year),
+            // so an approved held student still lands on the shared account installment dates. Legacy
+            // enrollments with no account plan fall back to the quote's own schedule.
+            const studentAccount = await tx.studentFinancialAccount.findFirst({
+              where: { studentId: enrollment.studentId },
+              select: { payerId: true },
+            });
+            const accountPlan = studentAccount?.payerId
+              ? await tx.financialAccountPlan.findFirst({
+                  where: {
+                    payerId: studentAccount.payerId,
+                    academicYearId: enrollment.academicYearId,
+                    status: 'ACTIVE',
+                  },
+                  orderBy: { createdAt: 'desc' },
+                })
+              : null;
+            const override: FamilyPlanOverride | undefined = accountPlan
+              ? {
+                  financialPlanId: accountPlan.id,
+                  installments: accountPlan.installments,
+                  firstDueDate: accountPlan.firstDueDate,
+                }
+              : undefined;
             await this.createEnrollmentCharges(
               tx,
               tenantId,
@@ -1285,6 +1146,7 @@ export class AdmissionsRepository extends TenantRepository {
               enrollment.id,
               enrollment.quote,
               enrollment.registrationFeePaid,
+              override,
             );
           }
         }
