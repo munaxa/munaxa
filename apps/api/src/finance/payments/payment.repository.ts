@@ -67,13 +67,14 @@ export class PaymentRepository extends TenantRepository {
   }
 
   /**
-   * Record a PENDING family/customer payment against a FinancialAccount. The payment belongs to the
-   * account (financialAccountId); studentId/accountId stay populated with a REPRESENTATIVE child for
-   * backward compatibility (both columns are NOT NULL and legacy readers expect them), but allocation
-   * is driven by financialAccountId — the ledger spreads the money across ALL the account's students.
+   * Record a PENDING account-scoped payment against a Financial Account (Payer). The payment belongs
+   * to the account (payerId + accountScoped=true); studentId/accountId stay populated with a
+   * REPRESENTATIVE child for backward compatibility (both columns are NOT NULL and legacy readers
+   * expect them), but allocation is driven by accountScoped — the ledger spreads the money across ALL
+   * the account's students.
    */
   createForFinancialAccount(data: {
-    financialAccountId: string;
+    payerId: string;
     amount: number;
     method: Payment['method'];
     reference: string | null;
@@ -81,17 +82,16 @@ export class PaymentRepository extends TenantRepository {
     note: string | null;
   }): Promise<Payment> {
     return this.run(async (tx, tenantId) => {
-      const fa = await tx.financialAccount.findFirst({
-        where: { id: data.financialAccountId },
-        select: { id: true, payerId: true },
+      const account = await tx.payer.findFirst({
+        where: { id: data.payerId },
+        select: { id: true },
       });
-      if (!fa) throw new Error('Financial account not found');
+      if (!account) throw new Error('Financial account not found');
       // A representative student AR account is required for the NOT-NULL accountId/studentId columns.
-      // Prefer the account linked to the primary guardian; else the first linked student.
       const repAccount = await tx.studentFinancialAccount.findFirst({
-        where: { financialAccountId: data.financialAccountId },
+        where: { payerId: data.payerId },
         orderBy: { openedAt: 'asc' },
-        select: { id: true, studentId: true, payerId: true },
+        select: { id: true, studentId: true },
       });
       if (!repAccount) {
         throw new Error('Financial account has no linked student to record the payment against');
@@ -101,8 +101,8 @@ export class PaymentRepository extends TenantRepository {
           tenantId,
           accountId: repAccount.id,
           studentId: repAccount.studentId,
-          financialAccountId: data.financialAccountId,
-          payerId: fa.payerId ?? repAccount.payerId,
+          payerId: data.payerId,
+          accountScoped: true,
           amount: new Prisma.Decimal(data.amount),
           method: data.method,
           reference: data.reference,
@@ -117,7 +117,7 @@ export class PaymentRepository extends TenantRepository {
         entityType: 'Payment',
         entityId: payment.id,
         metadata: {
-          financialAccountId: data.financialAccountId,
+          payerId: data.payerId,
           amount: payment.amount.toString(),
           method: payment.method,
         },
@@ -126,18 +126,18 @@ export class PaymentRepository extends TenantRepository {
     });
   }
 
-  /** Payments recorded against a financial account (family payment history). */
-  findByFinancialAccount(financialAccountId: string): Promise<Payment[]> {
+  /** Payments recorded against a financial account (account payment history). */
+  findByFinancialAccount(payerId: string): Promise<Payment[]> {
     return this.run((tx) =>
-      tx.payment.findMany({ where: { financialAccountId }, orderBy: { createdAt: 'desc' } }),
+      tx.payment.findMany({
+        where: { payerId, accountScoped: true },
+        orderBy: { createdAt: 'desc' },
+      }),
     );
   }
 
-  financialAccountExists(financialAccountId: string): Promise<boolean> {
-    return this.run(
-      async (tx) =>
-        (await tx.financialAccount.findFirst({ where: { id: financialAccountId } })) !== null,
-    );
+  financialAccountExists(payerId: string): Promise<boolean> {
+    return this.run(async (tx) => (await tx.payer.findFirst({ where: { id: payerId } })) !== null);
   }
 
   /**
@@ -223,11 +223,11 @@ export class PaymentRepository extends TenantRepository {
     });
   }
 
-  /** Family payment history enriched like findDetailedByStudent (statement drill-down). */
-  findDetailedByFinancialAccount(financialAccountId: string): Promise<DetailedPayment[]> {
+  /** Account payment history enriched like findDetailedByStudent (statement drill-down). */
+  findDetailedByFinancialAccount(payerId: string): Promise<DetailedPayment[]> {
     return this.run(async (tx) => {
       const payments = await tx.payment.findMany({
-        where: { financialAccountId },
+        where: { payerId, accountScoped: true },
         orderBy: { createdAt: 'desc' },
         include: {
           einvoiceDocuments: {

@@ -81,7 +81,7 @@ export class PaymentService {
     }
     if (dto.receiptKey) this.storage.assertKeyInTenant(dto.receiptKey);
     return this.repo.createForFinancialAccount({
-      financialAccountId,
+      payerId: financialAccountId,
       amount: dto.amount,
       method: dto.method,
       reference: dto.reference ?? null,

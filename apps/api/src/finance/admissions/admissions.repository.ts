@@ -704,7 +704,7 @@ export class AdmissionsRepository extends TenantRepository {
           ).id;
       }
 
-      // 2) The financial customer (find-or-create) + 3) the ONE family payment plan.
+      // 2) The financial customer (find-or-create Payer) + 3) the ONE account payment plan.
       const financialAccount = await this.financialAccounts.ensureForParentTx(
         tx,
         tenantId,
@@ -716,7 +716,7 @@ export class AdmissionsRepository extends TenantRepository {
       const familyPlan = await tx.financialAccountPlan.create({
         data: {
           tenantId,
-          financialAccountId: financialAccount.id,
+          payerId: financialAccount.id,
           academicYearId: dto.academicYearId,
           cadence: 'MONTHLY',
           installments,
@@ -931,15 +931,15 @@ export class AdmissionsRepository extends TenantRepository {
     const account = firstStudent
       ? await tx.studentFinancialAccount.findFirst({
           where: { studentId: firstStudent },
-          select: { financialAccountId: true },
+          select: { payerId: true },
         })
       : null;
-    const financialAccount = account?.financialAccountId
-      ? await tx.financialAccount.findFirst({ where: { id: account.financialAccountId } })
+    const financialAccount = account?.payerId
+      ? await tx.payer.findFirst({ where: { id: account.payerId } })
       : null;
     const plan = financialAccount
       ? await tx.financialAccountPlan.findFirst({
-          where: { financialAccountId: financialAccount.id },
+          where: { payerId: financialAccount.id },
           orderBy: { createdAt: 'desc' },
         })
       : null;
@@ -965,7 +965,7 @@ export class AdmissionsRepository extends TenantRepository {
       });
       if (prior) return { enrollmentId: prior.enrollmentId, mode: dto.mode, reused: true };
 
-      const fa = await tx.financialAccount.findFirst({
+      const fa = await tx.payer.findFirst({
         where: { id: financialAccountId },
         select: { id: true, parentId: true },
       });
@@ -1036,7 +1036,7 @@ export class AdmissionsRepository extends TenantRepository {
         }
         const plan = await tx.financialAccountPlan.findFirst({
           where: {
-            financialAccountId,
+            payerId: financialAccountId,
             academicYearId: quote.academicYearId,
             status: 'ACTIVE',
           },
@@ -1044,7 +1044,7 @@ export class AdmissionsRepository extends TenantRepository {
         });
         if (!plan) {
           throw new BadRequestException(
-            'No active family plan to merge into — use NEW_PLAN or SEPARATE instead',
+            'No active account plan to merge into — use NEW_PLAN or SEPARATE instead',
           );
         }
         // Only the REMAINING (today-or-later) family installment dates get the new student's tuition;
@@ -1078,7 +1078,7 @@ export class AdmissionsRepository extends TenantRepository {
         const plan = await tx.financialAccountPlan.create({
           data: {
             tenantId,
-            financialAccountId,
+            payerId: financialAccountId,
             academicYearId: quote.academicYearId,
             cadence: 'MONTHLY',
             installments,

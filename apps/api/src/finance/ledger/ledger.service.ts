@@ -131,21 +131,22 @@ export class LedgerService {
    * On verify, auto-allocate a payment across the open installments (FIFO by due date), then bank
    * any residue as an over-payment Credit (AR-2, AR-5, BR-23, BR-24).
    *
-   * When the payment belongs to a FinancialAccount (Family Admission), the scope is the union of ALL
-   * the account's students' open installments (cross-student FIFO — the declared CROSS_STUDENT seam)
-   * and the residue banks to the family credit. A legacy student payment (financialAccountId null)
-   * allocates within its own student only — unchanged behaviour. The allocation policy is identical
-   * either way; only the set of candidate installments differs.
+   * When the payment is account-scoped (`accountScoped` — the unified Financial-Account flow), the
+   * scope is the union of ALL the account's (payer's) students' open installments (cross-student FIFO
+   * — the CROSS_STUDENT seam) and the residue banks to the account credit (owned via payerId). A
+   * legacy student payment (accountScoped=false) allocates within its own student only — unchanged
+   * behaviour. The allocation policy is identical either way; only the candidate installments differ.
    */
   async allocateOnVerify(payment: Payment): Promise<void> {
     let remaining = await this.repo.unallocatedFor(payment.id);
     if (remaining.lessThanOrEqualTo(ZERO)) return;
 
-    const open = payment.financialAccountId
-      ? await this.repo.openInstallmentsForStudents(
-          await this.repo.studentIdsForFinancialAccount(payment.financialAccountId),
-        )
-      : await this.repo.openInstallments(payment.studentId);
+    const open =
+      payment.accountScoped && payment.payerId
+        ? await this.repo.openInstallmentsForStudents(
+            await this.repo.studentIdsForFinancialAccount(payment.payerId),
+          )
+        : await this.repo.openInstallments(payment.studentId);
     const lines = this.fifo.allocate(
       remaining,
       open.map((o, i) => ({ id: o.id, dueDate: o.dueDate, seq: i, balance: o.balance })),
@@ -164,7 +165,6 @@ export class LedgerService {
         payerId: payment.payerId,
         paymentId: payment.id,
         amount: remaining,
-        financialAccountId: payment.financialAccountId,
       });
     }
   }

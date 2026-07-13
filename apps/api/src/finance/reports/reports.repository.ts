@@ -92,15 +92,15 @@ export class FinanceReportsRepository extends TenantRepository {
    * Outstanding / collection report grouped by FAMILY (financial account) — the finance-first default —
    * or by STUDENT (drill-down). Every figure derives from the same ledger rows as summaryByDimension
    * (single source of truth): net = Σ charge − Σ discount, paid = Σ active allocations, outstanding =
-   * net − paid. Family rows join Charge → its account → FinancialAccount; students with no family fall
-   * under an "Unassigned" row (dimId null).
+   * net − paid. Account rows join Charge → its student account → Payer (the Financial Account);
+   * students with no account fall under an "Unassigned" row (dimId null).
    */
   outstandingBy(groupBy: 'family' | 'student'): Promise<DimensionRow[]> {
     const isFamily = groupBy === 'family';
     // dim_id + label sources are fixed (never user input) — safe to interpolate.
-    const dimIdExpr = isFamily ? 'sfa."financialAccountId"' : 'ch."studentId"';
+    const dimIdExpr = isFamily ? 'sfa."payerId"' : 'ch."studentId"';
     const labelJoin = isFamily
-      ? Prisma.sql`LEFT JOIN "FinancialAccount" fa ON fa.id = base.dim_id`
+      ? Prisma.sql`LEFT JOIN "Payer" fa ON fa.id = base.dim_id`
       : Prisma.sql`LEFT JOIN "Student" st ON st.id = base.dim_id`;
     const labelExpr = isFamily
       ? Prisma.sql`COALESCE(fa."nameEn", 'Unassigned')`

@@ -98,7 +98,7 @@ export class DashboardRepository extends TenantRepository {
   async familyFinance(parentId: string): Promise<FamilyFinance> {
     return this.run(async (tx) => {
       const ZERO = new Prisma.Decimal(0);
-      const fa = await tx.financialAccount.findFirst({
+      const fa = await tx.payer.findFirst({
         where: { parentId, status: 'ACTIVE' },
         orderBy: { createdAt: 'desc' },
         select: { id: true },
@@ -106,7 +106,7 @@ export class DashboardRepository extends TenantRepository {
       let studentIds: string[] = [];
       if (fa) {
         const accts = await tx.studentFinancialAccount.findMany({
-          where: { financialAccountId: fa.id },
+          where: { payerId: fa.id },
           select: { studentId: true },
         });
         studentIds = accts.map((a) => a.studentId);
@@ -184,13 +184,10 @@ export class DashboardRepository extends TenantRepository {
           }
         : null;
 
-      // Family credit balance.
+      // Account credit balance.
       const credits = await tx.credit.findMany({
         where: {
-          OR: [
-            ...(fa ? [{ financialAccountId: fa.id }] : []),
-            { account: { studentId: { in: liveIds } } },
-          ],
+          OR: [...(fa ? [{ payerId: fa.id }] : []), { account: { studentId: { in: liveIds } } }],
         },
         select: { id: true, amount: true },
       });
@@ -208,10 +205,10 @@ export class DashboardRepository extends TenantRepository {
         }
       }
 
-      // Payment history: family payments (by account) + any per-student payments.
+      // Payment history: account payments + any per-student payments.
       const payments = await tx.payment.findMany({
         where: {
-          OR: [...(fa ? [{ financialAccountId: fa.id }] : []), { studentId: { in: liveIds } }],
+          OR: [...(fa ? [{ payerId: fa.id }] : []), { studentId: { in: liveIds } }],
         },
         orderBy: { createdAt: 'desc' },
         take: 50,

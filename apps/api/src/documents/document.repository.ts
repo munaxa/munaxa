@@ -517,20 +517,20 @@ export class DocumentRepository extends TenantRepository {
   ): Promise<{ hasPlan: boolean; schedule: Array<{ dueDate: string | null; amount: string }> }> {
     return this.run(async (tx) => {
       const plan = await tx.financialAccountPlan.findFirst({
-        where: { academicYearId, status: 'ACTIVE', financialAccount: { parentId } },
-        select: { id: true, financialAccountId: true },
+        where: { academicYearId, status: 'ACTIVE', payer: { parentId } },
+        select: { id: true, payerId: true },
       });
       if (!plan) return { hasPlan: false, schedule: [] };
 
       // Every installment of a charge owned by a student billed through this financial account, for
       // this year. Includes the one-off registration-fee charge (due at registration) + the aligned
-      // monthly installments. Grouped by due date → the family schedule.
+      // monthly installments. Grouped by due date → the account schedule.
       const installments = await tx.installment.findMany({
         where: {
           charge: {
             academicYearId,
             status: { notIn: ['CANCELLED', 'WRITTEN_OFF'] },
-            account: { financialAccountId: plan.financialAccountId },
+            account: { payerId: plan.payerId },
           },
           status: { notIn: ['CANCELLED', 'WAIVED'] },
         },
