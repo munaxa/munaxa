@@ -271,11 +271,14 @@ export class LedgerRepository extends TenantRepository {
       if (aggregateEnrollmentIds.length > 0) {
         const enrollments = await tx.enrollment.findMany({
           where: { id: { in: aggregateEnrollmentIds } },
-          select: { id: true, quote: { select: { items: true } } },
+          select: { id: true, registrationFeePaid: true, quote: { select: { items: true } } },
         });
         for (const e of enrollments) {
+          // When the registration fee was paid at registration it is a separate charge, so it is
+          // excluded here; when it was folded into the plan it is part of this aggregate and stays in
+          // the breakdown — either way the lines reconcile exactly to the charge's net.
           const items = (e.quote?.items ?? [])
-            .filter((it) => it.kind !== 'REGISTRATION')
+            .filter((it) => !(e.registrationFeePaid && it.kind === 'REGISTRATION'))
             .map((it) => ({
               label: it.label,
               amount: it.amount.minus(it.discountAmount).toFixed(3),

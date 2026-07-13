@@ -105,6 +105,11 @@ export interface CommitRequest {
   areaId?: string;
   /** Whether the parent requested transportation (feeds the Unassigned queue). */
   transportRequested?: boolean;
+  /**
+   * Whether the one-time registration fee was paid at registration (the usual case; default true).
+   * When false it is folded into the monthly installment plan instead of billed as its own charge.
+   */
+  registrationFeePaid?: boolean;
 }
 
 export interface EnrollmentRow {

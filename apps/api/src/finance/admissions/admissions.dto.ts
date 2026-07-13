@@ -205,6 +205,17 @@ export class CommitDto {
   @IsOptional()
   @IsBoolean()
   transportRequested?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Whether the one-time registration fee was paid at registration (the usual case; default ' +
+      'true). When false the registration fee is folded into the monthly installment plan instead ' +
+      'of being billed as its own one-off charge.',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  registrationFeePaid?: boolean;
 }
 
 // ── Approvals & arrangements ──

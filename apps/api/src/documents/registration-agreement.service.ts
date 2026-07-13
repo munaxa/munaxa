@@ -265,8 +265,9 @@ export class RegistrationAgreementService {
   /**
    * One enrolment's installments in fils, deterministically reproduced from the immutable quote (same
    * algorithm AdmissionsRepository.createEnrollmentCharges used), so the snapshot is permanent. In
-   * INSTALLMENTS mode the one-time registration fee is a single line due at registration (never
-   * divided across the monthly plan); only the remaining net is split into the N installments.
+   * INSTALLMENTS mode, when the registration fee was paid at registration it is a single line due at
+   * registration (never divided across the monthly plan) and only the remaining net is split into the
+   * N installments; when it was NOT paid up front it stays folded into the amount that is split.
    */
   private installmentFils(e: SourceEnrollment): Array<{ dueDate: string | null; fils: number }> {
     const quote = e.quote!;
@@ -274,9 +275,11 @@ export class RegistrationAgreementService {
     if (quote.paymentMode === QuotePaymentMode.FULL) {
       return [{ dueDate: this.iso(quote.firstDueDate), fils: totalFils }];
     }
-    const registrationFils = quote.items
-      .filter((it) => it.kind === FeeItemKind.REGISTRATION)
-      .reduce((sum, it) => sum + toFils(it.amount.minus(it.discountAmount).toFixed(3)), 0);
+    const registrationFils = e.registrationFeePaid
+      ? quote.items
+          .filter((it) => it.kind === FeeItemKind.REGISTRATION)
+          .reduce((sum, it) => sum + toFils(it.amount.minus(it.discountAmount).toFixed(3)), 0)
+      : 0;
     const remainderFils = totalFils - registrationFils;
     const base = quote.firstDueDate ?? e.createdAt;
     const lines: Array<{ dueDate: string | null; fils: number }> = [];

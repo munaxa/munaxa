@@ -47,6 +47,7 @@ function mockEnrollment(opts: {
     gradeId: 'g1',
     createdAt: new Date('2026-06-28T00:00:00Z'),
     paymentMode: QuotePaymentMode.FULL,
+    registrationFeePaid: true,
     academicYear: { id: 'ay1', name: '2025/2026', campusId: 'c1' },
     grade: { id: 'g1', nameEn: 'Grade 1', nameAr: 'الصف الأول' },
     quote: {
@@ -313,5 +314,49 @@ describe('RegistrationAgreementService.generate (per-parent + supersede)', () =>
     ]);
     // The family grand total still includes the registration fee.
     expect(arg.grandTotal.toFixed(3)).toBe('1200.000');
+  });
+
+  it('folds the registration fee into the installments when it was not paid at registration', async () => {
+    // Same quote, but registrationFeePaid=false → the whole 1200 is split into 3 × 400 monthly.
+    const enrollment = {
+      ...mockEnrollment({
+        id: 'e1',
+        studentId: 's1',
+        nameEn: 'Omar AbuHajj',
+        nameAr: 'عمر أبوحاج',
+        nationalId: '30303030',
+        tuition: '900.000',
+        grandTotal: '1200.000',
+      }),
+      paymentMode: QuotePaymentMode.INSTALLMENTS,
+      registrationFeePaid: false,
+      quote: {
+        grandTotal: dec('1200.000'),
+        paymentMode: QuotePaymentMode.INSTALLMENTS,
+        installments: 3,
+        firstDueDate: new Date('2026-09-01T00:00:00Z'),
+        items: [
+          { kind: FeeItemKind.REGISTRATION, amount: dec('300.000'), discountAmount: dec('0.000') },
+          { kind: FeeItemKind.TUITION, amount: dec('900.000'), discountAmount: dec('0.000') },
+        ],
+      },
+    };
+    const persistAgreement = jest.fn().mockResolvedValue({ agreement: { id: 'a1' }, document: {} });
+    const repo = {
+      enrollmentContext: jest.fn().mockResolvedValue(enrollment),
+      guardianEnrollments: jest.fn().mockResolvedValue([enrollment]),
+      currentAgreementForParentYear: jest.fn().mockResolvedValue(null),
+      persistAgreement,
+    };
+    const { service } = makeService(repo);
+
+    await service.generate('e1', DocumentLanguage.EN);
+
+    const arg = persistAgreement.mock.calls[0]![0];
+    expect(arg.installmentSchedule).toEqual([
+      { index: 1, dueDate: '2026-09-01', amount: '400.000' },
+      { index: 2, dueDate: '2026-10-01', amount: '400.000' },
+      { index: 3, dueDate: '2026-11-01', amount: '400.000' },
+    ]);
   });
 });
