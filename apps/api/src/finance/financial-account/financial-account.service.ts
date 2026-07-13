@@ -32,6 +32,14 @@ export class FinancialAccountService {
     return this.repo.ensureForParent(parentId);
   }
 
+  /** The active financial account (Payer) for a guardian, plus its students — or null. Drives the
+   * unified admission wizard's "add to existing account" branch (Merge / Separate / New plan). */
+  async byParent(parentId: string) {
+    const account = await this.repo.findByParent(parentId);
+    if (!account) return { account: null, students: [] };
+    return { account, students: await this.repo.studentsOf(account.id) };
+  }
+
   /** The Family Finance Dashboard for a financial account (KPIs default to family totals). */
   async dashboard(financialAccountId: string): Promise<FinancialAccountDashboard> {
     const account = await this.repo.findById(financialAccountId);

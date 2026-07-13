@@ -117,6 +117,13 @@ export const familiesApi = {
     ),
   dashboard: (financialAccountId: string) =>
     authFetch(`/finance/families/${financialAccountId}`).then((r) => json<FamilyDashboard>(r)),
+  byParent: (parentId: string) =>
+    authFetch(`/finance/families/by-parent/${parentId}`).then((r) =>
+      json<{
+        account: { id: string; nameEn: string; ownerType: FinancialAccountOwnerType } | null;
+        students: FamilyStudent[];
+      }>(r),
+    ),
   statement: (financialAccountId: string) =>
     authFetch(`/finance/families/${financialAccountId}/statement`).then((r) =>
       json<FamilyStatement>(r),

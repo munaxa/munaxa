@@ -29,6 +29,13 @@ export class FinancialAccountController {
     return this.service.search(q ?? '');
   }
 
+  @Get('by-parent/:parentId')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({ summary: 'The active financial account for a guardian + its students (or null)' })
+  byParent(@Param('parentId') parentId: string) {
+    return this.service.byParent(parentId);
+  }
+
   @Get(':id')
   @RequirePermissions(Permission.FINANCE_READ)
   @ApiOperation({

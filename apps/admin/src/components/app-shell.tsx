@@ -45,12 +45,6 @@ const NAV_GROUPS: NavGroup[] = [
         perm: 'enrollment:manage',
       },
       {
-        href: '/admissions/family',
-        labelKey: 'nav.familyAdmission',
-        icon: 'enrollment',
-        perm: 'enrollment:manage',
-      },
-      {
         href: '/admissions/approvals',
         labelKey: 'nav.feeApprovals',
         icon: 'finance',
