@@ -126,6 +126,9 @@ export function buildAgreementLayout(
       { kind: 'heading', text: L(language, 'Payment Schedule', 'طريقة الدفع') },
       {
         kind: 'table',
+        // The schedule can list a registration line plus several monthly installments — render it
+        // dense so a long schedule stays compact and does not push the agreement onto a second page.
+        dense: true,
         columns: [
           { header: L(language, 'No.', 'رقم الدفعة'), key: 'index', width: 0.7 },
           { header: L(language, 'Due Date', 'تاريخ الدفعة'), key: 'dueDate', width: 1.4 },
