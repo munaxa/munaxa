@@ -223,6 +223,49 @@ export class PaymentRepository extends TenantRepository {
     });
   }
 
+  /** Family payment history enriched like findDetailedByStudent (statement drill-down). */
+  findDetailedByFinancialAccount(financialAccountId: string): Promise<DetailedPayment[]> {
+    return this.run(async (tx) => {
+      const payments = await tx.payment.findMany({
+        where: { financialAccountId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          einvoiceDocuments: {
+            select: { invoiceNumber: true, status: true, docType: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+      });
+      const recordedIds = [
+        ...new Set(payments.map((p) => p.recordedById).filter(Boolean)),
+      ] as string[];
+      const users = recordedIds.length
+        ? await tx.user.findMany({
+            where: { id: { in: recordedIds } },
+            select: { id: true, firstNameEn: true, lastNameEn: true, email: true },
+          })
+        : [];
+      const nameById = new Map(
+        users.map((u) => [
+          u.id,
+          [u.firstNameEn, u.lastNameEn].filter(Boolean).join(' ').trim() || u.email,
+        ]),
+      );
+      return payments.map(({ einvoiceDocuments, ...p }) => ({
+        ...p,
+        recordedByName: p.recordedById ? (nameById.get(p.recordedById) ?? null) : null,
+        einvoice: einvoiceDocuments[0]
+          ? {
+              invoiceNumber: einvoiceDocuments[0].invoiceNumber,
+              status: einvoiceDocuments[0].status,
+              docType: einvoiceDocuments[0].docType,
+            }
+          : null,
+      }));
+    });
+  }
+
   findById(id: string): Promise<Payment | null> {
     return this.run((tx) => tx.payment.findFirst({ where: { id } }));
   }

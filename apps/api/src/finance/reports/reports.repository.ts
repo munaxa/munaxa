@@ -87,4 +87,56 @@ export class FinanceReportsRepository extends TenantRepository {
     `;
     return this.run((tx) => tx.$queryRaw<DimensionRow[]>(sql));
   }
+
+  /**
+   * Outstanding / collection report grouped by FAMILY (financial account) — the finance-first default —
+   * or by STUDENT (drill-down). Every figure derives from the same ledger rows as summaryByDimension
+   * (single source of truth): net = Σ charge − Σ discount, paid = Σ active allocations, outstanding =
+   * net − paid. Family rows join Charge → its account → FinancialAccount; students with no family fall
+   * under an "Unassigned" row (dimId null).
+   */
+  outstandingBy(groupBy: 'family' | 'student'): Promise<DimensionRow[]> {
+    const isFamily = groupBy === 'family';
+    // dim_id + label sources are fixed (never user input) — safe to interpolate.
+    const dimIdExpr = isFamily ? 'sfa."financialAccountId"' : 'ch."studentId"';
+    const labelJoin = isFamily
+      ? Prisma.sql`LEFT JOIN "FinancialAccount" fa ON fa.id = base.dim_id`
+      : Prisma.sql`LEFT JOIN "Student" st ON st.id = base.dim_id`;
+    const labelExpr = isFamily
+      ? Prisma.sql`COALESCE(fa."nameEn", 'Unassigned')`
+      : Prisma.sql`COALESCE(TRIM(st."firstNameEn" || ' ' || st."lastNameEn"), 'Unknown')`;
+    const sql = Prisma.sql`
+      WITH base AS (
+        SELECT ch.id, ${Prisma.raw(dimIdExpr)} AS dim_id, ch.amount
+        FROM "Charge" ch
+        JOIN "StudentFinancialAccount" sfa ON sfa.id = ch."accountId"
+        WHERE ch.status NOT IN ('CANCELLED', 'WRITTEN_OFF')
+      ),
+      disc AS (
+        SELECT "chargeId", SUM(amount) AS s FROM "FeeAdjustment"
+        WHERE status = 'APPLIED' AND "chargeId" IS NOT NULL GROUP BY "chargeId"
+      ),
+      pay AS (
+        SELECT i."chargeId", SUM(pa.amount) AS s
+        FROM "PaymentAllocation" pa JOIN "Installment" i ON i.id = pa."installmentId"
+        WHERE pa."reversedAt" IS NULL GROUP BY i."chargeId"
+      )
+      SELECT
+        base.dim_id AS "dimId",
+        ${labelExpr} AS label,
+        SUM(base.amount)::text AS gross,
+        COALESCE(SUM(disc.s), 0)::text AS discount,
+        (SUM(base.amount) - COALESCE(SUM(disc.s), 0))::text AS net,
+        COALESCE(SUM(pay.s), 0)::text AS paid,
+        (SUM(base.amount) - COALESCE(SUM(disc.s), 0) - COALESCE(SUM(pay.s), 0))::text AS outstanding,
+        COUNT(DISTINCT base.id)::int AS "chargeCount"
+      FROM base
+      LEFT JOIN disc ON disc."chargeId" = base.id
+      LEFT JOIN pay ON pay."chargeId" = base.id
+      ${labelJoin}
+      GROUP BY base.dim_id, ${labelExpr}
+      ORDER BY outstanding DESC
+    `;
+    return this.run((tx) => tx.$queryRaw<DimensionRow[]>(sql));
+  }
 }

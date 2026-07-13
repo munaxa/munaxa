@@ -17,17 +17,19 @@ import { TenantContextStore } from '../../prisma/tenant-context';
 import { generateStudentQrCode } from '../../people/people.util';
 import { AccountRepository } from '../account/account.repository';
 import { FinancialAccountRepository } from '../financial-account/financial-account.repository';
-import { InstallmentScheduleService } from '../charges/installment-schedule.service';
+import { addMonths, InstallmentScheduleService } from '../charges/installment-schedule.service';
 import { fromFils, toFils } from '../shared/money';
 import type { ComputedQuote } from './quote.service';
-import type {
-  CommitDto,
-  CreateArrangementDto,
-  CreateFeeItemDto,
-  FamilyCommitDto,
-  FeeOverrideDto,
-  UpdateFeeItemDto,
-  UpsertGradeFeeItemDto,
+import {
+  AddFamilyStudentMode,
+  type AddFamilyStudentDto,
+  type CommitDto,
+  type CreateArrangementDto,
+  type CreateFeeItemDto,
+  type FamilyCommitDto,
+  type FeeOverrideDto,
+  type UpdateFeeItemDto,
+  type UpsertGradeFeeItemDto,
 } from './admissions.dto';
 
 /** Family-plan alignment for a per-student charge schedule (shared cadence + due dates). */
@@ -942,6 +944,230 @@ export class AdmissionsRepository extends TenantRepository {
         })
       : null;
     return { financialAccount, plan, enrollmentIds };
+  }
+
+  // ── Add a student to an EXISTING family (the existing-family wizard) ──
+  /**
+   * Add another child to an existing FinancialAccount. Three modes, none of which ever modify paid
+   * history:
+   *   MERGE     — fold the new student into the existing active family plan, spreading their tuition
+   *               over only the REMAINING (future) family installment dates; already-paid installments
+   *               are untouched.
+   *   SEPARATE  — bill the new student through the family account but on their own independent plan.
+   *   NEW_PLAN  — start a brand-new family plan (requires confirm=true; affects accounting).
+   */
+  async addStudentToFamily(financialAccountId: string, dto: AddFamilyStudentDto) {
+    return this.run(async (tx, tenantId) => {
+      const key = `${dto.idempotencyKey}:add`;
+      const prior = await tx.registrationCommitment.findUnique({
+        where: { tenantId_idempotencyKey: { tenantId, idempotencyKey: key } },
+        select: { enrollmentId: true },
+      });
+      if (prior) return { enrollmentId: prior.enrollmentId, mode: dto.mode, reused: true };
+
+      const fa = await tx.financialAccount.findFirst({
+        where: { id: financialAccountId },
+        select: { id: true, parentId: true },
+      });
+      if (!fa) throw new BadRequestException('Financial account not found');
+      if (!fa.parentId) {
+        throw new BadRequestException('Financial account has no guardian to link the student to');
+      }
+      const parentId = fa.parentId;
+
+      const quote = await tx.enrollmentQuote.findFirst({
+        where: { id: dto.quoteId },
+        include: { items: true },
+      });
+      if (!quote) throw new BadRequestException('Quote not found');
+      if (quote.items.length === 0) throw new BadRequestException('Quote has no fee lines');
+
+      // Resolve/create the student and link the family's guardian.
+      let studentId = dto.existingStudentId ?? null;
+      if (!studentId) {
+        if (!dto.student) throw new BadRequestException('Student information is required');
+        const s = dto.student;
+        const created = await tx.student.create({
+          data: {
+            tenantId,
+            firstNameEn: s.firstNameEn,
+            lastNameEn: s.lastNameEn,
+            firstNameAr: s.firstNameAr || s.firstNameEn,
+            lastNameAr: s.lastNameAr || s.lastNameEn,
+            ...(s.gender ? { gender: s.gender } : {}),
+            ...(s.dateOfBirth ? { dateOfBirth: new Date(s.dateOfBirth) } : {}),
+            ...(s.nationalId ? { nationalId: s.nationalId } : {}),
+            ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
+            ...(dto.areaId ? { areaId: dto.areaId } : {}),
+            ...(dto.transportRequested !== undefined
+              ? { transportRequested: dto.transportRequested }
+              : {}),
+            status: StudentStatus.ACTIVE,
+            qrCode: generateStudentQrCode(),
+          },
+          select: { id: true },
+        });
+        studentId = created.id;
+      }
+      const existingLink = await tx.parentStudent.findFirst({
+        where: { tenantId, parentId, studentId },
+        select: { id: true },
+      });
+      if (!existingLink) {
+        await tx.parentStudent.create({
+          data: {
+            tenantId,
+            parentId,
+            studentId,
+            relation: ParentRelation.GUARDIAN,
+            isPrimary: true,
+          },
+        });
+      }
+
+      // Decide the plan alignment from the mode.
+      let override: FamilyPlanOverride | undefined;
+      let planId: string | null = null;
+      if (dto.mode === AddFamilyStudentMode.MERGE) {
+        if (quote.paymentMode !== QuotePaymentMode.INSTALLMENTS) {
+          throw new BadRequestException(
+            'MERGE requires the new student to be quoted in installments',
+          );
+        }
+        const plan = await tx.financialAccountPlan.findFirst({
+          where: {
+            financialAccountId,
+            academicYearId: quote.academicYearId,
+            status: 'ACTIVE',
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (!plan) {
+          throw new BadRequestException(
+            'No active family plan to merge into — use NEW_PLAN or SEPARATE instead',
+          );
+        }
+        // Only the REMAINING (today-or-later) family installment dates get the new student's tuition;
+        // earlier (already-billed/paid) dates are never touched.
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        const remaining: Date[] = [];
+        for (let i = 0; i < plan.installments; i += 1) {
+          const due = addMonths(plan.firstDueDate, i);
+          if (due >= startOfToday) remaining.push(due);
+        }
+        const firstRemaining = remaining[0] ?? new Date();
+        override = {
+          financialPlanId: plan.id,
+          installments: remaining.length > 0 ? remaining.length : 1,
+          firstDueDate: firstRemaining,
+        };
+        planId = plan.id;
+      } else if (dto.mode === AddFamilyStudentMode.NEW_PLAN) {
+        if (!dto.confirm) {
+          throw new BadRequestException(
+            'Creating a new family plan requires confirmation (confirm=true)',
+          );
+        }
+        const paymentMode = dto.paymentMode ?? quote.paymentMode;
+        const installments =
+          paymentMode === QuotePaymentMode.FULL ? 1 : (dto.installments ?? quote.installments);
+        const firstDue = dto.firstDueDate
+          ? new Date(dto.firstDueDate)
+          : (quote.firstDueDate ?? new Date());
+        const plan = await tx.financialAccountPlan.create({
+          data: {
+            tenantId,
+            financialAccountId,
+            academicYearId: quote.academicYearId,
+            cadence: 'MONTHLY',
+            installments,
+            firstDueDate: firstDue,
+            createdById: this.actor(),
+          },
+        });
+        override =
+          paymentMode === QuotePaymentMode.INSTALLMENTS
+            ? { financialPlanId: plan.id, installments, firstDueDate: firstDue }
+            : undefined; // FULL new plan: per-line charges, still under the family account
+        planId = plan.id;
+      }
+      // SEPARATE: no override — the student keeps their own plan (from their quote), still billed
+      // through the family account so family payments can settle them.
+
+      const enrollment = await tx.enrollment.create({
+        data: {
+          tenantId,
+          studentId,
+          academicYearId: quote.academicYearId,
+          gradeId: quote.gradeId,
+          ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
+          quoteId: quote.id,
+          transportDirection: quote.transportDirection,
+          status: EnrollmentStatus.COMMITTED,
+          paymentMode: quote.paymentMode,
+          feeModified: quote.feeModified,
+          registrationFeePaid: dto.registrationFeePaid ?? true,
+          createdById: this.actor(),
+        },
+      });
+
+      const account = await this.accounts.ensureAccountTx(tx, tenantId, studentId);
+      await this.financialAccounts.linkStudentAccountTx(tx, account.id, financialAccountId);
+      await this.createEnrollmentCharges(
+        tx,
+        tenantId,
+        studentId,
+        enrollment.id,
+        quote,
+        dto.registrationFeePaid ?? true,
+        override,
+      );
+
+      if (dto.busRouteId) {
+        const route = await tx.busRoute.findFirst({
+          where: { id: dto.busRouteId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!route) throw new BadRequestException('Bus route not found in this tenant');
+        const existingAssignment = await tx.studentBusAssignment.findFirst({
+          where: { studentId },
+        });
+        if (existingAssignment) {
+          await tx.studentBusAssignment.update({
+            where: { id: existingAssignment.id },
+            data: { routeId: dto.busRouteId, stopId: null, tripRound: dto.busTripRound ?? null },
+          });
+        } else {
+          await tx.studentBusAssignment.create({
+            data: {
+              tenantId,
+              studentId,
+              routeId: dto.busRouteId,
+              tripRound: dto.busTripRound ?? null,
+            },
+          });
+        }
+      }
+
+      await tx.registrationCommitment.create({
+        data: {
+          tenantId,
+          enrollmentId: enrollment.id,
+          studentId,
+          idempotencyKey: key,
+          committedById: this.actor(),
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'admissions.family.addStudent',
+        entityType: 'Enrollment',
+        entityId: enrollment.id,
+        metadata: { financialAccountId, studentId, mode: dto.mode, planId },
+      });
+
+      return { enrollmentId: enrollment.id, mode: dto.mode, financialAccountId, planId };
+    });
   }
 
   // ── Returning-student lookup ──

@@ -5,6 +5,7 @@ import { QuoteService } from './quote.service';
 import { RegistrationAgreementService } from '../../documents/registration-agreement.service';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import type {
+  AddFamilyStudentDto,
   CommitDto,
   CreateArrangementDto,
   CreateFeeItemDto,
@@ -98,6 +99,16 @@ export class AdmissionsService {
     // The agreement is one-per-guardian+year; scheduling it for any of the family's enrolments
     // produces the single family agreement covering all the children.
     if (result.enrollmentIds.length > 0) this.scheduleAgreement(result.enrollmentIds[0]!);
+    return result;
+  }
+
+  /**
+   * Add a child to an EXISTING family (the existing-family wizard: MERGE / SEPARATE / NEW_PLAN). Never
+   * touches paid installments. Regenerates the ONE family agreement from the updated snapshot.
+   */
+  async addStudentToFamily(financialAccountId: string, dto: AddFamilyStudentDto) {
+    const result = await this.repo.addStudentToFamily(financialAccountId, dto);
+    if (result.enrollmentId) this.scheduleAgreement(result.enrollmentId);
     return result;
   }
 

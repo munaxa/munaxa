@@ -5,6 +5,7 @@ import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { AdmissionsService } from './admissions.service';
 import {
+  AddFamilyStudentDto,
   ApprovalDecisionDto,
   CommitDto,
   CreateArrangementDto,
@@ -106,6 +107,19 @@ export class AdmissionsController {
   })
   familyCommit(@Body() dto: FamilyCommitDto) {
     return this.service.familyCommit(dto);
+  }
+
+  @Post('family/:financialAccountId/add-student')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary:
+      'Add a child to an existing family (MERGE remaining plan / SEPARATE plan / NEW_PLAN — never touches paid history)',
+  })
+  addFamilyStudent(
+    @Param('financialAccountId') financialAccountId: string,
+    @Body() dto: AddFamilyStudentDto,
+  ) {
+    return this.service.addStudentToFamily(financialAccountId, dto);
   }
 
   // ── Enrollments / reporting ──

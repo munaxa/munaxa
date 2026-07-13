@@ -35,6 +35,17 @@ export class DashboardService {
     return this.scope.children();
   }
 
+  /**
+   * The family finance landing: Family Outstanding, Next Installment, Total Paid, Payment History and
+   * the children (each with their own outstanding). The default finance view for a guardian; clicking
+   * a child opens the per-child detail without losing this family summary.
+   */
+  async familyFinance() {
+    const parentId = await this.scope.myParentId();
+    if (!parentId) throw new NotFoundException('No guardian profile for the current user');
+    return this.repo.familyFinance(parentId);
+  }
+
   async childDashboard(studentId: string): Promise<ChildDashboard> {
     await this.scope.assertChildAccess(studentId);
     const student = await this.repo.student(studentId);

@@ -295,6 +295,58 @@ export class FamilyCommitDto {
   students!: FamilyStudentEntryDto[];
 }
 
+// ── Add a student to an EXISTING family (the existing-family wizard) ──
+export enum AddFamilyStudentMode {
+  MERGE = 'MERGE', // fold into the existing family plan; recompute only remaining unpaid installments
+  SEPARATE = 'SEPARATE', // bill through the family account but on the student's own independent plan
+  NEW_PLAN = 'NEW_PLAN', // start a brand-new family payment plan (requires confirmation)
+}
+
+export class AddFamilyStudentDto {
+  @ApiProperty() @IsString() idempotencyKey!: string;
+
+  @ApiProperty({ description: 'Persisted quote id for the new student' })
+  @IsUUID()
+  quoteId!: string;
+
+  @ApiProperty({ enum: AddFamilyStudentMode })
+  @IsEnum(AddFamilyStudentMode)
+  mode!: AddFamilyStudentMode;
+
+  @ApiPropertyOptional({ description: 'Existing student id (returning student)' })
+  @IsOptional()
+  @IsUUID()
+  existingStudentId?: string;
+
+  @ApiPropertyOptional({ type: StudentInfoDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => StudentInfoDto)
+  student?: StudentInfoDto;
+
+  @ApiPropertyOptional() @IsOptional() @IsUUID() sectionId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() busRouteId?: string;
+  @ApiPropertyOptional({ enum: [1, 2] }) @IsOptional() @IsInt() @IsIn([1, 2]) busTripRound?: number;
+  @ApiPropertyOptional() @IsOptional() @IsUUID() areaId?: string;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() transportRequested?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() registrationFeePaid?: boolean;
+
+  // NEW_PLAN parameters (a fresh family plan). Also used when MERGE finds no existing active plan.
+  @ApiPropertyOptional({ enum: QuotePaymentMode })
+  @IsOptional()
+  @IsEnum(QuotePaymentMode)
+  paymentMode?: QuotePaymentMode;
+  @ApiPropertyOptional() @IsOptional() @IsInt() @Min(1) @Max(12) installments?: number;
+  @ApiPropertyOptional({ example: '2026-09-01' }) @IsOptional() @IsString() firstDueDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Required (true) to confirm a NEW_PLAN — it affects accounting.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  confirm?: boolean;
+}
+
 // ── Approvals & arrangements ──
 export class ApprovalDecisionDto {
   @ApiPropertyOptional() @IsOptional() @IsString() note?: string;

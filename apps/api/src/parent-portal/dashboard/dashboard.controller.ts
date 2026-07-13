@@ -23,4 +23,12 @@ export class DashboardController {
   dashboard(@Query('studentId') studentId: string) {
     return this.service.childDashboard(studentId);
   }
+
+  @Get('finance/summary')
+  @ApiOperation({
+    summary: 'Family finance landing: outstanding, next installment, total paid, history, children',
+  })
+  familyFinance() {
+    return this.service.familyFinance();
+  }
 }
