@@ -1,15 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Shell } from '@/components/shell';
-import { EntityPicker } from '@/components/entity-picker';
 import { useToast } from '@/components/toast';
-import { useI18n } from '@/components/i18n-provider';
-import { FeeModifiedBadge } from '@/components/fee-modified-badge';
-import { loadStudentOptions } from '@/lib/pickers';
 import { FinanceTab } from '@/app/(app)/people/students/[studentId]/tabs/finance-tab';
-import { financeApi, type CollectionsProfile, type HouseholdMember } from '@/lib/finance';
+import {
+  familiesApi,
+  type FamilyDashboard,
+  type FamilySearchHit,
+  type PaymentMethod,
+} from '@/lib/families';
 import {
   Badge,
   Button,
@@ -17,7 +17,11 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Dialog,
+  EmptyState,
   Field,
+  Input,
+  Select,
   Spinner,
   Table,
   TBody,
@@ -28,231 +32,354 @@ import {
 } from '@/components/ui';
 
 const jod = (v: string | number) => `${Number(v).toFixed(3)} JOD`;
+const dateStr = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : '—');
+
+const METHODS: PaymentMethod[] = ['CASH', 'CLIQ', 'EWALLET', 'BANK_TRANSFER', 'CHEQUE', 'CARD'];
+
+const COLLECTION_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = {
+  NONE: 'success',
+  FINANCIAL_ISSUE: 'warning',
+  LEGAL: 'danger',
+};
 
 /**
- * Finance console (school-wide): pick a student and manage their Student Financial Account via the
- * shared, hierarchical {@link FinanceTab} (Account → Charges → Plans → Installments → Payments →
- * Credits → Refunds), plus a collections banner (reminders / legal flag) and the household view.
- * All per-student logic lives in FinanceTab — this page never duplicates it (single source).
+ * Finance — the ONE finance console, account-first. Search by guardian / family name / phone /
+ * national id / student; every search resolves to the Financial Account. The account totals (KPIs)
+ * are the default view; expanding a child drills into that student's full ledger (the shared
+ * FinanceTab) without leaving the account. All plan/payment operations happen at the account.
+ * Munaxa Design System components only; RTL/LTR + dark/light inherited.
  */
 export default function FinancePage() {
-  const { t } = useI18n();
   const toast = useToast();
-  const router = useRouter();
 
-  const [studentId, setStudentId] = useState('');
-  const [collections, setCollections] = useState<CollectionsProfile | null>(null);
-  const [household, setHousehold] = useState<HouseholdMember[]>([]);
+  const [q, setQ] = useState('');
+  const [hits, setHits] = useState<FamilySearchHit[] | null>(null);
+  const [searching, setSearching] = useState(false);
+
+  const [dashboard, setDashboard] = useState<FamilyDashboard | null>(null);
   const [loading, setLoading] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [payOpen, setPayOpen] = useState(false);
 
-  const loadMeta = useCallback(
-    async (id = studentId) => {
-      if (!id) return;
-      setLoading(true);
-      try {
-        const [c, h] = await Promise.all([
-          financeApi.collections(id).catch(() => null),
-          financeApi.household(id).catch(() => [] as HouseholdMember[]),
-        ]);
-        setCollections(c);
-        setHousehold(h);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [studentId],
-  );
-
-  // Deep link from Admissions: ?studentId=<id> opens that student's account.
-  useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get('studentId');
-    if (id) {
-      setStudentId(id);
-      void loadMeta(id);
+  const search = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (q.trim().length < 2) {
+      toast.error('Type at least 2 characters to search');
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function run(fn: () => Promise<unknown>, ok: string) {
-    setBusy(true);
+    setSearching(true);
     try {
-      await fn();
-      toast.success(ok);
-      await loadMeta();
-      setReloadKey((k) => k + 1); // refresh the embedded FinanceTab
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Action failed');
+      setHits(await familiesApi.search(q.trim()));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Search failed');
     } finally {
-      setBusy(false);
+      setSearching(false);
     }
-  }
+  };
 
-  const isLegal = collections?.collectionsStatus === 'LEGAL';
-  const tagTone = isLegal
-    ? 'danger'
-    : collections?.collectionsStatus === 'FINANCIAL_ISSUE'
-      ? 'warning'
-      : 'success';
-  const tagLabel = isLegal
-    ? 'Legal Collections'
-    : collections?.collectionsStatus === 'FINANCIAL_ISSUE'
-      ? 'Financial Issue'
-      : 'Account OK';
+  const openAccount = async (hit: FamilySearchHit) => {
+    if (!hit.financialAccountId) {
+      toast.error('This guardian has no account yet — register them via Admission');
+      return;
+    }
+    setLoading(true);
+    setHits(null);
+    setExpanded(null);
+    try {
+      setDashboard(await familiesApi.dashboard(hit.financialAccountId));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load the account');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const reload = async () => {
+    if (!dashboard) return;
+    setDashboard(await familiesApi.dashboard(dashboard.account.id));
+  };
 
   return (
     <Shell>
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex items-center gap-3">
-          <h1 className="font-display text-2xl font-semibold">{t('nav.finance')}</h1>
-          {collections ? (
-            <FeeModifiedBadge
-              feeModified={collections.feeModified}
-              customArrangement={collections.customArrangement}
-            />
-          ) : null}
-          {studentId ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="ms-auto"
-              onClick={() => router.push(`/people/students/${studentId}`)}
-            >
-              {t('finance.viewProfile')}
-            </Button>
-          ) : null}
-        </div>
+        <header className="space-y-1">
+          <h1 className="font-display text-2xl font-semibold">Finance</h1>
+          <p className="text-sm text-muted-foreground">
+            Search an account and manage its finances — one account pays for all its students.
+          </p>
+        </header>
 
-        <div className="flex items-end gap-2">
-          <Field label={t('finance.student')} className="flex-1">
-            <EntityPicker
-              value={studentId}
-              onChange={(v) => {
-                setStudentId(v);
-                void loadMeta(v);
-                setReloadKey((k) => k + 1);
-              }}
-              load={loadStudentOptions}
-              placeholder={t('finance.searchStudent')}
-            />
-          </Field>
-        </div>
+        <Card>
+          <CardContent className="p-4">
+            <form onSubmit={(e) => void search(e)} className="flex gap-2">
+              <Input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Guardian, family name, phone, national ID or student…"
+                aria-label="Search finance accounts"
+              />
+              <Button type="submit" disabled={searching}>
+                {searching ? 'Searching…' : 'Search'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-        {loading ? <Spinner /> : null}
+        {hits && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Results ({hits.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {hits.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No accounts matched your search.</p>
+              ) : (
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Account holder</TH>
+                      <TH>Phone</TH>
+                      <TH>National ID</TH>
+                      <TH>Students</TH>
+                      <TH>Account</TH>
+                    </TR>
+                  </THead>
+                  <TBody>
+                    {hits.map((h) => (
+                      <TR
+                        key={h.parentId ?? h.financialAccountId ?? h.nameEn}
+                        className="cursor-pointer"
+                        onClick={() => void openAccount(h)}
+                      >
+                        <TD>{h.nameEn}</TD>
+                        <TD>{h.phone ?? '—'}</TD>
+                        <TD>{h.nationalId ?? '—'}</TD>
+                        <TD>{h.studentCount}</TD>
+                        <TD>
+                          {h.financialAccountId ? (
+                            <Badge tone="success">Account</Badge>
+                          ) : (
+                            <Badge tone="muted">No account</Badge>
+                          )}
+                        </TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        {studentId && collections ? (
+        {loading && <Spinner />}
+
+        {!loading && dashboard && (
           <>
-            {/* Collections banner + quick actions */}
-            <Card className={isLegal ? 'border-destructive/40' : ''}>
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div className="flex items-center gap-3">
-                  <Badge tone={tagTone}>{tagLabel}</Badge>
-                  <span className="text-sm text-muted-foreground">
-                    Outstanding{' '}
-                    <strong className="font-mono">{jod(collections.snapshot.outstanding)}</strong>
-                    {Number(collections.snapshot.overdue) > 0 ? (
-                      <>
-                        {' · '}Overdue{' '}
-                        <strong className="font-mono text-destructive">
-                          {jod(collections.snapshot.overdue)}
-                        </strong>
-                      </>
-                    ) : null}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy || isLegal || !collections.snapshot.eligible}
-                    onClick={() =>
-                      void run(() => financeApi.remind(studentId, ['IN_APP']), 'Reminder sent')
-                    }
-                  >
-                    Send reminder
-                  </Button>
-                  {isLegal ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(
-                          () => financeApi.setCollections(studentId, { status: 'NONE' }),
-                          'Collections flag cleared',
-                        )
-                      }
-                    >
-                      Clear legal flag
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(
-                          () => financeApi.setCollections(studentId, { status: 'LEGAL' }),
-                          'Escalated to legal',
-                        )
-                      }
-                    >
-                      Escalate to legal
-                    </Button>
-                  )}
-                </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-xl font-semibold">{dashboard.account.nameEn}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {dashboard.account.ownerType.replace('_', ' ')} ·{' '}
+                  {dashboard.account.phone ?? 'no phone'}
+                </p>
+              </div>
+              <Button onClick={() => setPayOpen(true)}>Record payment</Button>
+            </div>
+
+            {/* Account totals — the default view */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <Metric label="Total charges" value={jod(dashboard.summary.netCharged)} />
+              <Metric label="Total paid" value={jod(dashboard.summary.paid)} />
+              <Metric label="Outstanding" value={jod(dashboard.summary.outstanding)} />
+              <Metric label="Credit balance" value={jod(dashboard.summary.creditBalance)} />
+              <Metric
+                label="Next due"
+                value={
+                  dashboard.summary.nextDue
+                    ? `${jod(dashboard.summary.nextDue.amount)} · ${dateStr(dashboard.summary.nextDue.dueDate)}`
+                    : '—'
+                }
+              />
+              <Metric
+                label="Last payment"
+                value={
+                  dashboard.summary.lastPayment
+                    ? `${jod(dashboard.summary.lastPayment.amount)} · ${dateStr(dashboard.summary.lastPayment.date)}`
+                    : '—'
+                }
+              />
+              <MetricNode label="Collection status">
+                <Badge tone={COLLECTION_TONE[dashboard.summary.collectionStatus] ?? 'muted'}>
+                  {dashboard.summary.collectionStatus.replace('_', ' ')}
+                </Badge>
+              </MetricNode>
+              <Metric label="Students" value={String(dashboard.summary.childrenCount)} />
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Students ({dashboard.students.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {dashboard.students.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No students on this account.</p>
+                ) : (
+                  dashboard.students.map((s) => (
+                    <div key={s.studentId} className="rounded-md border border-border">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between p-3 text-start"
+                        onClick={() => setExpanded(expanded === s.studentId ? null : s.studentId)}
+                      >
+                        <span className="font-medium">
+                          {s.firstNameEn} {s.lastNameEn}
+                          <span className="ms-2 text-sm text-muted-foreground">
+                            {s.gradeNameEn ?? ''}
+                          </span>
+                        </span>
+                        <span className="text-sm text-muted-foreground">
+                          {expanded === s.studentId ? 'Hide' : 'View ledger'}
+                        </span>
+                      </button>
+                      {expanded === s.studentId && (
+                        <div className="border-t border-border p-3">
+                          <FinanceTab studentId={s.studentId} />
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
-
-            {/* The hierarchical Student Financial Account (shared component — no duplication). */}
-            <FinanceTab key={`${studentId}-${reloadKey}`} studentId={studentId} />
-
-            {/* Household (siblings sharing a guardian) */}
-            {household.length > 0 ? (
-              <Card>
-                <CardHeader>
-                  <CardTitle>{t('finance.family')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <THead>
-                      <TR>
-                        <TH>Student</TH>
-                        <TH>Outstanding</TH>
-                        <TH> </TH>
-                      </TR>
-                    </THead>
-                    <TBody>
-                      {household.map((m) => (
-                        <TR key={m.studentId}>
-                          <TD>
-                            {m.firstNameEn} {m.lastNameEn}
-                          </TD>
-                          <TD>{jod(m.outstanding)}</TD>
-                          <TD>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setStudentId(m.studentId);
-                                void loadMeta(m.studentId);
-                                setReloadKey((k) => k + 1);
-                              }}
-                            >
-                              Open
-                            </Button>
-                          </TD>
-                        </TR>
-                      ))}
-                    </TBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            ) : null}
           </>
-        ) : null}
+        )}
+
+        {!loading && !dashboard && !hits && <EmptyState title="Search for an account to begin" />}
       </div>
+
+      {dashboard && (
+        <RecordPaymentDialog
+          open={payOpen}
+          onClose={() => setPayOpen(false)}
+          accountName={dashboard.account.nameEn}
+          onSubmit={async (amount, method, reference, note) => {
+            await familiesApi.recordPayment(dashboard.account.id, {
+              amount,
+              method,
+              ...(reference ? { reference } : {}),
+              ...(note ? { note } : {}),
+            });
+            toast.success('Payment recorded (pending verification)');
+            setPayOpen(false);
+            await reload();
+          }}
+        />
+      )}
     </Shell>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <MetricNode label={label}>
+      <div className="mt-1 text-lg font-semibold">{value}</div>
+    </MetricNode>
+  );
+}
+
+function MetricNode({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RecordPaymentDialog({
+  open,
+  onClose,
+  accountName,
+  onSubmit,
+}: {
+  open: boolean;
+  onClose: () => void;
+  accountName: string;
+  onSubmit: (
+    amount: number,
+    method: PaymentMethod,
+    reference: string,
+    note: string,
+  ) => Promise<void>;
+}) {
+  const toast = useToast();
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState<PaymentMethod>('CASH');
+  const [reference, setReference] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) {
+      toast.error('Enter a valid amount');
+      return;
+    }
+    setBusy(true);
+    try {
+      await onSubmit(value, method, reference.trim(), note.trim());
+      setAmount('');
+      setReference('');
+      setNote('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to record the payment');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} title={`Record a payment — ${accountName}`}>
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          The payment is recorded once and automatically allocated across the account’s
+          installments.
+        </p>
+        <Field label="Amount (JOD)">
+          <Input
+            type="number"
+            step="0.001"
+            min="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
+        </Field>
+        <Field label="Method">
+          <Select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+            {METHODS.map((m) => (
+              <option key={m} value={m}>
+                {m.replace('_', ' ')}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Reference (optional)">
+          <Input value={reference} onChange={(e) => setReference(e.target.value)} />
+        </Field>
+        <Field label="Note (optional)">
+          <Input value={note} onChange={(e) => setNote(e.target.value)} />
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => void submit()} disabled={busy}>
+            {busy ? 'Recording…' : 'Record payment'}
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
