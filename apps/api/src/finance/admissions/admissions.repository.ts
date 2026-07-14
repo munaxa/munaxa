@@ -1097,6 +1097,41 @@ export class AdmissionsRepository extends TenantRepository {
     });
   }
 
+  /**
+   * Context for re-enrolling a returning student (Step 7): the student's existing Financial Account
+   * (Payer), the target quote's academic year, and whether they are ALREADY enrolled for that year
+   * (so re-enrollment never creates a duplicate — the DB unique on (student, year) is the backstop).
+   */
+  async reEnrollContext(studentId: string, quoteId: string) {
+    return this.run(async (tx) => {
+      const student = await tx.student.findFirst({
+        where: { id: studentId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!student) throw new BadRequestException('Student not found');
+
+      const quote = await tx.enrollmentQuote.findFirst({
+        where: { id: quoteId },
+        select: { academicYearId: true },
+      });
+      if (!quote) throw new BadRequestException('Quote not found');
+
+      const account = await tx.studentFinancialAccount.findFirst({
+        where: { studentId },
+        select: { payerId: true },
+      });
+      const existing = await tx.enrollment.findFirst({
+        where: { studentId, academicYearId: quote.academicYearId },
+        select: { id: true },
+      });
+      return {
+        financialAccountId: account?.payerId ?? null,
+        academicYearId: quote.academicYearId,
+        alreadyEnrolled: existing !== null,
+      };
+    });
+  }
+
   // ── Enrollments / reporting ──
   listEnrollments(filter: {
     academicYearId?: string;

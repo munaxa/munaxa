@@ -312,6 +312,25 @@ export const admissionsApi = {
     }).then((r) => json<{ enrollmentId: string; mode: string; planId: string | null }>(r)),
   loadReturning: (studentId: string) =>
     authFetch(`/admissions/returning/${studentId}`).then((r) => json<ReturningStudent>(r)),
+  // Re-enroll a returning (Case-C) student into a new year via the shared pipeline (no new Student).
+  reEnroll: (req: {
+    studentId: string;
+    quoteId: string;
+    idempotencyKey: string;
+    financialAccountId?: string;
+    mode?: string;
+    sectionId?: string;
+    areaId?: string;
+    transportRequested?: boolean;
+    registrationFeePaid?: boolean;
+    paymentMode?: string;
+    installments?: number;
+    firstDueDate?: string;
+    confirm?: boolean;
+  }) =>
+    authFetch('/admissions/reenroll', { method: 'POST', body: JSON.stringify(req) }).then((r) =>
+      json<{ enrollmentId: string; mode: string; planId: string | null }>(r),
+    ),
   // Identity-first admission lookup (A/B/C). National ID primary, Ministry number fallback.
   identityLookup: (params: { nationalId?: string; moeStudentNumber?: string }) => {
     const sp = new URLSearchParams();

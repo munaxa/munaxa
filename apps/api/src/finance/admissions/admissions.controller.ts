@@ -13,6 +13,7 @@ import {
   CreateFeeItemDto,
   FamilyCommitDto,
   QuoteDto,
+  ReEnrollDto,
   UpdateFeeItemDto,
   UpsertGradeFeeItemDto,
 } from './admissions.dto';
@@ -148,6 +149,17 @@ export class AdmissionsController {
     @Body() dto: AddFamilyStudentDto,
   ) {
     return this.service.addStudentToFamily(financialAccountId, dto);
+  }
+
+  // ── Re-enrollment (returning / Case-C student → new academic year) ──
+  @Post('reenroll')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary:
+      'Re-enroll a returning student into a new year via the shared pipeline (never recreates the student)',
+  })
+  reEnroll(@Body() dto: ReEnrollDto) {
+    return this.service.reEnroll(dto);
   }
 
   // ── Enrollments / reporting ──

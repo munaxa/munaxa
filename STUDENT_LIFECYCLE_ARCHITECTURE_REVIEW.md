@@ -509,7 +509,10 @@ trigger is the belt-and-suspenders.
 > it is the pipeline re-enrollment/promotion/repeat reuse — no separate implementations) · ✅ Step 6
 > (identity-first admission backend — `StudentIdentityService.lookupByIdentifier` resolves National ID
 > primary / MoE fallback, exact match, into cases A=NEW / B=ACTIVE / C=RETURNING, plus an informational
-> similar-name warning; endpoints + admin lib wired). Each shipped additive, reversible, audited.
+> similar-name warning; endpoints + admin lib wired) · ✅ Step 7 (re-enrollment — `reEnroll` derives the
+> returning student's Financial Account, guards duplicate-year enrollment, and delegates to the shared
+> add-to-account pipeline with `existingStudentId`; the student is never recreated and prior ledgers are
+> untouched). Each shipped additive, reversible, audited.
 >
 > **Remaining for the unified-admission UI (folded into Step 10):** collapse the two admission screens
 > (`/admissions` + `/admissions/family`) into one identity-first wizard behind a feature flag, render the
