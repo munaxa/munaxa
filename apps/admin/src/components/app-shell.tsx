@@ -86,12 +86,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/finance', labelKey: 'nav.finance', icon: 'finance', perm: 'finance:read' },
       {
-        href: '/finance/dashboard',
-        labelKey: 'nav.financeDashboard',
-        icon: 'dashboard',
-        perm: 'finance:read',
-      },
-      {
         href: '/finance/collections',
         labelKey: 'nav.collections',
         icon: 'collections',

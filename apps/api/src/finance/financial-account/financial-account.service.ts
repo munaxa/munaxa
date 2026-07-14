@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Payer } from '@prisma/client';
 import { FinancialAccountRepository, type AccountStudent } from './financial-account.repository';
 import { LedgerRepository, type FinancialAccountSummary } from '../ledger/ledger.repository';
+import { FinanceReportsRepository, type FinanceOverview } from '../reports/reports.repository';
 
 /** The Financial Account dashboard payload: account (Payer) header, account totals, and the children. */
 export interface FinancialAccountDashboard {
@@ -20,11 +21,17 @@ export class FinancialAccountService {
   constructor(
     private readonly repo: FinancialAccountRepository,
     private readonly ledger: LedgerRepository,
+    private readonly reports: FinanceReportsRepository,
   ) {}
 
   /** Family-first search by guardian / father / mother / family name / phone / national id / student. */
   search(query: string) {
     return this.repo.search(query ?? '');
+  }
+
+  /** Account-centric finance overview (the workspace dashboard shown before an account is opened). */
+  overview(): Promise<FinanceOverview> {
+    return this.reports.financeOverview();
   }
 
   /** Ensure (find-or-create) a financial account for a guardian. */

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
@@ -9,6 +9,7 @@ import {
   familiesApi,
   type FamilyDashboard,
   type FamilySearchHit,
+  type FinanceOverview,
   type PaymentMethod,
 } from '@/lib/families';
 import {
@@ -62,6 +63,40 @@ export default function FinancePage() {
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [payOpen, setPayOpen] = useState(false);
+
+  // Account-centric workspace dashboard (default state, before an account is opened).
+  const [overview, setOverview] = useState<FinanceOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const o = await familiesApi.overview();
+        if (active) setOverview(o);
+      } catch {
+        // Non-fatal: the dashboard is a convenience surface; search still works without it.
+      } finally {
+        if (active) setOverviewLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const openAccountById = async (payerId: string) => {
+    setLoading(true);
+    setHits(null);
+    setExpanded(null);
+    try {
+      setDashboard(await familiesApi.dashboard(payerId));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to load the account');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const search = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -265,7 +300,19 @@ export default function FinancePage() {
           </>
         )}
 
-        {!loading && !dashboard && !hits && <EmptyState title="Search for an account to begin" />}
+        {/* Default state: the account-centric finance dashboard, embedded below the search. */}
+        {!loading && !dashboard && !hits && (
+          <>
+            {overviewLoading && <Spinner />}
+            {!overviewLoading && overview && (
+              <FinanceDashboardPanel
+                overview={overview}
+                onOpen={(id) => void openAccountById(id)}
+              />
+            )}
+            {!overviewLoading && !overview && <EmptyState title="Search for an account to begin" />}
+          </>
+        )}
       </div>
 
       {dashboard && (
@@ -287,6 +334,145 @@ export default function FinancePage() {
         />
       )}
     </Shell>
+  );
+}
+
+/**
+ * Account-centric finance dashboard — the default state of the workspace, embedded under the search.
+ * Every widget is a tenant-wide aggregate over the ledger; accounts (never students) are the rows.
+ * Clicking an account opens its workspace in place.
+ */
+function FinanceDashboardPanel({
+  overview,
+  onOpen,
+}: {
+  overview: FinanceOverview;
+  onOpen: (payerId: string) => void;
+}) {
+  const k = overview.kpis;
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <Metric label="Total outstanding" value={jod(k.totalOutstanding)} />
+        <Metric label="Collected today" value={jod(k.collectedToday)} />
+        <Metric label="Collected this month" value={jod(k.collectedThisMonth)} />
+        <Metric label="Overdue accounts" value={String(k.overdueAccounts)} />
+        <Metric label="Pending installments" value={String(k.pendingInstallments)} />
+        <Metric label="Active payment plans" value={String(k.activePaymentPlans)} />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Largest outstanding accounts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {overview.largestOutstandingAccounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No outstanding balances.</p>
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Family</TH>
+                  <TH>Outstanding</TH>
+                  <TH>Next due</TH>
+                  <TH>Collection</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {overview.largestOutstandingAccounts.map((a) => (
+                  <TR key={a.payerId} className="cursor-pointer" onClick={() => onOpen(a.payerId)}>
+                    <TD>{a.name}</TD>
+                    <TD>{jod(a.outstanding)}</TD>
+                    <TD>
+                      {a.nextDueDate
+                        ? `${jod(a.nextDueAmount ?? 0)} · ${dateStr(a.nextDueDate)}`
+                        : '—'}
+                    </TD>
+                    <TD>
+                      <Badge tone={COLLECTION_TONE[a.collectionStatus] ?? 'muted'}>
+                        {a.collectionStatus.replace('_', ' ')}
+                      </Badge>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent payments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {overview.recentPayments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No payments yet.</p>
+            ) : (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Account</TH>
+                    <TH>Amount</TH>
+                    <TH>Method</TH>
+                    <TH>Date</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {overview.recentPayments.map((p) => (
+                    <TR
+                      key={p.id}
+                      className={p.payerId ? 'cursor-pointer' : ''}
+                      onClick={() => p.payerId && onOpen(p.payerId)}
+                    >
+                      <TD>{p.accountName}</TD>
+                      <TD>{jod(p.amount)}</TD>
+                      <TD>{p.method.replace('_', ' ')}</TD>
+                      <TD>{dateStr(p.at)}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Upcoming installments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {overview.upcomingInstallments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No upcoming installments.</p>
+            ) : (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Account</TH>
+                    <TH>Due</TH>
+                    <TH>Amount</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {overview.upcomingInstallments.map((i, idx) => (
+                    <TR
+                      key={`${i.payerId}-${i.dueDate}-${idx}`}
+                      className="cursor-pointer"
+                      onClick={() => onOpen(i.payerId)}
+                    >
+                      <TD>{i.accountName}</TD>
+                      <TD>{dateStr(i.dueDate)}</TD>
+                      <TD>{jod(i.amount)}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 
