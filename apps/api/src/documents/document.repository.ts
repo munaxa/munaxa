@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
+  AdmissionStatus,
   DocumentAccessAction,
   DocumentAccessStatus,
   DocumentLanguage,
   DocumentPersistence,
   DocumentType,
-  EnrollmentStatus,
   PaymentStatus,
   Prisma,
   RegistrationAgreementStatus,
@@ -482,7 +482,7 @@ export class DocumentRepository extends TenantRepository {
       tx.enrollment.findMany({
         where: {
           academicYearId,
-          status: EnrollmentStatus.COMMITTED,
+          admissionStatus: AdmissionStatus.REGISTERED,
           // Exclude soft-deleted students: a student removed after committing must not keep
           // appearing on the guardian's agreement (fee breakdown + installment schedule).
           student: { deletedAt: null, parentLinks: { some: { parentId } } },

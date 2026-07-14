@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ApprovalStatus, EnrollmentStatus } from '@prisma/client';
+import { AdmissionStatus, ApprovalStatus, EnrollmentStatus } from '@prisma/client';
 import { AdmissionsRepository } from './admissions.repository';
 import { QuoteService } from './quote.service';
 import { RegistrationAgreementService } from '../../documents/registration-agreement.service';
@@ -81,7 +81,7 @@ export class AdmissionsService {
   // agreement per enrollment) and never blocks/fails the commit.
   async commit(dto: CommitDto) {
     const enrollment = await this.repo.commit(dto);
-    if (enrollment.status === EnrollmentStatus.COMMITTED) {
+    if (enrollment.admissionStatus === AdmissionStatus.REGISTERED) {
       // Fire-and-forget: return the committed enrollment immediately; the agreement PDF renders in
       // the background so the registrar isn't blocked on it (see scheduleAgreement).
       this.scheduleAgreement(enrollment.id);
@@ -121,6 +121,7 @@ export class AdmissionsService {
     academicYearId?: string;
     gradeId?: string;
     status?: EnrollmentStatus;
+    admissionStatus?: AdmissionStatus;
   }) {
     return this.repo.listEnrollments(filter);
   }

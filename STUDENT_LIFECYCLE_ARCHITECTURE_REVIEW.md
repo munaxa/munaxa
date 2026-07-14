@@ -205,10 +205,18 @@ DRAFT ──▶ QUOTED ──▶ ACCEPTED ──▶ REGISTERED
    └──────────┴───────────┴───▶ CANCELLED   (abandoned before registration)
 ```
 
-Lives on the **admission artifact** — the `EnrollmentQuote` / admission-application lineage
-(`RegistrationCommitment` marks the transition to `REGISTERED`). Values: `Draft · Quoted · Accepted ·
-Registered · Cancelled`. When admission reaches **Registered**, it materialises exactly one
-`Enrollment` (via the shared pipeline, §5).
+Values: `Draft · Quoted · Accepted · Registered · Cancelled`.
+
+**Implementation note (Step 2, as built):** the admission workflow operates on the **`Enrollment`
+row** in the current codebase — the finance-approval "held" state and the approve/reject decision are
+applied to the enrollment, not to a separate record. So `admissionStatus` is a **column on
+`Enrollment`** (its own concept, alongside the participation `status` — two distinct columns satisfy
+Decision 2), rather than a separate entity. `Draft`/`Quoted` remain pre-enrollment, quote-level
+states (a saved `EnrollmentQuote` with no committed enrollment yet). `Accepted` = held pending
+finance approval; `Registered` = admission finalised (the gate for agreements, documents and the
+participation `status = ACTIVE`); `Cancelled` = admission abandoned. This is a small, deliberate
+refinement of Rev. 1's "separate entity" phrasing — flag if you'd prefer the workflow on the quote
+instead.
 
 ### 4b. `EnrollmentStatus` — participation in an Academic Year (on `Enrollment`)
 

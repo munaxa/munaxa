@@ -3240,11 +3240,34 @@ enum FeeItemKind {
   CUSTOM
 }
 
+// The ADMISSION WORKFLOW status (Decision 2). Distinct concept from EnrollmentStatus: it tracks how a
+// person moves through admission, not their participation in a year. Lives on the admission artifact
+// (the Enrollment row created during admission; Draft/Quoted are quote-level pre-enrollment states).
+enum AdmissionStatus {
+  DRAFT
+  QUOTED
+  ACCEPTED // e.g. held pending finance approval of a fee modification
+  REGISTERED // admission finalised — the enrollment is active
+  CANCELLED // admission abandoned before registration (Cancel Admission)
+}
+
+// PARTICIPATION status of an Enrollment within one Academic Year (Decision 2). Distinct from the
+// admission workflow above. The legacy values (QUOTED/PENDING_APPROVAL/COMMITTED) are retained only
+// for the transition — new code writes ACTIVE + the terminal participation states; the workflow is
+// tracked by AdmissionStatus. Legacy values are removed in the Phase-B cleanup.
 enum EnrollmentStatus {
+  // Participation states (target model).
+  ACTIVE
+  COMPLETED
+  PROMOTED
+  REPEATED
+  WITHDRAWN
+  GRADUATED
+  ARCHIVED
+  // Legacy admission-workflow values (transition only; superseded by AdmissionStatus).
   QUOTED
   PENDING_APPROVAL
   COMMITTED
-  ACTIVE
   CANCELLED
 }
 
@@ -3377,7 +3400,12 @@ model Enrollment {
   sectionId           String?            @db.Uuid
   quoteId             String?            @unique @db.Uuid
   transportDirection  TransportDirection @default(NONE)
-  status              EnrollmentStatus   @default(COMMITTED)
+  // Two distinct concepts (Decision 2): `admissionStatus` = how the person moved through admission;
+  // `status` = participation in the academic year. New code drives decisions off `admissionStatus`
+  // (REGISTERED = finalised) and sets `status = ACTIVE` on registration; year-end/withdrawal move
+  // `status` to the terminal participation states.
+  admissionStatus     AdmissionStatus    @default(REGISTERED)
+  status              EnrollmentStatus   @default(ACTIVE)
   paymentMode         QuotePaymentMode   @default(INSTALLMENTS)
   feeModified         Boolean            @default(false)
   // Whether the one-time registration fee was paid at registration (the usual case). When true it is
@@ -3400,6 +3428,7 @@ model Enrollment {
   @@unique([tenantId, studentId, academicYearId])
   @@index([tenantId, academicYearId, gradeId])
   @@index([tenantId, status])
+  @@index([tenantId, admissionStatus])
 }
 
 /// Mandatory tracking of every deviation from the standard school fee plan. Append-only.

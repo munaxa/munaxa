@@ -78,7 +78,8 @@ export default function AdmissionsReportsPage() {
           await admissionsApi.listEnrollments({
             ...(academicYearId ? { academicYearId } : {}),
             ...(gradeId ? { gradeId } : {}),
-            ...(status ? { status } : {}),
+            // The enrollments report filters by the admission workflow status (Decision 2).
+            ...(status ? { admissionStatus: status } : {}),
           }),
         );
       } else {
@@ -157,9 +158,9 @@ export default function AdmissionsReportsPage() {
               <Field label="Status">
                 <Select value={status} onChange={(e) => setStatus(e.target.value)}>
                   <option value="">All</option>
-                  <option value="COMMITTED">Committed</option>
-                  <option value="PENDING_APPROVAL">Pending approval</option>
-                  <option value="ACTIVE">Active</option>
+                  <option value="REGISTERED">Registered</option>
+                  <option value="ACCEPTED">Accepted (pending approval)</option>
+                  <option value="QUOTED">Quoted</option>
                   <option value="CANCELLED">Cancelled</option>
                 </Select>
               </Field>
@@ -211,8 +212,8 @@ export default function AdmissionsReportsPage() {
                       <TD className="text-xs">{e.transportDirection.replace('_', ' ')}</TD>
                       <TD className="text-xs">{e.paymentMode}</TD>
                       <TD>
-                        <Badge tone={e.status === 'PENDING_APPROVAL' ? 'warning' : 'muted'}>
-                          {e.status.toLowerCase().replace('_', ' ')}
+                        <Badge tone={e.admissionStatus === 'ACCEPTED' ? 'warning' : 'muted'}>
+                          {e.admissionStatus.toLowerCase().replace('_', ' ')}
                         </Badge>
                       </TD>
                       <TD>

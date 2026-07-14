@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import {
+  AdmissionStatus,
   ApprovalStatus,
   ChargeStatus,
   EnrollmentStatus,
@@ -632,7 +633,11 @@ export class AdmissionsRepository extends TenantRepository {
             ...(entry.sectionId ? { sectionId: entry.sectionId } : {}),
             quoteId: quote.id,
             transportDirection: quote.transportDirection,
-            status: held ? EnrollmentStatus.PENDING_APPROVAL : EnrollmentStatus.COMMITTED,
+            // Decision 2: admission workflow vs. participation are separate. A held (fee-modified)
+            // enrollment is ACCEPTED pending finance approval; otherwise it is REGISTERED. Participation
+            // is ACTIVE either way (the authoritative "finalised" gate is admissionStatus === REGISTERED).
+            admissionStatus: held ? AdmissionStatus.ACCEPTED : AdmissionStatus.REGISTERED,
+            status: EnrollmentStatus.ACTIVE,
             paymentMode: dto.paymentMode,
             feeModified: quote.feeModified,
             registrationFeePaid: dto.registrationFeePaid ?? true,
@@ -941,7 +946,8 @@ export class AdmissionsRepository extends TenantRepository {
           ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
           quoteId: quote.id,
           transportDirection: quote.transportDirection,
-          status: EnrollmentStatus.COMMITTED,
+          admissionStatus: AdmissionStatus.REGISTERED,
+          status: EnrollmentStatus.ACTIVE,
           paymentMode: quote.paymentMode,
           feeModified: quote.feeModified,
           registrationFeePaid: dto.registrationFeePaid ?? true,
@@ -1032,6 +1038,7 @@ export class AdmissionsRepository extends TenantRepository {
     academicYearId?: string;
     gradeId?: string;
     status?: EnrollmentStatus;
+    admissionStatus?: AdmissionStatus;
   }) {
     return this.run((tx) =>
       tx.enrollment.findMany({
@@ -1039,6 +1046,7 @@ export class AdmissionsRepository extends TenantRepository {
           ...(filter.academicYearId ? { academicYearId: filter.academicYearId } : {}),
           ...(filter.gradeId ? { gradeId: filter.gradeId } : {}),
           ...(filter.status ? { status: filter.status } : {}),
+          ...(filter.admissionStatus ? { admissionStatus: filter.admissionStatus } : {}),
         },
         include: {
           student: { select: { id: true, firstNameEn: true, lastNameEn: true } },
@@ -1097,17 +1105,17 @@ export class AdmissionsRepository extends TenantRepository {
           ...(note ? { note } : {}),
         },
       });
-      // Apply the decision to the held enrollment. Approval activates it and creates the
-      // charges that were deferred at commit time; rejection cancels it (no charges exist).
-      // Both are scoped to PENDING_APPROVAL so a decision on one of several modifications for
-      // an already-decided enrollment is a safe no-op (charges are never created twice).
+      // Apply the decision to the held enrollment. Approval registers it (admissionStatus REGISTERED)
+      // and creates the charges that were deferred at commit time; rejection cancels the admission
+      // (no charges exist). Both are scoped to admissionStatus ACCEPTED so a decision on one of several
+      // modifications for an already-decided enrollment is a safe no-op (charges never created twice).
       const enrollmentId = approval.modification.enrollmentId;
       if (enrollmentId) {
         const { count } = await tx.enrollment.updateMany({
-          where: { id: enrollmentId, status: EnrollmentStatus.PENDING_APPROVAL },
-          data: {
-            status: approve ? EnrollmentStatus.COMMITTED : EnrollmentStatus.CANCELLED,
-          },
+          where: { id: enrollmentId, admissionStatus: AdmissionStatus.ACCEPTED },
+          data: approve
+            ? { admissionStatus: AdmissionStatus.REGISTERED, status: EnrollmentStatus.ACTIVE }
+            : { admissionStatus: AdmissionStatus.CANCELLED },
         });
         if (approve && count > 0) {
           const enrollment = await tx.enrollment.findFirstOrThrow({

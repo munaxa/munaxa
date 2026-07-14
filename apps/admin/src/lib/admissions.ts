@@ -189,6 +189,9 @@ export interface AddFamilyStudentRequest {
 
 export interface EnrollmentRow {
   id: string;
+  // `admissionStatus` = admission workflow (Draft/Quoted/Accepted/Registered/Cancelled);
+  // `status` = participation in the year (Active/Completed/Promoted/…). See Decision 2.
+  admissionStatus: string;
   status: string;
   feeModified: boolean;
   transportDirection: TransportDirection;
@@ -285,12 +288,18 @@ export const admissionsApi = {
   loadReturning: (studentId: string) =>
     authFetch(`/admissions/returning/${studentId}`).then((r) => json<ReturningStudent>(r)),
   listEnrollments: (
-    params: { academicYearId?: string; gradeId?: string; status?: string } = {},
+    params: {
+      academicYearId?: string;
+      gradeId?: string;
+      status?: string;
+      admissionStatus?: string;
+    } = {},
   ) => {
     const sp = new URLSearchParams();
     if (params.academicYearId) sp.set('academicYearId', params.academicYearId);
     if (params.gradeId) sp.set('gradeId', params.gradeId);
     if (params.status) sp.set('status', params.status);
+    if (params.admissionStatus) sp.set('admissionStatus', params.admissionStatus);
     const qs = sp.toString();
     return authFetch(`/admissions/enrollments${qs ? `?${qs}` : ''}`).then((r) =>
       json<EnrollmentRow[]>(r),

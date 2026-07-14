@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApprovalStatus, EnrollmentStatus } from '@prisma/client';
+import { AdmissionStatus, ApprovalStatus, EnrollmentStatus } from '@prisma/client';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { AdmissionsService } from './admissions.service';
@@ -130,11 +130,13 @@ export class AdmissionsController {
     @Query('academicYearId') academicYearId?: string,
     @Query('gradeId') gradeId?: string,
     @Query('status') status?: EnrollmentStatus,
+    @Query('admissionStatus') admissionStatus?: AdmissionStatus,
   ) {
     return this.service.listEnrollments({
       ...(academicYearId ? { academicYearId } : {}),
       ...(gradeId ? { gradeId } : {}),
       ...(status ? { status } : {}),
+      ...(admissionStatus ? { admissionStatus } : {}),
     });
   }
 
