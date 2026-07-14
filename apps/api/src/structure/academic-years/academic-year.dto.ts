@@ -1,7 +1,18 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { IsBoolean, IsDateString, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { AcademicYearStatus } from '@prisma/client';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateAcademicYearDto {
+  // An Academic Year is a SCHOOL-level entity (Decision 1); the campus that "hosts" the create call is
+  // still accepted during the transition and the School is derived from it (campus.schoolId).
   @ApiProperty({ format: 'uuid' })
   @IsUUID()
   campusId!: string;
@@ -19,7 +30,15 @@ export class CreateAcademicYearDto {
   @IsDateString()
   endDate!: string;
 
-  @ApiPropertyOptional({ default: false })
+  // Lifecycle status (Decision 8). Defaults to UPCOMING. Setting ACTIVE enforces one-ACTIVE-per-school.
+  @ApiPropertyOptional({ enum: AcademicYearStatus, default: AcademicYearStatus.UPCOMING })
+  @IsOptional()
+  @IsEnum(AcademicYearStatus)
+  status?: AcademicYearStatus;
+
+  // Deprecated alias for `status === ACTIVE`, kept for backward-compatible callers. When provided it is
+  // mapped to `status` (isCurrent === true ⇒ ACTIVE).
+  @ApiPropertyOptional({ default: false, deprecated: true })
   @IsOptional()
   @IsBoolean()
   isCurrent?: boolean;

@@ -526,8 +526,9 @@ model School {
   updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt     DateTime? @db.Timestamptz(6)
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campuses Campus[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campuses      Campus[]
+  academicYears AcademicYear[]
 
   @@unique([tenantId, moeSchoolCode])
   @@index([tenantId])
@@ -557,19 +558,36 @@ model Campus {
   @@index([tenantId, schoolId])
 }
 
+// Lifecycle of an Academic Year (Student-Lifecycle refactor, Decision 8). Never deleted; only ever
+// moves UPCOMING → ACTIVE → CLOSED. Supersedes the legacy `isCurrent` boolean (isCurrent == ACTIVE).
+enum AcademicYearStatus {
+  UPCOMING
+  ACTIVE
+  CLOSED
+}
+
 model AcademicYear {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @db.Uuid
-  campusId  String   @db.Uuid
+  id        String             @id @default(uuid()) @db.Uuid
+  tenantId  String             @db.Uuid
+  // TRANSITIONAL: an Academic Year is a SCHOOL-level entity (Decision 1); campuses participate but do
+  // not own it. `campusId` is kept only as a migration shim and is dropped in the Phase-B cleanup once
+  // the validator (scripts/validate-academic-year-migration.ts) confirms no (schoolId,name) conflicts.
+  // New code should read/write `schoolId`; `schoolId` is backfilled from `campus.schoolId`.
+  campusId  String             @db.Uuid
+  schoolId  String?            @db.Uuid
   name      String // e.g. "2025/2026"
-  startDate DateTime @db.Date
-  endDate   DateTime @db.Date
-  isCurrent Boolean  @default(false)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  startDate DateTime           @db.Date
+  endDate   DateTime           @db.Date
+  // Explicit lifecycle. `isCurrent` is retained (== status ACTIVE) for backward-compatible readers
+  // during the transition; the single source of truth is `status`.
+  status    AcademicYearStatus @default(UPCOMING)
+  isCurrent Boolean            @default(false)
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
 
   tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   campus                 Campus                  @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  school                 School?                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   semesters              Semester[]
   feeSchedules           GradeFeeSchedule[]
   transportFares         TransportFare[]
@@ -585,6 +603,8 @@ model AcademicYear {
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
+  @@index([tenantId, schoolId])
+  @@index([tenantId, status])
 }
 
 model Semester {

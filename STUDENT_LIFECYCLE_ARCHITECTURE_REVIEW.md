@@ -1,9 +1,9 @@
 # Student Lifecycle, Admission & Academic-Year Architecture Review
 
-> **Status: ARCHITECTURE REVIEW (Rev. 2 — decisions ratified) — awaiting final approval before any
-> code or schema change.**
-> **Rev. 2** folds in the 13 architecture decisions returned on review. Where a decision reversed a
-> Rev. 1 recommendation it is called out inline (▲ CHANGED).
+> **Status: APPROVED FOR IMPLEMENTATION (Rev. 3).** Rev. 2 approved with the six clarifications below;
+> implementation proceeds along the §17 roadmap, additive-first and backward-compatible.
+> **Rev. 2** folded in the 13 architecture decisions; **Rev. 3** adds the final implementation
+> constraints. Where a decision reversed a Rev. 1 recommendation it is called out inline (▲ CHANGED).
 > **Scope:** Student identity, Admission workflow, Enrollment participation lifecycle, Academic Year
 > lifecycle, one shared Enrollment-creation pipeline, Year-End Processing, Withdrawal / Graduation /
 > Re-enrollment, internal Student Number. Built **on top of** the existing Finance ledger, Financial
@@ -26,6 +26,30 @@ This rule governs this refactor **and every future Munaxa module.** Any field th
 year — grade, section, classroom, enrollment status, academic year, transport, fee plan, advisor,
 timetable — is year-scoped by construction. When designing anything new, the first question is
 "does this change between years?"; if yes, it does not go on `Student`.
+
+---
+
+## Rev. 3 — final implementation constraints (ratified)
+
+1. **Academic Year migration — no silent merges, abort on conflict.** `campusId` is **not** kept
+   permanently on `AcademicYear`; it stays only as a transitional shim. The migration must:
+   (1) validate every tenant, (2) detect duplicate Academic Years (same School + same year Name),
+   (3) generate a **conflict report**, (4) **abort** for tenants with conflicts, (5) require an
+   administrator to resolve before continuing. No silent merges, no automatic consolidation, no
+   assumptions — **data integrity over convenience** (§3, §6, §6a).
+2. **Migration principles for the whole roadmap:** additive first · backward compatible · fully
+   reversible until the final cleanup phase · zero data loss · fully audited. Legacy columns remain
+   through the transition and are removed only after the new architecture is validated in production.
+3. **Student "current status" is a derived projection**, computed from the latest active Enrollment,
+   never stored as authoritative data on `Student` (§2).
+4. **Student Number is configurable per school:** optional Prefix, Starting number, Padding length,
+   Reset policy (**never reset by default**) — e.g. `S-000001`, `2026-000001`, `STD000001`. Default is
+   an ever-increasing sequence that never resets (§2a).
+5. **Year-End Processing creates NOTHING until Final Confirm** — no Enrollment, no Charges, no Payment
+   Plans, no finance records. Before confirmation everything exists only as a temporary preview
+   (§5b).
+6. **Promotion never modifies previous years.** It always creates a *new* Enrollment; history is
+   immutable (§5c, §12).
 
 ---
 
@@ -114,9 +138,12 @@ National ID and MoE number**, and a **permanent identity attribute** (it does no
 years, so it belongs on `Student` — consistent with Decision 13).
 
 - **Field:** `Student.studentNumber String` — `@@unique([tenantId, studentNumber])`.
-- **Generation:** auto-assigned at student creation by a **gapless per-tenant counter**, reusing the
-  existing `PaymentReceiptCounter`/`EInvoiceCounter` row-locked pattern (new `StudentNumberCounter`,
-  optional configurable format/prefix, e.g. `2026-000123`). Never user-entered, never reassigned.
+- **Generation:** auto-assigned at student creation by a **gapless per-tenant/per-school counter**,
+  reusing the existing `PaymentReceiptCounter`/`EInvoiceCounter` row-locked pattern
+  (`StudentNumberCounter`). **Configurable per school** (Rev. 3 Decision 4): optional **Prefix**,
+  **Starting number**, **Padding length**, **Reset policy** (default **never reset**). Examples:
+  `S-000001`, `2026-000001`, `STD000001`. Default is an ever-increasing sequence that never resets.
+  Never user-entered, never reassigned.
 - **Used on:** Report Cards, QR Cards, Attendance Sheets, Library Cards, Certificates.
 - **Distinct from `qrCode`** (already on `Student`, an opaque scan token) and from `StudentCard`
   (the physical-card record) — the Student Number is the readable business identifier those surfaces
@@ -149,11 +176,19 @@ an `isCurrent` boolean.
    (attendance/grades/timetables read-only via a status-keyed guard); **never** mutates Student or
    Enrollment; **finance stays open** and prior balances remain collectible (§8, §12).
 
-**Migration note:** the re-scope from campus to school is the one structurally significant change.
-Because production schools today are effectively single-calendar, we backfill `schoolId` from each
-year's `campus.schoolId`; where a school has multiple campuses with duplicate year names they
-collapse to one School year (validated per tenant before the migration runs; flagged, not
-auto-merged silently).
+**Migration note (Rev. 3 — abort on conflict, no silent merge):** the re-scope from campus to school
+is the one structurally significant change, split into safe phases:
+
+- **Phase A (additive, this step):** add nullable `schoolId` (backfilled from `campus.schoolId`) and
+  `status`; **keep `campusId`** as a transition shim. No unique constraint change yet, so no
+  existing row can conflict. Single-`ACTIVE`-per-school is enforced at the application layer now.
+- **Validation gate (§6a):** a per-tenant validator detects duplicate Academic Years (same School +
+  same year Name) and schools with more than one active year, emits a **conflict report**, and
+  **aborts** the school-scoped cleanup for any tenant with conflicts. An administrator must resolve
+  conflicts first. **No silent merge, no auto-consolidation.**
+- **Phase B (cleanup, later step, only after validation passes):** swap `@@unique[tenantId, campusId,
+  name]` → `@@unique[tenantId, schoolId, name]`, add the single-`ACTIVE`-per-school partial index,
+  and drop `campusId`.
 
 ---
 
@@ -230,10 +265,12 @@ and is **fully reversible until that commit.**
 - **Step 3 — Review every student:** list every `Active` enrollment; **highlight** those needing
   manual review (failed subjects / missing grades / administrative or finance holds). Never silently
   promote — every student gets an explicit decision or stays `DECIDE_LATER`.
-- **Step 4 — Promotion preview:** build a preview of what *would* be created. **No `Enrollment` rows
-  are written yet.** Administrators review and may revise; the whole draft is discardable
-  (reversible).
-- **Step 5 — Commit after confirmation:** on explicit confirm, the wizard calls the **shared pipeline
+- **Step 4 — Promotion preview:** build a preview of what *would* be created. **Nothing is written
+  yet — no `Enrollment`, no `Charge`, no `PaymentPlan`, no finance record of any kind** (Rev. 3
+  Decision 5). The preview lives only as `YearEndDecision` draft rows. Administrators review and may
+  revise; the whole draft is discardable (reversible).
+- **Step 5 — Commit after Final Confirm:** on explicit confirmation, the wizard calls the **shared
+  pipeline
   (5a)** for every promoted/repeated student in one controlled transactional batch, stamps outgoing
   enrollments `Promoted`/`Repeated`, and closes graduating enrollments as `Graduated` (Student
   untouched, Decision 7). Historical enrollments never change.
@@ -267,6 +304,25 @@ migration.
 
 Every new table: `tenantId` NOT NULL, `tenant_isolation` RLS, `tenantId`-leading indexes,
 in-transaction `writeAudit`.
+
+---
+
+## 6a. Academic-Year migration validator (Rev. 3 Decision 1)
+
+A standalone, read-only validator (`scripts/validate-academic-year-migration.ts`) is the **gate**
+before the Phase-B school-scoped cleanup. Per tenant it:
+
+1. Groups `AcademicYear` by `(schoolId, name)` and reports any group with > 1 row — a **duplicate
+   conflict** (would violate the future `@@unique[tenantId, schoolId, name]`).
+2. Reports any School with > 1 `ACTIVE` year — a **single-active conflict**.
+3. Emits a human-readable **conflict report** (per tenant, per school, listing the offending years +
+   ids) and a machine-readable JSON.
+4. **Exits non-zero if any conflict exists**, so the deploy/cleanup pipeline **aborts**. Zero rows are
+   changed by the validator.
+
+Phase B (constraint swap + `campusId` drop) runs **only** when the validator passes for the tenant.
+Administrators resolve conflicts (rename / retire duplicate years) via normal admin tooling first.
+**No silent merge, no automatic consolidation.**
 
 ---
 
