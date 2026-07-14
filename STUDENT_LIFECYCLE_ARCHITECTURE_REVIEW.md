@@ -1,297 +1,348 @@
 # Student Lifecycle, Admission & Academic-Year Architecture Review
 
-> **Status: ARCHITECTURE REVIEW — awaiting approval before any code or schema change.**
-> **Scope:** Student identity, Enrollment lifecycle, Academic Year lifecycle, one unified
-> Admission, Year-End Processing, Withdrawal/Graduation/Re-enrollment. Built **on top of** the
-> existing Finance ledger, Financial Account (`Payer`), Enrollment, Admissions and Fee-Config
-> modules. **No existing ledger is redesigned. No automatic data migration.**
+> **Status: ARCHITECTURE REVIEW (Rev. 2 — decisions ratified) — awaiting final approval before any
+> code or schema change.**
+> **Rev. 2** folds in the 13 architecture decisions returned on review. Where a decision reversed a
+> Rev. 1 recommendation it is called out inline (▲ CHANGED).
+> **Scope:** Student identity, Admission workflow, Enrollment participation lifecycle, Academic Year
+> lifecycle, one shared Enrollment-creation pipeline, Year-End Processing, Withdrawal / Graduation /
+> Re-enrollment, internal Student Number. Built **on top of** the existing Finance ledger, Financial
+> Account (`Payer`), Enrollment, Admissions and Fee-Config modules. **No existing ledger is
+> redesigned. No automatic data migration.**
 > **House conventions reused:** `TenantRepository.run()` + Postgres RLS, `writeAudit(tx, …)` in the
 > same transaction, `@RequirePermissions`, partial-unique-index soft-delete pattern, effective-dated
-> fee config, control-account/subsidiary-ledger finance model.
+> fee config, gapless per-tenant counters (`PaymentReceiptCounter`/`EInvoiceCounter`),
+> control-account/subsidiary-ledger finance model.
 
 ---
 
-## 0. Executive position (read this first)
+## THE GOVERNING PRINCIPLE (Decision 13 — the most important rule)
 
-**This is mostly subtraction and completion, not a new system.** Munaxa already shipped the correct
-spine for this specification:
+> **The `Student` entity is a permanent identity record. Every piece of information that can change
+> between Academic Years belongs to `Enrollment` (or another year-scoped entity). Mutable academic
+> information is NEVER duplicated on `Student`.**
 
-| Business rule in the spec | Already in the codebase |
+This rule governs this refactor **and every future Munaxa module.** Any field that varies year to
+year — grade, section, classroom, enrollment status, academic year, transport, fee plan, advisor,
+timetable — is year-scoped by construction. When designing anything new, the first question is
+"does this change between years?"; if yes, it does not go on `Student`.
+
+---
+
+## 0. Executive position
+
+**This is mostly completion and correction, not a new system.** Munaxa already shipped the correct
+spine:
+
+| Business rule | Already in the codebase |
 |---|---|
-| One `Student` per person; identity by National ID / MoE number | `Student.nationalId` + `Student.moeStudentNumber`, uniqueness enforced by **partial unique indexes** (`WHERE deletedAt IS NULL`) — soft-delete-safe. |
+| One `Student` per person; identity by National ID / MoE number | `Student.nationalId` + `Student.moeStudentNumber`, uniqueness by **partial unique indexes** (`WHERE deletedAt IS NULL`) — soft-delete-safe. |
 | One student → many enrollments; each enrollment ∈ one academic year | `Enrollment` with `@@unique([tenantId, studentId, academicYearId])`. |
-| Academic info on Enrollment; finance on the Financial Account | `Enrollment` (year/grade/section) + `Payer` (Financial Account) → `StudentFinancialAccount` sub-ledger. `Charge` already carries `enrollmentId` + `academicYearId`. |
+| Academic info on Enrollment; finance on the Financial Account | `Enrollment` + `Payer` (Financial Account) → `StudentFinancialAccount` sub-ledger. `Charge` already carries `enrollmentId` + `academicYearId`. |
 | Re-enrollment reuses the student, never recreates | Admissions DTO already accepts `existingStudentId`; `RegistrationCommitment` gives idempotent commit. |
-| Ledger is the single source of truth; balances span years | Control-account (`Payer`) over per-student sub-ledgers; `Charge.academicYearId` already dimensions the ledger by year. |
+| Ledger is single source of truth; balances span years | `Payer` control account over per-student sub-ledgers; `Charge.academicYearId` dimensions the ledger by year. |
 
-So the work is: **(a) finish four things that are genuinely missing** — a participation-lifecycle
-status machine, an Academic-Year status machine, the Year-End Processing wizard, and a single
-identity-lookup admission entry — and **(b) correct two places where the current model contradicts
-the spec's own principle** — academic state that still lives on `Student`, and the admission-only
-meaning of `EnrollmentStatus`.
+The work is: **(a) build four things genuinely missing** — a School-scoped Academic-Year status
+machine, a *participation* `EnrollmentStatus` distinct from a *workflow* `AdmissionStatus`, the
+Year-End Processing wizard (preview → confirm), and a single identity-lookup admission entry;
+**(b) enforce the governing principle** by moving all academic placement off `Student`; and
+**(c) add the internal Student Number.**
 
-I am **challenging five points** in the specification up front (§16) because getting them right is
-what makes this last ten years. Everything below assumes those positions unless overridden.
-
-**I recommend we do NOT write code until the five decision points in §16 are answered.**
+The 13 decisions are ratified in §16. **No code until this Rev. 2 is approved.**
 
 ---
 
 ## 1. Domain review
 
-The canonical nouns, and where each concept must live:
+Canonical nouns and where each concept lives:
 
-- **Student = a person, for life.** Holds identity only: names (EN/AR + father/third), National ID,
-  MoE number, DOB, gender, `userId`, `qrCode`, guardianship links. Nothing time-varying about
-  schooling.
-- **Enrollment = one student's participation in one Academic Year.** Holds *all* year-specific
-  placement and lifecycle: campus, grade, section, classroom, admission/withdrawal/graduation dates,
-  status, reason, transport intent, fee references.
-- **Academic Year = an independent calendar/administrative entity** with explicit Start/End/Status
-  that *gates* admissions, attendance, timetables, academics, finance generation and reporting.
-- **Financial Account (`Payer`) = the customer that pays** for one or more students across one or
-  more years. Control account over per-student `StudentFinancialAccount` sub-ledgers. Never
-  recreated on withdrawal; survives any single child leaving.
-- **Charge/PaymentPlan/Installment/Payment/Allocation/Credit/Refund = the ledger.** Immutable
-  history; the single source of truth. Reused untouched.
+- **Student = a person, for life.** Permanent identity **only**: names (EN/AR + father/third),
+  National ID, MoE number, **internal Student Number** (new, §2a), DOB, gender, `userId`, `qrCode`,
+  guardianship links. Nothing time-varying about schooling. Never archived, never deleted for
+  history (Decisions 4, 7, 13).
+- **Admission = the workflow that decides whether a person joins a given year.** Owns
+  `AdmissionStatus` (Draft → Quoted → Accepted → Registered → Cancelled). A workflow artifact, not a
+  participation record (Decision 2).
+- **Enrollment = one student's participation in one Academic Year.** Owns `EnrollmentStatus` (Active
+  → Completed → Promoted/Repeated/Graduated/Withdrawn → Archived) **and** all year-specific
+  placement: campus, grade, section, classroom, admission/withdrawal/graduation dates, reason,
+  transport intent, fee references (Decisions 2, 4).
+- **Academic Year = a School-scoped calendar/administrative entity** (Decision 1) with Start/End and
+  an explicit `Upcoming/Active/Closed` status (Decision 8) that gates admissions, attendance,
+  timetables, academics, finance generation and reporting. Exactly one `Active` per School.
+- **Financial Account (`Payer`) = the customer that pays** — parent, grandparent, employer, sponsor,
+  charity, embassy, ministry (Decision 5). Control account over per-student `StudentFinancialAccount`
+  sub-ledgers. Never recreated on withdrawal; survives any child leaving.
+- **Ledger = Charge/PaymentPlan/Installment/Payment/Allocation/Credit/Refund** — immutable history,
+  the single source of truth, reused untouched (Decision 11).
 
-**The one frame that resolves every "where does X live?" question:** identity rolls *sideways*
-(Student ↔ Guardian ↔ Financial Account), academic facts roll *down* to the Enrollment, and money
-rolls *up* the ledger (student sub-ledger → account control balance). This is already the house
-model for finance (`UNIFIED_FINANCIAL_ACCOUNT_ARCHITECTURE.md`); we are extending the same
-discipline to the academic side.
-
-**Current violations of this frame (must fix):** `Student.status`, `Student.sectionId`,
-`Student.enrollmentDate`, `Student.transportRequested`, `Student.areaId` are academic/time-varying
-facts sitting on the identity record. See §4 and §16-D.
-
----
-
-## 2. Student lifecycle review
-
-**Spec rule:** *the Student record itself never becomes Withdrawn or Graduated; only Enrollment
-changes status.*
-
-**Today:** `enum StudentStatus { ACTIVE INACTIVE GRADUATED WITHDRAWN }` on `Student.status`. This is
-a direct contradiction — withdrawal/graduation are stamped on identity. It is also *load-bearing*:
-attendance, student lists, and finance filters read `Student.status` and `Student.sectionId`.
-
-**Recommendation (see §16-D for the decision):** keep a `Student`-level status but **redefine and
-demote it to a derived read-model**, never edited by hand:
-
-- `StudentStatus` means **record state**, not academic state: `PROSPECT` (draft, no active
-  enrollment yet) · `ENROLLED` (has an ACTIVE enrollment) · `ALUMNUS` (last enrollment GRADUATED) ·
-  `INACTIVE` (no active enrollment, last was WITHDRAWN/COMPLETED) · `ARCHIVED`.
-- It is **computed transactionally** by the single Enrollment-lifecycle writer whenever an enrollment
-  changes state — the same pattern as the finance rollups. No screen writes it directly.
-- The *academic* words "Withdrawn"/"Graduated" live **only** on `EnrollmentStatus`.
-
-This preserves every existing query (`Student.status` still exists and is still indexed) while making
-the spec's invariant true: a graduated person is `ALUMNUS`, not "a graduated student record" — their
-graduation is a property of the 2027–2028 enrollment, permanently.
-
-`Student.sectionId` → becomes the **current** section, derived from the active Enrollment (§4/§6).
+Direction of data: identity rolls sideways (Student ↔ Guardian ↔ Financial Account), academic facts
+roll down to the Enrollment, money rolls up the ledger.
 
 ---
 
-## 3. Academic Year architecture review
+## 2. Student lifecycle review (Decisions 4, 7, 13)
 
-**Today:** `AcademicYear { name, startDate, endDate, isCurrent Boolean }`, scoped **per campus**
-(`@@unique([tenantId, campusId, name])`). "Current" is a boolean toggled by
-`AcademicYearService`; nothing enforces a single current year and there is no lifecycle.
+**Target model: `Student` holds NO mutable academic column.** The following move off `Student`
+entirely and become year-scoped on `Enrollment` (or derived): `sectionId`, `status` (academic
+meaning), `enrollmentDate`, `areaId`, `transportRequested`.
 
-**Gaps vs. spec:** no explicit `Upcoming / Active / Closed` status; no single-active guarantee; no
-closure semantics (locking attendance/grades/timetables while keeping finance open); and a scoping
-mismatch — the spec says *"only one Academic Year may be Active per school"* but the model is
-per-campus.
+**"Is this person currently enrolled / withdrawn / graduated?" is a DERIVED projection**, computed
+from the student's Enrollments — **not** a stored academic column on `Student` (Decision 4 explicitly
+forbids storing Enrollment Status on Student). It is exposed via a read model / API projection
+(`currentEnrollment`, `currentEnrollmentStatus`) built by joining to the enrollment in the Active
+year.
 
-**Recommendation:**
+**Graduation (Decision 7):** closes the *Enrollment* only (`EnrollmentStatus = Graduated`). The
+`Student` is **never** archived or removed. Graduated people remain permanent records for transcript
+requests, certificate verification and historical reporting. There is no "graduated student" — there
+is a person whose 2027-28 enrollment is Graduated.
 
-1. Add `enum AcademicYearStatus { UPCOMING ACTIVE CLOSED }` (replacing the `isCurrent` boolean;
-   `isCurrent == status == ACTIVE`). Keep `isCurrent` as a generated/compat column for one release if
-   cheaper than touching all readers.
-2. Enforce **exactly one ACTIVE per scope** with a partial unique index
-   (`… WHERE status = 'ACTIVE'`), mirroring the "one ACTIVE PaymentPlan per charge" pattern already
-   in the schema.
-3. **Closure is an administrative event only** — it flips status to `CLOSED` and *locks academic
-   editing* for that year (attendance, grades, timetables become read-only via a guard keyed on the
-   year's status). It **must not** touch any Student or Enrollment row. Finance stays fully open;
-   outstanding balances remain collectible (§8).
-4. **Scope decision required (§16-A):** keep per-campus ("one active per campus", read "school" as
-   the operating campus) vs. promote to school-scoped. My recommendation: **keep per-campus** — real
-   Jordanian multi-campus operators run different calendars — and enforce single-ACTIVE-per-campus.
+**Transition for the existing `Student.status` / `Student.sectionId` (they are load-bearing across
+attendance/finance/lists):** the columns are **deprecated compatibility shims**, not part of the
+target model. During migration they are written *only* by the single Enrollment-lifecycle writer
+(never by a screen) as a read-through cache of the current enrollment, and readers are migrated to
+the derived projection incrementally. The final roadmap step **drops** them, leaving `Student`
+identity-only. This honours Decision 13 while not breaking every reader on day one.
 
 ---
 
-## 4. Enrollment model review
+## 2a. Student Number (Decision 6 — new)
 
-`Enrollment` exists and is the right anchor, but it is currently an **admission artifact**, not a
-**participation record**. Two corrections:
+Add an **internal Student Number**: a school-generated, human-readable identifier, **separate from
+National ID and MoE number**, and a **permanent identity attribute** (it does not change between
+years, so it belongs on `Student` — consistent with Decision 13).
 
-**(a) It is missing the year-specific fields the spec assigns to it.** Add (nullable, additive):
-`campusId`, `classroomId`, `admissionDate`, `withdrawalDate`, `graduationDate`, `reason`
-(withdraw/graduate/cancel reason), and an explicit link for transport intent
-(`transportDirection` already exists; add `areaId`/`transportRequested` here so they leave
-`Student`). Attendance/behavior/grades/documents already reference `Student` + `Section`; they become
-*derivable per year* by joining through the Enrollment for that year — no data move required, just a
-reporting view.
+- **Field:** `Student.studentNumber String` — `@@unique([tenantId, studentNumber])`.
+- **Generation:** auto-assigned at student creation by a **gapless per-tenant counter**, reusing the
+  existing `PaymentReceiptCounter`/`EInvoiceCounter` row-locked pattern (new `StudentNumberCounter`,
+  optional configurable format/prefix, e.g. `2026-000123`). Never user-entered, never reassigned.
+- **Used on:** Report Cards, QR Cards, Attendance Sheets, Library Cards, Certificates.
+- **Distinct from `qrCode`** (already on `Student`, an opaque scan token) and from `StudentCard`
+  (the physical-card record) — the Student Number is the readable business identifier those surfaces
+  print.
+- **Not an identity-lookup key for admission** — admission identity resolution stays National ID
+  (primary) / MoE number (fallback), exact match only (§9).
 
-**(b) Its status enum conflates two different lifecycles (see §16-C).** Today:
-`EnrollmentStatus { QUOTED PENDING_APPROVAL COMMITTED ACTIVE CANCELLED }` — that is the *admission*
-lifecycle. The spec wants the *participation* lifecycle
-(`Draft Registered Active Completed Promoted Repeated Withdrawn Graduated Archived`).
+---
 
-**Recommendation:** **one** status machine that spans both, because they are one continuous life of a
-single row:
+## 3. Academic Year architecture review (Decisions 1, 8)
+
+▲ **CHANGED from Rev. 1** (which recommended per-campus). **Academic Year is now School-scoped.**
+
+**Today:** `AcademicYear` is scoped **per campus** (`@@unique([tenantId, campusId, name])`) with only
+an `isCurrent` boolean.
+
+**Target:**
+
+1. **Re-scope to the School.** `AcademicYear` belongs to `School`, not `Campus`
+   (`@@unique([tenantId, schoolId, name])`). **Campuses participate** in the School's Academic Year;
+   they do not own their own. Different concurrent Academic Years are a **multi-school-group** concern
+   for the future, **not** multiple campuses within one school (Decision 1).
+2. **Explicit lifecycle** `enum AcademicYearStatus { UPCOMING ACTIVE CLOSED }` (Decision 8),
+   replacing/superseding `isCurrent` (`isCurrent == status == ACTIVE`).
+3. **Exactly one `ACTIVE` per School**, enforced by a partial unique index
+   (`… WHERE status = 'ACTIVE'`), mirroring the "one ACTIVE PaymentPlan per charge" pattern.
+4. **Never deletable** (Decision 8) — enforced by a guard; lifecycle only ever moves
+   `UPCOMING → ACTIVE → CLOSED`.
+5. **Closure is administrative only** — flips to `CLOSED`, **locks academic editing** for that year
+   (attendance/grades/timetables read-only via a status-keyed guard); **never** mutates Student or
+   Enrollment; **finance stays open** and prior balances remain collectible (§8, §12).
+
+**Migration note:** the re-scope from campus to school is the one structurally significant change.
+Because production schools today are effectively single-calendar, we backfill `schoolId` from each
+year's `campus.schoolId`; where a school has multiple campuses with duplicate year names they
+collapse to one School year (validated per tenant before the migration runs; flagged, not
+auto-merged silently).
+
+---
+
+## 4. Admission Status vs. Enrollment Status — two distinct lifecycles (Decision 2)
+
+▲ **CHANGED from Rev. 1** (which recommended one merged status machine). **They stay separate**, on
+**separate entities**, because they are different business concepts and must be distinguishable in
+reporting and logic.
+
+### 4a. `AdmissionStatus` — the admission workflow (on the admission artifact)
 
 ```
-DRAFT ─▶ QUOTED ─▶ (PENDING_APPROVAL) ─▶ REGISTERED ─▶ ACTIVE ─▶ ┬▶ COMPLETED ─▶ PROMOTED / REPEATED
-                                                                 ├▶ GRADUATED
-                                                                 └▶ WITHDRAWN
-   (any pre-ACTIVE state) ─▶ CANCELLED                    (terminal) ─▶ ARCHIVED (year closed)
+DRAFT ──▶ QUOTED ──▶ ACCEPTED ──▶ REGISTERED
+   └──────────┴───────────┴───▶ CANCELLED   (abandoned before registration)
 ```
 
-Migration of existing values: `COMMITTED → REGISTERED`, keep `ACTIVE`, keep `CANCELLED`,
-`QUOTED/PENDING_APPROVAL` unchanged. `PROMOTED`/`REPEATED` are stamped on the *outgoing* enrollment
-when the *next* enrollment is created by the wizard, so history reads cleanly ("2025-26 Grade 4
-Promoted → 2026-27 Grade 5 Active").
+Lives on the **admission artifact** — the `EnrollmentQuote` / admission-application lineage
+(`RegistrationCommitment` marks the transition to `REGISTERED`). Values: `Draft · Quoted · Accepted ·
+Registered · Cancelled`. When admission reaches **Registered**, it materialises exactly one
+`Enrollment` (via the shared pipeline, §5).
 
-Immutability: once the enrollment's Academic Year is `CLOSED`, the row (and its academic children)
-are read-only — enforced by an app guard, backed by an append-only audit; a DB trigger is the
-belt-and-suspenders option (§16-E is not this; this is a firm recommendation).
+### 4b. `EnrollmentStatus` — participation in an Academic Year (on `Enrollment`)
+
+```
+ACTIVE ──▶ COMPLETED ──▶ PROMOTED | REPEATED
+   ├──────────────────▶ GRADUATED
+   └──────────────────▶ WITHDRAWN
+                        (terminal) ──▶ ARCHIVED   (year Closed)
+```
+
+Values: `Active · Completed · Promoted · Repeated · Withdrawn · Graduated · Archived`. An `Enrollment`
+row only exists from `REGISTERED` onward, so it never needs the workflow states.
+`Promoted`/`Repeated` are stamped on the **outgoing** enrollment when the **next** enrollment is
+created, giving clean history ("2025-26 Grade 4 Promoted → 2026-27 Grade 5 Active").
+
+### 4c. Migration of the existing conflated enum
+
+Current `EnrollmentStatus { QUOTED PENDING_APPROVAL COMMITTED ACTIVE CANCELLED }` is split:
+
+| Current value | Goes to | New value |
+|---|---|---|
+| `QUOTED`, `PENDING_APPROVAL` | `AdmissionStatus` (on the quote/admission artifact) | `Quoted`, (Accepted-pending) |
+| `CANCELLED` (pre-registration) | `AdmissionStatus` | `Cancelled` |
+| `COMMITTED`, `ACTIVE` | `EnrollmentStatus` (on `Enrollment`) | `Active` |
+
+Reporting and business logic query the **admission** artifact for funnel/workflow metrics and the
+**Enrollment** for participation metrics — never one column for both.
 
 ---
 
-## 5. Year-End Processing workflow review
+## 5. Single Enrollment-creation pipeline + Year-End Processing (Decisions 3, 9, 10)
 
-Entirely new. Model it as a **resumable, idempotent, audited batch** reusing the admission commit
-path — do **not** build a parallel enrollment writer.
+### 5a. One shared pipeline (Decision 3 — approved)
 
-- **New models:** `YearEndProcess` (per source AcademicYear: status, counts, actor, timestamps) and
-  `YearEndDecision` (per student: `PROMOTE | REPEAT | GRADUATE | WITHDRAW | DECIDE_LATER`, review
-  flags, resulting `enrollmentId`). Idempotency via a per-decision key, exactly like
-  `RegistrationCommitment.idempotencyKey`.
-- **Step 1 — Close the year:** flip `AcademicYearStatus → CLOSED`; lock academic editing; finance
-  stays open. No Student/Enrollment mutation.
-- **Step 2 — Ensure next year exists** (`UPCOMING`). Reuse `AcademicYearService`.
-- **Step 3 — Review board:** list every `ACTIVE` enrollment in the closing year; **highlight** rows
-  needing manual review (failed subjects / missing grades / administrative or finance holds). **The
-  system never silently promotes** — every student needs an explicit decision or stays
-  `DECIDE_LATER`.
-- **Step 4/5 — Promote/Repeat:** for each decided student, **call the same
-  `RegistrationCommitService`** that admission uses, with `existingStudentId` set → creates the next
-  Enrollment (copy campus/guardian/account-ref/optional default transport; set new year/grade/
-  section/classroom), generates new Charges/Plan/Schedule via the existing fee engine, and stamps the
-  outgoing enrollment `PROMOTED`/`REPEATED`. Historical enrollments untouched.
-- **Step 6 — Graduate:** close the outgoing enrollment as `GRADUATED`; no new enrollment; Student
-  becomes `ALUMNUS` (derived). All history retained.
+**Every path that creates a new `Enrollment` — Admission, Re-enrollment, Promotion, Repeat — goes
+through one backend service** (extend the existing `RegistrationCommitService`). **No separate
+implementations, ever.** It: resolves-or-creates the Financial Account, creates the Enrollment with
+its year-scoped placement, generates Charges/Plan/Schedule via the existing fee engine, writes audit,
+and is idempotent per commit (`RegistrationCommitment.idempotencyKey`). The existing family
+MERGE/SEPARATE/NEW_PLAN wizard folds in as a **mode/parameter**, not a second endpoint.
 
-**Why reuse the commit path:** admission, re-enrollment, promotion and repeat are the *same write* —
-"create the next Enrollment + its ledger for this person." One path = one set of invariants, one
-audit shape, one place to fix bugs. This is the single biggest maintainability win in the whole
-refactor.
+### 5b. Year-End Processing wizard — preview then commit (Decision 9)
+
+▲ **REFINED from Rev. 1.** The wizard **must not create any Enrollment until the final confirmation**
+and is **fully reversible until that commit.**
+
+- **New models:** `YearEndProcess` (per School+source year: status, counts, actor, timestamps) and
+  `YearEndDecision` (per student: planned action `PROMOTE | REPEAT | GRADUATE | WITHDRAW |
+  DECIDE_LATER`, assigned grade/section/classroom, review flags, and — only after commit — the
+  resulting `enrollmentId`). Idempotent per decision.
+- **Step 1 — Close the current year:** `AcademicYearStatus → CLOSED`; **lock academic records**;
+  finance stays open. No Student/Enrollment mutation.
+- **Step 2 — Ensure next year exists** (`UPCOMING`).
+- **Step 3 — Review every student:** list every `Active` enrollment; **highlight** those needing
+  manual review (failed subjects / missing grades / administrative or finance holds). Never silently
+  promote — every student gets an explicit decision or stays `DECIDE_LATER`.
+- **Step 4 — Promotion preview:** build a preview of what *would* be created. **No `Enrollment` rows
+  are written yet.** Administrators review and may revise; the whole draft is discardable
+  (reversible).
+- **Step 5 — Commit after confirmation:** on explicit confirm, the wizard calls the **shared pipeline
+  (5a)** for every promoted/repeated student in one controlled transactional batch, stamps outgoing
+  enrollments `Promoted`/`Repeated`, and closes graduating enrollments as `Graduated` (Student
+  untouched, Decision 7). Historical enrollments never change.
+
+### 5c. Promotion copy rules (Decision 10)
+
+On promote/repeat, **auto-copy only:** Guardian Links, Financial Account reference, Student Identity,
+**Optional Transport (configurable, off by default).** **Do NOT auto-copy Section or Classroom** —
+schools reorganise every year. Administrators **must assign Grade, Section and Classroom** during
+Year-End Processing (Grade defaults are *suggested* by promotion, not silently applied).
 
 ---
 
 ## 6. Database impact
 
-All additive; no destructive change; no auto-migration of existing rows.
+All additive except the two flagged structural changes; no ledger change; no automatic business-data
+migration.
 
 | Change | Type | Notes |
 |---|---|---|
-| `AcademicYearStatus` enum + `AcademicYear.status` | additive | backfill `ACTIVE` where `isCurrent`, else `UPCOMING`/`CLOSED` by date; partial unique index for single-ACTIVE. |
-| Extend `EnrollmentStatus` enum + remap `COMMITTED→REGISTERED` | additive + data update | enum values only added; one UPDATE for existing rows, audited. |
+| `AcademicYear` re-scope campus → **school** (`schoolId`, `@@unique[tenantId, schoolId, name]`) | **structural** | backfill `schoolId` from `campus.schoolId`; per-tenant validation first (§3). |
+| `AcademicYearStatus` enum + `AcademicYear.status`; one-`ACTIVE`-per-school partial index; no-delete guard | additive | backfill `ACTIVE` where `isCurrent`, else by date. |
+| **New `AdmissionStatus` enum** on the admission artifact | additive | split out of the current enum (§4c). |
+| `EnrollmentStatus` **redefined to participation set**; remap `COMMITTED/ACTIVE→Active` | additive enum + data update | admission-phase rows move to the admission artifact. |
 | `Enrollment` new columns: `campusId, classroomId, admissionDate, withdrawalDate, graduationDate, reason, areaId, transportRequested` | additive nullable | placement/lifecycle moves here from `Student`. |
-| Redefine `StudentStatus` values + make it derived | **behavioral** | keep column + indexes; add the new values; stop hand-editing; backfill from enrollments. Old values remain valid during transition. |
-| `YearEndProcess`, `YearEndDecision` | new tables | standard tenant + RLS + audit. |
-| Partial index: one `ACTIVE` AcademicYear per campus | additive | mirrors existing partial-unique patterns. |
-| Optional: `WithdrawalSettlement`, `AdmissionCancellation` orchestration records | new tables | thin audit records over existing ledger ops (§8); no new ledger primitives. |
-| Reporting view: per-year enrollment ↔ attendance/grades/behavior | new view | no data move; joins through Enrollment. |
+| `Student.studentNumber` + `StudentNumberCounter` (gapless per-tenant) | additive | Decision 6; `@@unique[tenantId, studentNumber]`. |
+| Deprecate `Student.status`/`sectionId`/`enrollmentDate`/`areaId`/`transportRequested` (shim, then drop) | **behavioral → removal** | written only by the lifecycle writer during transition; dropped in the final step. |
+| `YearEndProcess`, `YearEndDecision` | new tables | standard tenant + RLS + audit; preview holds no Enrollment. |
+| Optional `WithdrawalSettlement`, `AdmissionCancellation` audit records | new tables | thin records over existing ledger ops (§8); no new ledger primitives. |
+| Reporting view: per-year enrollment ↔ attendance/grades/behavior/documents | new view | no data move; joins through Enrollment. |
 
-Every new table follows the house pattern: `tenantId` NOT NULL, `tenant_isolation` RLS policy,
-composite indexes leading with `tenantId`, `writeAudit` in-transaction.
+Every new table: `tenantId` NOT NULL, `tenant_isolation` RLS, `tenantId`-leading indexes,
+in-transaction `writeAudit`.
 
 ---
 
 ## 7. Backend impact
 
-- **New `StudentIdentityService.lookupByIdentifier(nationalId | moeStudentNumber)`** — the single
-  identity check that drives admission Cases A/B/C (§9). National ID primary, MoE fallback, **exact
-  match only**, tenant-scoped. No fuzzy/name/DOB comparison, ever.
-- **`EnrollmentLifecycleService`** — the sole writer of enrollment status transitions and the derived
-  `Student.status`/current-section; enforces the state machine in §4; writes audit per transition.
-- **`RegistrationCommitService`** — extend the existing commit to be the shared path for admission,
-  re-enrollment, promotion and repeat (parameterised by `existingStudentId` + `mode`). Fold the
-  existing "family MERGE/SEPARATE/NEW_PLAN" wizard into it as a *mode*, not a second endpoint.
-- **`AcademicYearService`** — add status transitions + single-ACTIVE enforcement + closure locking
-  guard.
-- **`YearEndProcessingService`** — orchestrates the wizard; batches decisions; idempotent per
-  decision; delegates writes to `RegistrationCommitService`/`EnrollmentLifecycleService`.
-- **Guards:** a `ClosedYearReadOnlyGuard` on attendance/grades/timetable mutations keyed on the
-  year's status; a `DeletableOnlyIfDraftGuard` for the deletion rule (§13).
-- **Permissions:** reuse `Registrar`, `SchoolAdmin`, `Principal`, `FinanceOfficer`. Add
-  `enrollment:promote`, `enrollment:withdraw`, `academicyear:close`, `yearend:process` to the catalog
-  and role-permission seed.
+- **`StudentIdentityService.lookupByIdentifier(nationalId | moeStudentNumber)`** — the single
+  identity check driving admission Cases A/B/C (§9). National ID primary, MoE fallback, **exact match
+  only**, tenant-scoped. No fuzzy / name / DOB comparison, ever.
+- **`StudentNumberService`** — gapless allocation of `studentNumber` (Decision 6), row-locked counter.
+- **`EnrollmentLifecycleService`** — sole writer of `EnrollmentStatus` transitions (§4b) and, during
+  transition, of the deprecated `Student` shims + derived current-enrollment projection; audits every
+  transition.
+- **`AdmissionWorkflowService`** — owns `AdmissionStatus` transitions (§4a) on the admission artifact,
+  distinct from the enrollment lifecycle.
+- **`RegistrationCommitService` (extended)** — the **one** pipeline for admission / re-enrollment /
+  promotion / repeat (Decision 3), parameterised by `existingStudentId` + mode.
+- **`AcademicYearService`** — school-scoped status transitions, single-`ACTIVE` enforcement, closure
+  lock, no-delete guard.
+- **`YearEndProcessingService`** — preview (no writes) → confirm → batch via the shared pipeline;
+  reversible until commit (Decision 9).
+- **Guards:** `ClosedYearReadOnlyGuard` (academic mutations keyed on year status);
+  `DeletableOnlyIfDraftGuard` (§13); `AcademicYearNoDeleteGuard`.
+- **Permissions:** reuse `Registrar/SchoolAdmin/Principal/FinanceOfficer`; add
+  `enrollment:promote/withdraw`, `academicyear:close`, `yearend:process`.
 
-Existing endpoints keep working; nothing is deleted until the unified admission fully replaces the
-two current flows (§10).
+Existing endpoints keep working behind a feature flag until the unified admission replaces the two
+legacy flows.
 
 ---
 
-## 8. Finance impact
+## 8. Finance impact (Decision 11 — do not redesign)
 
-**The ledger is not redesigned and not migrated.** Everything below is orchestration over existing
-primitives.
+**Ledger not redesigned, not migrated.** All orchestration over existing primitives:
 
-- **Re-enrollment / promotion finance:** new Enrollment → new `Charge`s (dimensioned by the new
-  `academicYearId`/`enrollmentId` already on `Charge`) → new `PaymentPlan` + `Installment`s via the
-  existing fee engine (`ChargeService.createInstallments`). Previous-year charges are **never
-  rewritten**. Balances aggregate up the `Payer` control account across years — already true today.
-- **Withdrawal settlement (academic event ≠ financial event):** a `WithdrawalSettlementService` that
-  runs school policy as existing ledger ops — cancel remaining tuition (`Charge/Installment →
-  CANCELLED`), keep registration fee, charge current month, refund transport/books (`Refund` +
-  `RefundConsumption`), apply penalties (`FeeAdjustment`). **Nothing deleted; all recorded.** No new
-  ledger tables — only a thin `WithdrawalSettlement` audit record tying the ops together.
-- **Cancel Admission (pre-active):** void charges (`Charge → CANCELLED`), policy refund, cancel
-  transport, release seat, **keep audit**. Distinct from withdrawal (§13/§16-B).
-- **Financial Account continuity:** withdrawing one child never closes the `Payer`; siblings' charges
-  and the control balance are untouched — already the model's behavior.
-- **JoFotara / receipts:** unchanged; reused via `FinanceBridgeService`.
+- **Re-enrollment / promotion finance:** new Enrollment → new `Charge`s (already dimensioned by
+  `academicYearId`/`enrollmentId`) → new `PaymentPlan` + `Installment`s via
+  `ChargeService.createInstallments`. Prior-year charges **never rewritten**; balances aggregate up
+  the `Payer` across years (already true).
+- **Withdrawal settlement (academic event ≠ financial event):** `WithdrawalSettlementService` runs
+  school policy as existing ledger ops — cancel remaining tuition (`→ CANCELLED`), keep registration
+  fee, charge current month, refund transport/books (`Refund`+`RefundConsumption`), apply penalties
+  (`FeeAdjustment`). Nothing deleted; all recorded. Only a thin `WithdrawalSettlement` audit record.
+- **Cancel Admission (pre-active):** void charges, policy refund, cancel transport, release seat, keep
+  audit — distinct from withdrawal (§13).
+- **Financial Account continuity:** withdrawing one child never closes the `Payer`; siblings and the
+  control balance untouched.
+- **Outstanding balances span years** and remain collectible after year closure (Decision 11, 12).
+- **JoFotara / receipts:** unchanged, reused via `FinanceBridgeService`.
 
 ---
 
 ## 9. Admission impact
 
 **Collapse the two flows** (`/admissions` and `/admissions/family`) into **one** wizard; the
-single-student case is the degenerate N=1 of the account flow (consistent with
-`UNIFIED_FINANCIAL_ACCOUNT_ARCHITECTURE.md`).
+single-student case is the degenerate N=1 of the account flow.
 
-Flow:
-
-1. **Guardian** — select existing or create → resolves/creates the Financial Account (`Payer`).
+1. **Financial Account** — select existing or create (Decision 5: payer may be parent / grandparent /
+   employer / sponsor / charity / embassy / ministry) → resolves/creates the `Payer`.
 2. **Identity** — enter National ID (or MoE number) → **immediate `lookupByIdentifier`**:
-   - **Case A — not found:** normal admission → create Student + Enrollment + Charges + Plan +
-     Agreement (existing commit path).
-   - **Case B — found & has ACTIVE enrollment:** *"already enrolled"* → buttons **Open Student** /
-     **Open Financial Account**. No new admission.
-   - **Case C — found & no active enrollment (last WITHDRAWN/COMPLETED):** *"previously enrolled"* →
-     primary action **Re-Enroll** → same commit path with `existingStudentId`. **Never create a new
-     Student.**
-3. **Similar-name warning (new, informational only):** before the identifier is entered, a soft
-   warning if a very similar name already exists — **never** blocks, **never** substitutes for the
-   National-ID identity check (§16 keeps this a UX nicety, not an identity path).
-
-`existingStudentId` already exists in the DTO; the missing piece is the *identity-lookup-first* entry
-and the A/B/C branching UI.
+   - **Case A — not found:** normal admission → Student (+ auto `studentNumber`) + admission artifact
+     → on Registered, Enrollment + Charges + Plan + Agreement via the shared pipeline.
+   - **Case B — found with an Active enrollment:** *"already enrolled"* → **Open Student** / **Open
+     Financial Account**. No new admission.
+   - **Case C — found, no active enrollment (last Withdrawn/Completed):** *"previously enrolled"* →
+     **Re-Enroll** via the shared pipeline with `existingStudentId`. **Never create a new Student.**
+3. **Similar-name warning (informational only):** a soft warning if a very similar name exists —
+   **never blocks, never substitutes for the National-ID identity check.**
 
 ---
 
 ## 10. Parent Portal impact
 
-- **Student profile becomes read-only for finance** — show Financial Account, Outstanding Summary,
-  Current Enrollment, and **Enrollment History** (immutable per-year rows: year · grade · status). No
-  payment collection, no ledger editing, no installment management on the student page — those live
-  only on the Financial Account (already the finance-doc direction).
+- **Student profile is read-only for finance** — show Financial Account, Outstanding Summary, Current
+  Enrollment, and immutable **Enrollment History** (year · grade · status). No payment collection /
+  ledger editing / installment management on the student page; those live only on the Financial
+  Account.
 - Multi-year history is a straight read over `Enrollment` ordered by Academic Year.
 - Withdrawn/graduated children still show full history; the Financial Account keeps aggregating.
 
@@ -299,60 +350,49 @@ and the A/B/C branching UI.
 
 ## 11. Reporting impact
 
-- Every enrollment-based report gains an **Academic Year filter** (the dimension already exists on
-  `Enrollment` and `Charge`). Counts by status (Active/Promoted/Repeated/Graduated/Withdrawn) come
-  straight off `EnrollmentStatus`.
-- Closed years remain **fully reportable** — closure locks *editing*, not *reading*.
-- Cross-year financial reports (outstanding balances, collections) roll up the `Payer` control
-  account and already span years via `Charge.academicYearId`.
-- Add the per-year enrollment↔academic view (§6) so attendance/performance reports scope by year
-  without denormalizing onto Student.
+- **Two clearly distinct report families (Decision 2):** admission-funnel reports off `AdmissionStatus`
+  (Draft/Quoted/Accepted/Registered/Cancelled); participation reports off `EnrollmentStatus`
+  (Active/Completed/Promoted/Repeated/Graduated/Withdrawn/Archived). Never conflated.
+- **Academic-Year filter** on every enrollment-based report (dimension already on `Enrollment`/`Charge`).
+- **Closed years remain fully reportable** — closure locks editing, not reading (Decision 12).
+- Cross-year financial reports roll up the `Payer` and span years via `Charge.academicYearId`.
+- Per-year enrollment↔academic view (§6) scopes attendance/performance by year without touching
+  Student.
 
 ---
 
-## 12. Migration strategy
+## 12. Historical data (Decision 12)
 
-**No automatic migration of business data.** Structural (additive) migrations only:
-
-1. Add `AcademicYearStatus`; backfill status from `isCurrent`/dates; add single-ACTIVE partial index.
-2. Extend `EnrollmentStatus`; one audited UPDATE `COMMITTED→REGISTERED`.
-3. Add nullable `Enrollment` columns; **do not** back-move `Student.sectionId` en masse — new
-   enrollments write placement to Enrollment; legacy `Student.sectionId` is read as the "current
-   section" until the active enrollment supplies it. A background, opt-in backfill can populate
-   historical enrollments later.
-4. Redefine `StudentStatus` values; backfill derived status from enrollments in a one-off,
-   idempotent, audited job.
-5. Create `YearEnd*` and optional settlement tables.
-
-Existing students, withdrawn students, and academic years **remain as-is**. Re-enrollment becomes the
-**only** path for returning students. Historical ledgers are never touched.
+Every closed `Enrollment` is **historical and immutable**. Previous Academic Years remain available —
+Attendance, Grades, Timetables, Homework, Behaviour, Documents, Finance, Audit Logs, Reports — and are
+**never overwritten**. Enforced by the closed-year read-only guard + append-only audit; an optional DB
+trigger is the belt-and-suspenders.
 
 ---
 
 ## 13. Deletion & Cancel-Admission rules
 
-- **Hard delete allowed only when** `Enrollment.status = DRAFT` **and no dependent records** exist
-  (attendance/grades/finance/documents/transport/audit/JoFotara/collections/statements). Otherwise
-  **hide Delete**; offer **Withdraw** (post-active) or **Cancel Admission** (pre-active).
-- Enforce with `DeletableOnlyIfDraftGuard` + a dependency probe; Students continue to use soft-delete
-  (`deletedAt`) so identifiers free up correctly (existing partial-unique behavior).
+- **Hard delete allowed only when** the admission artifact is `Draft` **and no dependent records**
+  exist. Otherwise **hide Delete**; offer **Withdraw** (post-active) or **Cancel Admission**
+  (pre-active).
+- Students keep soft-delete (`deletedAt`) so identifiers free correctly (existing partial-unique
+  behavior). **Never delete a student with history** (Decision 7).
+- **Academic Years are never deletable** (Decision 8).
 - **Cancel Admission ≠ Withdrawal:** cancel voids charges / policy-refunds / releases seat *before*
-  the student is active; withdrawal closes an *active* enrollment and runs settlement. Both keep all
-  audit history.
+  active; withdrawal closes an *active* enrollment and runs settlement. Both keep all audit history.
 
 ---
 
 ## 14. Rollback strategy
 
-- Every migration is additive and paired with a **down** that drops only the new columns/tables/enum
-  values — no data loss on rollback.
-- The unified admission ships **behind a feature flag** (existing `FeatureFlag` per-tenant
-  mechanism); the two legacy flows stay reachable until the new one is proven, then are removed in a
-  later, isolated PR.
-- Derived `Student.status` backfill is idempotent and re-runnable; if wrong, re-run after fix.
-- Year-End wizard writes through the audited commit path, so a mis-promotion is corrected by
-  withdrawing/cancelling the *new* enrollment — history stays intact, nothing is destructively
-  undone.
+- Additive migrations paired with a **down** dropping only new columns/tables/enum values.
+- The AcademicYear campus→school re-scope keeps `campusId` during transition (nullable, deprecated)
+  so rollback is non-destructive.
+- Unified admission ships **behind a `FeatureFlag`**; legacy flows stay reachable until proven, then
+  removed in an isolated PR.
+- Derived-status backfill and Student-Number backfill are idempotent and re-runnable.
+- **Year-End is reversible until commit** (Decision 9); a mis-promotion after commit is corrected by
+  withdrawing/cancelling the *new* enrollment — history stays intact.
 
 ---
 
@@ -360,66 +400,68 @@ Existing students, withdrawn students, and academic years **remain as-is**. Re-e
 
 | Risk | Severity | Mitigation |
 |---|---|---|
-| `Student.status`/`sectionId` are load-bearing across attendance/finance | **High** | Keep the columns; redefine meaning; single derived writer; no reader rewrite required in phase 1. |
-| Two `EnrollmentStatus` lifecycles conflated | High | One unified machine (§4) with a mechanical value remap; no ambiguous states. |
-| AcademicYear campus-vs-school scope (§16-A) | High | Decide before coding; default keep-campus + single-ACTIVE index. |
-| Silent/accidental promotion | High | Wizard requires explicit per-student decision; `DECIDE_LATER` default; review highlights. |
-| Closed-year edits leaking through | Medium | Status-keyed guard + append-only audit + optional DB trigger. |
-| Two admission flows drifting during transition | Medium | Feature-flag the unified flow; delete legacy in a dedicated follow-up. |
-| Withdrawal settlement policy variance per school | Medium | Policy-driven service over existing ledger ops; no schema lock-in. |
-| Similar-name warning mistaken for identity check | Low | Informational only; never blocks; identity is National-ID/MoE exact match only. |
+| AcademicYear campus→school re-scope on live data | **High** | per-tenant validation before migrate; keep `campusId` shim; single-calendar reality makes collisions rare; flag, don't auto-merge. |
+| `Student.status`/`sectionId` load-bearing across modules | High | deprecate as shims written only by the lifecycle writer; migrate readers incrementally; drop last. |
+| Two status concepts confused in code/reporting | High | separate enums on separate entities (§4); mechanical split of the old enum. |
+| Silent/accidental promotion | High | preview-then-confirm; explicit per-student decision; `DECIDE_LATER` default; review highlights (Decision 9). |
+| Section/classroom wrongly auto-copied | Medium | Decision 10 — only guardian/account/identity/optional-transport copied; grade/section/classroom admin-assigned. |
+| Closed-year edits leaking through | Medium | status-keyed guard + append-only audit + optional DB trigger. |
+| Two admission flows drifting during transition | Medium | feature-flag; delete legacy in a dedicated follow-up. |
+| Student-Number format/uniqueness | Low | gapless row-locked counter (proven pattern); `@@unique[tenantId, studentNumber]`. |
+| Similar-name warning mistaken for identity check | Low | informational only; identity is National-ID/MoE exact match. |
 
 ---
 
-## 16. Enterprise architect's critique — five decisions before we code
+## 16. Ratified decisions (locked for implementation)
 
-1. **[A] Academic Year scope — campus or school?** Spec says "one Active per school"; the model is
-   per-campus. **My recommendation: keep per-campus, enforce single-ACTIVE per campus**, and read
-   "school" as the operating campus. Overriding to school-scoped is cleaner on paper but breaks
-   multi-campus operators with staggered calendars. **Need your call.**
-
-2. **[B] One status machine, not two.** Merge the admission enum
-   (`QUOTED…CANCELLED`) and the participation enum
-   (`Draft…Archived`) into a single Enrollment lifecycle (§4). Avoids a second status column and the
-   "which status is authoritative?" bug class. **I recommend yes.**
-
-3. **[C] One commit path for admission = re-enrollment = promotion = repeat.** All four are "create
-   the next Enrollment + its ledger for this person." Route them through the existing
-   `RegistrationCommitService`, and fold the family MERGE/SEPARATE/NEW_PLAN wizard into it as a
-   *mode*. Biggest long-term maintainability win. **I recommend yes.**
-
-4. **[D] Demote `Student.status` to a derived read-model and move placement to Enrollment.** This is
-   what actually makes the spec's "the Student never becomes Withdrawn/Graduated" true, instead of
-   just asserting it. Keep the column for compatibility; stop hand-writing it; academic words live on
-   `EnrollmentStatus` only. **I recommend yes** — but it touches many readers, so it's a decision.
-
-5. **[E] Rename "Family" → "Financial Account" everywhere in this work** (routes, UI, DTOs, i18n),
-   consistent with the already-approved finance direction. The payer may be a company / sponsor /
-   government / divorced parents — "Family Admission" bakes in the assumption we're removing. Do it
-   now while the surface is small. **I recommend yes.**
+| # | Decision | Effect on the design |
+|---|---|---|
+| **1** | Academic Year is **School-scoped**; exactly one `Active` per School; campuses participate. Concurrent years are a future multi-school-group feature, not multi-campus. | §3 re-scope campus→school; single-ACTIVE-per-school index. ▲ reverses Rev. 1. |
+| **2** | **Separate** `AdmissionStatus` (Draft/Quoted/Accepted/Registered/Cancelled) from `EnrollmentStatus` (Active/Completed/Promoted/Repeated/Withdrawn/Graduated/Archived). | §4 two enums on two entities. ▲ reverses Rev. 1. |
+| **3** | **One shared Enrollment-creation pipeline** for Admission / Re-enrollment / Promotion / Repeat. No separate implementations. | §5a extend `RegistrationCommitService`. |
+| **4** | **Student holds no mutable academic info** (grade, section, classroom, enrollment status, academic year, transport, fee plan, advisor, timetable). Identity only. | §2 move all placement to Enrollment; derived projections. |
+| **5** | Rename remaining payer-representing **"Family" → "Financial Account"**; payer may be parent/grandparent/employer/sponsor/charity/embassy/ministry. | §9 + a rename sweep (routes/UI/DTO/i18n). |
+| **6** | Add internal **Student Number**, auto-generated by the school, separate from National ID / MoE; on report cards, QR cards, attendance sheets, library cards, certificates. | §2a new field + counter. |
+| **7** | **Graduation closes the Enrollment only**; Student never archived/removed; permanent for transcripts/verification/reporting. | §2, §5b, §13. |
+| **8** | Academic Year lifecycle `Upcoming/Active/Closed`; **never deletable**. | §3 status + no-delete guard. |
+| **9** | Year-End Processing is **preview → administrator review → commit-only-after-confirmation**; **no Enrollment created until confirm**; **reversible until commit**. | §5b. |
+| **10** | Promotion auto-copies only Guardian Links / Financial Account / Identity / optional Transport; **admin assigns Grade, Section, Classroom**; never auto-copy Section/Classroom. | §5c. |
+| **11** | **Do not redesign** Financial Account / Ledger / Charges / Billing / Payment Plans — integrate only; historical ledgers immutable; balances span years. | §8. |
+| **12** | Closed enrollments are historical and **never overwritten**; all domains remain readable. | §12. |
+| **13** | **Governing principle:** Student is permanent identity; everything year-varying lives on Enrollment or another year-scoped entity; never duplicate mutable academic info on Student — for this and every future module. | top-of-document + §1. |
 
 ---
 
-## 17. Recommended implementation order (only after §16 is answered)
+## 17. Recommended implementation roadmap (only after Rev. 2 approval)
 
-1. **Academic Year status machine** — enum, single-ACTIVE index, closure lock guard. (Foundational;
-   everything gates on the year.)
-2. **Unified `EnrollmentStatus` + Enrollment fields** — enum extension, `COMMITTED→REGISTERED` remap,
-   new nullable columns.
-3. **`EnrollmentLifecycleService` + derived `Student.status`** — single writer, audited transitions.
-4. **`StudentIdentityService.lookupByIdentifier` + unified Admission (A/B/C)** — behind a feature
-   flag; similar-name warning; collapse the two flows.
-5. **Re-enrollment through the shared commit path.**
-6. **Year-End Processing wizard** — `YearEnd*` models, review board, promote/repeat/graduate/withdraw
-   via the shared path.
-7. **Withdrawal settlement + Cancel Admission** — orchestration over the existing ledger.
-8. **Deletion guard + student profile read-only finance + Enrollment History UI.**
-9. **Reporting: Academic-Year filter + per-year view.**
-10. **Retire legacy admission flow; remove the feature flag.**
+1. **Academic Year → School-scoped + status machine** — re-scope migration (validated), `Upcoming/
+   Active/Closed`, single-ACTIVE-per-school index, no-delete + closure-lock guards. *(Foundational.)*
+2. **Split statuses** — new `AdmissionStatus` on the admission artifact; redefine `EnrollmentStatus`
+   to the participation set; mechanical remap (§4c).
+3. **Move placement off Student** — add year-scoped `Enrollment` columns; introduce
+   `EnrollmentLifecycleService` (sole writer) + derived current-enrollment projection; deprecate the
+   `Student` academic shims.
+4. **Student Number** — `StudentNumberCounter` + `studentNumber`; wire into cards/report/attendance/
+   library/certificate surfaces.
+5. **Shared Enrollment pipeline** — extend `RegistrationCommitService`; fold family
+   MERGE/SEPARATE/NEW_PLAN in as a mode.
+6. **Unified Admission (A/B/C)** — `StudentIdentityService.lookupByIdentifier`; identity-first entry;
+   similar-name warning; collapse the two flows behind a feature flag; **"Family"→"Financial
+   Account"** rename sweep.
+7. **Re-enrollment** through the shared pipeline.
+8. **Year-End Processing wizard** — `YearEnd*` models; review board; **preview → confirm** batch via
+   the shared pipeline; promote/repeat/graduate/withdraw; reversible until commit.
+9. **Withdrawal settlement + Cancel Admission** — orchestration over the existing ledger.
+10. **Deletion guard + student-profile read-only finance + Enrollment History UI.**
+11. **Reporting** — split admission-funnel vs. participation reports; Academic-Year filter; per-year
+    view.
+12. **Retire legacy admission flow; drop deprecated `Student` academic columns; remove the feature
+    flag.**
 
-Each step is independently shippable, additive, reversible, and audited. No step redesigns the
-ledger or migrates business data automatically.
+Each step is independently shippable, additive where possible, reversible, and audited. No step
+redesigns the ledger or auto-migrates business data.
 
 ---
 
-**Awaiting approval and answers to the five decision points in §16 before writing any code or schema.**
+**Rev. 2 incorporates all 13 ratified decisions. Awaiting approval of this revision before writing any
+code or schema.**
