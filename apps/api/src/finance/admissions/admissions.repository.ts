@@ -10,6 +10,7 @@ import {
   Prisma,
   QuotePaymentMode,
   StudentStatus,
+  TransportDirection,
 } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -71,6 +72,64 @@ export class AdmissionsRepository extends TenantRepository {
       select: { campusId: true },
     });
     return ay?.campusId ?? null;
+  }
+
+  /**
+   * THE single place an Enrollment row is created (Decision 3 — one pipeline for admission,
+   * re-enrollment, promotion and repeat). Resolves the year's campus, writes the year-scoped placement
+   * (Decisions 4 & 13), and stamps the workflow (`admissionStatus`) + participation (`status`) split
+   * (Decision 2). Charge/plan generation stays with `createEnrollmentCharges`; callers compose the two.
+   */
+  private async createEnrollmentRowTx(
+    tx: TxClient,
+    tenantId: string,
+    params: {
+      studentId: string;
+      academicYearId: string;
+      gradeId: string;
+      sectionId?: string | null;
+      classroomId?: string | null;
+      areaId?: string | null;
+      transportRequested?: boolean;
+      quoteId?: string | null;
+      transportDirection?: TransportDirection;
+      paymentMode: QuotePaymentMode;
+      feeModified?: boolean;
+      registrationFeePaid?: boolean;
+      // The admission workflow status this enrollment is born at: REGISTERED (finalised) or ACCEPTED
+      // (held pending finance approval). Participation `status` is ACTIVE either way.
+      admissionStatus: AdmissionStatus;
+      admissionDate?: Date;
+    },
+  ) {
+    const campusId = await this.yearCampusId(tx, params.academicYearId);
+    return tx.enrollment.create({
+      data: {
+        tenantId,
+        studentId: params.studentId,
+        academicYearId: params.academicYearId,
+        gradeId: params.gradeId,
+        ...(params.sectionId ? { sectionId: params.sectionId } : {}),
+        ...(params.classroomId ? { classroomId: params.classroomId } : {}),
+        // Year-scoped placement lives on the Enrollment (Decisions 4 & 13).
+        ...(campusId ? { campusId } : {}),
+        ...(params.areaId ? { areaId: params.areaId } : {}),
+        ...(params.transportRequested !== undefined
+          ? { transportRequested: params.transportRequested }
+          : {}),
+        admissionDate: params.admissionDate ?? new Date(),
+        ...(params.quoteId ? { quoteId: params.quoteId } : {}),
+        transportDirection: params.transportDirection ?? TransportDirection.NONE,
+        // Decision 2: admission workflow (`admissionStatus`) vs. participation (`status`) are separate;
+        // the authoritative "finalised" gate is admissionStatus === REGISTERED.
+        admissionStatus: params.admissionStatus,
+        status: EnrollmentStatus.ACTIVE,
+        paymentMode: params.paymentMode,
+        feeModified: params.feeModified ?? false,
+        registrationFeePaid: params.registrationFeePaid ?? true,
+        createdById: this.actor(),
+      },
+    });
   }
 
   // ── Fee-item catalog ──
@@ -636,33 +695,21 @@ export class AdmissionsRepository extends TenantRepository {
         }
 
         const held = quote.feeModified && requireApproval;
-        const campusId = await this.yearCampusId(tx, quote.academicYearId);
-        const enrollment = await tx.enrollment.create({
-          data: {
-            tenantId,
-            studentId,
-            academicYearId: quote.academicYearId,
-            gradeId: quote.gradeId,
-            ...(entry.sectionId ? { sectionId: entry.sectionId } : {}),
-            // Year-scoped placement lives on the Enrollment (Decisions 4 & 13).
-            ...(campusId ? { campusId } : {}),
-            ...(entry.areaId ? { areaId: entry.areaId } : {}),
-            ...(entry.transportRequested !== undefined
-              ? { transportRequested: entry.transportRequested }
-              : {}),
-            admissionDate: new Date(),
-            quoteId: quote.id,
-            transportDirection: quote.transportDirection,
-            // Decision 2: admission workflow vs. participation are separate. A held (fee-modified)
-            // enrollment is ACCEPTED pending finance approval; otherwise it is REGISTERED. Participation
-            // is ACTIVE either way (the authoritative "finalised" gate is admissionStatus === REGISTERED).
-            admissionStatus: held ? AdmissionStatus.ACCEPTED : AdmissionStatus.REGISTERED,
-            status: EnrollmentStatus.ACTIVE,
-            paymentMode: dto.paymentMode,
-            feeModified: quote.feeModified,
-            registrationFeePaid: dto.registrationFeePaid ?? true,
-            createdById: this.actor(),
-          },
+        const enrollment = await this.createEnrollmentRowTx(tx, tenantId, {
+          studentId,
+          academicYearId: quote.academicYearId,
+          gradeId: quote.gradeId,
+          sectionId: entry.sectionId ?? null,
+          areaId: entry.areaId ?? null,
+          ...(entry.transportRequested !== undefined
+            ? { transportRequested: entry.transportRequested }
+            : {}),
+          quoteId: quote.id,
+          transportDirection: quote.transportDirection,
+          paymentMode: dto.paymentMode,
+          feeModified: quote.feeModified,
+          registrationFeePaid: dto.registrationFeePaid ?? true,
+          admissionStatus: held ? AdmissionStatus.ACCEPTED : AdmissionStatus.REGISTERED,
         });
 
         // Link the student's AR account to the account (Payer), then bill it through the account plan.
@@ -959,26 +1006,17 @@ export class AdmissionsRepository extends TenantRepository {
       // SEPARATE: no override — the student keeps their own plan (from their quote), still billed
       // through the family account so family payments can settle them.
 
-      const campusId = await this.yearCampusId(tx, quote.academicYearId);
-      const enrollment = await tx.enrollment.create({
-        data: {
-          tenantId,
-          studentId,
-          academicYearId: quote.academicYearId,
-          gradeId: quote.gradeId,
-          ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
-          // Year-scoped placement lives on the Enrollment (Decisions 4 & 13).
-          ...(campusId ? { campusId } : {}),
-          admissionDate: new Date(),
-          quoteId: quote.id,
-          transportDirection: quote.transportDirection,
-          admissionStatus: AdmissionStatus.REGISTERED,
-          status: EnrollmentStatus.ACTIVE,
-          paymentMode: quote.paymentMode,
-          feeModified: quote.feeModified,
-          registrationFeePaid: dto.registrationFeePaid ?? true,
-          createdById: this.actor(),
-        },
+      const enrollment = await this.createEnrollmentRowTx(tx, tenantId, {
+        studentId,
+        academicYearId: quote.academicYearId,
+        gradeId: quote.gradeId,
+        sectionId: dto.sectionId ?? null,
+        quoteId: quote.id,
+        transportDirection: quote.transportDirection,
+        paymentMode: quote.paymentMode,
+        feeModified: quote.feeModified,
+        registrationFeePaid: dto.registrationFeePaid ?? true,
+        admissionStatus: AdmissionStatus.REGISTERED,
       });
 
       const account = await this.accounts.ensureAccountTx(tx, tenantId, studentId);
