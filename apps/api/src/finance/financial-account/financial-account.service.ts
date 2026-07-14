@@ -1,7 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Payer } from '@prisma/client';
 import { FinancialAccountRepository, type AccountStudent } from './financial-account.repository';
-import { LedgerRepository, type FinancialAccountSummary } from '../ledger/ledger.repository';
+import {
+  LedgerRepository,
+  type FinancialAccountSummary,
+  type BillingSchedule,
+} from '../ledger/ledger.repository';
 import { FinanceReportsRepository, type FinanceOverview } from '../reports/reports.repository';
 
 /** The Financial Account dashboard payload: account (Payer) header, account totals, and the children. */
@@ -45,6 +49,13 @@ export class FinancialAccountService {
     const account = await this.repo.findByParent(parentId);
     if (!account) return { account: null, students: [] };
     return { account, students: await this.repo.studentsOf(account.id) };
+  }
+
+  /** The account's Billing Schedule — the single, dynamically merged installment plan (read model). */
+  async billingSchedule(financialAccountId: string): Promise<BillingSchedule> {
+    const account = await this.repo.findById(financialAccountId);
+    if (!account) throw new NotFoundException('Financial account not found');
+    return this.ledger.billingSchedule(financialAccountId);
   }
 
   /** The Family Finance Dashboard for a financial account (KPIs default to family totals). */

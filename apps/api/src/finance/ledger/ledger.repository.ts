@@ -14,6 +14,33 @@ import { TenantContextStore } from '../../prisma/tenant-context';
 import type { TxClient } from '../../prisma/tenant.helpers';
 import { ZERO, floorZero, toFils, fromFils } from '../shared/money';
 
+/** One fee line within a Billing Schedule row (a single student's installment for one charge). */
+export interface BillingScheduleLine {
+  studentId: string;
+  studentName: string;
+  chargeDescription: string;
+  amount: string;
+  paid: string;
+  balance: string;
+  status: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING';
+}
+
+/** One row of the account Billing Schedule: everything due on a single date, across all students. */
+export interface BillingScheduleRow {
+  dueDate: string | null;
+  amount: string;
+  paid: string;
+  balance: string;
+  status: 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING';
+  lines: BillingScheduleLine[];
+}
+
+/** The Financial Account's Billing Schedule — the account's single, dynamically merged plan view. */
+export interface BillingSchedule {
+  rows: BillingScheduleRow[];
+  totals: { amount: string; paid: string; balance: string };
+}
+
 /** Per-installment derived figures (LR-2). */
 export interface InstallmentView {
   id: string;
@@ -609,6 +636,131 @@ export class LedgerRepository extends TenantRepository {
         select: { studentId: true },
       });
       return rows.map((r) => r.studentId);
+    });
+  }
+
+  /**
+   * The Financial Account's Billing Schedule (LR — dynamic read model, ADR: no persisted account
+   * plan). Merges every student's installments across the account into ONE schedule keyed by due
+   * date; each row expands into per-student / per-fee lines. Computed on view from the ledger (the
+   * single source of truth) — no cache, no account-installment table. Bounded to one account.
+   */
+  billingSchedule(payerId: string): Promise<BillingSchedule> {
+    return this.run(async (tx) => {
+      const rows = await tx.$queryRaw<
+        Array<{
+          installmentId: string;
+          dueDate: Date | null;
+          amount: string;
+          paid: string;
+          status: string;
+          studentId: string;
+          studentName: string;
+          chargeDescription: string;
+        }>
+      >(Prisma.sql`
+        SELECT i.id AS "installmentId", i."dueDate" AS "dueDate",
+          i.amount::text AS amount, i.status::text AS status,
+          COALESCE(SUM(pa.amount) FILTER (WHERE pa."reversedAt" IS NULL), 0)::text AS paid,
+          ch."studentId" AS "studentId",
+          COALESCE(TRIM(st."firstNameEn" || ' ' || st."lastNameEn"), 'Unknown') AS "studentName",
+          ch.description AS "chargeDescription"
+        FROM "Installment" i
+        JOIN "Charge" ch ON ch.id = i."chargeId"
+        JOIN "StudentFinancialAccount" sfa ON sfa.id = ch."accountId"
+        JOIN "Student" st ON st.id = ch."studentId"
+        LEFT JOIN "PaymentAllocation" pa ON pa."installmentId" = i.id
+        WHERE sfa."payerId" = ${payerId}::uuid
+          AND ch.status NOT IN ('CANCELLED', 'WRITTEN_OFF')
+          AND i.status <> 'CANCELLED'
+          AND st."deletedAt" IS NULL
+        GROUP BY i.id, i."dueDate", i.amount, i.status, ch."studentId",
+          st."firstNameEn", st."lastNameEn", ch.description
+        ORDER BY i."dueDate" ASC NULLS LAST
+      `);
+
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const lineStatus = (
+        instStatus: string,
+        balance: Prisma.Decimal,
+        paid: Prisma.Decimal,
+        due: Date | null,
+      ): 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING' => {
+        if (instStatus === 'PAID' || instStatus === 'WAIVED' || balance.lessThanOrEqualTo(ZERO))
+          return 'PAID';
+        if (due && due < startOfToday) return 'OVERDUE';
+        if (paid.greaterThan(ZERO)) return 'PARTIAL';
+        return 'UPCOMING';
+      };
+
+      // Group by due date (null dates share one "undated" bucket at the end).
+      const buckets = new Map<string, BillingScheduleRow>();
+      const totals = { amount: ZERO, paid: ZERO, balance: ZERO };
+      for (const r of rows) {
+        const amount = new Prisma.Decimal(r.amount);
+        const paid = new Prisma.Decimal(r.paid);
+        const balance = floorZero(amount.minus(paid));
+        const due = r.dueDate;
+        const key = due ? due.toISOString().slice(0, 10) : 'undated';
+        let row = buckets.get(key);
+        if (!row) {
+          row = {
+            dueDate: due ? due.toISOString() : null,
+            amount: ZERO.toString(),
+            paid: ZERO.toString(),
+            balance: ZERO.toString(),
+            status: 'UPCOMING',
+            lines: [],
+          };
+          buckets.set(key, row);
+        }
+        row.lines.push({
+          studentId: r.studentId,
+          studentName: r.studentName,
+          chargeDescription: r.chargeDescription,
+          amount: amount.toString(),
+          paid: paid.toString(),
+          balance: balance.toString(),
+          status: lineStatus(r.status, balance, paid, due),
+        });
+        totals.amount = totals.amount.plus(amount);
+        totals.paid = totals.paid.plus(paid);
+        totals.balance = totals.balance.plus(balance);
+      }
+
+      // Roll each row's totals + headline status up from its lines.
+      const rowsOut = [...buckets.values()].map((row) => {
+        let amt = ZERO;
+        let pd = ZERO;
+        let bal = ZERO;
+        let anyOverdue = false;
+        let anyPaid = false;
+        let allPaid = true;
+        for (const l of row.lines) {
+          amt = amt.plus(l.amount);
+          pd = pd.plus(l.paid);
+          bal = bal.plus(l.balance);
+          if (l.status === 'OVERDUE') anyOverdue = true;
+          if (l.status === 'PARTIAL' || (l.status === 'PAID' && Number(l.paid) > 0)) anyPaid = true;
+          if (l.status !== 'PAID') allPaid = false;
+        }
+        row.amount = amt.toString();
+        row.paid = pd.toString();
+        row.balance = bal.toString();
+        row.status = allPaid ? 'PAID' : anyOverdue ? 'OVERDUE' : anyPaid ? 'PARTIAL' : 'UPCOMING';
+        return row;
+      });
+
+      return {
+        rows: rowsOut,
+        totals: {
+          amount: totals.amount.toString(),
+          paid: totals.paid.toString(),
+          balance: totals.balance.toString(),
+        },
+      };
     });
   }
 
