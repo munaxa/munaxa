@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
 import { FinanceTab } from '@/app/(app)/people/students/[studentId]/tabs/finance-tab';
 import {
   familiesApi,
   type BillingSchedule,
+  type BillingScheduleLine,
   type BillingScheduleStatus,
   type FamilyDashboard,
   type FamilySearchHit,
@@ -54,8 +55,17 @@ const COLLECTION_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'
  * Munaxa Design System components only; RTL/LTR + dark/light inherited.
  */
 export default function FinancePage() {
+  return (
+    <Suspense fallback={null}>
+      <FinanceWorkspace />
+    </Suspense>
+  );
+}
+
+function FinanceWorkspace() {
   const toast = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<FamilySearchHit[] | null>(null);
@@ -111,10 +121,10 @@ export default function FinancePage() {
     };
   }, []);
 
-  const openAccountById = async (payerId: string) => {
+  const openAccountById = async (payerId: string, expandStudentId?: string) => {
     setLoading(true);
     setHits(null);
-    setExpanded(null);
+    setExpanded(expandStudentId ?? null);
     try {
       setDashboard(await familiesApi.dashboard(payerId));
     } catch (err) {
@@ -123,6 +133,38 @@ export default function FinancePage() {
       setLoading(false);
     }
   };
+
+  // Deep links: ?account=<payerId> opens that account directly; ?studentId=<id> resolves the student
+  // to their Financial Account and opens the workspace with that student expanded ("Open in finance").
+  // A guardian-less student routes to their profile.
+  const deepLinkAccount = searchParams.get('account');
+  const deepLinkStudent = searchParams.get('studentId');
+  useEffect(() => {
+    if (deepLinkAccount) {
+      void openAccountById(deepLinkAccount);
+      return;
+    }
+    if (!deepLinkStudent) return;
+    let active = true;
+    void (async () => {
+      try {
+        const { account } = await familiesApi.byStudent(deepLinkStudent);
+        if (!active) return;
+        if (account) {
+          await openAccountById(account.id, deepLinkStudent);
+        } else {
+          toast.error('This student has no account yet — assign a guardian to bill them');
+          router.push(`/people/students/${deepLinkStudent}`);
+        }
+      } catch (err) {
+        if (active) toast.error(err instanceof Error ? err.message : 'Could not open the account');
+      }
+    })();
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkAccount, deepLinkStudent]);
 
   const search = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -349,14 +391,22 @@ export default function FinancePage() {
           open={payOpen}
           onClose={() => setPayOpen(false)}
           accountName={dashboard.account.nameEn}
-          onSubmit={async (amount, method, reference, note) => {
+          openLines={(schedule?.rows ?? [])
+            .flatMap((r) => r.lines)
+            .filter((l) => Number(l.balance) > 0)}
+          onSubmit={async (amount, method, reference, note, allocations) => {
             await familiesApi.recordPayment(dashboard.account.id, {
               amount,
               method,
               ...(reference ? { reference } : {}),
               ...(note ? { note } : {}),
+              ...(allocations && allocations.length > 0 ? { allocations } : {}),
             });
-            toast.success('Payment recorded (pending verification)');
+            toast.success(
+              allocations && allocations.length > 0
+                ? 'Payment recorded and allocated'
+                : 'Payment recorded (pending verification)',
+            );
             setPayOpen(false);
             await reload();
           }}
@@ -628,16 +678,19 @@ function RecordPaymentDialog({
   open,
   onClose,
   accountName,
+  openLines,
   onSubmit,
 }: {
   open: boolean;
   onClose: () => void;
   accountName: string;
+  openLines: BillingScheduleLine[];
   onSubmit: (
     amount: number,
     method: PaymentMethod,
     reference: string,
     note: string,
+    allocations?: Array<{ installmentId: string; amount: number }>,
   ) => Promise<void>;
 }) {
   const toast = useToast();
@@ -645,20 +698,45 @@ function RecordPaymentDialog({
   const [method, setMethod] = useState<PaymentMethod>('CASH');
   const [reference, setReference] = useState('');
   const [note, setNote] = useState('');
+  const [manual, setManual] = useState(false);
+  const [alloc, setAlloc] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
+  const reset = () => {
+    setAmount('');
+    setReference('');
+    setNote('');
+    setManual(false);
+    setAlloc({});
+  };
+
+  const allocated = Object.values(alloc).reduce((s, v) => s + (Number(v) || 0), 0);
+  const value = Number(amount);
+  const remaining = (Number.isFinite(value) ? value : 0) - allocated;
+
   const submit = async () => {
-    const value = Number(amount);
     if (!Number.isFinite(value) || value <= 0) {
       toast.error('Enter a valid amount');
       return;
     }
+    let allocations: Array<{ installmentId: string; amount: number }> | undefined;
+    if (manual) {
+      allocations = Object.entries(alloc)
+        .map(([installmentId, v]) => ({ installmentId, amount: Number(v) }))
+        .filter((a) => a.amount > 0);
+      if (allocations.length === 0) {
+        toast.error('Assign the payment to at least one installment, or switch to Automatic');
+        return;
+      }
+      if (allocated > value + 1e-9) {
+        toast.error('Allocated more than the payment amount');
+        return;
+      }
+    }
     setBusy(true);
     try {
-      await onSubmit(value, method, reference.trim(), note.trim());
-      setAmount('');
-      setReference('');
-      setNote('');
+      await onSubmit(value, method, reference.trim(), note.trim(), allocations);
+      reset();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to record the payment');
     } finally {
@@ -669,10 +747,6 @@ function RecordPaymentDialog({
   return (
     <Dialog open={open} onClose={onClose} title={`Record a payment — ${accountName}`}>
       <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          The payment is recorded once and automatically allocated across the account’s
-          installments.
-        </p>
         <Field label="Amount (JOD)">
           <Input
             type="number"
@@ -691,6 +765,94 @@ function RecordPaymentDialog({
             ))}
           </Select>
         </Field>
+
+        {/* Allocation: automatic (cross-student FIFO) or manual (assign to specific installments). */}
+        <Field label="Allocation">
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input type="radio" checked={!manual} onChange={() => setManual(false)} />
+              Automatic
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                checked={manual}
+                onChange={() => setManual(true)}
+                disabled={openLines.length === 0}
+              />
+              Manual
+            </label>
+          </div>
+        </Field>
+
+        {!manual && (
+          <p className="text-sm text-muted-foreground">
+            The payment is recorded once and automatically allocated across the account’s
+            installments (earliest due first); any surplus is kept as account credit.
+          </p>
+        )}
+
+        {manual && (
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Assign amounts to specific installments. Unassigned surplus is kept as account credit.
+            </p>
+            <div className="max-h-64 overflow-y-auto rounded-md border border-border">
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Student · fee</TH>
+                    <TH>Due</TH>
+                    <TH>Balance</TH>
+                    <TH>Apply</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {openLines.map((l) => (
+                    <TR key={l.installmentId}>
+                      <TD className="text-sm">
+                        {l.studentName} · {l.chargeDescription}
+                      </TD>
+                      <TD className="text-sm">{jod(l.balance)}</TD>
+                      <TD className="w-28">
+                        <Input
+                          type="number"
+                          step="0.001"
+                          min="0"
+                          max={l.balance}
+                          value={alloc[l.installmentId] ?? ''}
+                          onChange={(e) =>
+                            setAlloc((prev) => ({ ...prev, [l.installmentId]: e.target.value }))
+                          }
+                        />
+                      </TD>
+                      <TD className="text-sm">
+                        <button
+                          type="button"
+                          className="text-primary underline"
+                          onClick={() =>
+                            setAlloc((prev) => ({ ...prev, [l.installmentId]: l.balance }))
+                          }
+                        >
+                          Fill
+                        </button>
+                      </TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Allocated {jod(allocated)}</span>
+              <span className={remaining < -1e-9 ? 'text-coral' : 'text-muted-foreground'}>
+                {remaining >= 0
+                  ? `Surplus → credit ${jod(remaining)}`
+                  : `Over by ${jod(-remaining)}`}
+              </span>
+            </div>
+          </div>
+        )}
+
         <Field label="Reference (optional)">
           <Input value={reference} onChange={(e) => setReference(e.target.value)} />
         </Field>

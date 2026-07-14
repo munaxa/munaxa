@@ -1,9 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { financeApi, type FinanceDimensionRow } from '@/lib/finance';
+import { familiesApi } from '@/lib/families';
 import {
   Card,
   CardContent,
@@ -30,12 +32,27 @@ const DIMENSIONS: { value: Dimension; label: string }[] = [
 
 const num = (v: string | number) => Number(v).toFixed(3);
 
-/** Finance reporting: revenue / collected / outstanding grouped by a chosen dimension (RR-3). */
+interface OutstandingRow {
+  dimId: string | null;
+  label: string;
+  net: string;
+  paid: string;
+  outstanding: string;
+  chargeCount: number;
+}
+
+/** Finance reporting: account-first outstanding (family / student drill-down) + revenue by dimension. */
 export default function FinanceReportsPage() {
   const { t } = useI18n();
+  const router = useRouter();
   const [dimension, setDimension] = useState<Dimension>('category');
   const [rows, setRows] = useState<FinanceDimensionRow[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Account-first outstanding — the finance-first default, with a student drill-down.
+  const [groupBy, setGroupBy] = useState<'family' | 'student'>('family');
+  const [outRows, setOutRows] = useState<OutstandingRow[]>([]);
+  const [outLoading, setOutLoading] = useState(true);
 
   const load = useCallback(async (dim: Dimension) => {
     setLoading(true);
@@ -46,9 +63,22 @@ export default function FinanceReportsPage() {
     }
   }, []);
 
+  const loadOutstanding = useCallback(async (by: 'family' | 'student') => {
+    setOutLoading(true);
+    try {
+      setOutRows(await familiesApi.outstandingReport(by));
+    } finally {
+      setOutLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void load(dimension);
   }, [dimension, load]);
+
+  useEffect(() => {
+    void loadOutstanding(groupBy);
+  }, [groupBy, loadOutstanding]);
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -65,6 +95,56 @@ export default function FinanceReportsPage() {
     <Shell>
       <div className="mx-auto max-w-5xl space-y-6">
         <h1 className="font-display text-2xl font-semibold">{t('nav.finance')} · Reports</h1>
+
+        {/* Account-first outstanding — finance is account-centric; students are a drill-down. */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Outstanding by {groupBy === 'family' ? 'account' : 'student'}</CardTitle>
+            <Field label="" className="w-48">
+              <Select
+                value={groupBy}
+                onChange={(e) => setGroupBy(e.target.value as 'family' | 'student')}
+              >
+                <option value="family">By account</option>
+                <option value="student">By student</option>
+              </Select>
+            </Field>
+          </CardHeader>
+          <CardContent>
+            {outLoading ? (
+              <Spinner />
+            ) : (
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>{groupBy === 'family' ? 'Account' : 'Student'}</TH>
+                    <TH>Net</TH>
+                    <TH>Collected</TH>
+                    <TH>Outstanding</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {outRows.map((r) => (
+                    <TR
+                      key={r.dimId ?? 'unassigned'}
+                      className={groupBy === 'family' && r.dimId ? 'cursor-pointer' : ''}
+                      onClick={() =>
+                        groupBy === 'family' &&
+                        r.dimId &&
+                        router.push(`/finance?account=${r.dimId}`)
+                      }
+                    >
+                      <TD>{r.label}</TD>
+                      <TD>{num(r.net)}</TD>
+                      <TD>{num(r.paid)}</TD>
+                      <TD>{num(r.outstanding)}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
         <div className="flex items-end gap-2">
           <Field label="Group by" className="w-64">

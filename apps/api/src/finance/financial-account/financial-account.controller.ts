@@ -47,6 +47,13 @@ export class FinancialAccountController {
     return this.service.overview();
   }
 
+  @Get('by-student/:studentId')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({ summary: 'Resolve a student to their Financial Account (for "Open in finance")' })
+  byStudent(@Param('studentId') studentId: string) {
+    return this.service.byStudent(studentId);
+  }
+
   @Get(':id')
   @RequirePermissions(Permission.FINANCE_READ)
   @ApiOperation({
