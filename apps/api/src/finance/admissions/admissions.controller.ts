@@ -4,6 +4,7 @@ import { AdmissionStatus, ApprovalStatus, EnrollmentStatus } from '@prisma/clien
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { AdmissionsService } from './admissions.service';
+import { StudentIdentityService } from './student-identity.service';
 import {
   AddFamilyStudentDto,
   ApprovalDecisionDto,
@@ -25,7 +26,34 @@ import {
 @ApiBearerAuth()
 @Controller({ path: 'admissions', version: '1' })
 export class AdmissionsController {
-  constructor(private readonly service: AdmissionsService) {}
+  constructor(
+    private readonly service: AdmissionsService,
+    private readonly identity: StudentIdentityService,
+  ) {}
+
+  // ── Identity-first admission entry (Decision — one Admission; A/B/C cases) ──
+  @Get('identity/lookup')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary:
+      'Resolve a student by National ID (primary) or Ministry number (fallback) — exact match',
+  })
+  identityLookup(
+    @Query('nationalId') nationalId?: string,
+    @Query('moeStudentNumber') moeStudentNumber?: string,
+  ) {
+    return this.identity.lookupByIdentifier({
+      ...(nationalId ? { nationalId } : {}),
+      ...(moeStudentNumber ? { moeStudentNumber } : {}),
+    });
+  }
+
+  @Get('identity/similar')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({ summary: 'Informational similar-name warning (never the identity check)' })
+  identitySimilar(@Query('name') name?: string) {
+    return this.identity.similarNames(name ?? '');
+  }
 
   // ── Fee-item catalog ──
   @Get('fee-items')

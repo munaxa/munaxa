@@ -506,8 +506,14 @@ trigger is the belt-and-suspenders.
 > every student create, backfilled for existing students, searchable, shown on the profile) · ✅ Step 5
 > (single Enrollment-creation pipeline — `createEnrollmentRowTx` is now THE one place an Enrollment row
 > is born, both admission paths route through it, and together with the shared `createEnrollmentCharges`
-> it is the pipeline re-enrollment/promotion/repeat reuse — no separate implementations). Each shipped
-> additive, reversible, audited.
+> it is the pipeline re-enrollment/promotion/repeat reuse — no separate implementations) · ✅ Step 6
+> (identity-first admission backend — `StudentIdentityService.lookupByIdentifier` resolves National ID
+> primary / MoE fallback, exact match, into cases A=NEW / B=ACTIVE / C=RETURNING, plus an informational
+> similar-name warning; endpoints + admin lib wired). Each shipped additive, reversible, audited.
+>
+> **Remaining for the unified-admission UI (folded into Step 10):** collapse the two admission screens
+> (`/admissions` + `/admissions/family`) into one identity-first wizard behind a feature flag, render the
+> A/B/C branches, and the "Family" → "Financial Account" rename sweep.
 
 1. **Academic Year → School-scoped + status machine** — re-scope migration (validated), `Upcoming/
    Active/Closed`, single-ACTIVE-per-school index, no-delete + closure-lock guards. *(Foundational.)*

@@ -187,6 +187,31 @@ export interface AddFamilyStudentRequest {
   confirm?: boolean;
 }
 
+export type AdmissionCase = 'NEW' | 'ACTIVE' | 'RETURNING';
+
+export interface IdentityStudentSummary {
+  id: string;
+  studentNumber: string | null;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  nationalId: string | null;
+  moeStudentNumber: string | null;
+  financialAccountId: string | null;
+}
+
+export interface IdentityLookupResult {
+  case: AdmissionCase;
+  student: IdentityStudentSummary | null;
+  currentEnrollment: {
+    id: string;
+    status: string;
+    gradeName: string;
+    academicYearName: string;
+  } | null;
+}
+
 export interface EnrollmentRow {
   id: string;
   // `admissionStatus` = admission workflow (Draft/Quoted/Accepted/Registered/Cancelled);
@@ -287,6 +312,20 @@ export const admissionsApi = {
     }).then((r) => json<{ enrollmentId: string; mode: string; planId: string | null }>(r)),
   loadReturning: (studentId: string) =>
     authFetch(`/admissions/returning/${studentId}`).then((r) => json<ReturningStudent>(r)),
+  // Identity-first admission lookup (A/B/C). National ID primary, Ministry number fallback.
+  identityLookup: (params: { nationalId?: string; moeStudentNumber?: string }) => {
+    const sp = new URLSearchParams();
+    if (params.nationalId) sp.set('nationalId', params.nationalId);
+    if (params.moeStudentNumber) sp.set('moeStudentNumber', params.moeStudentNumber);
+    return authFetch(`/admissions/identity/lookup?${sp.toString()}`).then((r) =>
+      json<IdentityLookupResult>(r),
+    );
+  },
+  // Informational similar-name warning (never the identity check).
+  identitySimilar: (name: string) =>
+    authFetch(`/admissions/identity/similar?name=${encodeURIComponent(name)}`).then((r) =>
+      json<IdentityStudentSummary[]>(r),
+    ),
   listEnrollments: (
     params: {
       academicYearId?: string;
