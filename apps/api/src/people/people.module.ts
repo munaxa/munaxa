@@ -12,6 +12,8 @@ import { TeacherRepository } from './teachers/teacher.repository';
 import { EmployeeController } from './employees/employee.controller';
 import { EmployeeService } from './employees/employee.service';
 import { EmployeeRepository } from './employees/employee.repository';
+import { EnrollmentLifecycleService } from './enrollment-lifecycle/enrollment-lifecycle.service';
+import { EnrollmentLifecycleRepository } from './enrollment-lifecycle/enrollment-lifecycle.repository';
 
 /**
  * People management: Students (+ QR + parent linking + CSV import), Parents,
@@ -29,6 +31,9 @@ import { EmployeeRepository } from './employees/employee.repository';
     TeacherRepository,
     EmployeeService,
     EmployeeRepository,
+    EnrollmentLifecycleService,
+    EnrollmentLifecycleRepository,
   ],
+  exports: [EnrollmentLifecycleService],
 })
 export class PeopleModule {}

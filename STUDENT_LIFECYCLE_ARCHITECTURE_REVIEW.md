@@ -498,6 +498,12 @@ trigger is the belt-and-suspenders.
 
 ## 17. Recommended implementation roadmap (only after Rev. 2 approval)
 
+> **Build status:** ✅ Step 1 (Academic Year → School-scoped + status) · ✅ Step 2 (Admission vs.
+> Enrollment status split, `admissionStatus` on Enrollment) · ✅ Step 3 (year-scoped placement columns
+> on Enrollment, admission writes them, `EnrollmentLifecycleService` = sole participation-status writer
+> + derived Student-status projection; `Student` academic columns kept as deprecated shims). Each
+> shipped additive, reversible, audited.
+
 1. **Academic Year → School-scoped + status machine** — re-scope migration (validated), `Upcoming/
    Active/Closed`, single-ACTIVE-per-school index, no-delete + closure-lock guards. *(Foundational.)*
 2. **Split statuses** — new `AdmissionStatus` on the admission artifact; redefine `EnrollmentStatus`

@@ -63,6 +63,15 @@ export class AdmissionsRepository extends TenantRepository {
     return TenantContextStore.get()?.actorUserId ?? null;
   }
 
+  /** The campus a student attends in a given Academic Year, for the Enrollment's year-scoped placement. */
+  private async yearCampusId(tx: TxClient, academicYearId: string): Promise<string | null> {
+    const ay = await tx.academicYear.findUnique({
+      where: { id: academicYearId },
+      select: { campusId: true },
+    });
+    return ay?.campusId ?? null;
+  }
+
   // ── Fee-item catalog ──
   listFeeItems() {
     return this.run((tx) => tx.feeItem.findMany({ orderBy: [{ kind: 'asc' }, { nameEn: 'asc' }] }));
@@ -624,6 +633,7 @@ export class AdmissionsRepository extends TenantRepository {
         }
 
         const held = quote.feeModified && requireApproval;
+        const campusId = await this.yearCampusId(tx, quote.academicYearId);
         const enrollment = await tx.enrollment.create({
           data: {
             tenantId,
@@ -631,6 +641,13 @@ export class AdmissionsRepository extends TenantRepository {
             academicYearId: quote.academicYearId,
             gradeId: quote.gradeId,
             ...(entry.sectionId ? { sectionId: entry.sectionId } : {}),
+            // Year-scoped placement lives on the Enrollment (Decisions 4 & 13).
+            ...(campusId ? { campusId } : {}),
+            ...(entry.areaId ? { areaId: entry.areaId } : {}),
+            ...(entry.transportRequested !== undefined
+              ? { transportRequested: entry.transportRequested }
+              : {}),
+            admissionDate: new Date(),
             quoteId: quote.id,
             transportDirection: quote.transportDirection,
             // Decision 2: admission workflow vs. participation are separate. A held (fee-modified)
@@ -937,6 +954,7 @@ export class AdmissionsRepository extends TenantRepository {
       // SEPARATE: no override — the student keeps their own plan (from their quote), still billed
       // through the family account so family payments can settle them.
 
+      const campusId = await this.yearCampusId(tx, quote.academicYearId);
       const enrollment = await tx.enrollment.create({
         data: {
           tenantId,
@@ -944,6 +962,9 @@ export class AdmissionsRepository extends TenantRepository {
           academicYearId: quote.academicYearId,
           gradeId: quote.gradeId,
           ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
+          // Year-scoped placement lives on the Enrollment (Decisions 4 & 13).
+          ...(campusId ? { campusId } : {}),
+          admissionDate: new Date(),
           quoteId: quote.id,
           transportDirection: quote.transportDirection,
           admissionStatus: AdmissionStatus.REGISTERED,

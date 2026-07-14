@@ -552,6 +552,7 @@ model Campus {
   academicYears   AcademicYear[]
   grades          Grade[]
   classrooms      Classroom[]
+  enrollments     Enrollment[]
   timetableConfig TimetableConfig?
 
   @@index([tenantId])
@@ -664,6 +665,7 @@ model Classroom {
   tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   campus             Campus              @relation(fields: [campusId], references: [id], onDelete: Cascade)
   sections           Section[]
+  enrollments        Enrollment[]
   timetableSlots     TimetableSlot[]
   scheduleExceptions ScheduleException[]
 
@@ -685,6 +687,7 @@ model Section {
   grade              Grade               @relation(fields: [gradeId], references: [id], onDelete: Cascade)
   classroom          Classroom?          @relation(fields: [classroomId], references: [id], onDelete: SetNull)
   students           Student[]
+  enrollments        Enrollment[]
   teacherSections    TeacherSection[]
   timetableSlots     TimetableSlot[]
   scheduleExceptions ScheduleException[]
@@ -721,14 +724,17 @@ model Student {
   thirdNameAr        String?
   dateOfBirth        DateTime?     @db.Date
   gender             Gender?
-  sectionId          String?       @db.Uuid
+  // DEPRECATED SHIMS (Decisions 4 & 13): these are year-varying academic facts that now live on
+  // Enrollment. They are retained ONLY for the transition — written as a read-through cache by the
+  // EnrollmentLifecycleService (never edited directly) so existing readers (student lists, attendance,
+  // portal, reporting) keep working — and are dropped in the Phase-B cleanup. The authoritative value
+  // is the current Enrollment; "current status/placement" is a DERIVED projection, not stored here.
+  sectionId          String?       @db.Uuid // DEPRECATED shim → Enrollment.sectionId (current year)
   qrCode             String        @unique
-  status             StudentStatus @default(ACTIVE)
-  // Transportation demand, set during registration (additive — Fleet remains the
-  // operational source of truth via StudentBusAssignment).
-  areaId             String?       @db.Uuid // home area (geographic), drives Area Planning
-  transportRequested Boolean       @default(false) // parent requested transport → Unassigned queue
-  enrollmentDate     DateTime      @default(now()) @db.Timestamptz(6)
+  status             StudentStatus @default(ACTIVE) // DEPRECATED shim → derived from current Enrollment
+  areaId             String?       @db.Uuid // DEPRECATED shim → Enrollment.areaId
+  transportRequested Boolean       @default(false) // DEPRECATED shim → Enrollment.transportRequested
+  enrollmentDate     DateTime      @default(now()) @db.Timestamptz(6) // DEPRECATED shim → Enrollment.admissionDate
   createdAt          DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?     @db.Timestamptz(6)
@@ -2162,6 +2168,7 @@ model Area {
   route        BusRoute?     @relation(fields: [routeId], references: [id], onDelete: SetNull)
   academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
   students     Student[]
+  enrollments  Enrollment[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -3398,6 +3405,20 @@ model Enrollment {
   academicYearId      String             @db.Uuid
   gradeId             String             @db.Uuid
   sectionId           String?            @db.Uuid
+  // Year-scoped placement (Decisions 4 & 13): everything that varies between Academic Years lives on
+  // the Enrollment, never on Student. `campusId` is the campus the student attends this year;
+  // classroom/section are their room/homeroom. All nullable/additive — backfilled from the year/student.
+  campusId            String?            @db.Uuid
+  classroomId         String?            @db.Uuid
+  // Year-scoped transport intent (moved off Student; Fleet remains the operational source of truth).
+  areaId              String?            @db.Uuid
+  transportRequested  Boolean            @default(false)
+  // Lifecycle dates for this participation.
+  admissionDate       DateTime?          @db.Date
+  withdrawalDate      DateTime?          @db.Date
+  graduationDate      DateTime?          @db.Date
+  // Free-text reason for a terminal transition (withdraw/graduate/cancel).
+  reason              String?
   quoteId             String?            @unique @db.Uuid
   transportDirection  TransportDirection @default(NONE)
   // Two distinct concepts (Decision 2): `admissionStatus` = how the person moved through admission;
@@ -3419,6 +3440,10 @@ model Enrollment {
   student                Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
   academicYear           AcademicYear            @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   grade                  Grade                   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  section                Section?                @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  campus                 Campus?                 @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  classroom              Classroom?              @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  area                   Area?                   @relation(fields: [areaId], references: [id], onDelete: SetNull)
   quote                  EnrollmentQuote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   modifications          FeeModification[]
   arrangements           FinancialArrangement[]
@@ -3429,6 +3454,8 @@ model Enrollment {
   @@index([tenantId, academicYearId, gradeId])
   @@index([tenantId, status])
   @@index([tenantId, admissionStatus])
+  @@index([tenantId, sectionId])
+  @@index([tenantId, campusId])
 }
 
 /// Mandatory tracking of every deviation from the standard school fee plan. Append-only.
