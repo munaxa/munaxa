@@ -102,6 +102,33 @@ export interface FamilyStatement {
 
 export type PaymentMethod = 'CASH' | 'CLIQ' | 'EWALLET' | 'BANK_TRANSFER' | 'CHEQUE' | 'CARD';
 
+export type BillingScheduleStatus = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING';
+
+export interface BillingScheduleLine {
+  studentId: string;
+  studentName: string;
+  chargeDescription: string;
+  amount: string;
+  paid: string;
+  balance: string;
+  status: BillingScheduleStatus;
+}
+
+export interface BillingScheduleRow {
+  dueDate: string | null;
+  amount: string;
+  paid: string;
+  balance: string;
+  status: BillingScheduleStatus;
+  lines: BillingScheduleLine[];
+}
+
+/** The Financial Account's Billing Schedule — one dynamically merged plan across all its students. */
+export interface BillingSchedule {
+  rows: BillingScheduleRow[];
+  totals: { amount: string; paid: string; balance: string };
+}
+
 /** Account-centric finance overview — the workspace dashboard (shown before an account is opened). */
 export interface FinanceOverview {
   kpis: {
@@ -164,6 +191,10 @@ export const familiesApi = {
   statement: (financialAccountId: string) =>
     authFetch(`/finance/families/${financialAccountId}/statement`).then((r) =>
       json<FamilyStatement>(r),
+    ),
+  schedule: (financialAccountId: string) =>
+    authFetch(`/finance/families/${financialAccountId}/schedule`).then((r) =>
+      json<BillingSchedule>(r),
     ),
   recordPayment: (
     financialAccountId: string,

@@ -56,6 +56,17 @@ export class FinancialAccountController {
     return this.service.dashboard(id);
   }
 
+  @Get(':id/schedule')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({
+    summary:
+      'Account Billing Schedule: the single, dynamically merged installment plan (rows by due date, ' +
+      'each expandable into per-student / per-fee lines)',
+  })
+  schedule(@Param('id') id: string) {
+    return this.service.billingSchedule(id);
+  }
+
   @Get(':id/statement')
   @RequirePermissions(Permission.FINANCE_READ)
   @ApiOperation({ summary: 'Family statement: family totals + each child’s per-student totals' })

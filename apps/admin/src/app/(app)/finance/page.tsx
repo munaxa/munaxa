@@ -7,6 +7,8 @@ import { useToast } from '@/components/toast';
 import { FinanceTab } from '@/app/(app)/people/students/[studentId]/tabs/finance-tab';
 import {
   familiesApi,
+  type BillingSchedule,
+  type BillingScheduleStatus,
   type FamilyDashboard,
   type FamilySearchHit,
   type FinanceOverview,
@@ -67,6 +69,30 @@ export default function FinancePage() {
   // Account-centric workspace dashboard (default state, before an account is opened).
   const [overview, setOverview] = useState<FinanceOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
+
+  // The open account's Billing Schedule (dynamic read model — reloaded with the account).
+  const [schedule, setSchedule] = useState<BillingSchedule | null>(null);
+
+  const accountId = dashboard?.account.id ?? null;
+  useEffect(() => {
+    if (!accountId) {
+      setSchedule(null);
+      return;
+    }
+    let active = true;
+    setSchedule(null);
+    void (async () => {
+      try {
+        const s = await familiesApi.schedule(accountId);
+        if (active) setSchedule(s);
+      } catch {
+        // Non-fatal: the schedule is a read view; the rest of the workspace still works.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [accountId]);
 
   useEffect(() => {
     let active = true;
@@ -262,9 +288,12 @@ export default function FinancePage() {
               <Metric label="Students" value={String(dashboard.summary.childrenCount)} />
             </div>
 
+            {/* The account Billing Schedule — the single, dynamically merged plan across all students. */}
+            {schedule && <BillingScheduleCard schedule={schedule} />}
+
             <Card>
               <CardHeader>
-                <CardTitle>Students ({dashboard.students.length})</CardTitle>
+                <CardTitle>Children ({dashboard.students.length})</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {dashboard.students.length === 0 ? (
@@ -334,6 +363,106 @@ export default function FinancePage() {
         />
       )}
     </Shell>
+  );
+}
+
+const SCHEDULE_TONE: Record<BillingScheduleStatus, 'success' | 'warning' | 'danger' | 'muted'> = {
+  PAID: 'success',
+  PARTIAL: 'warning',
+  OVERDUE: 'danger',
+  UPCOMING: 'muted',
+};
+
+/**
+ * The Financial Account's Billing Schedule — ONE plan, computed dynamically by merging every
+ * student's installments by due date (no persisted account plan). Expanding a row reveals the
+ * per-student / per-fee lines that make it up (informational drill-down only; money moves via the
+ * account's Record payment). Munaxa Design System only.
+ */
+function BillingScheduleCard({ schedule }: { schedule: BillingSchedule }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Billing schedule</CardTitle>
+        <span className="text-sm text-muted-foreground">
+          Outstanding {jod(schedule.totals.balance)} of {jod(schedule.totals.amount)}
+        </span>
+      </CardHeader>
+      <CardContent>
+        {schedule.rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No installments scheduled.</p>
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>Due date</TH>
+                <TH>Amount</TH>
+                <TH>Paid</TH>
+                <TH>Balance</TH>
+                <TH>Status</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {schedule.rows.map((row, i) => {
+                const key = row.dueDate ?? `undated-${i}`;
+                const isOpen = open === key;
+                return (
+                  <FragmentRow
+                    key={key}
+                    row={row}
+                    isOpen={isOpen}
+                    onToggle={() => setOpen(isOpen ? null : key)}
+                  />
+                );
+              })}
+            </TBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** A schedule row plus its expandable per-student/per-fee breakdown. */
+function FragmentRow({
+  row,
+  isOpen,
+  onToggle,
+}: {
+  row: BillingSchedule['rows'][number];
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <TR className="cursor-pointer" onClick={onToggle}>
+        <TD>
+          <span className="me-2 text-muted-foreground">{isOpen ? '▼' : '▶'}</span>
+          {row.dueDate ? dateStr(row.dueDate) : 'Undated'}
+        </TD>
+        <TD>{jod(row.amount)}</TD>
+        <TD>{jod(row.paid)}</TD>
+        <TD>{jod(row.balance)}</TD>
+        <TD>
+          <Badge tone={SCHEDULE_TONE[row.status]}>{row.status}</Badge>
+        </TD>
+      </TR>
+      {isOpen &&
+        row.lines.map((l, j) => (
+          <TR key={`${l.studentId}-${l.chargeDescription}-${j}`} className="bg-muted/30">
+            <TD className="ps-8 text-sm text-muted-foreground">
+              {l.studentName} · {l.chargeDescription}
+            </TD>
+            <TD className="text-sm">{jod(l.amount)}</TD>
+            <TD className="text-sm">{jod(l.paid)}</TD>
+            <TD className="text-sm">{jod(l.balance)}</TD>
+            <TD>
+              <Badge tone={SCHEDULE_TONE[l.status]}>{l.status}</Badge>
+            </TD>
+          </TR>
+        ))}
+    </>
   );
 }
 
