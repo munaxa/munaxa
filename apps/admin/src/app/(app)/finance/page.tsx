@@ -206,9 +206,18 @@ function FinanceWorkspace() {
     }
   };
 
+  // After a payment/allocation, refresh BOTH the account totals and the Billing Schedule (the
+  // schedule is a read model — it must reflect the new allocation, and its own effect won't re-run
+  // because the account id is unchanged).
   const reload = async () => {
     if (!dashboard) return;
-    setDashboard(await familiesApi.dashboard(dashboard.account.id));
+    const id = dashboard.account.id;
+    const [fresh, sched] = await Promise.all([
+      familiesApi.dashboard(id),
+      familiesApi.schedule(id).catch(() => null),
+    ]);
+    setDashboard(fresh);
+    if (sched) setSchedule(sched);
   };
 
   return (
