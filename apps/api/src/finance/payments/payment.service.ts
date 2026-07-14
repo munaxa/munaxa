@@ -88,14 +88,16 @@ export class PaymentService {
       receiptKey: dto.receiptKey ?? null,
       note: dto.note ?? null,
     });
-    // MANUAL allocation: the officer assigned the money to specific installments — verify and apply
-    // exactly those (residue → account credit) instead of the automatic FIFO on later verify.
+    // Money received at the desk settles immediately: verify (assigns the official receipt number)
+    // and allocate. MANUAL → apply exactly the officer's lines; AUTOMATIC → cross-student FIFO. Any
+    // residue banks to the account credit either way.
+    const verified = await this.repo.setStatus(payment.id, 'VERIFIED');
     if (dto.allocations && dto.allocations.length > 0) {
-      const verified = await this.repo.setStatus(payment.id, 'VERIFIED');
       await this.ledger.allocateManualOnVerify(verified, dto.allocations);
-      return verified;
+    } else {
+      await this.ledger.allocateOnVerify(verified);
     }
-    return payment;
+    return verified;
   }
 
   listForFinancialAccount(financialAccountId: string): Promise<Payment[]> {
