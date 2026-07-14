@@ -44,6 +44,11 @@ export default function AdmissionsReportsPage() {
 
   const [enrollments, setEnrollments] = useState<EnrollmentRow[]>([]);
   const [mods, setMods] = useState<FeeModificationRow[]>([]);
+  const [stats, setStats] = useState<{
+    total: number;
+    byStatus: Record<string, number>;
+    byAdmissionStatus: Record<string, number>;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -74,14 +79,17 @@ export default function AdmissionsReportsPage() {
     setLoading(true);
     try {
       if (tab === 'enrollments') {
-        setEnrollments(
-          await admissionsApi.listEnrollments({
+        const [rows, summary] = await Promise.all([
+          admissionsApi.listEnrollments({
             ...(academicYearId ? { academicYearId } : {}),
             ...(gradeId ? { gradeId } : {}),
             // The enrollments report filters by the admission workflow status (Decision 2).
             ...(status ? { admissionStatus: status } : {}),
           }),
-        );
+          admissionsApi.enrollmentStats(academicYearId || undefined),
+        ]);
+        setEnrollments(rows);
+        setStats(summary);
       } else {
         setMods(await admissionsApi.listModifications(status || undefined));
       }
@@ -178,6 +186,24 @@ export default function AdmissionsReportsPage() {
         </CardContent>
       </Card>
 
+      {tab === 'enrollments' && stats ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Enrollment summary{academicYearId ? '' : ' (all years)'}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-4">
+            <Stat label="Total" value={stats.total} />
+            <Stat label="Active" value={stats.byStatus.ACTIVE ?? 0} />
+            <Stat label="Promoted" value={stats.byStatus.PROMOTED ?? 0} />
+            <Stat label="Repeated" value={stats.byStatus.REPEATED ?? 0} />
+            <Stat label="Graduated" value={stats.byStatus.GRADUATED ?? 0} />
+            <Stat label="Withdrawn" value={stats.byStatus.WITHDRAWN ?? 0} />
+            <Stat label="Registered" value={stats.byAdmissionStatus.REGISTERED ?? 0} />
+            <Stat label="Pending" value={stats.byAdmissionStatus.ACCEPTED ?? 0} />
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>{tab === 'enrollments' ? 'Enrollments' : 'Fee modifications'}</CardTitle>
@@ -262,6 +288,17 @@ export default function AdmissionsReportsPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="min-w-[4.5rem]">
+      <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-lg font-semibold">{value}</div>
     </div>
   );
 }

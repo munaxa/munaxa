@@ -531,9 +531,18 @@ trigger is the belt-and-suspenders.
 > `deletability`** — hiding it with a "Withdraw/Cancel instead" hint when dependent records exist.
 > Admin production build passes.
 >
-> **Remaining Step 10b (part 2 — UI):** identity-first admission wizard rendering A/B/C + collapse the
+> ✅ **Step 11 (reporting):** `GET /admissions/enrollments/stats?academicYearId=` returns the two
+> DISTINCT breakdowns (Decision 2) — participation `byStatus` and admission-funnel `byAdmissionStatus`
+> — plus a total, filterable by Academic Year (closed years stay reportable, Decision 12). The
+> admissions report page shows an Enrollment-summary card (Total/Active/Promoted/Repeated/Graduated/
+> Withdrawn/Registered/Pending). Admin build passes.
+>
+> **Remaining (deferred UI / cleanup):** identity-first admission wizard rendering A/B/C + collapse the
 > two admission screens; read-only-finance enforcement on the student profile; Family→Financial Account
-> rename sweep.
+> rename sweep — all UI-heavy and best done with browser review. **Step 12 (Phase-B destructive
+> cleanup)** — drop the deprecated `Student` academic columns + swap AcademicYear uniqueness — is
+> intentionally NOT executed here: those columns are still read by attendance/portal/reporting shims,
+> and per Rev. 3 it must run only AFTER the new architecture is validated in production.
 >
 > **Remaining for the unified-admission UI (folded into Step 10):** collapse the two admission screens
 > (`/admissions` + `/admissions/family`) into one identity-first wizard behind a feature flag, render the

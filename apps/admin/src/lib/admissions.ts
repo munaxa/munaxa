@@ -312,6 +312,17 @@ export const admissionsApi = {
     }).then((r) => json<{ enrollmentId: string; mode: string; planId: string | null }>(r)),
   loadReturning: (studentId: string) =>
     authFetch(`/admissions/returning/${studentId}`).then((r) => json<ReturningStudent>(r)),
+  // Enrollment statistics: participation vs. admission-funnel breakdowns, optionally by academic year.
+  enrollmentStats: (academicYearId?: string) =>
+    authFetch(
+      `/admissions/enrollments/stats${academicYearId ? `?academicYearId=${academicYearId}` : ''}`,
+    ).then((r) =>
+      json<{
+        total: number;
+        byStatus: Record<string, number>;
+        byAdmissionStatus: Record<string, number>;
+      }>(r),
+    ),
   // Re-enroll a returning (Case-C) student into a new year via the shared pipeline (no new Student).
   reEnroll: (req: {
     studentId: string;

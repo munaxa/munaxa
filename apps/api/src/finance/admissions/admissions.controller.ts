@@ -163,6 +163,15 @@ export class AdmissionsController {
   }
 
   // ── Enrollments / reporting ──
+  @Get('enrollments/stats')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary: 'Enrollment counts by participation + admission status (optionally by academic year)',
+  })
+  enrollmentStats(@Query('academicYearId') academicYearId?: string) {
+    return this.service.enrollmentStats(academicYearId);
+  }
+
   @Get('enrollments')
   @RequirePermissions(Permission.ENROLLMENT_MANAGE)
   @ApiOperation({ summary: 'List enrollments (registration & re-enrollment report)' })

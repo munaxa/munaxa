@@ -158,6 +158,11 @@ export class AdmissionsService {
     return this.repo.loadReturning(studentId);
   }
 
+  /** Enrollment statistics (participation + admission-funnel breakdowns), optionally by academic year. */
+  enrollmentStats(academicYearId?: string) {
+    return this.repo.enrollmentStats(academicYearId);
+  }
+
   // Enrollments / reporting
   listEnrollments(filter: {
     academicYearId?: string;

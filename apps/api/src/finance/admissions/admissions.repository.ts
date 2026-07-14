@@ -1132,6 +1132,29 @@ export class AdmissionsRepository extends TenantRepository {
     });
   }
 
+  /**
+   * Enrollment statistics for reporting (Step 11), optionally scoped to one Academic Year. Returns the
+   * two DISTINCT breakdowns (Decision 2): participation `byStatus` and admission-funnel
+   * `byAdmissionStatus`. Closed years remain fully reportable (Decision 12).
+   */
+  async enrollmentStats(academicYearId?: string) {
+    return this.run(async (tx) => {
+      const where = academicYearId ? { academicYearId } : {};
+      const [byStatus, byAdmission, total] = await Promise.all([
+        tx.enrollment.groupBy({ by: ['status'], where, _count: { _all: true } }),
+        tx.enrollment.groupBy({ by: ['admissionStatus'], where, _count: { _all: true } }),
+        tx.enrollment.count({ where }),
+      ]);
+      return {
+        total,
+        byStatus: Object.fromEntries(byStatus.map((r) => [r.status, r._count._all])),
+        byAdmissionStatus: Object.fromEntries(
+          byAdmission.map((r) => [r.admissionStatus, r._count._all]),
+        ),
+      };
+    });
+  }
+
   // ── Enrollments / reporting ──
   listEnrollments(filter: {
     academicYearId?: string;
