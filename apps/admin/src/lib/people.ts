@@ -29,6 +29,20 @@ export interface Student {
   status: string;
 }
 
+/** One immutable row of a student's Enrollment History (per academic year). */
+export interface EnrollmentHistoryRow {
+  id: string;
+  admissionStatus: string;
+  status: string;
+  admissionDate: string | null;
+  withdrawalDate: string | null;
+  graduationDate: string | null;
+  reason: string | null;
+  grade: { nameEn: string; nameAr: string } | null;
+  section: { name: string } | null;
+  academicYear: { name: string; startDate: string; status: string } | null;
+}
+
 /** Full English name from its parts: given · father · grandfather · family. */
 export function fullNameEn(s: Student): string {
   return [s.firstNameEn, s.fatherNameEn, s.thirdNameEn, s.lastNameEn]
@@ -105,6 +119,14 @@ export const studentsApi = {
   get: (id: string) => authFetch(`/students/${id}`).then((r) => json<Student>(r)),
   bySection: (sectionId: string) =>
     authFetch(`/students?sectionId=${sectionId}`).then((r) => json<Student[]>(r)),
+  // Immutable per-year Enrollment History (year · grade · status · dates).
+  enrollmentHistory: (id: string) =>
+    authFetch(`/students/${id}/enrollment-history`).then((r) => json<EnrollmentHistoryRow[]>(r)),
+  // Whether the student can be hard-deleted (else the UI offers Withdraw / Cancel Admission).
+  deletability: (id: string) =>
+    authFetch(`/students/${id}/deletability`).then((r) =>
+      json<{ deletable: boolean; blockers: string[] }>(r),
+    ),
   create: (data: {
     firstNameEn: string;
     lastNameEn: string;

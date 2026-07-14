@@ -519,8 +519,16 @@ trigger is the belt-and-suspenders.
 > idempotent per student) · ✅ Step 9 (enrollment exit — `withdraw` runs the academic event via the
 > lifecycle service then settles by cancelling remaining UNPAID charges per policy, keeping paid amounts
 > and the registration fee; `cancelAdmission` voids a pre-active admission and is refused once any money
-> is settled; both reuse `ChargeService.cancel`, redesign no ledger, delete no history). Each shipped
-> additive, reversible, audited.
+> is settled; both reuse `ChargeService.cancel`, redesign no ledger, delete no history) · ✅ Step 10a
+> (deletion guard — a student is hard-deletable only with NO dependent records
+> [enrollments/attendance/grades/finance/documents/transport/clinic/cards]; else the API refuses and
+> names the blockers, and `GET :id/deletability` drives showing Delete vs. Withdraw/Cancel; plus
+> `GET :id/enrollment-history` for the immutable per-year history). Each shipped additive, reversible,
+> audited.
+>
+> **Remaining Step 10b (UI):** identity-first admission wizard rendering A/B/C + collapse the two
+> screens; Enrollment-History panel + read-only-finance student profile; Family→Financial Account
+> rename sweep.
 >
 > **Remaining for the unified-admission UI (folded into Step 10):** collapse the two admission screens
 > (`/admissions` + `/admissions/family`) into one identity-first wizard behind a feature flag, render the

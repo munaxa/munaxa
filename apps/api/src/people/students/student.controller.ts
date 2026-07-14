@@ -68,6 +68,22 @@ export class StudentController {
     return this.service.qr(id);
   }
 
+  @Get(':id/enrollment-history')
+  @RequirePermissions(Permission.STUDENT_MANAGE)
+  @ApiOperation({
+    summary: 'Immutable per-year Enrollment History (year · grade · status · dates)',
+  })
+  enrollmentHistory(@Param('id') id: string) {
+    return this.service.enrollmentHistory(id);
+  }
+
+  @Get(':id/deletability')
+  @RequirePermissions(Permission.STUDENT_MANAGE)
+  @ApiOperation({ summary: 'Whether the student can be hard-deleted, and the blockers if not' })
+  deletability(@Param('id') id: string) {
+    return this.service.deletability(id);
+  }
+
   @Patch(':id')
   @RequirePermissions(Permission.STUDENT_MANAGE)
   update(@Param('id') id: string, @Body() dto: UpdateStudentDto) {
