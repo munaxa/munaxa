@@ -102,6 +102,41 @@ export interface FamilyStatement {
 
 export type PaymentMethod = 'CASH' | 'CLIQ' | 'EWALLET' | 'BANK_TRANSFER' | 'CHEQUE' | 'CARD';
 
+/** Account-centric finance overview — the workspace dashboard (shown before an account is opened). */
+export interface FinanceOverview {
+  kpis: {
+    totalOutstanding: string;
+    collectedToday: string;
+    collectedThisMonth: string;
+    overdueAccounts: number;
+    pendingInstallments: number;
+    activePaymentPlans: number;
+  };
+  largestOutstandingAccounts: Array<{
+    payerId: string;
+    name: string;
+    outstanding: string;
+    nextDueDate: string | null;
+    nextDueAmount: string | null;
+    collectionStatus: 'NONE' | 'FINANCIAL_ISSUE' | 'LEGAL';
+  }>;
+  recentPayments: Array<{
+    id: string;
+    payerId: string | null;
+    accountName: string;
+    amount: string;
+    method: string;
+    at: string | null;
+    receiptNo: number | null;
+  }>;
+  upcomingInstallments: Array<{
+    payerId: string;
+    accountName: string;
+    dueDate: string | null;
+    amount: string;
+  }>;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string | string[] };
@@ -116,6 +151,7 @@ export const familiesApi = {
     authFetch(`/finance/families/search?q=${encodeURIComponent(q)}`).then((r) =>
       json<FamilySearchHit[]>(r),
     ),
+  overview: () => authFetch(`/finance/families/dashboard`).then((r) => json<FinanceOverview>(r)),
   dashboard: (financialAccountId: string) =>
     authFetch(`/finance/families/${financialAccountId}`).then((r) => json<FamilyDashboard>(r)),
   byParent: (parentId: string) =>

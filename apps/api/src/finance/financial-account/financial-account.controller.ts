@@ -36,6 +36,17 @@ export class FinancialAccountController {
     return this.service.byParent(parentId);
   }
 
+  @Get('dashboard')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({
+    summary:
+      'Account-centric finance overview (workspace dashboard): KPIs, largest-outstanding accounts, ' +
+      'recent payments, upcoming installments',
+  })
+  overview() {
+    return this.service.overview();
+  }
+
   @Get(':id')
   @RequirePermissions(Permission.FINANCE_READ)
   @ApiOperation({
