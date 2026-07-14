@@ -501,7 +501,9 @@ trigger is the belt-and-suspenders.
 > **Build status:** ✅ Step 1 (Academic Year → School-scoped + status) · ✅ Step 2 (Admission vs.
 > Enrollment status split, `admissionStatus` on Enrollment) · ✅ Step 3 (year-scoped placement columns
 > on Enrollment, admission writes them, `EnrollmentLifecycleService` = sole participation-status writer
-> + derived Student-status projection; `Student` academic columns kept as deprecated shims). Each
+> + derived Student-status projection; `Student` academic columns kept as deprecated shims) · ✅ Step 4
+> (internal Student Number — configurable per-tenant `StudentNumberCounter`, gapless allocation on
+> every student create, backfilled for existing students, searchable, shown on the profile). Each
 > shipped additive, reversible, audited.
 
 1. **Academic Year → School-scoped + status machine** — re-scope migration (validated), `Upcoming/

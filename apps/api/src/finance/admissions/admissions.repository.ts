@@ -15,6 +15,7 @@ import { TenantRepository } from '../../common/tenant.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantConnectionManager } from '../../prisma/tenant-connection.service';
 import type { TxClient } from '../../prisma/tenant.helpers';
+import { allocateStudentNumber } from '../../people/students/student-number';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import { generateStudentQrCode } from '../../people/people.util';
 import { AccountRepository } from '../account/account.repository';
@@ -588,9 +589,11 @@ export class AdmissionsRepository extends TenantRepository {
           if (!entry.student)
             throw new BadRequestException(`Student #${i + 1} information is required`);
           const s = entry.student;
+          const studentNumber = await allocateStudentNumber(tx, tenantId);
           const created = await tx.student.create({
             data: {
               tenantId,
+              studentNumber,
               firstNameEn: s.firstNameEn,
               lastNameEn: s.lastNameEn,
               firstNameAr: s.firstNameAr || s.firstNameEn,
@@ -846,9 +849,11 @@ export class AdmissionsRepository extends TenantRepository {
       if (!studentId) {
         if (!dto.student) throw new BadRequestException('Student information is required');
         const s = dto.student;
+        const studentNumber = await allocateStudentNumber(tx, tenantId);
         const created = await tx.student.create({
           data: {
             tenantId,
+            studentNumber,
             firstNameEn: s.firstNameEn,
             lastNameEn: s.lastNameEn,
             firstNameAr: s.firstNameAr || s.firstNameEn,

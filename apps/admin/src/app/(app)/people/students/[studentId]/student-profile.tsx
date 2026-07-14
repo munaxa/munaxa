@@ -105,7 +105,7 @@ export function StudentProfile() {
       // Template-literal path isn't statically a typed Route; cast as elsewhere in the app.
       // Required for `next build` (typedRoutes); local type-aware lint lacks .next/types and
       // sees it as redundant — disable that rule here.
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+
       router.push(`${pathname}?${qs.toString()}` as never);
     },
     [router, pathname, searchParams],
@@ -210,6 +210,7 @@ export function StudentProfile() {
                   {student.status}
                 </Badge>
                 {sectionLabel ? <Badge tone="muted">{sectionLabel}</Badge> : null}
+                <Meta label={t('people.studentNumber')} value={student.studentNumber} />
                 <Meta label={t('people.studentNo')} value={student.moeStudentNumber} />
                 <Meta label={t('people.nationalId')} value={student.nationalId} />
                 <Meta

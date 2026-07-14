@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { ParentStudent, Prisma, Student, StudentStatus, StudentVaccine } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+import { allocateStudentNumber } from './student-number';
 
 /** A parent↔student link enriched with the parent's contact details. */
 export type ParentLink = Prisma.ParentStudentGetPayload<{ include: { parent: true } }>;
@@ -8,7 +9,11 @@ export type ParentLink = Prisma.ParentStudentGetPayload<{ include: { parent: tru
 @Injectable()
 export class StudentRepository extends TenantRepository {
   create(data: Omit<Prisma.StudentUncheckedCreateInput, 'tenantId'>): Promise<Student> {
-    return this.run((tx, tenantId) => tx.student.create({ data: { ...data, tenantId } }));
+    return this.run(async (tx, tenantId) => {
+      // Every student gets a permanent internal Student Number (Decision 6), unless one is supplied.
+      const studentNumber = data.studentNumber ?? (await allocateStudentNumber(tx, tenantId));
+      return tx.student.create({ data: { ...data, tenantId, studentNumber } });
+    });
   }
 
   /** Create many students in one transaction; returns the created rows. */
@@ -16,7 +21,12 @@ export class StudentRepository extends TenantRepository {
     rows: Array<Omit<Prisma.StudentUncheckedCreateInput, 'tenantId'>>,
   ): Promise<Student[]> {
     return this.run((tx, tenantId) =>
-      Promise.all(rows.map((data) => tx.student.create({ data: { ...data, tenantId } }))),
+      Promise.all(
+        rows.map(async (data) => {
+          const studentNumber = data.studentNumber ?? (await allocateStudentNumber(tx, tenantId));
+          return tx.student.create({ data: { ...data, tenantId, studentNumber } });
+        }),
+      ),
     );
   }
 
@@ -48,6 +58,7 @@ export class StudentRepository extends TenantRepository {
                   { lastNameAr: contains },
                   { nationalId: contains },
                   { moeStudentNumber: contains },
+                  { studentNumber: contains },
                 ],
               }
             : {}),

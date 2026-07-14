@@ -473,6 +473,7 @@ model Tenant {
   einvoiceCredentials      EInvoiceCredential[]
   einvoiceCounter          EInvoiceCounter?
   paymentReceiptCounter    PaymentReceiptCounter?
+  studentNumberCounter     StudentNumberCounter?
   einvoiceDocuments        EInvoiceDocument[]
   einvoiceLogs             EInvoiceLog[]
   feeAdjustments           FeeAdjustment[]
@@ -713,6 +714,13 @@ model Student {
   userId             String?       @unique @db.Uuid
   moeStudentNumber   String? // Ministry of Education student number
   nationalId         String? // Jordanian National ID (Raqam Watani)
+  // Internal, school-generated student number (Decision 6). A PERMANENT identity attribute (does not
+  // change between years), separate from National ID / MoE number. Auto-assigned from the per-tenant
+  // StudentNumberCounter (configurable prefix / padding / start / reset). Printed on report cards, QR
+  // cards, attendance sheets, library cards and certificates. Uniqueness is enforced by a PARTIAL
+  // unique index (WHERE "studentNumber" IS NOT NULL AND "deletedAt" IS NULL) in the migration — not by
+  // @@unique — so nulls and soft-deletes don't reserve a number. Never user-entered, never reassigned.
+  studentNumber      String?
   firstNameEn        String
   lastNameEn         String
   firstNameAr        String
@@ -1572,6 +1580,31 @@ model PaymentReceiptCounter {
   id            String @id @default(uuid()) @db.Uuid
   tenantId      String @unique @db.Uuid
   nextReceiptNo Int    @default(1)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// How the internal Student Number sequence resets (Decision 6). NEVER (default) is an ever-increasing
+/// sequence; ANNUAL is reserved for a future per-year reset. Only NEVER is implemented today.
+enum StudentNumberResetPolicy {
+  NEVER
+  ANNUAL
+}
+
+/// Row-locked, per-tenant counter + format config for the internal Student Number (Decision 6). Same
+/// gapless pattern as PaymentReceiptCounter/EInvoiceCounter, created lazily on first use. Configurable
+/// per school: optional `prefix`, `padLength`, starting value (the initial `nextNumber`) and
+/// `resetPolicy`. Default: no prefix, zero-padded to 6, starting at 1, never resets (e.g. "000001";
+/// with prefix "S-" → "S-000001").
+model StudentNumberCounter {
+  id          String                   @id @default(uuid()) @db.Uuid
+  tenantId    String                   @unique @db.Uuid
+  prefix      String? // optional literal prefix, e.g. "S-" or "2026-"
+  padLength   Int                      @default(6)
+  nextNumber  Int                      @default(1)
+  resetPolicy StudentNumberResetPolicy @default(NEVER)
+  createdAt   DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime                 @updatedAt @db.Timestamptz(6)
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
