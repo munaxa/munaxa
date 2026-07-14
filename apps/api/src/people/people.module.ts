@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { FinanceModule } from '../finance/finance.module';
 import { StudentController } from './students/student.controller';
 import { StudentService } from './students/student.service';
 import { StudentRepository } from './students/student.repository';
@@ -17,6 +18,7 @@ import { EmployeeRepository } from './employees/employee.repository';
  * Teachers (+ section assignment), Employees (incl. secretary accounts).
  */
 @Module({
+  imports: [FinanceModule],
   controllers: [StudentController, ParentController, TeacherController, EmployeeController],
   providers: [
     StudentService,

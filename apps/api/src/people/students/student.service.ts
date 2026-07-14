@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { parse } from 'csv-parse/sync';
 import type { ParentStudent, Prisma, Student, StudentVaccine } from '@prisma/client';
 import { StudentRepository, type ParentLink } from './student.repository';
+import { AccountRepository } from '../../finance/account/account.repository';
 import { generateStudentQrCode } from '../people.util';
 import type {
   CreateStudentDto,
@@ -18,7 +19,10 @@ export interface ImportResult {
 
 @Injectable()
 export class StudentService {
-  constructor(private readonly repo: StudentRepository) {}
+  constructor(
+    private readonly repo: StudentRepository,
+    private readonly accounts: AccountRepository,
+  ) {}
 
   async create(dto: CreateStudentDto): Promise<Student> {
     await this.assertSection(dto.sectionId);
@@ -86,7 +90,17 @@ export class StudentService {
     if (!(await this.repo.parentExists(dto.parentId))) {
       throw new BadRequestException('Parent not found in this tenant');
     }
-    return this.repo.linkParent(studentId, dto.parentId, dto.relation, dto.isPrimary ?? false);
+    const link = await this.repo.linkParent(
+      studentId,
+      dto.parentId,
+      dto.relation,
+      dto.isPrimary ?? false,
+    );
+    // Assigning the paying guardian places the student under that guardian's Financial Account so
+    // they surface in Finance and family payments allocate across siblings. Non-destructive: a
+    // student already billed to another account is left untouched.
+    await this.accounts.reconcileStudentAccount(studentId);
+    return link;
   }
 
   async unlinkParent(studentId: string, parentId: string): Promise<void> {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Shell } from '@/components/shell';
 import { useToast } from '@/components/toast';
 import { FinanceTab } from '@/app/(app)/people/students/[studentId]/tabs/finance-tab';
@@ -51,6 +52,7 @@ const COLLECTION_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'
  */
 export default function FinancePage() {
   const toast = useToast();
+  const router = useRouter();
 
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<FamilySearchHit[] | null>(null);
@@ -78,6 +80,13 @@ export default function FinancePage() {
   };
 
   const openAccount = async (hit: FamilySearchHit) => {
+    // A guardian-less student: no account can exist until a paying guardian is assigned. Send the
+    // user to the student's profile to assign one — that links the student to the guardian's account.
+    if (hit.studentId) {
+      toast.error('This student has no guardian yet — assign one to bill them through an account');
+      router.push(`/people/students/${hit.studentId}`);
+      return;
+    }
     if (!hit.financialAccountId) {
       toast.error('This guardian has no account yet — register them via Admission');
       return;
@@ -147,17 +156,19 @@ export default function FinancePage() {
                   <TBody>
                     {hits.map((h) => (
                       <TR
-                        key={h.parentId ?? h.financialAccountId ?? h.nameEn}
+                        key={h.parentId ?? h.financialAccountId ?? h.studentId ?? h.nameEn}
                         className="cursor-pointer"
                         onClick={() => void openAccount(h)}
                       >
                         <TD>{h.nameEn}</TD>
                         <TD>{h.phone ?? '—'}</TD>
                         <TD>{h.nationalId ?? '—'}</TD>
-                        <TD>{h.studentCount}</TD>
+                        <TD>{h.studentId ? '—' : h.studentCount}</TD>
                         <TD>
                           {h.financialAccountId ? (
                             <Badge tone="success">Account</Badge>
+                          ) : h.studentId ? (
+                            <Badge tone="warning">Student · no guardian</Badge>
                           ) : (
                             <Badge tone="muted">No account</Badge>
                           )}
