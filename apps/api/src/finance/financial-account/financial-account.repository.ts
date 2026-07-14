@@ -48,6 +48,18 @@ export class FinancialAccountRepository extends TenantRepository {
     return this.run((tx) => tx.payer.findFirst({ where: { id } }));
   }
 
+  /** The financial account (Payer) a student is billed through — for deep-linking into the workspace. */
+  findByStudentId(studentId: string): Promise<Payer | null> {
+    return this.run(async (tx) => {
+      const account = await tx.studentFinancialAccount.findFirst({
+        where: { studentId },
+        select: { payerId: true },
+      });
+      if (!account?.payerId) return null;
+      return tx.payer.findFirst({ where: { id: account.payerId } });
+    });
+  }
+
   /** The active financial account (Payer) for a guardian, if one exists (most-recent first). */
   findByParent(parentId: string): Promise<Payer | null> {
     return this.run((tx) =>

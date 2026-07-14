@@ -105,6 +105,7 @@ export type PaymentMethod = 'CASH' | 'CLIQ' | 'EWALLET' | 'BANK_TRANSFER' | 'CHE
 export type BillingScheduleStatus = 'PAID' | 'PARTIAL' | 'OVERDUE' | 'UPCOMING';
 
 export interface BillingScheduleLine {
+  installmentId: string;
   studentId: string;
   studentName: string;
   chargeDescription: string;
@@ -179,6 +180,10 @@ export const familiesApi = {
       json<FamilySearchHit[]>(r),
     ),
   overview: () => authFetch(`/finance/families/dashboard`).then((r) => json<FinanceOverview>(r)),
+  byStudent: (studentId: string) =>
+    authFetch(`/finance/families/by-student/${studentId}`).then((r) =>
+      json<{ account: { id: string } | null; studentId: string }>(r),
+    ),
   dashboard: (financialAccountId: string) =>
     authFetch(`/finance/families/${financialAccountId}`).then((r) => json<FamilyDashboard>(r)),
   byParent: (parentId: string) =>
@@ -198,7 +203,14 @@ export const familiesApi = {
     ),
   recordPayment: (
     financialAccountId: string,
-    data: { amount: number; method: PaymentMethod; reference?: string; note?: string },
+    data: {
+      amount: number;
+      method: PaymentMethod;
+      reference?: string;
+      note?: string;
+      // Optional MANUAL allocation — assign the payment to specific installments (else auto FIFO).
+      allocations?: Array<{ installmentId: string; amount: number }>;
+    },
   ) =>
     authFetch(`/finance/payments/family/${financialAccountId}`, {
       method: 'POST',

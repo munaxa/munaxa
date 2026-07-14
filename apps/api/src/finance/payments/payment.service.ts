@@ -80,7 +80,7 @@ export class PaymentService {
       throw new BadRequestException('CliQ/e-wallet payments require a receipt or a reference');
     }
     if (dto.receiptKey) this.storage.assertKeyInTenant(dto.receiptKey);
-    return this.repo.createForFinancialAccount({
+    const payment = await this.repo.createForFinancialAccount({
       payerId: financialAccountId,
       amount: dto.amount,
       method: dto.method,
@@ -88,6 +88,14 @@ export class PaymentService {
       receiptKey: dto.receiptKey ?? null,
       note: dto.note ?? null,
     });
+    // MANUAL allocation: the officer assigned the money to specific installments — verify and apply
+    // exactly those (residue → account credit) instead of the automatic FIFO on later verify.
+    if (dto.allocations && dto.allocations.length > 0) {
+      const verified = await this.repo.setStatus(payment.id, 'VERIFIED');
+      await this.ledger.allocateManualOnVerify(verified, dto.allocations);
+      return verified;
+    }
+    return payment;
   }
 
   listForFinancialAccount(financialAccountId: string): Promise<Payment[]> {

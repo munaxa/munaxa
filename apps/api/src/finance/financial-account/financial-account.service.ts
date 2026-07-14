@@ -38,6 +38,11 @@ export class FinancialAccountService {
     return this.reports.financeOverview();
   }
 
+  /** Resolve a student to their Financial Account (Payer) — powers "Open in finance" deep-links. */
+  async byStudent(studentId: string): Promise<{ account: Payer | null; studentId: string }> {
+    return { account: await this.repo.findByStudentId(studentId), studentId };
+  }
+
   /** Ensure (find-or-create) a financial account for a guardian. */
   ensureForParent(parentId: string) {
     return this.repo.ensureForParent(parentId);

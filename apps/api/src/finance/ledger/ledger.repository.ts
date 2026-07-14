@@ -16,6 +16,7 @@ import { ZERO, floorZero, toFils, fromFils } from '../shared/money';
 
 /** One fee line within a Billing Schedule row (a single student's installment for one charge). */
 export interface BillingScheduleLine {
+  installmentId: string;
   studentId: string;
   studentName: string;
   chargeDescription: string;
@@ -717,6 +718,7 @@ export class LedgerRepository extends TenantRepository {
           buckets.set(key, row);
         }
         row.lines.push({
+          installmentId: r.installmentId,
           studentId: r.studentId,
           studentName: r.studentName,
           chargeDescription: r.chargeDescription,
