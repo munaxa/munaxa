@@ -402,11 +402,7 @@ function FinanceWorkspace() {
               ...(note ? { note } : {}),
               ...(allocations && allocations.length > 0 ? { allocations } : {}),
             });
-            toast.success(
-              allocations && allocations.length > 0
-                ? 'Payment recorded and allocated'
-                : 'Payment recorded (pending verification)',
-            );
+            toast.success('Payment recorded and allocated');
             setPayOpen(false);
             await reload();
           }}

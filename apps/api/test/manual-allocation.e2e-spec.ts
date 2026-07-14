@@ -186,4 +186,58 @@ describe('Manual allocation + deep-link (e2e)', () => {
       })
       .expect(400);
   });
+
+  it('an automatic (no-allocations) payment settles immediately and allocates FIFO', async () => {
+    // Fresh student C with the earliest-due open installment, so FIFO lands the payment on it.
+    let cInst = '';
+    await withPlatform(prisma, async (tx) => {
+      const s = await tx.student.create({
+        data: {
+          tenantId: TENANT,
+          firstNameEn: 'Adam',
+          lastNameEn: 'Ma',
+          firstNameAr: 'ط',
+          lastNameAr: 'م',
+          qrCode: `QR-${TENANT}-c`,
+        },
+      });
+      const acct = await tx.studentFinancialAccount.create({
+        data: { tenantId: TENANT, studentId: s.id, payerId },
+      });
+      const charge = await tx.charge.create({
+        data: {
+          tenantId: TENANT,
+          accountId: acct.id,
+          studentId: s.id,
+          description: 'Books',
+          amount: '100.000',
+          status: 'PENDING',
+        },
+      });
+      const inst = await tx.installment.create({
+        data: {
+          tenantId: TENANT,
+          chargeId: charge.id,
+          seq: 1,
+          amount: '100.000',
+          dueDate: new Date('2019-01-01'),
+          status: 'SCHEDULED',
+        },
+      });
+      cInst = inst.id;
+    });
+
+    const res = await http()
+      .post(`/api/v1/finance/payments/family/${payerId}`)
+      .set(auth())
+      .send({ amount: 100, method: 'CASH' }) // automatic — no allocations
+      .expect(201);
+    expect(res.body.status).toBe('VERIFIED'); // settles immediately, no pending step
+    expect(res.body.receiptNo).toBeGreaterThan(0); // official receipt assigned on verify
+
+    await withPlatform(prisma, async (tx) => {
+      const inst = await tx.installment.findUniqueOrThrow({ where: { id: cInst } });
+      expect(inst.status).toBe('PAID'); // FIFO applied the 100 to the earliest-due installment
+    });
+  });
 });
