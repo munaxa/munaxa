@@ -47,6 +47,40 @@ export class AccountRepository extends TenantRepository {
     return account;
   }
 
+  /**
+   * Reconcile a student's financial account with their primary guardian's Payer. Called when a
+   * guardian is (re)assigned in the People module: assigning the paying guardian is what places the
+   * student under that guardian's Financial Account (so siblings share one account and family
+   * payments allocate across them). Non-destructive: the account's payer is set only when it is
+   * currently unset — a student already billed to another account (e.g. a company/sponsor payer) is
+   * never moved. Idempotent.
+   */
+  reconcileStudentAccount(studentId: string): Promise<StudentFinancialAccount> {
+    return this.run((tx, tenantId) => this.reconcileStudentAccountTx(tx, tenantId, studentId));
+  }
+
+  async reconcileStudentAccountTx(
+    tx: TxClient,
+    tenantId: string,
+    studentId: string,
+  ): Promise<StudentFinancialAccount> {
+    const account = await this.ensureAccountTx(tx, tenantId, studentId);
+    if (account.payerId) return account; // already billed to an account — do not move it
+    const payerId = await this.ensurePayerForStudentTx(tx, tenantId, studentId);
+    if (!payerId) return account; // no guardian to bill through yet
+    const linked = await tx.studentFinancialAccount.update({
+      where: { id: account.id },
+      data: { payerId },
+    });
+    await this.writeAudit(tx, tenantId, {
+      action: 'finance.account.link-payer',
+      entityType: 'StudentFinancialAccount',
+      entityId: linked.id,
+      metadata: { studentId, payerId },
+    });
+    return linked;
+  }
+
   /** Ensure a Payer exists for the student's primary guardian; returns its id (or null). */
   private async ensurePayerForStudentTx(
     tx: TxClient,

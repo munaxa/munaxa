@@ -20,6 +20,7 @@ export interface AccountStudent {
 export interface FamilySearchHit {
   financialAccountId: string | null; // the Payer id — null when the guardian has no account yet
   parentId: string | null;
+  studentId: string | null; // set for a guardian-less student hit (no account/guardian yet)
   ownerType: FinancialAccountOwnerType | 'GUARDIAN';
   nameEn: string;
   nameAr: string;
@@ -122,7 +123,7 @@ export class FinancialAccountRepository extends TenantRepository {
   studentsOf(payerId: string): Promise<AccountStudent[]> {
     return this.run(async (tx) => {
       const accounts = await tx.studentFinancialAccount.findMany({
-        where: { payerId },
+        where: { payerId, student: { deletedAt: null } },
         select: {
           id: true,
           student: {
@@ -222,9 +223,10 @@ export class FinancialAccountRepository extends TenantRepository {
         take: 25,
         orderBy: [{ firstNameEn: 'asc' }],
       });
-      return parents.map((p) => ({
+      const parentHits: FamilySearchHit[] = parents.map((p) => ({
         financialAccountId: p.payers[0]?.id ?? null,
         parentId: p.id,
+        studentId: null,
         ownerType: p.payers[0]?.ownerType ?? 'GUARDIAN',
         nameEn: `${p.firstNameEn} ${p.lastNameEn}`.trim(),
         nameAr: `${p.firstNameAr} ${p.lastNameAr}`.trim(),
@@ -233,6 +235,47 @@ export class FinancialAccountRepository extends TenantRepository {
         nationalId: p.nationalId,
         studentCount: p._count.studentLinks,
       }));
+
+      // Also surface students who have NO guardian on file — an account search would otherwise never
+      // find them. Returned as guardian-less hits (studentId set, no account); the UI routes the user
+      // to assign a guardian, which places the student under that guardian's Financial Account.
+      const orphanStudents = await tx.student.findMany({
+        where: {
+          deletedAt: null,
+          parentLinks: { none: {} },
+          OR: [
+            { firstNameEn: like },
+            { lastNameEn: like },
+            { firstNameAr: like },
+            { lastNameAr: like },
+            { nationalId: like },
+          ],
+        },
+        select: {
+          id: true,
+          firstNameEn: true,
+          lastNameEn: true,
+          firstNameAr: true,
+          lastNameAr: true,
+          nationalId: true,
+        },
+        take: 25,
+        orderBy: [{ firstNameEn: 'asc' }],
+      });
+      const studentHits: FamilySearchHit[] = orphanStudents.map((s) => ({
+        financialAccountId: null,
+        parentId: null,
+        studentId: s.id,
+        ownerType: 'GUARDIAN',
+        nameEn: `${s.firstNameEn} ${s.lastNameEn}`.trim(),
+        nameAr: `${s.firstNameAr} ${s.lastNameAr}`.trim(),
+        phone: null,
+        email: null,
+        nationalId: s.nationalId,
+        studentCount: 1,
+      }));
+
+      return [...parentHits, ...studentHits];
     });
   }
 

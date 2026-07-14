@@ -19,6 +19,7 @@ export type FinancialAccountOwnerType =
 export interface FamilySearchHit {
   financialAccountId: string | null;
   parentId: string | null;
+  studentId: string | null;
   ownerType: FinancialAccountOwnerType;
   nameEn: string;
   nameAr: string;
