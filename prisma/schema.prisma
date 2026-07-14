@@ -508,6 +508,8 @@ model Tenant {
   documentSequences        DocumentSequence[]
   documentAccessLogs       DocumentAccessLog[]
   documentEmailLogs        DocumentEmailLog[]
+  yearEndProcesses         YearEndProcess[]
+  yearEndDecisions         YearEndDecision[]
 
   @@index([status])
 }
@@ -3565,6 +3567,83 @@ model RegistrationCommitment {
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, committedAt])
+}
+
+// ----------------------------------------------------------------------------
+// Year-End Processing (Decisions 9 & 10)
+//   A controlled, resumable, preview→confirm workflow. NOTHING (no Enrollment,
+//   Charge, PaymentPlan or finance record) is created until Final Confirm; until
+//   then everything lives as draft YearEndDecision rows and is fully reversible.
+//   On commit, promote/repeat go through the shared enrollment pipeline (a new
+//   Enrollment in the next year — history is never modified), and graduate/
+//   withdraw go through the EnrollmentLifecycleService.
+// ----------------------------------------------------------------------------
+
+enum YearEndProcessStatus {
+  OPEN // decisions are being drafted/reviewed — no enrollments created yet
+  COMMITTED // Final Confirm pressed — decisions have been applied
+  CANCELLED // draft abandoned before commit
+}
+
+/// The per-student action chosen in the Year-End review board. DECIDE_LATER is the default so the
+/// system NEVER silently promotes (Decision 9).
+enum YearEndAction {
+  PROMOTE
+  REPEAT
+  GRADUATE
+  WITHDRAW
+  DECIDE_LATER
+}
+
+/// One Year-End run for a School: from the closing (source) Academic Year into the next (target) one.
+model YearEndProcess {
+  id                   String               @id @default(uuid()) @db.Uuid
+  tenantId             String               @db.Uuid
+  schoolId             String               @db.Uuid
+  sourceAcademicYearId String               @db.Uuid
+  targetAcademicYearId String               @db.Uuid
+  status               YearEndProcessStatus @default(OPEN)
+  createdById          String?              @db.Uuid
+  committedById        String?              @db.Uuid
+  committedAt          DateTime?            @db.Timestamptz(6)
+  createdAt            DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  decisions YearEndDecision[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, schoolId, sourceAcademicYearId])
+}
+
+/// A draft, per-student decision within a YearEndProcess. Holds the chosen action + the
+/// administrator-assigned target placement (grade/section/classroom are NEVER auto-copied — Decision
+/// 10). `resultingEnrollmentId` is set only after Final Confirm creates the next enrollment. Student /
+/// enrollment / grade / section / classroom are plain references (no FK relations) to avoid coupling.
+model YearEndDecision {
+  id                    String        @id @default(uuid()) @db.Uuid
+  tenantId              String        @db.Uuid
+  processId             String        @db.Uuid
+  studentId             String        @db.Uuid
+  sourceEnrollmentId    String        @db.Uuid
+  action                YearEndAction @default(DECIDE_LATER)
+  targetGradeId         String?       @db.Uuid
+  targetSectionId       String?       @db.Uuid
+  targetClassroomId     String?       @db.Uuid
+  reason                String?
+  // Highlighted for manual review (failed subjects / missing grades / administrative or finance holds).
+  needsReview           Boolean       @default(false)
+  reviewNote            String?
+  resultingEnrollmentId String?       @db.Uuid
+  committedAt           DateTime?     @db.Timestamptz(6)
+  createdAt             DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  process YearEndProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@unique([processId, studentId])
+  @@index([tenantId, processId])
 }
 
 // ----------------------------------------------------------------------------

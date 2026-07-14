@@ -512,7 +512,11 @@ trigger is the belt-and-suspenders.
 > similar-name warning; endpoints + admin lib wired) · ✅ Step 7 (re-enrollment — `reEnroll` derives the
 > returning student's Financial Account, guards duplicate-year enrollment, and delegates to the shared
 > add-to-account pipeline with `existingStudentId`; the student is never recreated and prior ledgers are
-> untouched). Each shipped additive, reversible, audited.
+> untouched) · ✅ Step 8 (Year-End Processing wizard — `YearEndProcess`/`YearEndDecision`; open+review
+> board seeds DECIDE_LATER per active student and highlights missing-grades for review; preview→Final
+> Confirm creates NOTHING until commit; commit promotes/repeats via the shared pipeline (admin-assigned
+> grade/section — never auto-copied) and graduates/withdraws via the lifecycle service; resumable +
+> idempotent per student). Each shipped additive, reversible, audited.
 >
 > **Remaining for the unified-admission UI (folded into Step 10):** collapse the two admission screens
 > (`/admissions` + `/admissions/family`) into one identity-first wizard behind a feature flag, render the

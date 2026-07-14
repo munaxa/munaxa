@@ -94,6 +94,6 @@ import { FinanceReportsRepository } from './reports/reports.repository';
   ],
   // AccountRepository is exported so the People module can place a student under their guardian's
   // Financial Account when a parent is (re)assigned (keeps billing linkage in sync).
-  exports: [AccountRepository],
+  exports: [AccountRepository, AdmissionsService, QuoteService],
 })
 export class FinanceModule {}
