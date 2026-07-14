@@ -526,8 +526,13 @@ trigger is the belt-and-suspenders.
 > `GET :id/enrollment-history` for the immutable per-year history). Each shipped additive, reversible,
 > audited.
 >
-> **Remaining Step 10b (UI):** identity-first admission wizard rendering A/B/C + collapse the two
-> screens; Enrollment-History panel + read-only-finance student profile; Family→Financial Account
+> ✅ **Step 10b (part 1 — profile UI):** the student profile now shows an immutable **Enrollment
+> History** card (per-year: year · grade · section · status + dates) and **gates Delete on
+> `deletability`** — hiding it with a "Withdraw/Cancel instead" hint when dependent records exist.
+> Admin production build passes.
+>
+> **Remaining Step 10b (part 2 — UI):** identity-first admission wizard rendering A/B/C + collapse the
+> two admission screens; read-only-finance enforcement on the student profile; Family→Financial Account
 > rename sweep.
 >
 > **Remaining for the unified-admission UI (folded into Step 10):** collapse the two admission screens
