@@ -17,6 +17,17 @@ export interface ImportResult {
   failed: Array<{ row: number; error: string }>;
 }
 
+/**
+ * Normalise a blank/whitespace-only identifier to null. The partial unique indexes on
+ * (tenantId, nationalId) and (tenantId, moeStudentNumber) exempt NULL but NOT the empty string,
+ * so an empty '' from a cleared form field would collide across students. Store blanks as NULL.
+ */
+function blankToNull(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 @Injectable()
 export class StudentService {
   constructor(
@@ -56,8 +67,10 @@ export class StudentService {
       ...(dto.fatherNameAr !== undefined ? { fatherNameAr: dto.fatherNameAr } : {}),
       ...(dto.thirdNameEn !== undefined ? { thirdNameEn: dto.thirdNameEn } : {}),
       ...(dto.thirdNameAr !== undefined ? { thirdNameAr: dto.thirdNameAr } : {}),
-      ...(dto.moeStudentNumber !== undefined ? { moeStudentNumber: dto.moeStudentNumber } : {}),
-      ...(dto.nationalId !== undefined ? { nationalId: dto.nationalId } : {}),
+      ...(dto.moeStudentNumber !== undefined
+        ? { moeStudentNumber: blankToNull(dto.moeStudentNumber) }
+        : {}),
+      ...(dto.nationalId !== undefined ? { nationalId: blankToNull(dto.nationalId) } : {}),
       ...(dto.dateOfBirth ? { dateOfBirth: new Date(dto.dateOfBirth) } : {}),
       ...(dto.gender !== undefined ? { gender: dto.gender } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
@@ -242,8 +255,8 @@ export class StudentService {
       fatherNameAr: dto.fatherNameAr ?? null,
       thirdNameEn: dto.thirdNameEn ?? null,
       thirdNameAr: dto.thirdNameAr ?? null,
-      moeStudentNumber: dto.moeStudentNumber ?? null,
-      nationalId: dto.nationalId ?? null,
+      moeStudentNumber: blankToNull(dto.moeStudentNumber),
+      nationalId: blankToNull(dto.nationalId),
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
       gender: dto.gender ?? null,
       sectionId: dto.sectionId ?? null,

@@ -15,7 +15,11 @@ import { type Section } from '@/lib/structure';
 import { type Area } from '@/lib/areas';
 import { Badge, Button, Checkbox, Field, Input, Select } from '@/components/ui';
 
+// Full set — used by the students-list status filter.
 export const STUDENT_STATUSES = ['ACTIVE', 'INACTIVE', 'GRADUATED', 'WITHDRAWN'];
+// Manually settable states only. Terminal participation states (WITHDRAWN/GRADUATED) are DERIVED
+// from the enrollment lifecycle and must be reached via Withdraw / Year-End, never set directly here.
+export const EDITABLE_STUDENT_STATUSES = ['ACTIVE', 'INACTIVE'];
 export const GENDERS = ['MALE', 'FEMALE'];
 
 /** Grade + section selectors. Grades are derived from the sections list; picking a grade filters
@@ -215,16 +219,28 @@ export function StudentEditor({
             onChange={(sectionId) => set({ sectionId })}
           />
           <Field label={t('common.status')}>
-            <Select
-              value={form.status ?? 'ACTIVE'}
-              onChange={(e) => set({ status: e.target.value })}
-            >
-              {STUDENT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Select>
+            {EDITABLE_STUDENT_STATUSES.includes(form.status ?? 'ACTIVE') ? (
+              <Select
+                value={form.status ?? 'ACTIVE'}
+                onChange={(e) => set({ status: e.target.value })}
+              >
+                {EDITABLE_STUDENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              // Terminal (derived) status — shown read-only; changed only via Withdraw / Year-End.
+              <>
+                <Select value={form.status ?? ''} disabled>
+                  <option value={form.status ?? ''}>{form.status}</option>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('studentProfile.statusLifecycleHint')}
+                </p>
+              </>
+            )}
           </Field>
 
           {/* Transportation demand — mirrors the registration fields. Feeds Fleet's

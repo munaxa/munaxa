@@ -290,7 +290,12 @@ export function StudentProfile() {
 
       {/* Active tab panel (lazy-loaded) */}
       <div role="tabpanel" className="focus-visible:outline-none">
-        <TabPanel activeTab={activeTab} student={student} sectionLabel={sectionLabel} />
+        <TabPanel
+          activeTab={activeTab}
+          student={student}
+          sectionLabel={sectionLabel}
+          onChanged={loadStudent}
+        />
       </div>
 
       {editing ? (
@@ -313,14 +318,16 @@ function TabPanel({
   activeTab,
   student,
   sectionLabel,
+  onChanged,
 }: {
   activeTab: string;
   student: Student;
   sectionLabel?: string | undefined;
+  onChanged?: (() => void | Promise<void>) | undefined;
 }): ReactNode {
   switch (activeTab) {
     case 'overview':
-      return <OverviewTab student={student} sectionLabel={sectionLabel} />;
+      return <OverviewTab student={student} sectionLabel={sectionLabel} onChanged={onChanged} />;
     case 'parents':
       return <ParentsTab student={student} />;
     case 'finance':
@@ -344,7 +351,7 @@ function TabPanel({
     case 'audit':
       return <PlaceholderTab titleKey="studentProfile.tabAudit" />;
     default:
-      return <OverviewTab student={student} sectionLabel={sectionLabel} />;
+      return <OverviewTab student={student} sectionLabel={sectionLabel} onChanged={onChanged} />;
   }
 }
 
