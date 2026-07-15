@@ -1236,6 +1236,31 @@
       "reassignHint": "The student isn't moved automatically — reassign under Fleet → Route Students."
     }
   },
+  "admissionsIdentity": {
+    "title": "Admission — Identity Check",
+    "subtitle": "Look up the student by National ID (primary) or Ministry number (fallback) before admitting.",
+    "identity": "Student identity",
+    "name": "Student name (optional)",
+    "namePlaceholder": "Type a name to check for possible duplicates",
+    "similarWarning": "A student with a similar name already exists. This is a warning only — verify by National ID.",
+    "nationalId": "National ID",
+    "nationalIdPlaceholder": "Primary identifier",
+    "ministryNo": "Ministry number",
+    "check": "Check identity",
+    "checking": "Checking…",
+    "needIdentifier": "Enter a National ID or Ministry number",
+    "lookupFailed": "Identity lookup failed",
+    "openStudent": "Open Student",
+    "openFinancialAccount": "Open Financial Account",
+    "caseNewTitle": "No student found",
+    "caseNewBody": "No student exists with this identifier. Proceed with a normal admission.",
+    "startAdmission": "Start admission",
+    "caseActiveTitle": "Already enrolled",
+    "caseActiveBody": "This student is already enrolled this year. No new admission is needed.",
+    "caseReturningTitle": "Previously enrolled",
+    "caseReturningBody": "This student was previously enrolled. Re-enroll them — the student record is never recreated.",
+    "reEnroll": "Re-Enroll Student"
+  },
   "studentProfile": {
     "backToStudents": "Back to Students",
     "printCard": "Print Student Card",
