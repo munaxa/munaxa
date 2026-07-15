@@ -102,6 +102,40 @@ export class AdmissionsRepository extends TenantRepository {
       admissionDate?: Date;
     },
   ) {
+    // Guard 1 — one enrollment per (student, academic year). Surface a clear, actionable reason
+    // instead of the raw unique-index violation (P2002 → "record already exists") when the student
+    // already has an enrollment for this year — e.g. a WITHDRAWN one. Re-admission into the SAME year
+    // must reactivate that enrollment, not duplicate it.
+    const existingForYear = await tx.enrollment.findFirst({
+      where: { studentId: params.studentId, academicYearId: params.academicYearId },
+      select: { status: true },
+    });
+    if (existingForYear) {
+      throw new BadRequestException(
+        `This student already has an enrollment for this academic year (status: ${existingForYear.status.toLowerCase()}). ` +
+          `Reactivate that enrollment instead of creating a new admission for the same year.`,
+      );
+    }
+
+    // Guard 2 — grade regression. A returning student may repeat (same level) or advance, but must
+    // never be placed in a LOWER grade than their most recent finalised enrollment. Block with the
+    // reason so the registrar understands why (Decision — historical placement is authoritative).
+    const targetGrade = await tx.grade.findFirst({
+      where: { id: params.gradeId },
+      select: { level: true, nameEn: true },
+    });
+    const priorEnrollment = await tx.enrollment.findFirst({
+      where: { studentId: params.studentId, admissionStatus: AdmissionStatus.REGISTERED },
+      orderBy: [{ academicYear: { startDate: 'desc' } }, { createdAt: 'desc' }],
+      select: { grade: { select: { level: true, nameEn: true } } },
+    });
+    if (targetGrade && priorEnrollment?.grade && targetGrade.level < priorEnrollment.grade.level) {
+      throw new BadRequestException(
+        `Cannot enrol in ${targetGrade.nameEn} — the student's most recent grade is ` +
+          `${priorEnrollment.grade.nameEn}. A student cannot be placed in a lower grade than before.`,
+      );
+    }
+
     const campusId = await this.yearCampusId(tx, params.academicYearId);
     return tx.enrollment.create({
       data: {
