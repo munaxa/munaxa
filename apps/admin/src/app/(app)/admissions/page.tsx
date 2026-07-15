@@ -12,6 +12,7 @@ import {
   type AddFamilyStudentMode,
   type ComputedQuote,
   type FinancialAccountOwnerType,
+  type IdentityLookupResult,
   type QuotePaymentMode,
   type TransportDirection,
 } from '@/lib/admissions';
@@ -660,6 +661,29 @@ function StudentCard({
   onGradeChange: (gradeId: string) => void;
   onPrice: () => void;
 }) {
+  // Live identity check while typing a National ID for a NEW student (Decision — one Admission, no
+  // duplicates). Debounced; if the ID already belongs to a student we surface it immediately —
+  // including a withdrawn/returning student — so the registrar re-enrols instead of duplicating.
+  const [idLookup, setIdLookup] = useState<IdentityLookupResult | null>(null);
+  const nid = s.nationalId.trim();
+  useEffect(() => {
+    if (s.mode !== 'NEW' || nid.length < 3) {
+      setIdLookup(null);
+      return;
+    }
+    let active = true;
+    const timer = setTimeout(() => {
+      admissionsApi
+        .identityLookup({ nationalId: nid })
+        .then((r) => active && setIdLookup(r.student ? r : null))
+        .catch(() => active && setIdLookup(null));
+    }, 350);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [nid, s.mode]);
+
   return (
     <Card>
       <CardHeader>
@@ -712,6 +736,46 @@ function StudentCard({
                 onChange={(e) => onChange({ nationalId: e.target.value })}
               />
             </Field>
+            {idLookup?.student ? (
+              <div
+                className={`sm:col-span-2 rounded-lg border p-3 text-sm ${
+                  idLookup.case === 'ACTIVE'
+                    ? 'border-destructive/40 bg-destructive/5'
+                    : 'border-warning/40 bg-warning/5'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <span className="font-medium">
+                      {idLookup.case === 'ACTIVE'
+                        ? 'This National ID is already enrolled this year'
+                        : 'This National ID belongs to an existing student — re-enrol them here?'}
+                    </span>
+                    <div className="text-muted-foreground">
+                      {idLookup.student.firstNameEn} {idLookup.student.lastNameEn}
+                      {idLookup.student.studentNumber ? ` · ${idLookup.student.studentNumber}` : ''}
+                      {' · '}
+                      {idLookup.currentEnrollment
+                        ? `${idLookup.currentEnrollment.academicYearName} · ${idLookup.currentEnrollment.gradeName} · ${idLookup.currentEnrollment.status.toLowerCase()}`
+                        : 'not currently enrolled'}
+                    </div>
+                  </div>
+                  {idLookup.case === 'ACTIVE' ? null : (
+                    // Re-enrol/reactivate the existing student WITHOUT leaving this screen: flip the
+                    // row to RETURNING with the student pre-selected; the admission flow continues.
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() =>
+                        onChange({ mode: 'RETURNING', returningId: idLookup.student!.id })
+                      }
+                    >
+                      Re-enrol here
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
