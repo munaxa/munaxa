@@ -187,8 +187,36 @@ export interface AddFamilyStudentRequest {
   confirm?: boolean;
 }
 
+export type AdmissionCase = 'NEW' | 'ACTIVE' | 'RETURNING';
+
+export interface IdentityStudentSummary {
+  id: string;
+  studentNumber: string | null;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  nationalId: string | null;
+  moeStudentNumber: string | null;
+  financialAccountId: string | null;
+}
+
+export interface IdentityLookupResult {
+  case: AdmissionCase;
+  student: IdentityStudentSummary | null;
+  currentEnrollment: {
+    id: string;
+    status: string;
+    gradeName: string;
+    academicYearName: string;
+  } | null;
+}
+
 export interface EnrollmentRow {
   id: string;
+  // `admissionStatus` = admission workflow (Draft/Quoted/Accepted/Registered/Cancelled);
+  // `status` = participation in the year (Active/Completed/Promoted/…). See Decision 2.
+  admissionStatus: string;
   status: string;
   feeModified: boolean;
   transportDirection: TransportDirection;
@@ -284,13 +312,63 @@ export const admissionsApi = {
     }).then((r) => json<{ enrollmentId: string; mode: string; planId: string | null }>(r)),
   loadReturning: (studentId: string) =>
     authFetch(`/admissions/returning/${studentId}`).then((r) => json<ReturningStudent>(r)),
+  // Enrollment statistics: participation vs. admission-funnel breakdowns, optionally by academic year.
+  enrollmentStats: (academicYearId?: string) =>
+    authFetch(
+      `/admissions/enrollments/stats${academicYearId ? `?academicYearId=${academicYearId}` : ''}`,
+    ).then((r) =>
+      json<{
+        total: number;
+        byStatus: Record<string, number>;
+        byAdmissionStatus: Record<string, number>;
+      }>(r),
+    ),
+  // Re-enroll a returning (Case-C) student into a new year via the shared pipeline (no new Student).
+  reEnroll: (req: {
+    studentId: string;
+    quoteId: string;
+    idempotencyKey: string;
+    financialAccountId?: string;
+    mode?: string;
+    sectionId?: string;
+    areaId?: string;
+    transportRequested?: boolean;
+    registrationFeePaid?: boolean;
+    paymentMode?: string;
+    installments?: number;
+    firstDueDate?: string;
+    confirm?: boolean;
+  }) =>
+    authFetch('/admissions/reenroll', { method: 'POST', body: JSON.stringify(req) }).then((r) =>
+      json<{ enrollmentId: string; mode: string; planId: string | null }>(r),
+    ),
+  // Identity-first admission lookup (A/B/C). National ID primary, Ministry number fallback.
+  identityLookup: (params: { nationalId?: string; moeStudentNumber?: string }) => {
+    const sp = new URLSearchParams();
+    if (params.nationalId) sp.set('nationalId', params.nationalId);
+    if (params.moeStudentNumber) sp.set('moeStudentNumber', params.moeStudentNumber);
+    return authFetch(`/admissions/identity/lookup?${sp.toString()}`).then((r) =>
+      json<IdentityLookupResult>(r),
+    );
+  },
+  // Informational similar-name warning (never the identity check).
+  identitySimilar: (name: string) =>
+    authFetch(`/admissions/identity/similar?name=${encodeURIComponent(name)}`).then((r) =>
+      json<IdentityStudentSummary[]>(r),
+    ),
   listEnrollments: (
-    params: { academicYearId?: string; gradeId?: string; status?: string } = {},
+    params: {
+      academicYearId?: string;
+      gradeId?: string;
+      status?: string;
+      admissionStatus?: string;
+    } = {},
   ) => {
     const sp = new URLSearchParams();
     if (params.academicYearId) sp.set('academicYearId', params.academicYearId);
     if (params.gradeId) sp.set('gradeId', params.gradeId);
     if (params.status) sp.set('status', params.status);
+    if (params.admissionStatus) sp.set('admissionStatus', params.admissionStatus);
     const qs = sp.toString();
     return authFetch(`/admissions/enrollments${qs ? `?${qs}` : ''}`).then((r) =>
       json<EnrollmentRow[]>(r),

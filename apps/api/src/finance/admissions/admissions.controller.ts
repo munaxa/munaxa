@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApprovalStatus, EnrollmentStatus } from '@prisma/client';
+import { AdmissionStatus, ApprovalStatus, EnrollmentStatus } from '@prisma/client';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { AdmissionsService } from './admissions.service';
+import { StudentIdentityService } from './student-identity.service';
 import {
   AddFamilyStudentDto,
   ApprovalDecisionDto,
@@ -12,6 +13,7 @@ import {
   CreateFeeItemDto,
   FamilyCommitDto,
   QuoteDto,
+  ReEnrollDto,
   UpdateFeeItemDto,
   UpsertGradeFeeItemDto,
 } from './admissions.dto';
@@ -25,7 +27,34 @@ import {
 @ApiBearerAuth()
 @Controller({ path: 'admissions', version: '1' })
 export class AdmissionsController {
-  constructor(private readonly service: AdmissionsService) {}
+  constructor(
+    private readonly service: AdmissionsService,
+    private readonly identity: StudentIdentityService,
+  ) {}
+
+  // ── Identity-first admission entry (Decision — one Admission; A/B/C cases) ──
+  @Get('identity/lookup')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary:
+      'Resolve a student by National ID (primary) or Ministry number (fallback) — exact match',
+  })
+  identityLookup(
+    @Query('nationalId') nationalId?: string,
+    @Query('moeStudentNumber') moeStudentNumber?: string,
+  ) {
+    return this.identity.lookupByIdentifier({
+      ...(nationalId ? { nationalId } : {}),
+      ...(moeStudentNumber ? { moeStudentNumber } : {}),
+    });
+  }
+
+  @Get('identity/similar')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({ summary: 'Informational similar-name warning (never the identity check)' })
+  identitySimilar(@Query('name') name?: string) {
+    return this.identity.similarNames(name ?? '');
+  }
 
   // ── Fee-item catalog ──
   @Get('fee-items')
@@ -122,7 +151,27 @@ export class AdmissionsController {
     return this.service.addStudentToFamily(financialAccountId, dto);
   }
 
+  // ── Re-enrollment (returning / Case-C student → new academic year) ──
+  @Post('reenroll')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary:
+      'Re-enroll a returning student into a new year via the shared pipeline (never recreates the student)',
+  })
+  reEnroll(@Body() dto: ReEnrollDto) {
+    return this.service.reEnroll(dto);
+  }
+
   // ── Enrollments / reporting ──
+  @Get('enrollments/stats')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary: 'Enrollment counts by participation + admission status (optionally by academic year)',
+  })
+  enrollmentStats(@Query('academicYearId') academicYearId?: string) {
+    return this.service.enrollmentStats(academicYearId);
+  }
+
   @Get('enrollments')
   @RequirePermissions(Permission.ENROLLMENT_MANAGE)
   @ApiOperation({ summary: 'List enrollments (registration & re-enrollment report)' })
@@ -130,11 +179,13 @@ export class AdmissionsController {
     @Query('academicYearId') academicYearId?: string,
     @Query('gradeId') gradeId?: string,
     @Query('status') status?: EnrollmentStatus,
+    @Query('admissionStatus') admissionStatus?: AdmissionStatus,
   ) {
     return this.service.listEnrollments({
       ...(academicYearId ? { academicYearId } : {}),
       ...(gradeId ? { gradeId } : {}),
       ...(status ? { status } : {}),
+      ...(admissionStatus ? { admissionStatus } : {}),
     });
   }
 

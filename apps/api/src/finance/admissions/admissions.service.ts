@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ApprovalStatus, EnrollmentStatus } from '@prisma/client';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { AdmissionStatus, ApprovalStatus, EnrollmentStatus } from '@prisma/client';
 import { AdmissionsRepository } from './admissions.repository';
 import { QuoteService } from './quote.service';
 import { RegistrationAgreementService } from '../../documents/registration-agreement.service';
 import { TenantContextStore } from '../../prisma/tenant-context';
+import { AddFamilyStudentMode } from './admissions.dto';
 import type {
   AddFamilyStudentDto,
   CommitDto,
@@ -11,6 +12,7 @@ import type {
   CreateFeeItemDto,
   FamilyCommitDto,
   QuoteDto,
+  ReEnrollDto,
   UpdateFeeItemDto,
   UpsertGradeFeeItemDto,
 } from './admissions.dto';
@@ -81,7 +83,7 @@ export class AdmissionsService {
   // agreement per enrollment) and never blocks/fails the commit.
   async commit(dto: CommitDto) {
     const enrollment = await this.repo.commit(dto);
-    if (enrollment.status === EnrollmentStatus.COMMITTED) {
+    if (enrollment.admissionStatus === AdmissionStatus.REGISTERED) {
       // Fire-and-forget: return the committed enrollment immediately; the agreement PDF renders in
       // the background so the registrar isn't blocked on it (see scheduleAgreement).
       this.scheduleAgreement(enrollment.id);
@@ -112,8 +114,53 @@ export class AdmissionsService {
     return result;
   }
 
+  /**
+   * Re-enroll a returning (Case-C) student into a NEW academic year (Decision 3 — reuses the shared
+   * enrollment pipeline; the student is NEVER recreated). Derives the student's existing Financial
+   * Account, guards against a duplicate enrollment for that year, then delegates to the same
+   * add-to-account path as admission. Previous enrollments and ledgers are untouched (Decisions 11, 12).
+   */
+  async reEnroll(dto: ReEnrollDto) {
+    const ctx = await this.repo.reEnrollContext(dto.studentId, dto.quoteId);
+    if (ctx.alreadyEnrolled) {
+      throw new BadRequestException('Student is already enrolled for that academic year');
+    }
+    const financialAccountId = dto.financialAccountId ?? ctx.financialAccountId;
+    if (!financialAccountId) {
+      throw new BadRequestException(
+        'This student has no Financial Account yet — provide financialAccountId to bill through',
+      );
+    }
+
+    const result = await this.repo.addStudentToFamily(financialAccountId, {
+      idempotencyKey: dto.idempotencyKey,
+      quoteId: dto.quoteId,
+      mode: dto.mode ?? AddFamilyStudentMode.NEW_PLAN,
+      existingStudentId: dto.studentId,
+      ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
+      ...(dto.areaId ? { areaId: dto.areaId } : {}),
+      ...(dto.transportRequested !== undefined
+        ? { transportRequested: dto.transportRequested }
+        : {}),
+      ...(dto.registrationFeePaid !== undefined
+        ? { registrationFeePaid: dto.registrationFeePaid }
+        : {}),
+      ...(dto.paymentMode ? { paymentMode: dto.paymentMode } : {}),
+      ...(dto.installments ? { installments: dto.installments } : {}),
+      ...(dto.firstDueDate ? { firstDueDate: dto.firstDueDate } : {}),
+      ...(dto.confirm !== undefined ? { confirm: dto.confirm } : {}),
+    });
+    if (result.enrollmentId) this.scheduleAgreement(result.enrollmentId);
+    return result;
+  }
+
   loadReturning(studentId: string) {
     return this.repo.loadReturning(studentId);
+  }
+
+  /** Enrollment statistics (participation + admission-funnel breakdowns), optionally by academic year. */
+  enrollmentStats(academicYearId?: string) {
+    return this.repo.enrollmentStats(academicYearId);
   }
 
   // Enrollments / reporting
@@ -121,6 +168,7 @@ export class AdmissionsService {
     academicYearId?: string;
     gradeId?: string;
     status?: EnrollmentStatus;
+    admissionStatus?: AdmissionStatus;
   }) {
     return this.repo.listEnrollments(filter);
   }

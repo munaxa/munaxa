@@ -473,6 +473,7 @@ model Tenant {
   einvoiceCredentials      EInvoiceCredential[]
   einvoiceCounter          EInvoiceCounter?
   paymentReceiptCounter    PaymentReceiptCounter?
+  studentNumberCounter     StudentNumberCounter?
   einvoiceDocuments        EInvoiceDocument[]
   einvoiceLogs             EInvoiceLog[]
   feeAdjustments           FeeAdjustment[]
@@ -507,6 +508,8 @@ model Tenant {
   documentSequences        DocumentSequence[]
   documentAccessLogs       DocumentAccessLog[]
   documentEmailLogs        DocumentEmailLog[]
+  yearEndProcesses         YearEndProcess[]
+  yearEndDecisions         YearEndDecision[]
 
   @@index([status])
 }
@@ -526,8 +529,9 @@ model School {
   updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt     DateTime? @db.Timestamptz(6)
 
-  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campuses Campus[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campuses      Campus[]
+  academicYears AcademicYear[]
 
   @@unique([tenantId, moeSchoolCode])
   @@index([tenantId])
@@ -551,25 +555,43 @@ model Campus {
   academicYears   AcademicYear[]
   grades          Grade[]
   classrooms      Classroom[]
+  enrollments     Enrollment[]
   timetableConfig TimetableConfig?
 
   @@index([tenantId])
   @@index([tenantId, schoolId])
 }
 
+// Lifecycle of an Academic Year (Student-Lifecycle refactor, Decision 8). Never deleted; only ever
+// moves UPCOMING → ACTIVE → CLOSED. Supersedes the legacy `isCurrent` boolean (isCurrent == ACTIVE).
+enum AcademicYearStatus {
+  UPCOMING
+  ACTIVE
+  CLOSED
+}
+
 model AcademicYear {
-  id        String   @id @default(uuid()) @db.Uuid
-  tenantId  String   @db.Uuid
-  campusId  String   @db.Uuid
+  id        String             @id @default(uuid()) @db.Uuid
+  tenantId  String             @db.Uuid
+  // TRANSITIONAL: an Academic Year is a SCHOOL-level entity (Decision 1); campuses participate but do
+  // not own it. `campusId` is kept only as a migration shim and is dropped in the Phase-B cleanup once
+  // the validator (scripts/validate-academic-year-migration.ts) confirms no (schoolId,name) conflicts.
+  // New code should read/write `schoolId`; `schoolId` is backfilled from `campus.schoolId`.
+  campusId  String             @db.Uuid
+  schoolId  String?            @db.Uuid
   name      String // e.g. "2025/2026"
-  startDate DateTime @db.Date
-  endDate   DateTime @db.Date
-  isCurrent Boolean  @default(false)
-  createdAt DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  startDate DateTime           @db.Date
+  endDate   DateTime           @db.Date
+  // Explicit lifecycle. `isCurrent` is retained (== status ACTIVE) for backward-compatible readers
+  // during the transition; the single source of truth is `status`.
+  status    AcademicYearStatus @default(UPCOMING)
+  isCurrent Boolean            @default(false)
+  createdAt DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
 
   tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   campus                 Campus                  @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  school                 School?                 @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   semesters              Semester[]
   feeSchedules           GradeFeeSchedule[]
   transportFares         TransportFare[]
@@ -585,6 +607,8 @@ model AcademicYear {
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
+  @@index([tenantId, schoolId])
+  @@index([tenantId, status])
 }
 
 model Semester {
@@ -644,6 +668,7 @@ model Classroom {
   tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   campus             Campus              @relation(fields: [campusId], references: [id], onDelete: Cascade)
   sections           Section[]
+  enrollments        Enrollment[]
   timetableSlots     TimetableSlot[]
   scheduleExceptions ScheduleException[]
 
@@ -665,6 +690,7 @@ model Section {
   grade              Grade               @relation(fields: [gradeId], references: [id], onDelete: Cascade)
   classroom          Classroom?          @relation(fields: [classroomId], references: [id], onDelete: SetNull)
   students           Student[]
+  enrollments        Enrollment[]
   teacherSections    TeacherSection[]
   timetableSlots     TimetableSlot[]
   scheduleExceptions ScheduleException[]
@@ -690,6 +716,13 @@ model Student {
   userId             String?       @unique @db.Uuid
   moeStudentNumber   String? // Ministry of Education student number
   nationalId         String? // Jordanian National ID (Raqam Watani)
+  // Internal, school-generated student number (Decision 6). A PERMANENT identity attribute (does not
+  // change between years), separate from National ID / MoE number. Auto-assigned from the per-tenant
+  // StudentNumberCounter (configurable prefix / padding / start / reset). Printed on report cards, QR
+  // cards, attendance sheets, library cards and certificates. Uniqueness is enforced by a PARTIAL
+  // unique index (WHERE "studentNumber" IS NOT NULL AND "deletedAt" IS NULL) in the migration — not by
+  // @@unique — so nulls and soft-deletes don't reserve a number. Never user-entered, never reassigned.
+  studentNumber      String?
   firstNameEn        String
   lastNameEn         String
   firstNameAr        String
@@ -701,14 +734,17 @@ model Student {
   thirdNameAr        String?
   dateOfBirth        DateTime?     @db.Date
   gender             Gender?
-  sectionId          String?       @db.Uuid
+  // DEPRECATED SHIMS (Decisions 4 & 13): these are year-varying academic facts that now live on
+  // Enrollment. They are retained ONLY for the transition — written as a read-through cache by the
+  // EnrollmentLifecycleService (never edited directly) so existing readers (student lists, attendance,
+  // portal, reporting) keep working — and are dropped in the Phase-B cleanup. The authoritative value
+  // is the current Enrollment; "current status/placement" is a DERIVED projection, not stored here.
+  sectionId          String?       @db.Uuid // DEPRECATED shim → Enrollment.sectionId (current year)
   qrCode             String        @unique
-  status             StudentStatus @default(ACTIVE)
-  // Transportation demand, set during registration (additive — Fleet remains the
-  // operational source of truth via StudentBusAssignment).
-  areaId             String?       @db.Uuid // home area (geographic), drives Area Planning
-  transportRequested Boolean       @default(false) // parent requested transport → Unassigned queue
-  enrollmentDate     DateTime      @default(now()) @db.Timestamptz(6)
+  status             StudentStatus @default(ACTIVE) // DEPRECATED shim → derived from current Enrollment
+  areaId             String?       @db.Uuid // DEPRECATED shim → Enrollment.areaId
+  transportRequested Boolean       @default(false) // DEPRECATED shim → Enrollment.transportRequested
+  enrollmentDate     DateTime      @default(now()) @db.Timestamptz(6) // DEPRECATED shim → Enrollment.admissionDate
   createdAt          DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime      @updatedAt @db.Timestamptz(6)
   deletedAt          DateTime?     @db.Timestamptz(6)
@@ -1550,6 +1586,31 @@ model PaymentReceiptCounter {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
+/// How the internal Student Number sequence resets (Decision 6). NEVER (default) is an ever-increasing
+/// sequence; ANNUAL is reserved for a future per-year reset. Only NEVER is implemented today.
+enum StudentNumberResetPolicy {
+  NEVER
+  ANNUAL
+}
+
+/// Row-locked, per-tenant counter + format config for the internal Student Number (Decision 6). Same
+/// gapless pattern as PaymentReceiptCounter/EInvoiceCounter, created lazily on first use. Configurable
+/// per school: optional `prefix`, `padLength`, starting value (the initial `nextNumber`) and
+/// `resetPolicy`. Default: no prefix, zero-padded to 6, starting at 1, never resets (e.g. "000001";
+/// with prefix "S-" → "S-000001").
+model StudentNumberCounter {
+  id          String                   @id @default(uuid()) @db.Uuid
+  tenantId    String                   @unique @db.Uuid
+  prefix      String? // optional literal prefix, e.g. "S-" or "2026-"
+  padLength   Int                      @default(6)
+  nextNumber  Int                      @default(1)
+  resetPolicy StudentNumberResetPolicy @default(NEVER)
+  createdAt   DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime                 @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
 /// The FINANCIAL CUSTOMER: whoever pays for one or more students' educational services. Owns the
 /// payment plan(s), installments (via the plan), payments, credits, refunds, collections, statements
 /// and agreements. Students remain the owners of their charges/discounts/scholarships/academic
@@ -2142,6 +2203,7 @@ model Area {
   route        BusRoute?     @relation(fields: [routeId], references: [id], onDelete: SetNull)
   academicYear AcademicYear? @relation(fields: [academicYearId], references: [id], onDelete: SetNull)
   students     Student[]
+  enrollments  Enrollment[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -3220,11 +3282,34 @@ enum FeeItemKind {
   CUSTOM
 }
 
+// The ADMISSION WORKFLOW status (Decision 2). Distinct concept from EnrollmentStatus: it tracks how a
+// person moves through admission, not their participation in a year. Lives on the admission artifact
+// (the Enrollment row created during admission; Draft/Quoted are quote-level pre-enrollment states).
+enum AdmissionStatus {
+  DRAFT
+  QUOTED
+  ACCEPTED // e.g. held pending finance approval of a fee modification
+  REGISTERED // admission finalised — the enrollment is active
+  CANCELLED // admission abandoned before registration (Cancel Admission)
+}
+
+// PARTICIPATION status of an Enrollment within one Academic Year (Decision 2). Distinct from the
+// admission workflow above. The legacy values (QUOTED/PENDING_APPROVAL/COMMITTED) are retained only
+// for the transition — new code writes ACTIVE + the terminal participation states; the workflow is
+// tracked by AdmissionStatus. Legacy values are removed in the Phase-B cleanup.
 enum EnrollmentStatus {
+  // Participation states (target model).
+  ACTIVE
+  COMPLETED
+  PROMOTED
+  REPEATED
+  WITHDRAWN
+  GRADUATED
+  ARCHIVED
+  // Legacy admission-workflow values (transition only; superseded by AdmissionStatus).
   QUOTED
   PENDING_APPROVAL
   COMMITTED
-  ACTIVE
   CANCELLED
 }
 
@@ -3355,9 +3440,28 @@ model Enrollment {
   academicYearId      String             @db.Uuid
   gradeId             String             @db.Uuid
   sectionId           String?            @db.Uuid
+  // Year-scoped placement (Decisions 4 & 13): everything that varies between Academic Years lives on
+  // the Enrollment, never on Student. `campusId` is the campus the student attends this year;
+  // classroom/section are their room/homeroom. All nullable/additive — backfilled from the year/student.
+  campusId            String?            @db.Uuid
+  classroomId         String?            @db.Uuid
+  // Year-scoped transport intent (moved off Student; Fleet remains the operational source of truth).
+  areaId              String?            @db.Uuid
+  transportRequested  Boolean            @default(false)
+  // Lifecycle dates for this participation.
+  admissionDate       DateTime?          @db.Date
+  withdrawalDate      DateTime?          @db.Date
+  graduationDate      DateTime?          @db.Date
+  // Free-text reason for a terminal transition (withdraw/graduate/cancel).
+  reason              String?
   quoteId             String?            @unique @db.Uuid
   transportDirection  TransportDirection @default(NONE)
-  status              EnrollmentStatus   @default(COMMITTED)
+  // Two distinct concepts (Decision 2): `admissionStatus` = how the person moved through admission;
+  // `status` = participation in the academic year. New code drives decisions off `admissionStatus`
+  // (REGISTERED = finalised) and sets `status = ACTIVE` on registration; year-end/withdrawal move
+  // `status` to the terminal participation states.
+  admissionStatus     AdmissionStatus    @default(REGISTERED)
+  status              EnrollmentStatus   @default(ACTIVE)
   paymentMode         QuotePaymentMode   @default(INSTALLMENTS)
   feeModified         Boolean            @default(false)
   // Whether the one-time registration fee was paid at registration (the usual case). When true it is
@@ -3371,6 +3475,10 @@ model Enrollment {
   student                Student                 @relation(fields: [studentId], references: [id], onDelete: Cascade)
   academicYear           AcademicYear            @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   grade                  Grade                   @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  section                Section?                @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  campus                 Campus?                 @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  classroom              Classroom?              @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  area                   Area?                   @relation(fields: [areaId], references: [id], onDelete: SetNull)
   quote                  EnrollmentQuote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
   modifications          FeeModification[]
   arrangements           FinancialArrangement[]
@@ -3380,6 +3488,9 @@ model Enrollment {
   @@unique([tenantId, studentId, academicYearId])
   @@index([tenantId, academicYearId, gradeId])
   @@index([tenantId, status])
+  @@index([tenantId, admissionStatus])
+  @@index([tenantId, sectionId])
+  @@index([tenantId, campusId])
 }
 
 /// Mandatory tracking of every deviation from the standard school fee plan. Append-only.
@@ -3456,6 +3567,83 @@ model RegistrationCommitment {
 
   @@unique([tenantId, idempotencyKey])
   @@index([tenantId, committedAt])
+}
+
+// ----------------------------------------------------------------------------
+// Year-End Processing (Decisions 9 & 10)
+//   A controlled, resumable, preview→confirm workflow. NOTHING (no Enrollment,
+//   Charge, PaymentPlan or finance record) is created until Final Confirm; until
+//   then everything lives as draft YearEndDecision rows and is fully reversible.
+//   On commit, promote/repeat go through the shared enrollment pipeline (a new
+//   Enrollment in the next year — history is never modified), and graduate/
+//   withdraw go through the EnrollmentLifecycleService.
+// ----------------------------------------------------------------------------
+
+enum YearEndProcessStatus {
+  OPEN // decisions are being drafted/reviewed — no enrollments created yet
+  COMMITTED // Final Confirm pressed — decisions have been applied
+  CANCELLED // draft abandoned before commit
+}
+
+/// The per-student action chosen in the Year-End review board. DECIDE_LATER is the default so the
+/// system NEVER silently promotes (Decision 9).
+enum YearEndAction {
+  PROMOTE
+  REPEAT
+  GRADUATE
+  WITHDRAW
+  DECIDE_LATER
+}
+
+/// One Year-End run for a School: from the closing (source) Academic Year into the next (target) one.
+model YearEndProcess {
+  id                   String               @id @default(uuid()) @db.Uuid
+  tenantId             String               @db.Uuid
+  schoolId             String               @db.Uuid
+  sourceAcademicYearId String               @db.Uuid
+  targetAcademicYearId String               @db.Uuid
+  status               YearEndProcessStatus @default(OPEN)
+  createdById          String?              @db.Uuid
+  committedById        String?              @db.Uuid
+  committedAt          DateTime?            @db.Timestamptz(6)
+  createdAt            DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  decisions YearEndDecision[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, schoolId, sourceAcademicYearId])
+}
+
+/// A draft, per-student decision within a YearEndProcess. Holds the chosen action + the
+/// administrator-assigned target placement (grade/section/classroom are NEVER auto-copied — Decision
+/// 10). `resultingEnrollmentId` is set only after Final Confirm creates the next enrollment. Student /
+/// enrollment / grade / section / classroom are plain references (no FK relations) to avoid coupling.
+model YearEndDecision {
+  id                    String        @id @default(uuid()) @db.Uuid
+  tenantId              String        @db.Uuid
+  processId             String        @db.Uuid
+  studentId             String        @db.Uuid
+  sourceEnrollmentId    String        @db.Uuid
+  action                YearEndAction @default(DECIDE_LATER)
+  targetGradeId         String?       @db.Uuid
+  targetSectionId       String?       @db.Uuid
+  targetClassroomId     String?       @db.Uuid
+  reason                String?
+  // Highlighted for manual review (failed subjects / missing grades / administrative or finance holds).
+  needsReview           Boolean       @default(false)
+  reviewNote            String?
+  resultingEnrollmentId String?       @db.Uuid
+  committedAt           DateTime?     @db.Timestamptz(6)
+  createdAt             DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime      @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  process YearEndProcess @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@unique([processId, studentId])
+  @@index([tenantId, processId])
 }
 
 // ----------------------------------------------------------------------------

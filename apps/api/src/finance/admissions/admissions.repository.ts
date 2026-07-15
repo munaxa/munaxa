@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import {
+  AdmissionStatus,
   ApprovalStatus,
   ChargeStatus,
   EnrollmentStatus,
@@ -9,11 +10,13 @@ import {
   Prisma,
   QuotePaymentMode,
   StudentStatus,
+  TransportDirection,
 } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TenantConnectionManager } from '../../prisma/tenant-connection.service';
 import type { TxClient } from '../../prisma/tenant.helpers';
+import { allocateStudentNumber } from '../../people/students/student-number';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import { generateStudentQrCode } from '../../people/people.util';
 import { AccountRepository } from '../account/account.repository';
@@ -60,6 +63,73 @@ export class AdmissionsRepository extends TenantRepository {
 
   private actor(): string | null {
     return TenantContextStore.get()?.actorUserId ?? null;
+  }
+
+  /** The campus a student attends in a given Academic Year, for the Enrollment's year-scoped placement. */
+  private async yearCampusId(tx: TxClient, academicYearId: string): Promise<string | null> {
+    const ay = await tx.academicYear.findUnique({
+      where: { id: academicYearId },
+      select: { campusId: true },
+    });
+    return ay?.campusId ?? null;
+  }
+
+  /**
+   * THE single place an Enrollment row is created (Decision 3 — one pipeline for admission,
+   * re-enrollment, promotion and repeat). Resolves the year's campus, writes the year-scoped placement
+   * (Decisions 4 & 13), and stamps the workflow (`admissionStatus`) + participation (`status`) split
+   * (Decision 2). Charge/plan generation stays with `createEnrollmentCharges`; callers compose the two.
+   */
+  private async createEnrollmentRowTx(
+    tx: TxClient,
+    tenantId: string,
+    params: {
+      studentId: string;
+      academicYearId: string;
+      gradeId: string;
+      sectionId?: string | null;
+      classroomId?: string | null;
+      areaId?: string | null;
+      transportRequested?: boolean;
+      quoteId?: string | null;
+      transportDirection?: TransportDirection;
+      paymentMode: QuotePaymentMode;
+      feeModified?: boolean;
+      registrationFeePaid?: boolean;
+      // The admission workflow status this enrollment is born at: REGISTERED (finalised) or ACCEPTED
+      // (held pending finance approval). Participation `status` is ACTIVE either way.
+      admissionStatus: AdmissionStatus;
+      admissionDate?: Date;
+    },
+  ) {
+    const campusId = await this.yearCampusId(tx, params.academicYearId);
+    return tx.enrollment.create({
+      data: {
+        tenantId,
+        studentId: params.studentId,
+        academicYearId: params.academicYearId,
+        gradeId: params.gradeId,
+        ...(params.sectionId ? { sectionId: params.sectionId } : {}),
+        ...(params.classroomId ? { classroomId: params.classroomId } : {}),
+        // Year-scoped placement lives on the Enrollment (Decisions 4 & 13).
+        ...(campusId ? { campusId } : {}),
+        ...(params.areaId ? { areaId: params.areaId } : {}),
+        ...(params.transportRequested !== undefined
+          ? { transportRequested: params.transportRequested }
+          : {}),
+        admissionDate: params.admissionDate ?? new Date(),
+        ...(params.quoteId ? { quoteId: params.quoteId } : {}),
+        transportDirection: params.transportDirection ?? TransportDirection.NONE,
+        // Decision 2: admission workflow (`admissionStatus`) vs. participation (`status`) are separate;
+        // the authoritative "finalised" gate is admissionStatus === REGISTERED.
+        admissionStatus: params.admissionStatus,
+        status: EnrollmentStatus.ACTIVE,
+        paymentMode: params.paymentMode,
+        feeModified: params.feeModified ?? false,
+        registrationFeePaid: params.registrationFeePaid ?? true,
+        createdById: this.actor(),
+      },
+    });
   }
 
   // ── Fee-item catalog ──
@@ -578,9 +648,11 @@ export class AdmissionsRepository extends TenantRepository {
           if (!entry.student)
             throw new BadRequestException(`Student #${i + 1} information is required`);
           const s = entry.student;
+          const studentNumber = await allocateStudentNumber(tx, tenantId);
           const created = await tx.student.create({
             data: {
               tenantId,
+              studentNumber,
               firstNameEn: s.firstNameEn,
               lastNameEn: s.lastNameEn,
               firstNameAr: s.firstNameAr || s.firstNameEn,
@@ -623,21 +695,21 @@ export class AdmissionsRepository extends TenantRepository {
         }
 
         const held = quote.feeModified && requireApproval;
-        const enrollment = await tx.enrollment.create({
-          data: {
-            tenantId,
-            studentId,
-            academicYearId: quote.academicYearId,
-            gradeId: quote.gradeId,
-            ...(entry.sectionId ? { sectionId: entry.sectionId } : {}),
-            quoteId: quote.id,
-            transportDirection: quote.transportDirection,
-            status: held ? EnrollmentStatus.PENDING_APPROVAL : EnrollmentStatus.COMMITTED,
-            paymentMode: dto.paymentMode,
-            feeModified: quote.feeModified,
-            registrationFeePaid: dto.registrationFeePaid ?? true,
-            createdById: this.actor(),
-          },
+        const enrollment = await this.createEnrollmentRowTx(tx, tenantId, {
+          studentId,
+          academicYearId: quote.academicYearId,
+          gradeId: quote.gradeId,
+          sectionId: entry.sectionId ?? null,
+          areaId: entry.areaId ?? null,
+          ...(entry.transportRequested !== undefined
+            ? { transportRequested: entry.transportRequested }
+            : {}),
+          quoteId: quote.id,
+          transportDirection: quote.transportDirection,
+          paymentMode: dto.paymentMode,
+          feeModified: quote.feeModified,
+          registrationFeePaid: dto.registrationFeePaid ?? true,
+          admissionStatus: held ? AdmissionStatus.ACCEPTED : AdmissionStatus.REGISTERED,
         });
 
         // Link the student's AR account to the account (Payer), then bill it through the account plan.
@@ -824,9 +896,11 @@ export class AdmissionsRepository extends TenantRepository {
       if (!studentId) {
         if (!dto.student) throw new BadRequestException('Student information is required');
         const s = dto.student;
+        const studentNumber = await allocateStudentNumber(tx, tenantId);
         const created = await tx.student.create({
           data: {
             tenantId,
+            studentNumber,
             firstNameEn: s.firstNameEn,
             lastNameEn: s.lastNameEn,
             firstNameAr: s.firstNameAr || s.firstNameEn,
@@ -932,21 +1006,17 @@ export class AdmissionsRepository extends TenantRepository {
       // SEPARATE: no override — the student keeps their own plan (from their quote), still billed
       // through the family account so family payments can settle them.
 
-      const enrollment = await tx.enrollment.create({
-        data: {
-          tenantId,
-          studentId,
-          academicYearId: quote.academicYearId,
-          gradeId: quote.gradeId,
-          ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
-          quoteId: quote.id,
-          transportDirection: quote.transportDirection,
-          status: EnrollmentStatus.COMMITTED,
-          paymentMode: quote.paymentMode,
-          feeModified: quote.feeModified,
-          registrationFeePaid: dto.registrationFeePaid ?? true,
-          createdById: this.actor(),
-        },
+      const enrollment = await this.createEnrollmentRowTx(tx, tenantId, {
+        studentId,
+        academicYearId: quote.academicYearId,
+        gradeId: quote.gradeId,
+        sectionId: dto.sectionId ?? null,
+        quoteId: quote.id,
+        transportDirection: quote.transportDirection,
+        paymentMode: quote.paymentMode,
+        feeModified: quote.feeModified,
+        registrationFeePaid: dto.registrationFeePaid ?? true,
+        admissionStatus: AdmissionStatus.REGISTERED,
       });
 
       const account = await this.accounts.ensureAccountTx(tx, tenantId, studentId);
@@ -1027,11 +1097,70 @@ export class AdmissionsRepository extends TenantRepository {
     });
   }
 
+  /**
+   * Context for re-enrolling a returning student (Step 7): the student's existing Financial Account
+   * (Payer), the target quote's academic year, and whether they are ALREADY enrolled for that year
+   * (so re-enrollment never creates a duplicate — the DB unique on (student, year) is the backstop).
+   */
+  async reEnrollContext(studentId: string, quoteId: string) {
+    return this.run(async (tx) => {
+      const student = await tx.student.findFirst({
+        where: { id: studentId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!student) throw new BadRequestException('Student not found');
+
+      const quote = await tx.enrollmentQuote.findFirst({
+        where: { id: quoteId },
+        select: { academicYearId: true },
+      });
+      if (!quote) throw new BadRequestException('Quote not found');
+
+      const account = await tx.studentFinancialAccount.findFirst({
+        where: { studentId },
+        select: { payerId: true },
+      });
+      const existing = await tx.enrollment.findFirst({
+        where: { studentId, academicYearId: quote.academicYearId },
+        select: { id: true },
+      });
+      return {
+        financialAccountId: account?.payerId ?? null,
+        academicYearId: quote.academicYearId,
+        alreadyEnrolled: existing !== null,
+      };
+    });
+  }
+
+  /**
+   * Enrollment statistics for reporting (Step 11), optionally scoped to one Academic Year. Returns the
+   * two DISTINCT breakdowns (Decision 2): participation `byStatus` and admission-funnel
+   * `byAdmissionStatus`. Closed years remain fully reportable (Decision 12).
+   */
+  async enrollmentStats(academicYearId?: string) {
+    return this.run(async (tx) => {
+      const where = academicYearId ? { academicYearId } : {};
+      const [byStatus, byAdmission, total] = await Promise.all([
+        tx.enrollment.groupBy({ by: ['status'], where, _count: { _all: true } }),
+        tx.enrollment.groupBy({ by: ['admissionStatus'], where, _count: { _all: true } }),
+        tx.enrollment.count({ where }),
+      ]);
+      return {
+        total,
+        byStatus: Object.fromEntries(byStatus.map((r) => [r.status, r._count._all])),
+        byAdmissionStatus: Object.fromEntries(
+          byAdmission.map((r) => [r.admissionStatus, r._count._all]),
+        ),
+      };
+    });
+  }
+
   // ── Enrollments / reporting ──
   listEnrollments(filter: {
     academicYearId?: string;
     gradeId?: string;
     status?: EnrollmentStatus;
+    admissionStatus?: AdmissionStatus;
   }) {
     return this.run((tx) =>
       tx.enrollment.findMany({
@@ -1039,6 +1168,7 @@ export class AdmissionsRepository extends TenantRepository {
           ...(filter.academicYearId ? { academicYearId: filter.academicYearId } : {}),
           ...(filter.gradeId ? { gradeId: filter.gradeId } : {}),
           ...(filter.status ? { status: filter.status } : {}),
+          ...(filter.admissionStatus ? { admissionStatus: filter.admissionStatus } : {}),
         },
         include: {
           student: { select: { id: true, firstNameEn: true, lastNameEn: true } },
@@ -1097,17 +1227,17 @@ export class AdmissionsRepository extends TenantRepository {
           ...(note ? { note } : {}),
         },
       });
-      // Apply the decision to the held enrollment. Approval activates it and creates the
-      // charges that were deferred at commit time; rejection cancels it (no charges exist).
-      // Both are scoped to PENDING_APPROVAL so a decision on one of several modifications for
-      // an already-decided enrollment is a safe no-op (charges are never created twice).
+      // Apply the decision to the held enrollment. Approval registers it (admissionStatus REGISTERED)
+      // and creates the charges that were deferred at commit time; rejection cancels the admission
+      // (no charges exist). Both are scoped to admissionStatus ACCEPTED so a decision on one of several
+      // modifications for an already-decided enrollment is a safe no-op (charges never created twice).
       const enrollmentId = approval.modification.enrollmentId;
       if (enrollmentId) {
         const { count } = await tx.enrollment.updateMany({
-          where: { id: enrollmentId, status: EnrollmentStatus.PENDING_APPROVAL },
-          data: {
-            status: approve ? EnrollmentStatus.COMMITTED : EnrollmentStatus.CANCELLED,
-          },
+          where: { id: enrollmentId, admissionStatus: AdmissionStatus.ACCEPTED },
+          data: approve
+            ? { admissionStatus: AdmissionStatus.REGISTERED, status: EnrollmentStatus.ACTIVE }
+            : { admissionStatus: AdmissionStatus.CANCELLED },
         });
         if (approve && count > 0) {
           const enrollment = await tx.enrollment.findFirstOrThrow({

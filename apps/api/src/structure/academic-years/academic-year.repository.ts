@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { AcademicYear, Prisma } from '@prisma/client';
+import { AcademicYearStatus, type AcademicYear, type Prisma } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 
 @Injectable()
@@ -25,18 +25,38 @@ export class AcademicYearRepository extends TenantRepository {
     return this.run((tx) => tx.academicYear.update({ where: { id }, data }));
   }
 
-  delete(id: string): Promise<AcademicYear> {
-    return this.run((tx) => tx.academicYear.delete({ where: { id } }));
-  }
-
-  /** Clear the current-year flag for a campus before marking a new one current. */
-  clearCurrent(campusId: string): Promise<unknown> {
+  /**
+   * Supersede any OTHER active year in the same School before marking a new one ACTIVE — an Academic
+   * Year is School-scoped (Decision 1) and there is exactly one ACTIVE per School. A superseded year
+   * is moved to CLOSED (and its legacy `isCurrent` flag cleared). Falls back to campus scope only for
+   * legacy rows whose `schoolId` has not been backfilled yet.
+   */
+  clearActiveForSchool(
+    schoolId: string | null,
+    campusId: string,
+    exceptId?: string,
+  ): Promise<unknown> {
     return this.run((tx) =>
       tx.academicYear.updateMany({
-        where: { campusId, isCurrent: true },
-        data: { isCurrent: false },
+        where: {
+          ...(schoolId ? { schoolId } : { campusId }),
+          ...(exceptId ? { id: { not: exceptId } } : {}),
+          OR: [{ status: AcademicYearStatus.ACTIVE }, { isCurrent: true }],
+        },
+        data: { status: AcademicYearStatus.CLOSED, isCurrent: false },
       }),
     );
+  }
+
+  /** Resolve the owning School of a campus (for deriving `schoolId` on create). */
+  campusSchoolId(campusId: string): Promise<string | null> {
+    return this.run(async (tx) => {
+      const campus = await tx.campus.findFirst({
+        where: { id: campusId, deletedAt: null },
+        select: { schoolId: true },
+      });
+      return campus?.schoolId ?? null;
+    });
   }
 
   campusExists(campusId: string): Promise<boolean> {

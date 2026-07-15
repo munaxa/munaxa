@@ -129,7 +129,10 @@ describe('Unified admissions write path (e2e)', () => {
         parent: { firstNameEn: 'Dad', lastNameEn: 'Solo', phone: '0790000001' },
       })
       .expect(201);
-    expect(res.body.status).toBe('COMMITTED');
+    // Admission workflow vs. participation are now separate (Decision 2): a finalised admission is
+    // REGISTERED, and its enrollment participates as ACTIVE.
+    expect(res.body.admissionStatus).toBe('REGISTERED');
+    expect(res.body.status).toBe('ACTIVE');
     const studentId = res.body.studentId as string;
 
     await withPlatform(prisma, async (tx) => {

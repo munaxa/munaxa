@@ -76,7 +76,28 @@ export class StudentService {
 
   async remove(id: string): Promise<void> {
     await this.get(id);
+    // Deletion is only for a draft student with NO dependent records; otherwise Withdraw / Cancel
+    // Admission (never destroy history). See deletability().
+    const blockers = await this.repo.deletionBlockers(id);
+    if (blockers.length > 0) {
+      throw new BadRequestException(
+        `Student cannot be deleted (has ${blockers.join(', ')}). Withdraw or cancel the admission instead.`,
+      );
+    }
     await this.repo.softDelete(id);
+  }
+
+  /** Whether the student may be hard-deleted, and if not, why (drives showing Delete vs Withdraw). */
+  async deletability(id: string): Promise<{ deletable: boolean; blockers: string[] }> {
+    await this.get(id);
+    const blockers = await this.repo.deletionBlockers(id);
+    return { deletable: blockers.length === 0, blockers };
+  }
+
+  /** Immutable per-year Enrollment History for the profile (Decisions 12 & 13). */
+  async enrollmentHistory(id: string) {
+    await this.get(id);
+    return this.repo.enrollmentHistory(id);
   }
 
   async qr(id: string): Promise<{ qrCode: string }> {

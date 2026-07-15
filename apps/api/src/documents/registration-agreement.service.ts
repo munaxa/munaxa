@@ -6,8 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  AdmissionStatus,
   DocumentLanguage,
-  EnrollmentStatus,
   FeeItemKind,
   Prisma,
   QuotePaymentMode,
@@ -99,7 +99,7 @@ export class RegistrationAgreementService {
   async tryAutoGenerate(enrollmentId: string): Promise<void> {
     try {
       const enrollment = await this.repo.enrollmentContext(enrollmentId);
-      if (!enrollment || enrollment.status !== EnrollmentStatus.COMMITTED) return;
+      if (!enrollment || enrollment.admissionStatus !== AdmissionStatus.REGISTERED) return;
       // Registration agreements are legal records for an Arabic-and-English audience, so they are
       // rendered bilingually (Arabic + English) by default.
       await this.generate(enrollmentId, DocumentLanguage.BILINGUAL);

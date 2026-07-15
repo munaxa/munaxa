@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
-import { type Student } from '@/lib/people';
+import { studentsApi, type Student, type EnrollmentHistoryRow } from '@/lib/people';
 import { financeApi, type Statement } from '@/lib/finance';
 import { busApi, type StudentTransport } from '@/lib/bus';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 
 const num = (v: string | number) => Number(v).toFixed(3);
 
@@ -24,6 +24,7 @@ export function OverviewTab({
   const { t } = useI18n();
   const [statement, setStatement] = useState<Statement | null>(null);
   const [transport, setTransport] = useState<StudentTransport | null>(null);
+  const [history, setHistory] = useState<EnrollmentHistoryRow[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -34,6 +35,10 @@ export function OverviewTab({
     busApi
       .studentTransport(student.id)
       .then((tr) => active && setTransport(tr))
+      .catch(() => undefined);
+    studentsApi
+      .enrollmentHistory(student.id)
+      .then((rows) => active && setHistory(rows))
       .catch(() => undefined);
     return () => {
       active = false;
@@ -111,8 +116,61 @@ export function OverviewTab({
           </CardContent>
         </Card>
       ) : null}
+
+      {/* Immutable per-year Enrollment History (Decisions 12 & 13). */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{t('studentProfile.enrollmentHistory')}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('studentProfile.noEnrollments')}</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {history.map((row) => (
+                <li key={row.id} className="flex items-center justify-between gap-3 py-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium">
+                      {row.academicYear?.name ?? '—'}
+                      <span className="text-muted-foreground">
+                        {row.grade ? ` · ${row.grade.nameEn}` : ''}
+                        {row.section ? ` · ${row.section.name}` : ''}
+                      </span>
+                    </div>
+                    <div className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {(row.graduationDate ?? row.withdrawalDate ?? row.admissionDate ?? '').slice(
+                        0,
+                        10,
+                      )}
+                      {row.reason ? ` · ${row.reason}` : ''}
+                    </div>
+                  </div>
+                  <Badge tone={statusTone(row.status)}>{row.status.toLowerCase()}</Badge>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+/** Badge tone for a participation status (Active green, terminal-negative coral, else muted). */
+function statusTone(status: string): 'success' | 'warning' | 'danger' | 'muted' {
+  switch (status) {
+    case 'ACTIVE':
+      return 'success';
+    case 'GRADUATED':
+    case 'PROMOTED':
+    case 'COMPLETED':
+      return 'muted';
+    case 'WITHDRAWN':
+    case 'CANCELLED':
+      return 'danger';
+    default:
+      return 'muted';
+  }
 }
 
 function Detail({

@@ -35,6 +35,8 @@ import { AdmissionsController } from './admissions/admissions.controller';
 import { AdmissionsService } from './admissions/admissions.service';
 import { AdmissionsRepository } from './admissions/admissions.repository';
 import { QuoteService } from './admissions/quote.service';
+import { StudentIdentityService } from './admissions/student-identity.service';
+import { StudentIdentityRepository } from './admissions/student-identity.repository';
 import { FinanceReportsController } from './reports/reports.controller';
 import { FinanceReportsRepository } from './reports/reports.repository';
 
@@ -86,10 +88,12 @@ import { FinanceReportsRepository } from './reports/reports.repository';
     AdmissionsService,
     AdmissionsRepository,
     QuoteService,
+    StudentIdentityService,
+    StudentIdentityRepository,
     FinanceReportsRepository,
   ],
   // AccountRepository is exported so the People module can place a student under their guardian's
   // Financial Account when a parent is (re)assigned (keeps billing linkage in sync).
-  exports: [AccountRepository],
+  exports: [AccountRepository, AdmissionsService, QuoteService, ChargeService],
 })
 export class FinanceModule {}

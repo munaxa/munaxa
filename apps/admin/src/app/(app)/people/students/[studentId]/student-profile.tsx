@@ -84,6 +84,9 @@ export function StudentProfile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Deletion is only for a draft student with no dependent records; otherwise the API blocks it and we
+  // hide Delete, pointing the registrar to Withdraw / Cancel Admission (Decision — deletion rules).
+  const [deletable, setDeletable] = useState(false);
 
   const canSee = useMemo(() => {
     const held = new Set(principal.permissions);
@@ -126,6 +129,18 @@ export function StudentProfile() {
   useEffect(() => {
     void loadStudent();
   }, [loadStudent]);
+
+  // Whether Delete may be shown (else the registrar withdraws / cancels the admission).
+  useEffect(() => {
+    let active = true;
+    studentsApi
+      .deletability(studentId)
+      .then((d) => active && setDeletable(d.deletable))
+      .catch(() => active && setDeletable(false));
+    return () => {
+      active = false;
+    };
+  }, [studentId]);
 
   // Sections (for the grade/section label + editor) and areas (for the editor) — loaded once.
   useEffect(() => {
@@ -210,6 +225,7 @@ export function StudentProfile() {
                   {student.status}
                 </Badge>
                 {sectionLabel ? <Badge tone="muted">{sectionLabel}</Badge> : null}
+                <Meta label={t('people.studentNumber')} value={student.studentNumber} />
                 <Meta label={t('people.studentNo')} value={student.moeStudentNumber} />
                 <Meta label={t('people.nationalId')} value={student.nationalId} />
                 <Meta
@@ -240,13 +256,19 @@ export function StudentProfile() {
                 >
                   {t('studentProfile.openInFinance')}
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => void remove()}
-                  className="block w-full px-3 py-2 text-start text-sm text-destructive hover:bg-accent"
-                >
-                  {t('common.delete')}
-                </button>
+                {deletable ? (
+                  <button
+                    type="button"
+                    onClick={() => void remove()}
+                    className="block w-full px-3 py-2 text-start text-sm text-destructive hover:bg-accent"
+                  >
+                    {t('common.delete')}
+                  </button>
+                ) : (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    {t('studentProfile.cannotDelete')}
+                  </div>
+                )}
               </div>
             </details>
           </div>

@@ -29,6 +29,8 @@ import { AdvancedModule } from './advanced/advanced.module';
 import { PlatformModule } from './platform/platform.module';
 import { OrganizationModule } from './organization/organization.module';
 import { DocumentsModule } from './documents/documents.module';
+import { YearEndModule } from './year-end/year-end.module';
+import { EnrollmentExitModule } from './enrollment-exit/enrollment-exit.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { MustChangePasswordGuard } from './auth/guards/must-change-password.guard';
 import { CsrfGuard } from './auth/guards/csrf.guard';
@@ -85,6 +87,8 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     PlatformModule,
     OrganizationModule,
     DocumentsModule,
+    YearEndModule,
+    EnrollmentExitModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
