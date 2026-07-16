@@ -98,7 +98,6 @@ export interface OrganizationSettings {
   description: string | null;
   timezone: string;
   defaultLanguage: string;
-  academicCalendar: string | null;
 
   // Contact
   phone: string | null;

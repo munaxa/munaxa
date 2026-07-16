@@ -45,16 +45,65 @@ export interface Classroom {
   floor?: string | null;
 }
 
+/** Lifecycle status. `UPCOMING` is surfaced in the UI as "Planned" (label-only mapping). */
 export type AcademicYearStatus = 'UPCOMING' | 'ACTIVE' | 'CLOSED';
 
 export interface AcademicYear {
   id: string;
   campusId: string;
+  schoolId?: string | null;
   name: string;
   startDate: string;
   endDate: string;
+  registrationStartDate?: string | null;
+  registrationEndDate?: string | null;
   isCurrent: boolean;
   status: AcademicYearStatus;
+}
+
+/** Operational metrics for an Academic Year card (GET /academic-years/:id/overview). */
+export interface AcademicYearOverview {
+  academicYearId: string;
+  studentCount: number;
+  activeEnrollments: number;
+  graduatingStudents: number;
+  withdrawnStudents: number;
+  classCount: number;
+  gradeCount: number;
+  semesterCount: number;
+  outstandingFees: string;
+  unverifiedPayments: number;
+  attendancePct: number | null;
+  reportCardCompletionPct: number | null;
+  timetableCompletionPct: number | null;
+}
+
+export interface ReadinessCheck {
+  key: string;
+  label: string;
+  ok: boolean;
+  severity: 'blocker' | 'info';
+  resolveRoute?: string;
+}
+
+/** Activation/close pre-flight + Academic Readiness Score (GET /academic-years/:id/readiness). */
+export interface AcademicYearReadiness {
+  academicYearId: string;
+  score: number;
+  activation: { canActivate: boolean; checks: ReadinessCheck[] };
+  close: { canClose: boolean; checks: ReadinessCheck[] };
+}
+
+export interface AcademicYearDeletability {
+  deletable: boolean;
+  usage: {
+    enrollments: number;
+    charges: number;
+    semesters: number;
+    reports: number;
+    timetable: number;
+    auditLogs: number;
+  };
 }
 
 export interface Semester {
@@ -148,34 +197,62 @@ export const academicYearsApi = {
     authFetch(`/academic-years?campusId=${encodeURIComponent(campusId)}`).then((r) =>
       json<AcademicYear[]>(r),
     ),
+  get: (id: string) => authFetch(`/academic-years/${id}`).then((r) => json<AcademicYear>(r)),
+  current: (schoolId?: string) =>
+    authFetch(
+      `/academic-years/current${schoolId ? `?schoolId=${encodeURIComponent(schoolId)}` : ''}`,
+    ).then((r) => json<AcademicYear | null>(r)),
+  overview: (id: string) =>
+    authFetch(`/academic-years/${id}/overview`).then((r) => json<AcademicYearOverview>(r)),
+  readiness: (id: string) =>
+    authFetch(`/academic-years/${id}/readiness`).then((r) => json<AcademicYearReadiness>(r)),
+  deletable: (id: string) =>
+    authFetch(`/academic-years/${id}/deletable`).then((r) => json<AcademicYearDeletability>(r)),
   create: (data: {
     campusId: string;
     name: string;
     startDate: string;
     endDate: string;
+    registrationStartDate?: string | null;
+    registrationEndDate?: string | null;
+    status?: AcademicYearStatus;
     isCurrent?: boolean;
   }) =>
     authFetch('/academic-years', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<AcademicYear>(r),
     ),
-  // Change the lifecycle status. Setting ACTIVE makes this the current year and auto-supersedes the
-  // previously-active year (one ACTIVE per school is enforced server-side).
+  // Change the lifecycle status or edit dates. Setting ACTIVE makes this the current year and
+  // auto-supersedes the previously-active year (one ACTIVE per school is enforced server-side).
   update: (
     id: string,
-    data: { name?: string; startDate?: string; endDate?: string; status?: AcademicYearStatus },
+    data: Partial<{
+      name: string;
+      startDate: string;
+      endDate: string;
+      registrationStartDate: string | null;
+      registrationEndDate: string | null;
+      status: AcademicYearStatus;
+    }>,
   ) =>
     authFetch(`/academic-years/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
       json<AcademicYear>(r),
     ),
-  // Make this the current (ACTIVE) year — supersedes whichever year was current.
+  /** Administrative config change: make this year the current (ACTIVE) one. Does NOT touch students. */
+  setCurrent: (id: string) =>
+    authFetch(`/academic-years/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'ACTIVE' }),
+    }).then((r) => json<AcademicYear>(r)),
+  /** Backward-compatible alias for {@link setCurrent}. */
   makeCurrent: (id: string) =>
     authFetch(`/academic-years/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status: 'ACTIVE' }),
     }).then((r) => json<AcademicYear>(r)),
-  // Close a year (administrative; never touches Student/Enrollment). Academic years are never deleted.
+  /** Launch-point for the guided close (the wizard runs readiness first, then confirms). */
   close: (id: string) =>
     authFetch(`/academic-years/${id}/close`, { method: 'POST' }).then((r) => json<AcademicYear>(r)),
+  remove: (id: string) => del(`/academic-years/${id}`),
 };
 
 export const semestersApi = {
