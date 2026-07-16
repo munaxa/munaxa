@@ -30,6 +30,17 @@ export class CreateAcademicYearDto {
   @IsDateString()
   endDate!: string;
 
+  // Admission/registration window (optional). Independent of the instructional boundaries (Semesters).
+  @ApiPropertyOptional({ example: '2025-05-01', description: 'ISO date' })
+  @IsOptional()
+  @IsDateString()
+  registrationStartDate?: string;
+
+  @ApiPropertyOptional({ example: '2025-08-15', description: 'ISO date' })
+  @IsOptional()
+  @IsDateString()
+  registrationEndDate?: string;
+
   // Lifecycle status (Decision 8). Defaults to UPCOMING. Setting ACTIVE enforces one-ACTIVE-per-school.
   @ApiPropertyOptional({ enum: AcademicYearStatus, default: AcademicYearStatus.UPCOMING })
   @IsOptional()

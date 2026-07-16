@@ -582,6 +582,10 @@ model AcademicYear {
   name      String // e.g. "2025/2026"
   startDate DateTime           @db.Date
   endDate   DateTime           @db.Date
+  // Admission/registration window for the year (optional; independent of the instructional
+  // boundaries, which live on Semester). Used by the workspace Registration section + readiness.
+  registrationStartDate DateTime? @db.Date
+  registrationEndDate   DateTime? @db.Date
   // Explicit lifecycle. `isCurrent` is retained (== status ACTIVE) for backward-compatible readers
   // during the transition; the single source of truth is `status`.
   status    AcademicYearStatus @default(UPCOMING)
@@ -1836,7 +1840,6 @@ model OrganizationSettings {
   description      String?
   timezone         String                 @default("Asia/Amman")
   defaultLanguage  String                 @default("en")
-  academicCalendar String?
 
   // ── Contact ──
   phone            String?

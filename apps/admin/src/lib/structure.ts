@@ -55,6 +55,8 @@ export interface AcademicYear {
   name: string;
   startDate: string;
   endDate: string;
+  registrationStartDate?: string | null;
+  registrationEndDate?: string | null;
   isCurrent: boolean;
   status: AcademicYearStatus;
 }
@@ -211,17 +213,26 @@ export const academicYearsApi = {
     name: string;
     startDate: string;
     endDate: string;
+    registrationStartDate?: string | null;
+    registrationEndDate?: string | null;
     status?: AcademicYearStatus;
     isCurrent?: boolean;
   }) =>
     authFetch('/academic-years', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<AcademicYear>(r),
     ),
-  // Change the lifecycle status. Setting ACTIVE makes this the current year and auto-supersedes the
-  // previously-active year (one ACTIVE per school is enforced server-side).
+  // Change the lifecycle status or edit dates. Setting ACTIVE makes this the current year and
+  // auto-supersedes the previously-active year (one ACTIVE per school is enforced server-side).
   update: (
     id: string,
-    data: Partial<{ name: string; startDate: string; endDate: string; status: AcademicYearStatus }>,
+    data: Partial<{
+      name: string;
+      startDate: string;
+      endDate: string;
+      registrationStartDate: string | null;
+      registrationEndDate: string | null;
+      status: AcademicYearStatus;
+    }>,
   ) =>
     authFetch(`/academic-years/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
       json<AcademicYear>(r),

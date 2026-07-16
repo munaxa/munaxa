@@ -56,7 +56,6 @@ export class UpdateGeneralDto {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(4000) description?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60) timezone?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(10) defaultLanguage?: string;
-  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120) academicCalendar?: string;
 }
 
 // ── Contact ────────────────────────────────────────────────────────────────

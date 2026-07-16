@@ -28,6 +28,8 @@ It is **never hard-deleted once used**; it only moves through a lifecycle
 | `name`      | `String`             | e.g. `"2026/2027"` |
 | `startDate` | `DateTime` (`@db.Date`) | Year start |
 | `endDate`   | `DateTime` (`@db.Date`) | Year end |
+| `registrationStartDate` | `DateTime?` (`@db.Date`) | Admission/registration window start (optional) |
+| `registrationEndDate`   | `DateTime?` (`@db.Date`) | Admission/registration window end (optional) |
 | `status`    | `AcademicYearStatus` | Lifecycle; default `UPCOMING`. **Single source of truth** |
 | `isCurrent` | `Boolean`            | Legacy flag, kept in sync (`isCurrent == (status === ACTIVE)`) for backward-compatible readers |
 | `createdAt` | `DateTime`           | |
@@ -179,10 +181,19 @@ erDiagram
 | Card KPIs (students, enrollments, classes, semesters) | `Enrollment` (by status), distinct `Section`/`Grade`, `Semester` count |
 | Outstanding fees / unverified payments | `Charge` (PENDING/PARTIAL), `Payment` (PENDING) |
 | Attendance / report-card / timetable % | `StudentAttendance`, `GradeRecord` (via Semester), `TimetableSlot` (via Section) |
-| Academic Readiness Score & activation checks | `Semester`, `Grade`, `Section` counts + `OrganizationSettings.academicCalendar` |
+| Academic Readiness Score & activation checks | Year dates, registration window, and **`Semester` geometry** (inside-year / no-overlap / full coverage), plus `Grade` & `Section` counts — all real records |
 | Delete guard | Existence across `Enrollment`, `Charge`, `Semester`, `GradeRecord`, `TimetableSlot`, `AuditLog` |
 | Current-year indicator | `AcademicYear` where `status = ACTIVE` |
 
-> Note: the "Academic calendar" readiness input is currently a single free-text field
-> (`OrganizationSettings.academicCalendar`, max 120 chars) — the real dated boundaries of the
-> year live in **Semesters**.
+### Readiness activation checklist (all derived from real data)
+
+1. Start date set · 2. End date set · 3. Registration window set
+4. At least one Semester · 5. Semester dates fall inside the year
+6. Semester dates do not overlap · 7. Semesters cover the whole year
+8. Grades configured · 9. Sections configured
+
+> There is **no** free-text "academic calendar" field. The instructional calendar is derived
+> entirely from **Semester** records (name / sequence / inclusive `startDate` / `endDate`); the
+> term count is always `count(Semester)`, never a stored field. Holiday/event scheduling is
+> intentionally deferred — a future `AcademicCalendarEvent` module can be added additively
+> without touching `AcademicYear` or `Semester`.

@@ -644,7 +644,6 @@
     "establishedYear": "Established year",
     "timezone": "Timezone",
     "defaultLanguage": "Default language",
-    "academicCalendar": "Academic calendar",
     "motto": "School motto",
     "mission": "Mission",
     "vision": "Vision",
@@ -1529,6 +1528,14 @@
       "doesNotList": "Promote students|Create new enrollments|Archive students|Generate fees",
       "done": "Academic year closed",
       "doneDetail": "The status is now Closed. Nothing else changed — promotion remains a separate wizard."
-    }
+    },
+    "registration": "Registration",
+    "registrationWindow": "Registration window",
+    "registrationStart": "Registration start",
+    "registrationEnd": "Registration end",
+    "registrationNotSet": "Not set",
+    "edit": "Edit",
+    "editTitle": "Edit academic year",
+    "saved": "Academic year updated"
   }
 }

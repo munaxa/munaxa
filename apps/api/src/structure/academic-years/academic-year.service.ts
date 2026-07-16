@@ -48,12 +48,16 @@ export class AcademicYearService {
       await this.repo.clearActiveForSchool(schoolId, dto.campusId);
     }
 
+    this.assertRegistrationOrder(dto.registrationStartDate, dto.registrationEndDate);
+
     return this.repo.create({
       campusId: dto.campusId,
       schoolId,
       name: dto.name,
       startDate: new Date(dto.startDate),
       endDate: new Date(dto.endDate),
+      registrationStartDate: dto.registrationStartDate ? new Date(dto.registrationStartDate) : null,
+      registrationEndDate: dto.registrationEndDate ? new Date(dto.registrationEndDate) : null,
       status,
       isCurrent: status === AcademicYearStatus.ACTIVE,
     });
@@ -80,6 +84,11 @@ export class AcademicYearService {
       dto.status ??
       (dto.isCurrent === undefined ? undefined : this.resolveStatus(undefined, dto.isCurrent));
 
+    // Registration window: validate the resulting pair (whichever side is being changed).
+    const regStart = dto.registrationStartDate ?? existing.registrationStartDate?.toISOString();
+    const regEnd = dto.registrationEndDate ?? existing.registrationEndDate?.toISOString();
+    this.assertRegistrationOrder(regStart, regEnd);
+
     if (nextStatus === AcademicYearStatus.ACTIVE) {
       await this.repo.clearActiveForSchool(existing.schoolId, existing.campusId, id);
     }
@@ -88,6 +97,18 @@ export class AcademicYearService {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.startDate ? { startDate: new Date(dto.startDate) } : {}),
       ...(dto.endDate ? { endDate: new Date(dto.endDate) } : {}),
+      ...(dto.registrationStartDate !== undefined
+        ? {
+            registrationStartDate: dto.registrationStartDate
+              ? new Date(dto.registrationStartDate)
+              : null,
+          }
+        : {}),
+      ...(dto.registrationEndDate !== undefined
+        ? {
+            registrationEndDate: dto.registrationEndDate ? new Date(dto.registrationEndDate) : null,
+          }
+        : {}),
       ...(nextStatus !== undefined
         ? { status: nextStatus, isCurrent: nextStatus === AcademicYearStatus.ACTIVE }
         : {}),
@@ -126,6 +147,10 @@ export class AcademicYearService {
     const setup = await this.repo.setup(year);
     const metrics = await this.repo.metrics(year);
 
+    // Semester geometry — the instructional calendar is derived entirely from Semester records
+    // (the single source of truth), never from a placeholder string.
+    const sem = this.semesterCoverage(year, setup.semesters);
+
     const activation: ReadinessCheck[] = [
       {
         key: 'startDate',
@@ -135,11 +160,39 @@ export class AcademicYearService {
       },
       { key: 'endDate', label: 'End date set', ok: Boolean(year.endDate), severity: 'blocker' },
       {
+        key: 'registration',
+        label: 'Registration window set',
+        ok: Boolean(year.registrationStartDate && year.registrationEndDate),
+        severity: 'blocker',
+        resolveRoute: '/structure/academic-year',
+      },
+      {
         key: 'semester',
         label: 'At least one semester',
-        ok: setup.semesterCount > 0,
+        ok: setup.semesters.length > 0,
         severity: 'blocker',
-        resolveRoute: '/structure/academic',
+        resolveRoute: '/structure/academic-year',
+      },
+      {
+        key: 'semestersInsideYear',
+        label: 'Semester dates fall inside the academic year',
+        ok: sem.allInsideYear,
+        severity: 'blocker',
+        resolveRoute: '/structure/academic-year',
+      },
+      {
+        key: 'semestersNoOverlap',
+        label: 'Semester dates do not overlap',
+        ok: sem.noOverlap,
+        severity: 'blocker',
+        resolveRoute: '/structure/academic-year',
+      },
+      {
+        key: 'semestersCoverYear',
+        label: 'Semesters cover the whole academic year',
+        ok: sem.coversYear,
+        severity: 'blocker',
+        resolveRoute: '/structure/academic-year',
       },
       {
         key: 'grades',
@@ -154,13 +207,6 @@ export class AcademicYearService {
         ok: setup.sectionCount > 0,
         severity: 'blocker',
         resolveRoute: '/structure/academic',
-      },
-      {
-        key: 'calendar',
-        label: 'Academic calendar ready',
-        ok: setup.calendarConfigured,
-        severity: 'blocker',
-        resolveRoute: '/settings/organization',
       },
     ];
 
@@ -262,5 +308,57 @@ export class AcademicYearService {
     if (new Date(start).getTime() >= new Date(end).getTime()) {
       throw new BadRequestException('startDate must be before endDate');
     }
+  }
+
+  /** When both registration dates are present, start must precede end. Either side may be null. */
+  private assertRegistrationOrder(start?: string | null, end?: string | null): void {
+    if (start && end && new Date(start).getTime() >= new Date(end).getTime()) {
+      throw new BadRequestException('registrationStartDate must be before registrationEndDate');
+    }
+  }
+
+  /**
+   * Derive the instructional-calendar readiness signals purely from Semester records:
+   *  - `allInsideYear`  — every semester lies within [year.start, year.end]
+   *  - `noOverlap`      — no two semesters overlap (adjacent/touching is allowed)
+   *  - `coversYear`     — the semester ranges together span the entire academic year (no gaps)
+   * With zero semesters every derived flag is false (nothing to validate against yet).
+   */
+  private semesterCoverage(
+    year: AcademicYear,
+    semesters: { startDate: Date; endDate: Date }[],
+  ): { allInsideYear: boolean; noOverlap: boolean; coversYear: boolean } {
+    if (semesters.length === 0) {
+      return { allInsideYear: false, noOverlap: false, coversYear: false };
+    }
+    const yearStart = year.startDate.getTime();
+    const yearEnd = year.endDate.getTime();
+    // Defensive copy sorted by start date (repo already orders, but do not rely on it here).
+    const spans = semesters
+      .map((s) => ({ start: s.startDate.getTime(), end: s.endDate.getTime() }))
+      .sort((a, b) => a.start - b.start);
+
+    const allInsideYear = spans.every((s) => s.start >= yearStart && s.end <= yearEnd);
+
+    // Semester end dates are inclusive (`@db.Date`), so a term ending on the 31st and the next
+    // starting on the 1st are adjacent, not overlapping and not a gap. Allow that one-day seam.
+    const DAY = 86_400_000;
+    let noOverlap = true;
+    let contiguous = true;
+    for (let i = 1; i < spans.length; i++) {
+      const prev = spans[i - 1]!;
+      const curr = spans[i]!;
+      // Overlap when a semester starts on or before the previous one's (inclusive) end.
+      if (curr.start <= prev.end) noOverlap = false;
+      // Gap when a semester starts more than one day after the previous one ends.
+      if (curr.start - prev.end > DAY) contiguous = false;
+    }
+
+    // Coverage: no gaps between consecutive semesters, and the union spans the whole year.
+    const first = spans[0]!;
+    const last = spans[spans.length - 1]!;
+    const coversYear = contiguous && first.start <= yearStart && last.end >= yearEnd;
+
+    return { allInsideYear, noOverlap, coversYear };
   }
 }

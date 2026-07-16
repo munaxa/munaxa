@@ -144,3 +144,111 @@ describe('AcademicYearService — School-scoped status machine (Decisions 1 & 8)
     expect(del).not.toHaveBeenCalled();
   });
 });
+
+// ── Readiness engine — derived entirely from real records (no free-text calendar) ──────────────
+
+const EMPTY_METRICS = {
+  studentCount: 0,
+  activeEnrollments: 0,
+  graduatingStudents: 0,
+  withdrawnStudents: 0,
+  classCount: 0,
+  gradeCount: 0,
+  semesterCount: 0,
+  outstandingFees: '0',
+  unverifiedPayments: 0,
+  attendancePct: null,
+  reportCardCompletionPct: null,
+  timetableCompletionPct: null,
+};
+
+/** Two contiguous semesters that exactly tile the YEAR (2025-09-01 … 2026-06-30). */
+const FULL_COVER = [
+  { startDate: new Date('2025-09-01'), endDate: new Date('2026-01-31') },
+  { startDate: new Date('2026-02-01'), endDate: new Date('2026-06-30') },
+];
+
+function readinessSetup(opts: {
+  year?: Partial<AcademicYear>;
+  semesters?: { startDate: Date; endDate: Date }[];
+  gradeCount?: number;
+  sectionCount?: number;
+}) {
+  const year: AcademicYear = { ...YEAR, ...opts.year };
+  const repo = {
+    findById: jest.fn().mockResolvedValue(year),
+    setup: jest.fn().mockResolvedValue({
+      semesters: opts.semesters ?? FULL_COVER,
+      gradeCount: opts.gradeCount ?? 3,
+      sectionCount: opts.sectionCount ?? 5,
+    }),
+    metrics: jest.fn().mockResolvedValue(EMPTY_METRICS),
+  } as unknown as AcademicYearRepository;
+  return new AcademicYearService(repo);
+}
+
+const REG: Partial<AcademicYear> = {
+  registrationStartDate: new Date('2025-05-01'),
+  registrationEndDate: new Date('2025-08-15'),
+};
+
+describe('AcademicYearService — readiness (real-data validation)', () => {
+  const checkOk = (r: Awaited<ReturnType<AcademicYearService['readiness']>>, key: string) =>
+    r.activation.checks.find((c) => c.key === key)?.ok;
+
+  it('does not reference any academic-calendar setting; a fully-configured year can activate', async () => {
+    const service = readinessSetup({ year: REG });
+    const r = await service.readiness('ay1');
+    expect(r.activation.checks.some((c) => c.key === 'calendar')).toBe(false);
+    expect(r.activation.canActivate).toBe(true);
+    expect(checkOk(r, 'registration')).toBe(true);
+    expect(checkOk(r, 'semestersInsideYear')).toBe(true);
+    expect(checkOk(r, 'semestersNoOverlap')).toBe(true);
+    expect(checkOk(r, 'semestersCoverYear')).toBe(true);
+  });
+
+  it('blocks activation when the registration window is missing', async () => {
+    const service = readinessSetup({}); // no registration dates on YEAR
+    const r = await service.readiness('ay1');
+    expect(checkOk(r, 'registration')).toBe(false);
+    expect(r.activation.canActivate).toBe(false);
+  });
+
+  it('flags overlapping semesters', async () => {
+    const service = readinessSetup({
+      year: REG,
+      semesters: [
+        { startDate: new Date('2025-09-01'), endDate: new Date('2026-02-15') },
+        { startDate: new Date('2026-02-01'), endDate: new Date('2026-06-30') },
+      ],
+    });
+    const r = await service.readiness('ay1');
+    expect(checkOk(r, 'semestersNoOverlap')).toBe(false);
+  });
+
+  it('flags a gap that leaves the year not fully covered', async () => {
+    const service = readinessSetup({
+      year: REG,
+      semesters: [
+        { startDate: new Date('2025-09-01'), endDate: new Date('2025-12-31') },
+        { startDate: new Date('2026-03-01'), endDate: new Date('2026-06-30') },
+      ],
+    });
+    const r = await service.readiness('ay1');
+    expect(checkOk(r, 'semestersCoverYear')).toBe(false);
+    // The gap does not itself count as an overlap.
+    expect(checkOk(r, 'semestersNoOverlap')).toBe(true);
+  });
+
+  it('flags a semester that falls outside the academic year', async () => {
+    const service = readinessSetup({
+      year: REG,
+      semesters: [
+        { startDate: new Date('2025-08-01'), endDate: new Date('2026-01-31') },
+        { startDate: new Date('2026-02-01'), endDate: new Date('2026-06-30') },
+      ],
+    });
+    const r = await service.readiness('ay1');
+    expect(checkOk(r, 'semestersInsideYear')).toBe(false);
+  });
+});

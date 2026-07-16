@@ -644,7 +644,6 @@
     "establishedYear": "سنة التأسيس",
     "timezone": "المنطقة الزمنية",
     "defaultLanguage": "اللغة الافتراضية",
-    "academicCalendar": "التقويم الأكاديمي",
     "motto": "شعار المدرسة",
     "mission": "الرسالة",
     "vision": "الرؤية",
@@ -1529,6 +1528,14 @@
       "doesNotList": "يرقّي الطلاب|ينشئ تسجيلات جديدة|يؤرشف الطلاب|يولّد رسومًا",
       "done": "تم إغلاق العام الدراسي",
       "doneDetail": "الحالة الآن مغلقة. لم يتغير شيء آخر — الترقية تبقى معالجًا منفصلًا."
-    }
+    },
+    "registration": "التسجيل",
+    "registrationWindow": "فترة التسجيل",
+    "registrationStart": "بداية التسجيل",
+    "registrationEnd": "نهاية التسجيل",
+    "registrationNotSet": "غير محدد",
+    "edit": "تعديل",
+    "editTitle": "تعديل العام الدراسي",
+    "saved": "تم تحديث العام الدراسي"
   }
 }
