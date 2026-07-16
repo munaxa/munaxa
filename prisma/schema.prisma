@@ -3911,3 +3911,33 @@ model RegistrationAgreement {
   @@index([tenantId, studentId])
   @@index([tenantId, enrollmentId])
 }
+
+/// Why a student's billing responsibility (legal payer) was transferred (PR #212 review).
+enum BillingResponsibilityReason {
+  PARENT_REQUEST
+  COURT_ORDER
+  SECRETARY_CORRECTION
+  DUPLICATE_ADMISSION_CORRECTION
+  OTHER
+}
+
+/// Immutable business record of a billing-responsibility transfer — the dedicated financial event
+/// behind changing the legal payer of a StudentFinancialAccount. Easier to report on than scanning
+/// AuditLog, and preserves the full payer history for a student. Scalar tenant scoping (RLS in the
+/// migration); no Prisma relations so no other model needs a back-relation.
+model BillingResponsibilityTransfer {
+  id                        String                      @id @default(uuid()) @db.Uuid
+  tenantId                  String                      @db.Uuid
+  studentFinancialAccountId String                      @db.Uuid
+  studentId                 String                      @db.Uuid
+  fromPayerId               String?                     @db.Uuid
+  toPayerId                 String                      @db.Uuid
+  reason                    BillingResponsibilityReason
+  notes                     String?
+  performedById             String?                     @db.Uuid
+  performedAt               DateTime                    @default(now()) @db.Timestamptz(6)
+
+  @@index([tenantId])
+  @@index([tenantId, studentFinancialAccountId])
+  @@index([tenantId, studentId])
+}

@@ -83,6 +83,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.FINANCE_MANAGE,
     Permission.FINANCE_READ,
     Permission.FINANCE_EXPORT,
+    Permission.FINANCE_TRANSFER_BILLING, // manager-level: change the legal payer
+
     Permission.TRANSACTION_CREATE,
     Permission.RECEIPT_UPLOAD,
     Permission.ENROLLMENT_MANAGE,
