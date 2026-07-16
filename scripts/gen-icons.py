@@ -4,9 +4,9 @@
 The brand mark is portrait + transparent; app icons and favicons must be square, and iOS
 launcher/apple-touch icons must be opaque. This pads the mark onto square canvases and writes:
 
-  Web (copied into apps/admin/src/app/):
-    favicon.ico  (16/32/48/64, transparent — bare bold mark, no background)
-    icon.png     (512, transparent — bare bold mark, no background)
+  Web (copied into each Next app's src/app/ — admin, demo, landing):
+    favicon.ico  (16/32/48/64, transparent — bare mark, no background)
+    icon.png     (512, transparent — bare mark, no background)
     apple-icon.png (180, opaque on brand ink #090B0C — iOS ignores transparency)
   Mobile launcher sources (apps/mobile/assets/icon/):
     ic_launcher.png            (1024, opaque on ink) — iOS + legacy Android
@@ -42,8 +42,8 @@ def write(img, *paths, **kw):
         print("wrote", p)
 
 
-web = ["apps/admin/src/app"]
-# Bare bold mark on a transparent canvas — the favicon/avatar shows the logo itself with no
+web = ["apps/admin/src/app", "munaxademo/src/app", "munaxalanding/src/app"]
+# Bare mark on a transparent canvas — the favicon/avatar shows the logo itself with no
 # background disk. apple-icon stays opaque on brand ink because iOS ignores icon transparency.
 write(square(512, 0.84), *[f"{d}/icon.png" for d in web])
 write(square(180, 0.72, bg=INK), *[f"{d}/apple-icon.png" for d in web])

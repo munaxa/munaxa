@@ -22,6 +22,9 @@ export function Logo({
       width={Math.round(size * RATIO)}
       height={size}
       priority={priority}
+      // The detailed glossy mark loses gradient/edge detail at next/image's default
+      // quality (75) — render it lossless so it stays crisp at hero sizes.
+      quality={100}
       className={cn('object-contain', className)}
     />
   );
