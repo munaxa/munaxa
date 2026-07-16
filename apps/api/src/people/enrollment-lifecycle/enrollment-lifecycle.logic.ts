@@ -23,7 +23,9 @@ export const ALLOWED_TRANSITIONS: Record<EnrollmentStatus, EnrollmentStatus[]> =
   ],
   PROMOTED: [EnrollmentStatus.ARCHIVED],
   REPEATED: [EnrollmentStatus.ARCHIVED],
-  WITHDRAWN: [EnrollmentStatus.ARCHIVED],
+  // A withdrawal can be reversed (reactivation) back to ACTIVE — an operational correction that
+  // re-instates participation for the same year; the financial settlement is reversed separately.
+  WITHDRAWN: [EnrollmentStatus.ACTIVE, EnrollmentStatus.ARCHIVED],
   GRADUATED: [EnrollmentStatus.ARCHIVED],
   ARCHIVED: [],
   // Legacy admission-workflow values (transition only): allow them to become ACTIVE or be archived.

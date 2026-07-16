@@ -96,4 +96,16 @@ export class EnrollmentExitRepository extends TenantRepository {
       }),
     );
   }
+
+  /** Record a reactivation (withdrawal reversal) — the reopened charges are the ledger effect. */
+  auditReactivation(enrollmentId: string, metadata: Prisma.InputJsonObject) {
+    return this.run((tx, tenantId) =>
+      this.writeAudit(tx, tenantId, {
+        action: 'enrollment.reactivate',
+        entityType: 'Enrollment',
+        entityId: enrollmentId,
+        metadata,
+      }),
+    );
+  }
 }

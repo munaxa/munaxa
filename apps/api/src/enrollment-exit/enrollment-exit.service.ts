@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EnrollmentStatus } from '@prisma/client';
 import { EnrollmentExitRepository } from './enrollment-exit.repository';
-import type { CancelAdmissionDto, WithdrawDto } from './enrollment-exit.dto';
+import type { CancelAdmissionDto, ReactivateDto, WithdrawDto } from './enrollment-exit.dto';
 import { ChargeService } from '../finance/charges/charge.service';
 import { EnrollmentLifecycleService } from '../people/enrollment-lifecycle/enrollment-lifecycle.service';
 
@@ -55,6 +55,44 @@ export class EnrollmentExitService {
     });
 
     return { enrollmentId, withdrawn: true, cancelledChargeIds };
+  }
+
+  /**
+   * Reactivate a WITHDRAWN enrollment back to ACTIVE for the same year (reverse of withdraw). The
+   * lifecycle transition clears the withdrawal date + re-derives the student status; the financial
+   * settlement is reversed by re-opening the charges the withdrawal cancelled (paid amounts kept).
+   * Nothing is created or deleted — the same enrollment and ledger rows are re-instated.
+   */
+  async reactivate(enrollmentId: string, dto: ReactivateDto) {
+    const summary = await this.repo.chargeSummary(enrollmentId);
+    if (!summary) throw new NotFoundException('Enrollment not found');
+    if (summary.status !== EnrollmentStatus.WITHDRAWN) {
+      throw new BadRequestException('Only a withdrawn enrollment can be reactivated');
+    }
+
+    await this.lifecycle.transition(enrollmentId, EnrollmentStatus.ACTIVE, {
+      ...(dto.reason !== undefined ? { reason: dto.reason } : {}),
+    });
+
+    const reopen = dto.reopenCharges ?? true;
+    const reopenedChargeIds: string[] = [];
+    if (reopen) {
+      // Re-open exactly the charges the withdrawal cancelled: on a WITHDRAWN enrollment the CANCELLED
+      // charges are precisely those (registration/paid charges were never cancelled by withdrawal).
+      for (const c of summary.charges) {
+        if (c.status !== 'CANCELLED') continue;
+        await this.charges.reopen(c.id);
+        reopenedChargeIds.push(c.id);
+      }
+    }
+
+    await this.repo.auditReactivation(enrollmentId, {
+      ...(dto.reason ? { reason: dto.reason } : {}),
+      reopenCharges: reopen,
+      reopenedChargeIds,
+    });
+
+    return { enrollmentId, reactivated: true, reopenedChargeIds };
   }
 
   async cancelAdmission(enrollmentId: string, dto: CancelAdmissionDto) {

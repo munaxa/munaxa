@@ -27,10 +27,12 @@ describe('enrollment-lifecycle logic — transitions (Decision 2)', () => {
     expect(canTransition(EnrollmentStatus.ACTIVE, EnrollmentStatus.PROMOTED)).toBe(false);
   });
 
-  it('treats WITHDRAWN/GRADUATED/ARCHIVED as terminal (only ARCHIVED onward)', () => {
+  it('treats GRADUATED/ARCHIVED as terminal, but allows WITHDRAWN → ACTIVE (reactivation)', () => {
     expect(canTransition(EnrollmentStatus.GRADUATED, EnrollmentStatus.ACTIVE)).toBe(false);
-    expect(canTransition(EnrollmentStatus.WITHDRAWN, EnrollmentStatus.ACTIVE)).toBe(false);
     expect(canTransition(EnrollmentStatus.ARCHIVED, EnrollmentStatus.ACTIVE)).toBe(false);
+    // A withdrawal is reversible — reactivation restores participation for the same year.
+    expect(canTransition(EnrollmentStatus.WITHDRAWN, EnrollmentStatus.ACTIVE)).toBe(true);
+    expect(canTransition(EnrollmentStatus.WITHDRAWN, EnrollmentStatus.ARCHIVED)).toBe(true);
   });
 });
 

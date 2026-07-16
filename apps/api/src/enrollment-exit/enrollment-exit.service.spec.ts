@@ -20,17 +20,20 @@ function make(summary: EnrollmentChargeSummary | null) {
   const chargeSummary = jest.fn().mockResolvedValue(summary);
   const voidAdmission = jest.fn().mockResolvedValue({});
   const auditWithdrawalSettlement = jest.fn().mockResolvedValue({});
+  const auditReactivation = jest.fn().mockResolvedValue({});
   const repo = {
     chargeSummary,
     voidAdmission,
     auditWithdrawalSettlement,
+    auditReactivation,
   } as unknown as EnrollmentExitRepository;
   const cancel = jest.fn().mockResolvedValue({});
+  const reopen = jest.fn().mockResolvedValue({});
   const transition = jest.fn().mockResolvedValue({});
-  const charges = { cancel } as unknown as ChargeService;
+  const charges = { cancel, reopen } as unknown as ChargeService;
   const lifecycle = { transition } as unknown as EnrollmentLifecycleService;
   const service = new EnrollmentExitService(repo, charges, lifecycle);
-  return { service, cancel, transition, voidAdmission, auditWithdrawalSettlement };
+  return { service, cancel, reopen, transition, voidAdmission, auditWithdrawalSettlement };
 }
 
 const summary = (over: Partial<EnrollmentChargeSummary>): EnrollmentChargeSummary => ({
@@ -93,5 +96,37 @@ describe('EnrollmentExitService.cancelAdmission (void, Decision 11)', () => {
     const { service, voidAdmission } = make(summary({ hasSettledMoney: true }));
     await expect(service.cancelAdmission('e1', {})).rejects.toThrow(BadRequestException);
     expect(voidAdmission).not.toHaveBeenCalled();
+  });
+});
+
+describe('EnrollmentExitService.reactivate (reverse of withdraw)', () => {
+  it('returns to ACTIVE and re-opens the charges the withdrawal cancelled', async () => {
+    const { service, reopen, transition } = make(
+      summary({
+        status: EnrollmentStatus.WITHDRAWN,
+        charges: [
+          charge({ id: 'tuition', status: 'CANCELLED' }),
+          charge({ id: 'reg', status: 'PENDING' }), // registration was kept — not re-opened
+          charge({ id: 'paid', status: 'PAID' }),
+        ],
+      }),
+    );
+    const res = await service.reactivate('e1', {});
+    expect(transition).toHaveBeenCalledWith('e1', EnrollmentStatus.ACTIVE, {});
+    expect(reopen).toHaveBeenCalledWith('tuition');
+    expect(reopen).not.toHaveBeenCalledWith('reg');
+    expect(reopen).not.toHaveBeenCalledWith('paid');
+    expect(res.reopenedChargeIds).toEqual(['tuition']);
+  });
+
+  it('refuses to reactivate an enrollment that is not withdrawn', async () => {
+    const { service, transition } = make(summary({ status: EnrollmentStatus.ACTIVE }));
+    await expect(service.reactivate('e1', {})).rejects.toThrow(BadRequestException);
+    expect(transition).not.toHaveBeenCalled();
+  });
+
+  it('404s an unknown enrollment', async () => {
+    const { service } = make(null);
+    await expect(service.reactivate('nope', {})).rejects.toThrow(NotFoundException);
   });
 });

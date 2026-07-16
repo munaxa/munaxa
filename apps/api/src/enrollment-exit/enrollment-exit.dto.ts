@@ -35,3 +35,22 @@ export class WithdrawDto {
 export class CancelAdmissionDto {
   @ApiPropertyOptional() @IsOptional() @IsString() reason?: string;
 }
+
+/**
+ * Reactivate (reverse) a WITHDRAWN enrollment back to ACTIVE for the same year — an operational
+ * correction. Re-opens the charges that the withdrawal cancelled; paid amounts are untouched.
+ */
+export class ReactivateDto {
+  @ApiPropertyOptional({ description: 'Reason for reactivating (kept on the enrollment + audit).' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
+  @ApiPropertyOptional({
+    default: true,
+    description: 'Re-open the charges cancelled at withdrawal (paid amounts are always kept).',
+  })
+  @IsOptional()
+  @IsBoolean()
+  reopenCharges?: boolean;
+}

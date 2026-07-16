@@ -40,6 +40,7 @@ export function OverviewTab({
   const [transport, setTransport] = useState<StudentTransport | null>(null);
   const [history, setHistory] = useState<EnrollmentHistoryRow[]>([]);
   const [withdrawRow, setWithdrawRow] = useState<EnrollmentHistoryRow | null>(null);
+  const [reactivateRow, setReactivateRow] = useState<EnrollmentHistoryRow | null>(null);
 
   const loadHistory = useCallback(
     () => studentsApi.enrollmentHistory(student.id).then(setHistory),
@@ -66,6 +67,10 @@ export function OverviewTab({
   // Only this row can be withdrawn; closed/terminal years are immutable history (Decision 12).
   const currentEnrollment = history.find(
     (r) => r.academicYear?.status === 'ACTIVE' && r.status === 'ACTIVE',
+  );
+  // A WITHDRAWN enrollment in the active year can be reactivated (reverse of withdraw) — same screen.
+  const withdrawnCurrent = history.find(
+    (r) => r.academicYear?.status === 'ACTIVE' && r.status === 'WITHDRAWN',
   );
 
   const tripLabel = transport?.tripRound
@@ -180,6 +185,11 @@ export function OverviewTab({
                         {t('studentProfile.withdraw')}
                       </Button>
                     ) : null}
+                    {withdrawnCurrent && row.id === withdrawnCurrent.id ? (
+                      <Button size="sm" onClick={() => setReactivateRow(row)}>
+                        {t('studentProfile.reactivate')}
+                      </Button>
+                    ) : null}
                   </div>
                 </li>
               ))}
@@ -194,6 +204,18 @@ export function OverviewTab({
           onClose={() => setWithdrawRow(null)}
           onDone={async () => {
             setWithdrawRow(null);
+            await loadHistory().catch(() => undefined);
+            await onChanged?.();
+          }}
+        />
+      ) : null}
+
+      {reactivateRow ? (
+        <ReactivateDialog
+          row={reactivateRow}
+          onClose={() => setReactivateRow(null)}
+          onDone={async () => {
+            setReactivateRow(null);
             await loadHistory().catch(() => undefined);
             await onChanged?.();
           }}
@@ -280,6 +302,85 @@ function WithdrawDialog({
           </Button>
           <Button type="button" onClick={() => void submit()} disabled={saving}>
             {saving ? t('common.saving') : t('studentProfile.withdrawConfirm')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Reactivate a withdrawn enrollment (reverse of withdraw) via the enrollment-exit endpoint: the
+ * enrollment returns to ACTIVE for the same year and the charges the withdrawal cancelled are
+ * re-opened (paid amounts kept). Nothing is created — the same enrollment/ledger rows are re-instated.
+ */
+function ReactivateDialog({
+  row,
+  onClose,
+  onDone,
+}: {
+  row: EnrollmentHistoryRow;
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const [reason, setReason] = useState('');
+  const [reopenCharges, setReopenCharges] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    setSaving(true);
+    try {
+      await enrollmentExitApi.reactivate(row.id, {
+        ...(reason.trim() ? { reason: reason.trim() } : {}),
+        reopenCharges,
+      });
+      toast.success(t('studentProfile.reactivated'));
+      await onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Reactivate failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
+      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
+      <div
+        className="relative my-8 w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-card"
+        role="dialog"
+        aria-modal="true"
+      >
+        <h2 className="font-display text-lg font-semibold">
+          {t('studentProfile.reactivateTitle')}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {row.academicYear?.name ?? ''}
+          {row.grade ? ` · ${row.grade.nameEn}` : ''}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {t('studentProfile.reactivateDescription')}
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <Field label={t('studentProfile.withdrawReason')}>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+          </Field>
+          <Checkbox
+            label={t('studentProfile.reopenCharges')}
+            checked={reopenCharges}
+            onChange={(e) => setReopenCharges(e.target.checked)}
+          />
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="button" onClick={() => void submit()} disabled={saving}>
+            {saving ? t('common.saving') : t('studentProfile.reactivateConfirm')}
           </Button>
         </div>
       </div>
