@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EnrollmentChangeRepository } from './enrollment-change.repository';
+import { AdmissionsService } from '../finance/admissions/admissions.service';
 import type { CorrectGradeDto, TransferDto } from './enrollment-change.dto';
 
 /**
@@ -11,7 +12,20 @@ import type { CorrectGradeDto, TransferDto } from './enrollment-change.dto';
  */
 @Injectable()
 export class EnrollmentChangeService {
-  constructor(private readonly repo: EnrollmentChangeRepository) {}
+  constructor(
+    private readonly repo: EnrollmentChangeRepository,
+    private readonly admissions: AdmissionsService,
+  ) {}
+
+  /** Fee impact of the current grade vs. what is billed — read-only; nothing changes (PR 2). */
+  feeComparison(enrollmentId: string) {
+    return this.admissions.feeComparison(enrollmentId);
+  }
+
+  /** Explicit recalculation — only after the admin chose "Recalculate Fees" on the comparison (PR 2). */
+  recalculateFees(enrollmentId: string) {
+    return this.admissions.recalculateFees(enrollmentId);
+  }
 
   async transfer(enrollmentId: string, dto: TransferDto) {
     const enrollment = await this.repo.transfer(enrollmentId, dto);

@@ -1,14 +1,16 @@
 import { Module } from '@nestjs/common';
+import { FinanceModule } from '../finance/finance.module';
 import { EnrollmentChangeController } from './enrollment-change.controller';
 import { EnrollmentChangeService } from './enrollment-change.service';
 import { EnrollmentChangeRepository } from './enrollment-change.repository';
 
 /**
- * Enrollment placement changes (PR 1 — Grade Correction + Administrative Transfer). No Finance or
- * People imports: PR 1 makes no ledger changes and edits only the Enrollment (+ the deprecated
- * Student.sectionId read-through shim). Fee recalculation arrives in PR 2.
+ * Enrollment placement changes: Grade Correction + Administrative Transfer (PR 1, no ledger changes),
+ * plus the explicit fee comparison / recalculation (PR 2) which reuses AdmissionsService + QuoteService
+ * from FinanceModule — the ledger stays the single source of truth.
  */
 @Module({
+  imports: [FinanceModule],
   controllers: [EnrollmentChangeController],
   providers: [EnrollmentChangeService, EnrollmentChangeRepository],
 })

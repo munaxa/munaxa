@@ -205,6 +205,258 @@ export class AdmissionsRepository extends TenantRepository {
     });
   }
 
+  // ── Fee recalculation after a grade correction (PR 2, ADR-0001 + finance guardrails) ──
+  /**
+   * Context for the fee comparison / re-quote of an enrollment's current grade. `currentAdjustable` is
+   * the net of ACTIVE, fully-unpaid, non-registration charges — the ONLY amount recalculation may
+   * touch. `locked` is everything paid/partial + the one-time registration fee (never modified). The
+   * cadence params (installments / firstDueDate) are read from the existing tuition plan so the
+   * re-quote keeps the same schedule shape.
+   */
+  recalcContext(enrollmentId: string) {
+    return this.run(async (tx) => {
+      const e = await tx.enrollment.findFirst({
+        where: { id: enrollmentId },
+        select: { studentId: true, academicYearId: true, gradeId: true, paymentMode: true },
+      });
+      if (!e) throw new BadRequestException('Enrollment not found');
+
+      const charges = await tx.charge.findMany({
+        where: { enrollmentId, status: { not: ChargeStatus.CANCELLED } },
+        select: {
+          id: true,
+          amount: true,
+          description: true,
+          feeItem: { select: { kind: true } },
+          installments: { select: { status: true } },
+        },
+      });
+      const isSettled = (s: string) => s === 'PAID' || s === 'PARTIAL';
+      let adjustable = new Prisma.Decimal(0);
+      let locked = new Prisma.Decimal(0);
+      let registrationAmount = new Prisma.Decimal(0);
+      let replaceCount = 0;
+      let keepCount = 0;
+      const existingCharges = charges.map((c) => {
+        const settled = c.installments.some((i) => isSettled(i.status));
+        const willReplace = c.description === 'Tuition & fees' && !settled;
+        if (willReplace) {
+          adjustable = adjustable.plus(c.amount);
+          replaceCount += 1;
+        } else {
+          locked = locked.plus(c.amount);
+          keepCount += 1;
+        }
+        const isReg =
+          c.feeItem?.kind === FeeItemKind.REGISTRATION || c.description === 'Registration fee';
+        if (isReg) registrationAmount = registrationAmount.plus(c.amount);
+        return {
+          description: c.description,
+          amount: c.amount.toFixed(3),
+          paid: settled,
+          willReplace,
+        };
+      });
+
+      const tuition = await tx.charge.findFirst({
+        where: {
+          enrollmentId,
+          status: { not: ChargeStatus.CANCELLED },
+          description: 'Tuition & fees',
+        },
+        select: { id: true },
+      });
+      const plan = tuition
+        ? await tx.paymentPlan.findFirst({
+            where: { chargeId: tuition.id, status: 'ACTIVE' },
+            select: { installments: true, firstDueDate: true },
+          })
+        : null;
+
+      // The grade the current charges were priced for (the grade BEFORE the correction) — read from the
+      // most recent grade-correction audit so the impact screen shows "previous grade → new grade".
+      const lastCorrection = await tx.auditLog.findFirst({
+        where: {
+          entityType: 'Enrollment',
+          entityId: enrollmentId,
+          action: 'enrollment.gradeCorrection',
+        },
+        orderBy: { createdAt: 'desc' },
+        select: { metadata: true },
+      });
+      const previousGradeId =
+        (lastCorrection?.metadata as { fromGradeId?: string } | null)?.fromGradeId ?? null;
+      const gradeIds = [e.gradeId, ...(previousGradeId ? [previousGradeId] : [])];
+      const gradeRows = await tx.grade.findMany({
+        where: { id: { in: gradeIds } },
+        select: { id: true, nameEn: true },
+      });
+      const gradeName = (id: string | null) =>
+        id ? (gradeRows.find((g) => g.id === id)?.nameEn ?? null) : null;
+
+      return {
+        studentId: e.studentId,
+        academicYearId: e.academicYearId,
+        gradeId: e.gradeId,
+        paymentMode: e.paymentMode,
+        installments: plan?.installments ?? 1,
+        firstDueDate: plan?.firstDueDate ? plan.firstDueDate.toISOString().slice(0, 10) : null,
+        currentAdjustable: adjustable.toFixed(3),
+        locked: locked.toFixed(3),
+        registrationAmount: registrationAmount.toFixed(3),
+        replaceCount,
+        keepCount,
+        existingCharges,
+        previousGradeId,
+        previousGradeName: gradeName(previousGradeId),
+        newGradeName: gradeName(e.gradeId),
+      };
+    });
+  }
+
+  /**
+   * Re-price the grade-dependent tuition for an enrollment after a grade correction, using a freshly
+   * computed quote. Cancels ONLY the fully-unpaid, non-registration charges (paid/partial charges,
+   * verified payments and the registration fee are never touched — the ledger stays the source of
+   * truth) and regenerates the "Tuition & fees" charge + plan for the new grade. Fully audited.
+   */
+  replaceTuitionForGrade(
+    enrollmentId: string,
+    computed: ComputedQuote,
+    report: {
+      previousGradeId: string | null;
+      previousGradeName: string | null;
+      newGradeName: string | null;
+    },
+  ) {
+    return this.run(async (tx, tenantId) => {
+      const e = await tx.enrollment.findFirst({
+        where: { id: enrollmentId },
+        select: { studentId: true, academicYearId: true, gradeId: true },
+      });
+      if (!e) throw new BadRequestException('Enrollment not found');
+
+      const charges = await tx.charge.findMany({
+        where: { enrollmentId, status: { not: ChargeStatus.CANCELLED } },
+        select: {
+          id: true,
+          description: true,
+          amount: true,
+          installments: { select: { status: true } },
+        },
+      });
+      const isSettled = (s: string) => s === 'PAID' || s === 'PARTIAL';
+      const cancelledChargeIds: string[] = [];
+      const previousCharges: Array<{ description: string; amount: string }> = [];
+      let previousTuition = new Prisma.Decimal(0);
+      for (const c of charges) {
+        if (c.description !== 'Tuition & fees') continue; // only the grade-dependent tuition is re-priced
+        if (c.installments.some((i) => isSettled(i.status))) continue; // has a payment — never touched
+        previousCharges.push({ description: c.description, amount: c.amount.toFixed(3) });
+        previousTuition = previousTuition.plus(c.amount);
+        await tx.charge.update({ where: { id: c.id }, data: { status: ChargeStatus.CANCELLED } });
+        await tx.installment.updateMany({
+          where: { chargeId: c.id, status: { notIn: ['PAID', 'PARTIAL'] } },
+          data: { status: 'CANCELLED' },
+        });
+        await tx.paymentPlan.updateMany({
+          where: { chargeId: c.id, status: 'ACTIVE' },
+          data: { status: 'CANCELLED' },
+        });
+        cancelledChargeIds.push(c.id);
+      }
+
+      const registrationNet = computed.lines
+        .filter((l) => l.kind === FeeItemKind.REGISTRATION)
+        .reduce(
+          (sum, l) => sum.plus(new Prisma.Decimal(l.amount).minus(l.discountAmount)),
+          new Prisma.Decimal(0),
+        );
+      const remainder = new Prisma.Decimal(computed.grandTotal).minus(registrationNet);
+      let newChargeId: string | null = null;
+      if (remainder.greaterThan(0)) {
+        const account = await this.accounts.ensureAccountTx(tx, tenantId, e.studentId);
+        const installments =
+          computed.paymentMode === QuotePaymentMode.FULL ? 1 : computed.installments;
+        const firstDue = computed.firstDueDate ? new Date(computed.firstDueDate) : new Date();
+        const charge = await tx.charge.create({
+          data: {
+            tenantId,
+            studentId: e.studentId,
+            accountId: account.id,
+            academicYearId: e.academicYearId,
+            gradeId: e.gradeId,
+            enrollmentId,
+            description: 'Tuition & fees',
+            amount: remainder,
+            dueDate: firstDue,
+            status: ChargeStatus.PENDING,
+            createdById: this.actor(),
+          },
+        });
+        newChargeId = charge.id;
+        const lines = this.schedule.generate(toFils(remainder.toFixed(3)), {
+          cadence: 'MONTHLY',
+          installments,
+          firstDueDate: firstDue.toISOString().slice(0, 10),
+        });
+        const plan = await tx.paymentPlan.create({
+          data: {
+            tenantId,
+            chargeId: charge.id,
+            cadence: 'MONTHLY',
+            installments,
+            firstDueDate: firstDue,
+            createdById: this.actor(),
+          },
+        });
+        for (const line of lines) {
+          await tx.installment.create({
+            data: {
+              tenantId,
+              chargeId: charge.id,
+              planId: plan.id,
+              seq: line.seq,
+              dueDate: line.dueDate,
+              amount: fromFils(line.amountFils),
+            },
+          });
+        }
+      }
+
+      // Financial Impact Report (ADR-0001) — a complete, self-explaining record of WHY the student's
+      // financial obligations changed. writeAudit stamps the actor (user) + timestamp (date/time).
+      const amountDifference = remainder.minus(previousTuition).toFixed(3);
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.gradeRecalculation',
+        entityType: 'Enrollment',
+        entityId: enrollmentId,
+        metadata: {
+          report: 'Financial Impact Report',
+          previousGradeId: report.previousGradeId,
+          newGradeId: e.gradeId,
+          previousGradeName: report.previousGradeName,
+          newGradeName: report.newGradeName,
+          previousCharges,
+          newCharges: newChargeId
+            ? [{ description: 'Tuition & fees', amount: remainder.toFixed(3) }]
+            : [],
+          previousTuition: previousTuition.toFixed(3),
+          newTuition: remainder.toFixed(3),
+          amountDifference,
+          cancelledChargeIds,
+          newChargeId,
+        },
+      });
+      return {
+        cancelledChargeIds,
+        newChargeId,
+        newTuition: remainder.toFixed(3),
+        amountDifference,
+      };
+    });
+  }
+
   // ── Fee-item catalog ──
   listFeeItems() {
     return this.run((tx) => tx.feeItem.findMany({ orderBy: [{ kind: 'asc' }, { nameEn: 'asc' }] }));
