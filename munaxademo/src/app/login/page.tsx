@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PERSONAS, PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
 import { Logo } from '@/components/logo';
+import { Wordmark } from '@/components/wordmark';
 import { Button, Card, CardContent, Field, Input } from '@/components/ui';
 
 const PERSONA_KEY = 'munaxa.demo.persona';
@@ -68,7 +69,9 @@ export default function LoginPage() {
             <span className="login-logo-glow mx-auto inline-flex w-fit">
               <Logo size={72} priority />
             </span>
-            <h1 className="font-display text-2xl font-semibold">Munaxa Live Demo</h1>
+            <h1 className="font-display text-2xl font-semibold">
+              <Wordmark /> Live Demo
+            </h1>
             <p className="text-sm text-muted-foreground">
               Sign in with your demonstration credentials.
             </p>

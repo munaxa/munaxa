@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { login } from '@/lib/auth';
 import { useI18n } from '@/components/i18n-provider';
 import { Logo } from '@/components/logo';
+import { Wordmark } from '@/components/wordmark';
 import {
   sanitizeIdentifier,
   sanitizePassword,
@@ -156,7 +157,7 @@ export default function LoginPage() {
             <Logo size={40} priority />
           </span>
           <div className="leading-tight">
-            <p className="font-display text-2xl font-bold lowercase tracking-tight">munaxa</p>
+            <Wordmark className="font-display text-2xl font-bold tracking-tight" />
             <p className="text-xs text-muted-foreground">School OS</p>
           </div>
         </header>
@@ -191,7 +192,9 @@ export default function LoginPage() {
         </div>
 
         <footer className="space-y-0.5 pb-2 pt-4 text-center text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} Munaxa School OS</p>
+          <p className="inline-flex items-center justify-center gap-1">
+            © {new Date().getFullYear()} <Wordmark /> School OS
+          </p>
           <p className="tracking-wide">{t('auth.footerTagline')}</p>
         </footer>
       </div>
