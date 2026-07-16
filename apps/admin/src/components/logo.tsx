@@ -2,7 +2,7 @@ import Image from 'next/image';
 import { cn } from '@munaxa/ui';
 
 // Intrinsic aspect ratio of the Munaxa open-book + graduation-cap mark (docs/design-system/logo.png).
-const RATIO = 894 / 736;
+const RATIO = 1103 / 904;
 
 /**
  * The Munaxa brand mark. `size` is the rendered height in px; width is derived from the
