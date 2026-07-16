@@ -288,6 +288,12 @@ function PlacementDialog({
   const [sectionId, setSectionId] = useState('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  // PR 2 — after a grade correction that may affect fees, the admin sees the impact and explicitly
+  // chooses Keep Existing Fees or Recalculate Fees. Recalculation NEVER runs automatically.
+  const [feeStep, setFeeStep] = useState<Awaited<
+    ReturnType<typeof enrollmentChangeApi.feeComparison>
+  > | null>(null);
+  const [phase, setPhase] = useState<'review' | 'confirm'>('review');
 
   useEffect(() => {
     sectionsApi
@@ -325,6 +331,7 @@ function PlacementDialog({
           ...(note.trim() ? { reason: note.trim() } : {}),
         });
         toast.success(t('studentProfile.placementUpdated'));
+        await onDone();
       } else if (reason === 'CORRECTION') {
         if (!gradeId) {
           toast.error(t('studentProfile.pickGrade'));
@@ -335,11 +342,34 @@ function PlacementDialog({
           ...(sectionId ? { sectionId } : {}),
           ...(note.trim() ? { reason: note.trim() } : {}),
         });
-        toast.success(res.feeWarning ?? t('studentProfile.placementUpdated'));
+        if (res.feesMayChange) {
+          // Grade corrected; now show the financial impact and let the admin decide (no auto re-price).
+          setFeeStep(await enrollmentChangeApi.feeComparison(enrollment.id));
+        } else {
+          toast.success(t('studentProfile.placementUpdated'));
+          await onDone();
+        }
       }
-      await onDone();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Change failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function keepFees() {
+    toast.success(t('studentProfile.placementUpdated'));
+    await onDone();
+  }
+
+  async function recalcFees() {
+    setSaving(true);
+    try {
+      await enrollmentChangeApi.recalculateFees(enrollment.id);
+      toast.success(t('studentProfile.feesRecalculated'));
+      await onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Recalculate failed');
     } finally {
       setSaving(false);
     }
@@ -358,91 +388,209 @@ function PlacementDialog({
         <h2 className="font-display text-lg font-semibold">
           {t('studentProfile.changePlacement')}
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t('studentProfile.changeReasonAsk')}</p>
-
-        {/* Step 1 — WHY. */}
-        <div className="mt-3 grid gap-2">
-          {(['CORRECTION', 'TRANSFER', 'PROMOTION', 'REPEAT'] as PlacementReason[]).map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => {
-                setReason(r);
-                setSectionId('');
-                setGradeId(enrollment.grade?.id ?? '');
-              }}
-              className={`rounded-lg border px-3 py-2 text-start text-sm ${
-                reason === r ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
-              }`}
-            >
-              <div className="font-medium">{t(`studentProfile.reason_${r}`)}</div>
-              <div className="text-xs text-muted-foreground">
-                {t(`studentProfile.reasonHint_${r}`)}
-              </div>
-            </button>
-          ))}
-        </div>
-
-        {/* Step 2 — HOW. */}
-        {reason === 'CORRECTION' || reason === 'TRANSFER' ? (
-          <div className="mt-4 space-y-3">
-            {reason === 'CORRECTION' ? (
-              <Field label={t('structure.grade')}>
-                <Select
-                  value={gradeId}
-                  onChange={(e) => {
-                    setGradeId(e.target.value);
-                    setSectionId('');
-                  }}
+        {feeStep && phase === 'review' ? (
+          // PR 2, Step 3 — REVIEW FINANCIAL IMPACT. A business-decision screen. Nothing has changed yet;
+          // the grade correction is applied, but the ledger is untouched until the admin confirms.
+          <div className="mt-3 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t('studentProfile.reviewFinancialImpact')}
+              {feeStep.previousGradeName && feeStep.newGradeName ? (
+                <span className="font-medium text-foreground">
+                  {' '}
+                  {feeStep.previousGradeName} → {feeStep.newGradeName}
+                </span>
+              ) : null}
+            </p>
+            <div className="space-y-1 rounded-lg border border-border p-3 text-sm">
+              <ImpactRow
+                label={t('studentProfile.currentTuition')}
+                value={feeStep.currentTuition}
+              />
+              <ImpactRow label={t('studentProfile.newTuition')} value={feeStep.newTuition} />
+              <div className="flex justify-between border-t border-border pt-1 font-medium">
+                <span>{t('studentProfile.difference')}</span>
+                <span
+                  className={`font-mono ${Number(feeStep.difference) > 0 ? 'text-coral' : Number(feeStep.difference) < 0 ? 'text-aqua' : ''}`}
                 >
-                  <option value="">—</option>
-                  {grades.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+                  {Number(feeStep.difference) > 0 ? '+' : ''}
+                  {feeStep.difference}
+                </span>
+              </div>
+              <ImpactRow
+                label={t('studentProfile.registrationFee')}
+                value={t('studentProfile.unchanged')}
+                muted
+              />
+              <ImpactRow
+                label={t('studentProfile.chargesUnchanged')}
+                value={String(feeStep.chargesUnchanged)}
+                muted
+              />
+              <ImpactRow
+                label={t('studentProfile.chargesReplaced')}
+                value={String(feeStep.unpaidChargesToReplace)}
+                muted
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{t('studentProfile.recalcNote')}</p>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void keepFees()}
+                disabled={saving}
+              >
+                {t('studentProfile.keepFees')}
+              </Button>
+              <Button type="button" onClick={() => setPhase('confirm')} disabled={saving}>
+                {t('studentProfile.reviewNewFees')}
+              </Button>
+            </div>
+          </div>
+        ) : feeStep && phase === 'confirm' ? (
+          // PR 2, Step 4 — CONFIRMATION. Exactly what will happen before any ledger write.
+          <div className="mt-3 space-y-3">
+            <p className="text-sm font-medium">{t('studentProfile.confirmNewFees')}</p>
+            <div className="space-y-1 rounded-lg border border-border p-3 text-sm">
+              <ImpactRow
+                label={t('studentProfile.currentTuition')}
+                value={feeStep.currentTuition}
+              />
+              <ImpactRow label={t('studentProfile.newTuition')} value={feeStep.newTuition} />
+              <ImpactRow
+                label={t('studentProfile.registrationFee')}
+                value={t('studentProfile.unchanged')}
+                muted
+              />
+              <ImpactRow
+                label={t('studentProfile.paidChargesAffected')}
+                value={String(feeStep.paidChargesAffected)}
+                muted
+              />
+              <ImpactRow
+                label={t('studentProfile.unpaidChargesReplaced')}
+                value={String(feeStep.unpaidChargesToReplace)}
+                muted
+              />
+              {Number(feeStep.creditAmount) > 0 ? (
+                <ImpactRow label={t('finance.credit')} value={feeStep.creditAmount} />
+              ) : null}
+              {Number(feeStep.additionalAmount) > 0 ? (
+                <ImpactRow
+                  label={t('studentProfile.additionalAmount')}
+                  value={feeStep.additionalAmount}
+                />
+              ) : null}
+              <div className="flex justify-between border-t border-border pt-1 font-medium">
+                <span>{t('studentProfile.newTotal')}</span>
+                <span className="font-mono">{feeStep.newTotal}</span>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPhase('review')}
+                disabled={saving}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button type="button" onClick={() => void recalcFees()} disabled={saving}>
+                {saving ? t('common.saving') : t('studentProfile.applyNewFees')}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t('studentProfile.changeReasonAsk')}
+            </p>
+
+            {/* Step 1 — WHY. */}
+            <div className="mt-3 grid gap-2">
+              {(['CORRECTION', 'TRANSFER', 'PROMOTION', 'REPEAT'] as PlacementReason[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => {
+                    setReason(r);
+                    setSectionId('');
+                    setGradeId(enrollment.grade?.id ?? '');
+                  }}
+                  className={`rounded-lg border px-3 py-2 text-start text-sm ${
+                    reason === r ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
+                  }`}
+                >
+                  <div className="font-medium">{t(`studentProfile.reason_${r}`)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {t(`studentProfile.reasonHint_${r}`)}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Step 2 — HOW. */}
+            {reason === 'CORRECTION' || reason === 'TRANSFER' ? (
+              <div className="mt-4 space-y-3">
+                {reason === 'CORRECTION' ? (
+                  <Field label={t('structure.grade')}>
+                    <Select
+                      value={gradeId}
+                      onChange={(e) => {
+                        setGradeId(e.target.value);
+                        setSectionId('');
+                      }}
+                    >
+                      <option value="">—</option>
+                      {grades.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                ) : null}
+                <Field
+                  label={`${t('structure.section')}${reason === 'CORRECTION' ? ` (${t('common.optional')})` : ''}`}
+                >
+                  <Select value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
+                    <option value="">—</option>
+                    {sectionOptions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label={t('studentProfile.withdrawReason')}>
+                  <Input value={note} onChange={(e) => setNote(e.target.value)} />
+                </Field>
+                {reason === 'CORRECTION' && gradeId && gradeId !== enrollment.grade?.id ? (
+                  <p className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-warning">
+                    {t('studentProfile.gradeChangeFeeWarning')}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
-            <Field
-              label={`${t('structure.section')}${reason === 'CORRECTION' ? ` (${t('common.optional')})` : ''}`}
-            >
-              <Select value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
-                <option value="">—</option>
-                {sectionOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label={t('studentProfile.withdrawReason')}>
-              <Input value={note} onChange={(e) => setNote(e.target.value)} />
-            </Field>
-            {reason === 'CORRECTION' && gradeId && gradeId !== enrollment.grade?.id ? (
-              <p className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-warning">
-                {t('studentProfile.gradeChangeFeeWarning')}
+
+            {redirect ? (
+              <p className="mt-4 rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-muted-foreground">
+                {t('studentProfile.yearEndRedirect')}
               </p>
             ) : null}
-          </div>
-        ) : null}
 
-        {redirect ? (
-          <p className="mt-4 rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-muted-foreground">
-            {t('studentProfile.yearEndRedirect')}
-          </p>
-        ) : null}
-
-        <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
-            {t('common.cancel')}
-          </Button>
-          {reason === 'CORRECTION' || reason === 'TRANSFER' ? (
-            <Button type="button" onClick={() => void submit()} disabled={saving}>
-              {saving ? t('common.saving') : t('common.saveChanges')}
-            </Button>
-          ) : null}
-        </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+                {t('common.cancel')}
+              </Button>
+              {reason === 'CORRECTION' || reason === 'TRANSFER' ? (
+                <Button type="button" onClick={() => void submit()} disabled={saving}>
+                  {saving ? t('common.saving') : t('common.saveChanges')}
+                </Button>
+              ) : null}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -626,6 +774,16 @@ function statusTone(status: string): 'success' | 'warning' | 'danger' | 'muted' 
     default:
       return 'muted';
   }
+}
+
+/** One before/after row in the fee-impact + confirmation screens (PR 2). */
+function ImpactRow({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className={`flex justify-between ${muted ? 'text-xs text-muted-foreground' : ''}`}>
+      <span className={muted ? '' : 'text-muted-foreground'}>{label}</span>
+      <span className="font-mono">{value}</span>
+    </div>
+  );
 }
 
 function Detail({

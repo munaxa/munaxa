@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Patch } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
@@ -32,5 +32,23 @@ export class EnrollmentChangeController {
   })
   correctGrade(@Param('id') id: string, @Body() dto: CorrectGradeDto) {
     return this.service.correctGrade(id, dto);
+  }
+
+  @Get(':id/fee-comparison')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({
+    summary: "Fee impact of the enrollment's current grade vs. what is billed (read-only)",
+  })
+  feeComparison(@Param('id') id: string) {
+    return this.service.feeComparison(id);
+  }
+
+  @Post(':id/recalculate-fees')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({
+    summary: 'Recalculate unpaid tuition for the corrected grade — never touches paid charges',
+  })
+  recalculateFees(@Param('id') id: string) {
+    return this.service.recalculateFees(id);
   }
 }

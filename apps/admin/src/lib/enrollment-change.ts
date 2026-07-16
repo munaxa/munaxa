@@ -2,6 +2,29 @@
 
 import { authFetch } from './auth';
 
+export interface FeeComparison {
+  previousGradeName: string | null;
+  newGradeName: string | null;
+  currentTuition: string;
+  newTuition: string;
+  difference: string;
+  additionalAmount: string;
+  creditAmount: string;
+  registrationAmount: string;
+  paidChargesAffected: number;
+  unpaidChargesToReplace: number;
+  chargesUnchanged: number;
+  existingCharges: Array<{
+    description: string;
+    amount: string;
+    paid: boolean;
+    willReplace: boolean;
+  }>;
+  newCharges: Array<{ description: string; amount: string }>;
+  currentTotal: string;
+  newTotal: string;
+}
+
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as { message?: string };
@@ -37,5 +60,15 @@ export const enrollmentChangeApi = {
         feesMayChange: boolean;
         feeWarning: string | null;
       }>(r),
+    ),
+
+  // PR 2 — read-only fee impact of the enrollment's current grade vs. what is billed. Nothing changes.
+  feeComparison: (enrollmentId: string) =>
+    authFetch(`/enrollments/${enrollmentId}/fee-comparison`).then((r) => json<FeeComparison>(r)),
+
+  // PR 2 — explicit recalculation (only after the admin chose it). Never touches paid charges.
+  recalculateFees: (enrollmentId: string) =>
+    authFetch(`/enrollments/${enrollmentId}/recalculate-fees`, { method: 'POST' }).then((r) =>
+      json<{ cancelledChargeIds: string[]; newChargeId: string | null; newTuition: string }>(r),
     ),
 };

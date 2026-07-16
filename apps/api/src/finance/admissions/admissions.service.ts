@@ -158,6 +158,75 @@ export class AdmissionsService {
     return this.repo.loadReturning(studentId);
   }
 
+  /**
+   * Fee comparison for a grade correction (PR 2). Re-prices the enrollment's CURRENT grade via the
+   * existing QuoteService and returns the financial impact WITHOUT changing anything: `currentAdjustable`
+   * is what is billed today for the adjustable (unpaid, non-registration) charges; `newAdjustable` is
+   * what the new grade would cost; `delta` is the difference; `locked` is the paid + registration
+   * amount that is never touched. The administrator sees this before choosing to recalculate.
+   */
+  async feeComparison(enrollmentId: string) {
+    const ctx = await this.repo.recalcContext(enrollmentId);
+    const computed = await this.quotes.compute({
+      academicYearId: ctx.academicYearId,
+      gradeId: ctx.gradeId,
+      ...(ctx.paymentMode ? { paymentMode: ctx.paymentMode } : {}),
+      installments: ctx.installments,
+      ...(ctx.firstDueDate ? { firstDueDate: ctx.firstDueDate } : {}),
+    });
+    const registrationNet = computed.lines
+      .filter((l) => l.kind === 'REGISTRATION')
+      .reduce((s, l) => s + (Number(l.amount) - Number(l.discountAmount)), 0);
+    const newAdjustable = Number(computed.grandTotal) - registrationNet;
+    const currentAdjustable = Number(ctx.currentAdjustable);
+    const delta = newAdjustable - currentAdjustable;
+    const locked = Number(ctx.locked);
+    return {
+      // Grades
+      previousGradeName: ctx.previousGradeName,
+      newGradeName: ctx.newGradeName,
+      // Tuition (the only adjustable, grade-dependent amount)
+      currentTuition: currentAdjustable.toFixed(3),
+      newTuition: newAdjustable.toFixed(3),
+      difference: delta.toFixed(3),
+      additionalAmount: Math.max(delta, 0).toFixed(3),
+      creditAmount: Math.max(-delta, 0).toFixed(3),
+      // What stays vs. what would change — the business decision data
+      registrationAmount: ctx.registrationAmount,
+      paidChargesAffected: 0,
+      unpaidChargesToReplace: ctx.replaceCount,
+      chargesUnchanged: ctx.keepCount,
+      existingCharges: ctx.existingCharges,
+      newCharges: [{ description: 'Tuition & fees', amount: newAdjustable.toFixed(3) }],
+      currentTotal: (locked + currentAdjustable).toFixed(3),
+      newTotal: (locked + newAdjustable).toFixed(3),
+    };
+  }
+
+  /**
+   * Explicit fee recalculation (PR 2) — ONLY invoked when the administrator chose "Recalculate Fees"
+   * after seeing the comparison. Re-prices the unpaid, non-registration tuition for the enrollment's
+   * current grade through the existing QuoteService + ledger. Never touches paid charges, verified
+   * payments, the registration fee, or ledger history. Fully audited.
+   */
+  async recalculateFees(enrollmentId: string) {
+    const ctx = await this.repo.recalcContext(enrollmentId);
+    const computed = await this.quotes.compute({
+      academicYearId: ctx.academicYearId,
+      gradeId: ctx.gradeId,
+      ...(ctx.paymentMode ? { paymentMode: ctx.paymentMode } : {}),
+      installments: ctx.installments,
+      ...(ctx.firstDueDate ? { firstDueDate: ctx.firstDueDate } : {}),
+    });
+    const result = await this.repo.replaceTuitionForGrade(enrollmentId, computed, {
+      previousGradeId: ctx.previousGradeId,
+      previousGradeName: ctx.previousGradeName,
+      newGradeName: ctx.newGradeName,
+    });
+    this.scheduleAgreement(enrollmentId); // regenerate the agreement from the updated snapshot
+    return result;
+  }
+
   /** Enrollment statistics (participation + admission-funnel breakdowns), optionally by academic year. */
   enrollmentStats(academicYearId?: string) {
     return this.repo.enrollmentStats(academicYearId);
