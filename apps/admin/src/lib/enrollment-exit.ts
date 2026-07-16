@@ -31,4 +31,13 @@ export const enrollmentExitApi = {
     }).then((r) =>
       json<{ enrollmentId: string; cancelled: boolean; voidedChargeIds: string[] }>(r),
     ),
+
+  // Reactivate a withdrawn enrollment (→ ACTIVE) and re-open the charges the withdrawal cancelled.
+  reactivate: (enrollmentId: string, req: { reason?: string; reopenCharges?: boolean } = {}) =>
+    authFetch(`/enrollments/${enrollmentId}/reactivate`, {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }).then((r) =>
+      json<{ enrollmentId: string; reactivated: boolean; reopenedChargeIds: string[] }>(r),
+    ),
 };

@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { EnrollmentExitService } from './enrollment-exit.service';
-import { CancelAdmissionDto, WithdrawDto } from './enrollment-exit.dto';
+import { CancelAdmissionDto, ReactivateDto, WithdrawDto } from './enrollment-exit.dto';
 
 /**
  * Enrollment exit (Decision 11): withdraw an active student (academic + financial settlement) or
@@ -29,5 +29,14 @@ export class EnrollmentExitController {
   })
   cancelAdmission(@Param('id') id: string, @Body() dto: CancelAdmissionDto) {
     return this.service.cancelAdmission(id, dto);
+  }
+
+  @Post(':id/reactivate')
+  @RequirePermissions(Permission.ENROLLMENT_MANAGE)
+  @ApiOperation({
+    summary: 'Reactivate a withdrawn enrollment (→ ACTIVE) and re-open the cancelled charges',
+  })
+  reactivate(@Param('id') id: string, @Body() dto: ReactivateDto) {
+    return this.service.reactivate(id, dto);
   }
 }

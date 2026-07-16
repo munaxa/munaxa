@@ -61,6 +61,9 @@ export class EnrollmentLifecycleRepository extends TenantRepository {
           ...(opts.reason !== undefined ? { reason: opts.reason } : {}),
           ...(opts.withdrawalDate ? { withdrawalDate: opts.withdrawalDate } : {}),
           ...(opts.graduationDate ? { graduationDate: opts.graduationDate } : {}),
+          // Reactivation (→ ACTIVE) clears the terminal withdrawal/graduation dates so the enrollment
+          // reads as a live, participating record again.
+          ...(to === EnrollmentStatus.ACTIVE ? { withdrawalDate: null, graduationDate: null } : {}),
         },
       });
 

@@ -100,6 +100,11 @@ export class ChargeService {
     return this.repo.cancelCharge(chargeId);
   }
 
+  /** Reverse a cancellation — re-open the charge, its cancelled installments and plan (reactivation). */
+  reopen(chargeId: string): Promise<Charge> {
+    return this.repo.reopenCharge(chargeId);
+  }
+
   reschedule(installmentId: string, dto: RescheduleInstallmentDto) {
     return this.repo.rescheduleInstallment(
       installmentId,

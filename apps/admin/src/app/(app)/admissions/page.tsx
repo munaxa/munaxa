@@ -16,6 +16,7 @@ import {
   type QuotePaymentMode,
   type TransportDirection,
 } from '@/lib/admissions';
+import { enrollmentExitApi } from '@/lib/enrollment-exit';
 import { familiesApi } from '@/lib/families';
 import { schoolsApi, campusesApi, gradesApi, academicYearsApi, sectionsApi } from '@/lib/structure';
 import type { AcademicYear, Campus, Grade, Section } from '@/lib/structure';
@@ -684,6 +685,20 @@ function StudentCard({
     };
   }, [nid, s.mode]);
 
+  const cardToast = useToast();
+  // Reactivate a withdrawn CURRENT-year enrollment inline (reverse of withdraw) — no screen change.
+  // On success the lookup re-runs and the banner flips to "already enrolled this year".
+  async function reactivateInline(enrollmentId: string) {
+    try {
+      await enrollmentExitApi.reactivate(enrollmentId, {});
+      cardToast.success('Student reactivated — enrolled for this year');
+      const r = await admissionsApi.identityLookup({ nationalId: nid });
+      setIdLookup(r.student ? r : null);
+    } catch (e) {
+      cardToast.error(e instanceof Error ? e.message : 'Reactivate failed');
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -760,9 +775,20 @@ function StudentCard({
                         : 'not currently enrolled'}
                     </div>
                   </div>
-                  {idLookup.case === 'ACTIVE' ? null : (
-                    // Re-enrol/reactivate the existing student WITHOUT leaving this screen: flip the
-                    // row to RETURNING with the student pre-selected; the admission flow continues.
+                  {idLookup.case === 'ACTIVE' ? null : idLookup.currentEnrollment &&
+                    idLookup.currentEnrollment.status.toUpperCase() === 'WITHDRAWN' ? (
+                    // Withdrawn from the CURRENT year → reactivate in place (reverse of withdraw),
+                    // without leaving this screen. Re-opens the cancelled charges server-side.
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void reactivateInline(idLookup.currentEnrollment!.id)}
+                    >
+                      Reactivate here
+                    </Button>
+                  ) : (
+                    // Returning (not enrolled this year) → re-enrol WITHOUT leaving this screen: flip
+                    // the row to RETURNING with the student pre-selected; the admission flow continues.
                     <Button
                       type="button"
                       size="sm"

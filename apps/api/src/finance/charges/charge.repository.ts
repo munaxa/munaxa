@@ -229,6 +229,31 @@ export class ChargeRepository extends TenantRepository {
     });
   }
 
+  /**
+   * Reverse a cancellation (used by reactivation): re-open a CANCELLED charge, its cancelled
+   * (never paid) installments and its plan. Paid/partial installments were never cancelled, so they
+   * are untouched. The mirror image of cancelCharge; no amounts change.
+   */
+  reopenCharge(id: string): Promise<Charge> {
+    return this.run(async (tx, tenantId) => {
+      const charge = await tx.charge.update({ where: { id }, data: { status: 'PENDING' } });
+      await tx.installment.updateMany({
+        where: { chargeId: id, status: 'CANCELLED' },
+        data: { status: 'SCHEDULED' },
+      });
+      await tx.paymentPlan.updateMany({
+        where: { chargeId: id, status: 'CANCELLED' },
+        data: { status: 'ACTIVE' },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.charge.reopen',
+        entityType: 'Charge',
+        entityId: id,
+      });
+      return charge;
+    });
+  }
+
   /** Reschedule a single installment's due date/amount, re-asserting Σ == net (BR-15, IR-4). */
   rescheduleInstallment(
     id: string,
