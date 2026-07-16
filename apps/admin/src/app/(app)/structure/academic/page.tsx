@@ -14,6 +14,7 @@ import {
   sectionsApi,
   semestersApi,
   type AcademicYear,
+  type AcademicYearStatus,
   type Campus,
   type Classroom,
   type Grade,
@@ -505,6 +506,27 @@ function AcademicYears({ campusId }: { campusId: string }) {
     }
   }
 
+  async function makeCurrent(id: string) {
+    try {
+      await academicYearsApi.makeCurrent(id);
+      toast.success(t('structure.yearNowCurrent'));
+      load();
+    } catch (e) {
+      onErr(e, 'Update failed');
+    }
+  }
+
+  async function close(id: string) {
+    if (!(await confirm())) return;
+    try {
+      await academicYearsApi.close(id);
+      toast.success(t('structure.yearClosed'));
+      load();
+    } catch (e) {
+      onErr(e, 'Close failed');
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -550,6 +572,7 @@ function AcademicYears({ campusId }: { campusId: string }) {
           <THead>
             <TR>
               <TH>{t('structure.name')}</TH>
+              <TH>{t('structure.status')}</TH>
               <TH>{t('structure.start')}</TH>
               <TH>{t('structure.end')}</TH>
               <TH className="text-end">{t('common.actions')}</TH>
@@ -559,9 +582,11 @@ function AcademicYears({ campusId }: { campusId: string }) {
             {years.map((y) => (
               <TR key={y.id}>
                 <TD>
-                  {y.name}{' '}
-                  {y.isCurrent ? <Badge tone="success">{t('structure.current')}</Badge> : null}
+                  {y.name}
                   {openYear === y.id ? <Semesters academicYearId={y.id} /> : null}
+                </TD>
+                <TD>
+                  <YearStatusBadge status={y.status} />
                 </TD>
                 <TD className="font-mono text-xs">{y.startDate.slice(0, 10)}</TD>
                 <TD className="font-mono text-xs">{y.endDate.slice(0, 10)}</TD>
@@ -573,27 +598,24 @@ function AcademicYears({ campusId }: { campusId: string }) {
                   >
                     {openYear === y.id ? t('structure.hideTerms') : t('structure.terms')}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      void confirm().then((ok) => {
-                        if (ok)
-                          void academicYearsApi
-                            .remove(y.id)
-                            .then(load)
-                            .catch((e) => onErr(e, 'Delete failed'));
-                      })
-                    }
-                  >
-                    {t('common.delete')}
-                  </Button>
+                  {/* Change the current year: only a non-current, non-closed year can be made current. */}
+                  {y.status !== 'ACTIVE' && y.status !== 'CLOSED' ? (
+                    <Button variant="ghost" size="sm" onClick={() => void makeCurrent(y.id)}>
+                      {t('structure.makeCurrent')}
+                    </Button>
+                  ) : null}
+                  {/* Close: available for any year that is not already closed (Student/Enrollment untouched). */}
+                  {y.status !== 'CLOSED' ? (
+                    <Button variant="ghost" size="sm" onClick={() => void close(y.id)}>
+                      {t('structure.closeYear')}
+                    </Button>
+                  ) : null}
                 </TD>
               </TR>
             ))}
             {years.length === 0 ? (
               <TR>
-                <TD colSpan={4}>
+                <TD colSpan={5}>
                   <EmptyState title={t('structure.noYears')} />
                 </TD>
               </TR>
@@ -603,6 +625,12 @@ function AcademicYears({ campusId }: { campusId: string }) {
       </CardContent>
     </Card>
   );
+}
+
+function YearStatusBadge({ status }: { status: AcademicYearStatus }) {
+  const { t } = useI18n();
+  const tone = status === 'ACTIVE' ? 'success' : status === 'CLOSED' ? 'muted' : 'default';
+  return <Badge tone={tone}>{t(`structure.status_${status}`)}</Badge>;
 }
 
 function Semesters({ academicYearId }: { academicYearId: string }) {
