@@ -36,7 +36,7 @@ export function Header({
           <Image
             src="/logo.png"
             alt="Munaxa"
-            width={24}
+            width={44}
             height={36}
             priority
             className="h-9 w-auto object-contain"

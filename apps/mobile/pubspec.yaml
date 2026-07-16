@@ -60,7 +60,7 @@ dev_dependencies:
   # (`flutter create`), run: `dart run flutter_launcher_icons`.
   flutter_launcher_icons: ^0.14.1
 
-# Native launcher icons (home-screen / app drawer). The ibex on the brand ink
+# Native launcher icons (home-screen / app drawer). The brand mark on the brand ink
 # background for iOS + legacy Android; an adaptive (foreground + background)
 # icon on Android. Sources live in assets/icon/.
 flutter_launcher_icons:

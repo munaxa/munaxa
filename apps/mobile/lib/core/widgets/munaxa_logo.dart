@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// The Munaxa brand mark (the ibex logo), sized by [height]. Aspect ratio is preserved.
+/// The Munaxa brand mark (open-book + graduation-cap logo), sized by [height]. Aspect ratio is preserved.
 class MunaxaLogo extends StatelessWidget {
   const MunaxaLogo({super.key, this.height = 96});
 

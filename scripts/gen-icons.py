@@ -2,7 +2,7 @@
 """Generate square app icons + favicons from the Munaxa logo (docs/design-system/logo.png).
 
 The brand mark is portrait + transparent; app icons and favicons must be square, and iOS
-launcher/apple-touch icons must be opaque. This pads the ibex onto square canvases and writes:
+launcher/apple-touch icons must be opaque. This pads the mark onto square canvases and writes:
 
   Web (copied into apps/admin/src/app/):
     favicon.ico  (16/32/48/64, transparent — bare bold mark, no background)
