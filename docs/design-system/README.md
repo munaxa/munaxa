@@ -33,22 +33,23 @@ layout system with **light + dark** themes.
 
 ![Munaxa logo](./logo.png)
 
-The Munaxa mark is a stylised **ibex** drawn in the brand gradient (coral horns → violet base) on a
-**transparent** background. It is the single brand mark across every surface.
+The Munaxa mark is a stylised **open book with a graduation cap** drawn in the brand teal gradient
+(`#00B8DB → #007595 → #005066`) on a **transparent** background. It is the single brand mark across
+every surface.
 
-- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 406×617, transparent) — the portrait wordless
+- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 894×736, transparent) — the landscape wordless
   mark used in-app (shell rail, login, splash) and for SEO/`Organization` logo.
 - **App copies (kept in sync with the source):** `apps/admin/public/munaxa-logo.png`,
   `apps/mobile/assets/munaxa-logo.png`.
 - **Reusable components:** `apps/admin/src/components/logo.tsx` (`<Logo size={…} />`) and
   `apps/mobile/lib/core/widgets/munaxa_logo.dart` (`MunaxaLogo(height: …)`) — both preserve the
   intrinsic aspect ratio.
-- **Derived square icons** (generated from `logo.png`, the ibex padded onto a square; see
+- **Derived square icons** (generated from `logo.png`, the mark padded onto a square; see
   `scripts/gen-icons.py`):
   - **Web favicons** via Next App Router file conventions in `apps/admin/src/app/`:
     `favicon.ico` (16/32/48/64, transparent), `icon.png` (512, transparent), `apple-icon.png`
-    (180, opaque on ink `#0B0518` — iOS disallows transparency).
-  - **Native app-launcher icons** (mobile): `apps/mobile/assets/icon/ic_launcher.png` (ibex on ink)
+    (180, opaque on ink `#090B0C` — iOS disallows transparency).
+  - **Native app-launcher icons** (mobile): `apps/mobile/assets/icon/ic_launcher.png` (mark on ink)
     and `ic_launcher_foreground.png` (Android adaptive foreground), wired via the
     `flutter_launcher_icons` config in `pubspec.yaml`. Generate after platform folders exist with
     `dart run flutter_launcher_icons`.
