@@ -39,6 +39,7 @@ export function Header({
             width={44}
             height={36}
             priority
+            quality={100}
             className="h-9 w-auto object-contain"
           />
           {SITE_NAME}
