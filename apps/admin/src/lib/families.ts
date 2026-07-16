@@ -180,11 +180,14 @@ export const familiesApi = {
       json<FamilySearchHit[]>(r),
     ),
   // Explicitly move a student's billing to another linked guardian (carries the ledger; audited).
-  transferBilling: (studentId: string, toParentId: string) =>
+  // A reason is mandatory (finance must know WHY the legal payer changed).
+  transferBilling: (studentId: string, toParentId: string, reason: string, notes?: string) =>
     authFetch(`/finance/families/transfer-billing`, {
       method: 'POST',
-      body: JSON.stringify({ studentId, toParentId }),
-    }).then((r) => json<{ studentId: string; payerId: string; moved: boolean }>(r)),
+      body: JSON.stringify({ studentId, toParentId, reason, ...(notes ? { notes } : {}) }),
+    }).then((r) =>
+      json<{ studentId: string; payerId: string; moved: boolean; transferId?: string }>(r),
+    ),
   overview: () => authFetch(`/finance/families/dashboard`).then((r) => json<FinanceOverview>(r)),
   byStudent: (studentId: string) =>
     authFetch(`/finance/families/by-student/${studentId}`).then((r) =>

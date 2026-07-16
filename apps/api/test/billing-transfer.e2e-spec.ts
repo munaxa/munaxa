@@ -159,13 +159,30 @@ describe('Explicit billing transfer (e2e)', () => {
     const bHit = search.body.find((h: { parentId: string }) => h.parentId === parentBId);
     expect(bHit?.financialAccountId).toBe(beforePayer?.payerId);
 
-    // Explicit transfer to B.
-    const res = await http()
+    // A reason is mandatory — omitting it is rejected.
+    await http()
       .post('/api/v1/finance/families/transfer-billing')
       .set(auth())
       .send({ studentId, toParentId: parentBId })
+      .expect(400);
+
+    // Explicit transfer to B (with a reason).
+    const res = await http()
+      .post('/api/v1/finance/families/transfer-billing')
+      .set(auth())
+      .send({ studentId, toParentId: parentBId, reason: 'PARENT_REQUEST' })
       .expect(201);
     expect(res.body.moved).toBe(true);
+    expect(res.body.transferId).toBeTruthy();
+
+    // A BillingResponsibilityTransfer business record was written (payer history preserved).
+    await withPlatform(prisma, async (tx) => {
+      const rows = await tx.billingResponsibilityTransfer.findMany({ where: { studentId } });
+      expect(rows).toHaveLength(1);
+      const row = rows[0]!;
+      expect(row.reason).toBe('PARENT_REQUEST');
+      expect(row.toPayerId).toBeTruthy();
+    });
 
     await withPlatform(prisma, async (tx) => {
       const sfa = await tx.studentFinancialAccount.findUnique({

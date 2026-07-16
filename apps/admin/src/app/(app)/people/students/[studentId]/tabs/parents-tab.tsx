@@ -16,6 +16,7 @@ import {
   CardHeader,
   CardTitle,
   Field,
+  Input,
   Select,
 } from '@/components/ui';
 import { ParentProfileDialog, ParentEditDialog } from '@/components/domain';
@@ -78,20 +79,9 @@ export function ParentsTab({ student }: { student: Student }) {
     }
   }
 
-  // Explicit, audited billing transfer — changing the guardian relationship never moves money on its
-  // own; this deliberately re-owns the student's Financial Account (carrying the ledger).
-  async function billThrough(pId: string, name: string) {
-    if (
-      !(await confirm({ description: t('people.transferBillingConfirm').replace('{name}', name) }))
-    )
-      return;
-    try {
-      const res = await familiesApi.transferBilling(studentId, pId);
-      toast.success(res.moved ? t('people.billingTransferred') : t('people.billingAlready'));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Transfer failed');
-    }
-  }
+  // Explicit, audited billing transfer — opens a dedicated dialog (reason required). Changing the
+  // guardian relationship never moves money on its own; this deliberately re-owns the account.
+  const [transferTo, setTransferTo] = useState<{ id: string; name: string } | null>(null);
 
   return (
     <>
@@ -132,10 +122,10 @@ export function ParentsTab({ student }: { student: Student }) {
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        void billThrough(
-                          link.parent.id,
-                          `${link.parent.firstNameEn} ${link.parent.lastNameEn}`.trim(),
-                        )
+                        setTransferTo({
+                          id: link.parent.id,
+                          name: `${link.parent.firstNameEn} ${link.parent.lastNameEn}`.trim(),
+                        })
                       }
                     >
                       {t('people.billThrough')}
@@ -201,6 +191,138 @@ export function ParentsTab({ student }: { student: Student }) {
           }}
         />
       ) : null}
+      {transferTo ? (
+        <TransferBillingDialog
+          studentName={`${student.firstNameEn} ${student.lastNameEn}`.trim()}
+          toParent={transferTo}
+          onClose={() => setTransferTo(null)}
+          onDone={(moved) => {
+            setTransferTo(null);
+            toast.success(moved ? t('people.billingTransferred') : t('people.billingAlready'));
+          }}
+          submit={(reason, notes) =>
+            familiesApi.transferBilling(studentId, transferTo.id, reason, notes)
+          }
+        />
+      ) : null}
     </>
+  );
+}
+
+const TRANSFER_REASONS = [
+  'PARENT_REQUEST',
+  'COURT_ORDER',
+  'SECRETARY_CORRECTION',
+  'DUPLICATE_ADMISSION_CORRECTION',
+  'OTHER',
+] as const;
+
+/**
+ * Transfer Financial Responsibility — a deliberate, reason-required screen (PR #212 review). Spells out
+ * exactly what moves and what does NOT (existing issued invoices are never rewritten). The same
+ * StudentFinancialAccount is kept (its owner changes) so balances / account identity / audit chain are
+ * preserved.
+ */
+function TransferBillingDialog({
+  studentName,
+  toParent,
+  onClose,
+  onDone,
+  submit,
+}: {
+  studentName: string;
+  toParent: { id: string; name: string };
+  onClose: () => void;
+  onDone: (moved: boolean) => void | Promise<void>;
+  submit: (reason: string, notes?: string) => Promise<{ moved: boolean }>;
+}) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const [reason, setReason] = useState<string>('');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function apply() {
+    if (!reason) {
+      toast.error(t('people.transferReasonRequired'));
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await submit(reason, notes.trim() || undefined);
+      await onDone(res.moved);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Transfer failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
+      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
+      <div
+        className="relative my-8 w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-card"
+        role="dialog"
+        aria-modal="true"
+      >
+        <h2 className="font-display text-lg font-semibold">{t('people.transferTitle')}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {studentName} → <span className="font-medium text-foreground">{toParent.name}</span>
+        </p>
+
+        <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+          <div className="rounded-lg border border-border p-2">
+            <div className="mb-1 font-medium">{t('people.willMove')}</div>
+            <ul className="space-y-0.5 text-muted-foreground">
+              <li>✓ {t('people.mvAccount')}</li>
+              <li>✓ {t('people.mvPlan')}</li>
+              <li>✓ {t('people.mvCharges')}</li>
+              <li>✓ {t('people.mvPayments')}</li>
+              <li>✓ {t('people.mvCredits')}</li>
+              <li>✓ {t('people.mvRefunds')}</li>
+            </ul>
+          </div>
+          <div className="rounded-lg border border-border p-2">
+            <div className="mb-1 font-medium">{t('people.wontChange')}</div>
+            <ul className="space-y-0.5 text-muted-foreground">
+              <li>✓ {t('people.ncStudent')}</li>
+              <li>✓ {t('people.ncAdmission')}</li>
+              <li>✓ {t('people.ncAcademic')}</li>
+              <li>✓ {t('people.ncAttendance')}</li>
+              <li>✓ {t('people.ncInvoices')}</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <div className="text-sm font-medium">{t('people.transferReason')}</div>
+          {TRANSFER_REASONS.map((r) => (
+            <label key={r} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="transfer-reason"
+                value={r}
+                checked={reason === r}
+                onChange={() => setReason(r)}
+              />
+              {t(`people.reason_${r}`)}
+            </label>
+          ))}
+          <Field label={t('people.transferNotes')}>
+            <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
+        </div>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            {t('common.cancel')}
+          </Button>
+          <Button type="button" onClick={() => void apply()} disabled={saving || !reason}>
+            {saving ? t('common.saving') : t('people.transferApply')}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }

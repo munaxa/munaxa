@@ -48,6 +48,8 @@ export const Permission = {
   FINANCE_MANAGE: 'finance:manage',
   FINANCE_READ: 'finance:read',
   FINANCE_EXPORT: 'finance:export',
+  // Changing the LEGAL payer of a student's Financial Account — stronger than ordinary finance editing.
+  FINANCE_TRANSFER_BILLING: 'finance:transfer-billing',
   TRANSACTION_CREATE: 'transaction:create',
   RECEIPT_UPLOAD: 'receipt:upload',
   // Admissions / enrollment (Phase 22)
@@ -159,6 +161,8 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.FINANCE_MANAGE]: 'Manage fee plans, invoices, and financial configuration.',
   [Permission.FINANCE_READ]: 'View invoices, payments, and outstanding balances.',
   [Permission.FINANCE_EXPORT]: 'Export financial reports and statements.',
+  [Permission.FINANCE_TRANSFER_BILLING]:
+    "Change the legal payer of a student's Financial Account (billing responsibility transfer).",
   [Permission.TRANSACTION_CREATE]: 'Record payments and other financial transactions.',
   [Permission.RECEIPT_UPLOAD]: 'Upload payment receipts.',
   [Permission.ENROLLMENT_MANAGE]: 'Manage admissions and enrollment applications.',

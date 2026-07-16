@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Payer } from '@prisma/client';
+import type { BillingResponsibilityReason, Payer } from '@prisma/client';
 import { FinancialAccountRepository, type AccountStudent } from './financial-account.repository';
 import {
   LedgerRepository,
@@ -49,8 +49,13 @@ export class FinancialAccountService {
   }
 
   /** Explicitly move a student's billing to another (already-linked) guardian. Audited; carries the ledger. */
-  transferBilling(studentId: string, toParentId: string) {
-    return this.repo.transferBilling(studentId, toParentId);
+  transferBilling(
+    studentId: string,
+    toParentId: string,
+    reason: BillingResponsibilityReason,
+    notes?: string,
+  ) {
+    return this.repo.transferBilling(studentId, toParentId, reason, notes);
   }
 
   /** The active financial account (Payer) for a guardian, plus its students — or null. Drives the

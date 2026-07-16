@@ -1,5 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { type Payer, type FinancialAccountOwnerType } from '@prisma/client';
+import {
+  type Payer,
+  type FinancialAccountOwnerType,
+  type BillingResponsibilityReason,
+} from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import type { TxClient } from '../../prisma/tenant.helpers';
@@ -124,7 +128,12 @@ export class FinancialAccountRepository extends TenantRepository {
    * Charges hang off the per-student account and follow it automatically; payer-scoped rows (payments,
    * credits, refunds, plans) are repointed to the new payer.
    */
-  async transferBilling(studentId: string, toParentId: string) {
+  async transferBilling(
+    studentId: string,
+    toParentId: string,
+    reason: BillingResponsibilityReason,
+    notes?: string,
+  ) {
     return this.run(async (tx, tenantId) => {
       const sfa = await tx.studentFinancialAccount.findUnique({
         where: { studentId },
@@ -149,6 +158,23 @@ export class FinancialAccountRepository extends TenantRepository {
               'billing is not supported here — manage it in Finance.',
           );
         }
+      }
+
+      // Refuse while finance workflows are in flight — moving the payer mid-flight would corrupt the
+      // trail. Existing issued (ACCEPTED) e-invoices are NEVER rewritten; the transfer is the payer
+      // boundary and future invoices bill the new payer. Only IN-PROGRESS issuance blocks.
+      const [pendingPayments, pendingRefunds, pendingInvoices] = await Promise.all([
+        tx.payment.count({ where: { accountId: sfa.id, status: 'PENDING' } }),
+        tx.refund.count({ where: { accountId: sfa.id, status: 'PENDING' } }),
+        tx.eInvoiceDocument.count({
+          where: { studentId, status: { in: ['DRAFT', 'QUEUED', 'SUBMITTING'] } },
+        }),
+      ]);
+      if (pendingPayments + pendingRefunds + pendingInvoices > 0) {
+        throw new BadRequestException(
+          'Cannot transfer billing responsibility. There are pending financial operations ' +
+            '(payment verification, refund, or e-invoice issuance) that must be completed first.',
+        );
       }
 
       const target = await this.ensureForParentTx(tx, tenantId, toParentId);
@@ -182,14 +208,46 @@ export class FinancialAccountRepository extends TenantRepository {
         await tx.refund.updateMany({ where: { accountId: sfa.id }, data: { payerId: target.id } });
       }
 
+      // Dedicated financial business event (preserves the payer history + is reportable), plus the
+      // generic audit row.
+      const event = await tx.billingResponsibilityTransfer.create({
+        data: {
+          tenantId,
+          studentFinancialAccountId: sfa.id,
+          studentId,
+          fromPayerId,
+          toPayerId: target.id,
+          reason,
+          ...(notes ? { notes } : {}),
+          performedById: this.actor(),
+        },
+        select: { id: true },
+      });
       await this.writeAudit(tx, tenantId, {
         action: 'finance.billingTransfer',
         entityType: 'StudentFinancialAccount',
         entityId: sfa.id,
-        metadata: { studentId, fromPayerId, toPayerId: target.id, toParentId },
+        metadata: {
+          studentId,
+          fromPayerId,
+          toPayerId: target.id,
+          toParentId,
+          reason,
+          eventId: event.id,
+        },
       });
-      return { studentId, payerId: target.id, moved: true };
+      return { studentId, payerId: target.id, moved: true, transferId: event.id };
     });
+  }
+
+  /** The billing-responsibility history for a student (newest first) — for the "Billing History" view. */
+  billingHistory(studentId: string) {
+    return this.run((tx) =>
+      tx.billingResponsibilityTransfer.findMany({
+        where: { studentId },
+        orderBy: { performedAt: 'desc' },
+      }),
+    );
   }
 
   /**
