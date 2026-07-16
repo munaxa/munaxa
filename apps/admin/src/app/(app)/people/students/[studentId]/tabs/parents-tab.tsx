@@ -7,6 +7,7 @@ import { useConfirm } from '@/components/confirm';
 import { EntityPicker } from '@/components/entity-picker';
 import { loadParentOptions } from '@/lib/pickers';
 import { studentsApi, type Parent, type Student, type StudentParentLink } from '@/lib/people';
+import { familiesApi } from '@/lib/families';
 import {
   Badge,
   Button,
@@ -77,6 +78,21 @@ export function ParentsTab({ student }: { student: Student }) {
     }
   }
 
+  // Explicit, audited billing transfer — changing the guardian relationship never moves money on its
+  // own; this deliberately re-owns the student's Financial Account (carrying the ledger).
+  async function billThrough(pId: string, name: string) {
+    if (
+      !(await confirm({ description: t('people.transferBillingConfirm').replace('{name}', name) }))
+    )
+      return;
+    try {
+      const res = await familiesApi.transferBilling(studentId, pId);
+      toast.success(res.moved ? t('people.billingTransferred') : t('people.billingAlready'));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Transfer failed');
+    }
+  }
+
   return (
     <>
       <Card>
@@ -112,6 +128,18 @@ export function ParentsTab({ student }: { student: Student }) {
                     >
                       {link.parent.phone || '—'}
                     </a>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        void billThrough(
+                          link.parent.id,
+                          `${link.parent.firstNameEn} ${link.parent.lastNameEn}`.trim(),
+                        )
+                      }
+                    >
+                      {t('people.billThrough')}
+                    </Button>
                     <button
                       type="button"
                       className="text-muted-foreground hover:text-destructive"

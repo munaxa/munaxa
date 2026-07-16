@@ -117,6 +117,82 @@ export class FinancialAccountRepository extends TenantRepository {
   }
 
   /**
+   * EXPLICIT billing transfer — move a student's Financial Account to a different guardian (their new
+   * payer), carrying the existing ledger. Changing the guardian relationship never does this on its
+   * own; this is a deliberate, audited action. Only a single-student account may be moved here (moving
+   * one child out of a shared family account would split shared plans — manage those in Finance).
+   * Charges hang off the per-student account and follow it automatically; payer-scoped rows (payments,
+   * credits, refunds, plans) are repointed to the new payer.
+   */
+  async transferBilling(studentId: string, toParentId: string) {
+    return this.run(async (tx, tenantId) => {
+      const sfa = await tx.studentFinancialAccount.findUnique({
+        where: { studentId },
+        select: { id: true, payerId: true },
+      });
+      if (!sfa) throw new BadRequestException('This student has no financial account to transfer.');
+      const fromPayerId = sfa.payerId;
+
+      const link = await tx.parentStudent.findFirst({
+        where: { studentId, parentId: toParentId },
+        select: { id: true },
+      });
+      if (!link) throw new BadRequestException('That guardian is not linked to this student.');
+
+      if (fromPayerId) {
+        const siblings = await tx.studentFinancialAccount.count({
+          where: { payerId: fromPayerId, studentId: { not: studentId } },
+        });
+        if (siblings > 0) {
+          throw new BadRequestException(
+            'This student is billed through a shared family account. Transferring one child’s ' +
+              'billing is not supported here — manage it in Finance.',
+          );
+        }
+      }
+
+      const target = await this.ensureForParentTx(tx, tenantId, toParentId);
+      if (fromPayerId === target.id) return { studentId, payerId: target.id, moved: false };
+
+      await tx.studentFinancialAccount.update({
+        where: { studentId },
+        data: { payerId: target.id },
+      });
+      // Single-student account → every payer-scoped row under the old payer belongs to this student.
+      if (fromPayerId) {
+        await tx.payment.updateMany({
+          where: { payerId: fromPayerId },
+          data: { payerId: target.id },
+        });
+        await tx.credit.updateMany({
+          where: { payerId: fromPayerId },
+          data: { payerId: target.id },
+        });
+        await tx.refund.updateMany({
+          where: { payerId: fromPayerId },
+          data: { payerId: target.id },
+        });
+        await tx.financialAccountPlan.updateMany({
+          where: { payerId: fromPayerId },
+          data: { payerId: target.id },
+        });
+      } else {
+        await tx.payment.updateMany({ where: { accountId: sfa.id }, data: { payerId: target.id } });
+        await tx.credit.updateMany({ where: { accountId: sfa.id }, data: { payerId: target.id } });
+        await tx.refund.updateMany({ where: { accountId: sfa.id }, data: { payerId: target.id } });
+      }
+
+      await this.writeAudit(tx, tenantId, {
+        action: 'finance.billingTransfer',
+        entityType: 'StudentFinancialAccount',
+        entityId: sfa.id,
+        metadata: { studentId, fromPayerId, toPayerId: target.id, toParentId },
+      });
+      return { studentId, payerId: target.id, moved: true };
+    });
+  }
+
+  /**
    * Link a student's AR account to a financial account (Payer). The student's charges stay
    * student-owned; this only records who the paying customer is (sets StudentFinancialAccount.payerId).
    */
@@ -231,12 +307,22 @@ export class FinancialAccountRepository extends TenantRepository {
             take: 1,
             select: { id: true, ownerType: true },
           },
+          // Fallback: where THIS guardian's students are actually billed. A guardian who becomes a
+          // student's parent AFTER admission has no own Payer, but the student is billed through the
+          // admission payer — surface that account so finance never dead-ends (billing is only MOVED
+          // via an explicit transfer, never automatically).
+          studentLinks: {
+            where: { student: { deletedAt: null, financialAccount: { payerId: { not: null } } } },
+            take: 1,
+            select: { student: { select: { financialAccount: { select: { payerId: true } } } } },
+          },
         },
         take: 25,
         orderBy: [{ firstNameEn: 'asc' }],
       });
       const parentHits: FamilySearchHit[] = parents.map((p) => ({
-        financialAccountId: p.payers[0]?.id ?? null,
+        financialAccountId:
+          p.payers[0]?.id ?? p.studentLinks[0]?.student.financialAccount?.payerId ?? null,
         parentId: p.id,
         studentId: null,
         ownerType: p.payers[0]?.ownerType ?? 'GUARDIAN',

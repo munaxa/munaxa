@@ -48,6 +48,11 @@ export class FinancialAccountService {
     return this.repo.ensureForParent(parentId);
   }
 
+  /** Explicitly move a student's billing to another (already-linked) guardian. Audited; carries the ledger. */
+  transferBilling(studentId: string, toParentId: string) {
+    return this.repo.transferBilling(studentId, toParentId);
+  }
+
   /** The active financial account (Payer) for a guardian, plus its students — or null. Drives the
    * unified admission wizard's "add to existing account" branch (Merge / Separate / New plan). */
   async byParent(parentId: string) {

@@ -1,9 +1,16 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { IsUUID } from 'class-validator';
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { FinancialAccountService } from './financial-account.service';
 import { StatementService } from '../statement/statement.service';
+
+/** Explicit billing transfer — move a student's Financial Account to another linked guardian. */
+export class TransferBillingDto {
+  @ApiProperty() @IsUUID() studentId!: string;
+  @ApiProperty() @IsUUID() toParentId!: string;
+}
 
 /**
  * Family Finance — the financial customer (FinancialAccount) is the primary entity. Search is
@@ -34,6 +41,15 @@ export class FinancialAccountController {
   @ApiOperation({ summary: 'The active financial account for a guardian + its students (or null)' })
   byParent(@Param('parentId') parentId: string) {
     return this.service.byParent(parentId);
+  }
+
+  @Post('transfer-billing')
+  @RequirePermissions(Permission.FINANCE_MANAGE)
+  @ApiOperation({
+    summary: "Move a student's billing to another linked guardian (explicit; carries the ledger)",
+  })
+  transferBilling(@Body() dto: TransferBillingDto) {
+    return this.service.transferBilling(dto.studentId, dto.toParentId);
   }
 
   @Get('dashboard')

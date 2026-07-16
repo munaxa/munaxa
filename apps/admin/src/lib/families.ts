@@ -179,6 +179,12 @@ export const familiesApi = {
     authFetch(`/finance/families/search?q=${encodeURIComponent(q)}`).then((r) =>
       json<FamilySearchHit[]>(r),
     ),
+  // Explicitly move a student's billing to another linked guardian (carries the ledger; audited).
+  transferBilling: (studentId: string, toParentId: string) =>
+    authFetch(`/finance/families/transfer-billing`, {
+      method: 'POST',
+      body: JSON.stringify({ studentId, toParentId }),
+    }).then((r) => json<{ studentId: string; payerId: string; moved: boolean }>(r)),
   overview: () => authFetch(`/finance/families/dashboard`).then((r) => json<FinanceOverview>(r)),
   byStudent: (studentId: string) =>
     authFetch(`/finance/families/by-student/${studentId}`).then((r) =>
