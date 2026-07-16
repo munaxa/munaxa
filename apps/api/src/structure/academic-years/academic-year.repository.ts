@@ -38,10 +38,10 @@ export interface AcademicYearUsage {
 
 /** Setup-completeness signals used by the activation validator + readiness score. */
 export interface AcademicYearSetup {
-  semesterCount: number;
+  /** Semesters ordered by start date — the authoritative instructional boundaries. */
+  semesters: { startDate: Date; endDate: Date }[];
   gradeCount: number;
   sectionCount: number;
-  calendarConfigured: boolean;
 }
 
 @Injectable()
@@ -235,21 +235,19 @@ export class AcademicYearRepository extends TenantRepository {
     });
   }
 
-  /** Setup-completeness signals for the activation validator + readiness score. */
+  /** Setup-completeness signals for the activation validator + readiness score (all real data). */
   setup(year: AcademicYear): Promise<AcademicYearSetup> {
     return this.run(async (tx) => {
-      const [semesterCount, gradeCount, sectionCount, orgSettings] = await Promise.all([
-        tx.semester.count({ where: { academicYearId: year.id } }),
+      const [semesters, gradeCount, sectionCount] = await Promise.all([
+        tx.semester.findMany({
+          where: { academicYearId: year.id },
+          select: { startDate: true, endDate: true },
+          orderBy: { startDate: 'asc' },
+        }),
         tx.grade.count({ where: { campusId: year.campusId } }),
         tx.section.count({ where: { grade: { campusId: year.campusId } } }),
-        tx.organizationSettings.findFirst({ select: { academicCalendar: true } }),
       ]);
-      return {
-        semesterCount,
-        gradeCount,
-        sectionCount,
-        calendarConfigured: Boolean(orgSettings?.academicCalendar),
-      };
+      return { semesters, gradeCount, sectionCount };
     });
   }
 

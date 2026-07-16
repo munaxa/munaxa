@@ -221,6 +221,7 @@ function AcademicYearCard({
   const [expanded, setExpanded] = useState(false);
   const [showSetCurrent, setShowSetCurrent] = useState(false);
   const [showClose, setShowClose] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [deletable, setDeletable] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -273,6 +274,16 @@ function AcademicYearCard({
               <p className="text-xs text-muted-foreground">
                 {fmtDate(year.startDate)} → {fmtDate(year.endDate)}
               </p>
+              <p className="text-xs text-muted-foreground">
+                {t('academicYear.registrationWindow')}:{' '}
+                {year.registrationStartDate && year.registrationEndDate ? (
+                  <span>
+                    {fmtDate(year.registrationStartDate)} → {fmtDate(year.registrationEndDate)}
+                  </span>
+                ) : (
+                  <span className="text-coral">{t('academicYear.registrationNotSet')}</span>
+                )}
+              </p>
             </div>
           </div>
 
@@ -280,6 +291,7 @@ function AcademicYearCard({
             <YearActions
               year={year}
               deletable={deletable}
+              onEdit={() => setShowEdit(true)}
               onSetCurrent={() => setShowSetCurrent(true)}
               onClose={() => setShowClose(true)}
               onDelete={() => void onDelete()}
@@ -364,6 +376,15 @@ function AcademicYearCard({
           onChanged();
         }}
       />
+      <EditYearDialog
+        open={showEdit}
+        year={year}
+        onClose={() => setShowEdit(false)}
+        onSaved={() => {
+          setShowEdit(false);
+          onChanged();
+        }}
+      />
       {/* campusId kept for future semester creation scoping */}
       <input type="hidden" value={campusId} readOnly />
     </Card>
@@ -392,6 +413,7 @@ function MetricBar({ label, pct }: { label: string; pct: number | null }) {
 function YearActions({
   year,
   deletable,
+  onEdit,
   onSetCurrent,
   onClose,
   onDelete,
@@ -400,6 +422,7 @@ function YearActions({
 }: {
   year: AcademicYear;
   deletable: boolean | null;
+  onEdit: () => void;
   onSetCurrent: () => void;
   onClose: () => void;
   onDelete: () => void;
@@ -416,6 +439,9 @@ function YearActions({
 
       {year.status === 'UPCOMING' ? (
         <>
+          <Button variant="ghost" size="sm" onClick={onEdit}>
+            {t('academicYear.edit')}
+          </Button>
           <Button variant="outline" size="sm" onClick={onSetCurrent}>
             {t('academicYear.setCurrent')}
           </Button>
@@ -766,11 +792,24 @@ function CreateYearDialog({
 }) {
   const { t } = useI18n();
   const toast = useToast();
-  const [form, setForm] = useState({ name: '', startDate: '', endDate: '' });
+  const [form, setForm] = useState({
+    name: '',
+    startDate: '',
+    endDate: '',
+    registrationStartDate: '',
+    registrationEndDate: '',
+  });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (open) setForm({ name: '', startDate: '', endDate: '' });
+    if (open)
+      setForm({
+        name: '',
+        startDate: '',
+        endDate: '',
+        registrationStartDate: '',
+        registrationEndDate: '',
+      });
   }, [open]);
 
   async function create() {
@@ -781,6 +820,8 @@ function CreateYearDialog({
         name: form.name,
         startDate: form.startDate,
         endDate: form.endDate,
+        registrationStartDate: form.registrationStartDate || null,
+        registrationEndDate: form.registrationEndDate || null,
         status: 'UPCOMING',
       });
       toast.success(t('academicYear.created'));
@@ -832,6 +873,144 @@ function CreateYearDialog({
               type="date"
               value={form.endDate}
               onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+            />
+          </Field>
+        </div>
+        <p className="pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t('academicYear.registration')}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('academicYear.registrationStart')}>
+            <Input
+              type="date"
+              value={form.registrationStartDate}
+              onChange={(e) => setForm({ ...form, registrationStartDate: e.target.value })}
+            />
+          </Field>
+          <Field label={t('academicYear.registrationEnd')}>
+            <Input
+              type="date"
+              value={form.registrationEndDate}
+              onChange={(e) => setForm({ ...form, registrationEndDate: e.target.value })}
+            />
+          </Field>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────── edit dialog
+
+function EditYearDialog({
+  open,
+  year,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  year: AcademicYear;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const [form, setForm] = useState({
+    name: '',
+    startDate: '',
+    endDate: '',
+    registrationStartDate: '',
+    registrationEndDate: '',
+  });
+  const [busy, setBusy] = useState(false);
+
+  const iso = (d?: string | null) => (d ? d.slice(0, 10) : '');
+
+  useEffect(() => {
+    if (open)
+      setForm({
+        name: year.name,
+        startDate: iso(year.startDate),
+        endDate: iso(year.endDate),
+        registrationStartDate: iso(year.registrationStartDate),
+        registrationEndDate: iso(year.registrationEndDate),
+      });
+  }, [open, year]);
+
+  async function save() {
+    setBusy(true);
+    try {
+      await academicYearsApi.update(year.id, {
+        name: form.name,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        registrationStartDate: form.registrationStartDate || null,
+        registrationEndDate: form.registrationEndDate || null,
+      });
+      toast.success(t('academicYear.saved'));
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const valid = form.name && form.startDate && form.endDate;
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={t('academicYear.editTitle')}
+      description={year.name}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={() => void save()} disabled={busy || !valid}>
+            {t('common.save')}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Field label={t('structure.name')}>
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('structure.start')}>
+            <Input
+              type="date"
+              value={form.startDate}
+              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+            />
+          </Field>
+          <Field label={t('structure.end')}>
+            <Input
+              type="date"
+              value={form.endDate}
+              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+            />
+          </Field>
+        </div>
+        <p className="pt-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {t('academicYear.registration')}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('academicYear.registrationStart')}>
+            <Input
+              type="date"
+              value={form.registrationStartDate}
+              onChange={(e) => setForm({ ...form, registrationStartDate: e.target.value })}
+            />
+          </Field>
+          <Field label={t('academicYear.registrationEnd')}>
+            <Input
+              type="date"
+              value={form.registrationEndDate}
+              onChange={(e) => setForm({ ...form, registrationEndDate: e.target.value })}
             />
           </Field>
         </div>

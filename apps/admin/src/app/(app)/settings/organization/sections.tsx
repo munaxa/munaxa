@@ -262,7 +262,6 @@ export function GeneralSection({ settings, onSaved, canEdit }: SectionProps) {
       description: settings.description ?? '',
       timezone: settings.timezone,
       defaultLanguage: settings.defaultLanguage,
-      academicCalendar: settings.academicCalendar ?? '',
     }),
     [settings],
   );
@@ -285,7 +284,6 @@ export function GeneralSection({ settings, onSaved, canEdit }: SectionProps) {
         description: NULLABLE(draft.description),
         timezone: draft.timezone,
         defaultLanguage: draft.defaultLanguage,
-        academicCalendar: NULLABLE(draft.academicCalendar),
       })
       .then((next) => {
         onSaved(next);
@@ -383,13 +381,6 @@ export function GeneralSection({ settings, onSaved, canEdit }: SectionProps) {
             <option value="en">English</option>
             <option value="ar">العربية</option>
           </Select>
-        </Field>
-        <Field label={t('organization.academicCalendar')}>
-          <Input
-            value={draft.academicCalendar}
-            onChange={(e) => set('academicCalendar', e.target.value)}
-            disabled={!canEdit}
-          />
         </Field>
       </div>
       <Field label={t('organization.motto')}>
