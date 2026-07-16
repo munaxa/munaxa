@@ -74,6 +74,8 @@ export interface ChargeView {
   installments: Installment[];
   /** Superseded/completed plans, hidden by default and shown in a history view. */
   history?: PlanHistory[];
+  /** Underlying fee-line breakdown of an aggregate charge (details then sum). Empty otherwise. */
+  lineItems?: Array<{ label: string; amount: string }>;
 }
 
 export interface Adjustment {
@@ -134,6 +136,20 @@ export interface HouseholdMember {
   lastNameEn: string;
   firstNameAr: string;
   lastNameAr: string;
+  outstanding: string;
+}
+
+export interface ParentStudent {
+  studentId: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  gradeNameEn: string | null;
+  gradeNameAr: string | null;
+  transportRequested: boolean;
+  relation: string;
+  isPrimary: boolean;
   outstanding: string;
 }
 
@@ -310,6 +326,8 @@ export const financeApi = {
     authFetch(`/finance/students/${studentId}/statement`).then((r) => json<Statement>(r)),
   household: (studentId: string) =>
     authFetch(`/finance/students/${studentId}/household`).then((r) => json<HouseholdMember[]>(r)),
+  parentStudents: (parentId: string) =>
+    authFetch(`/finance/students/by-parent/${parentId}`).then((r) => json<ParentStudent[]>(r)),
   charges: (studentId: string) =>
     authFetch(`/finance/charges?studentId=${encodeURIComponent(studentId)}`).then((r) =>
       json<ChargeView[]>(r),

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { parse } from 'csv-parse/sync';
 import type { ParentStudent, Prisma, Student, StudentVaccine } from '@prisma/client';
 import { StudentRepository, type ParentLink } from './student.repository';
+import { AccountRepository } from '../../finance/account/account.repository';
 import { generateStudentQrCode } from '../people.util';
 import type {
   CreateStudentDto,
@@ -16,12 +17,26 @@ export interface ImportResult {
   failed: Array<{ row: number; error: string }>;
 }
 
+/**
+ * Normalise a blank/whitespace-only identifier to null. The partial unique indexes on
+ * (tenantId, nationalId) and (tenantId, moeStudentNumber) exempt NULL but NOT the empty string,
+ * so an empty '' from a cleared form field would collide across students. Store blanks as NULL.
+ */
+function blankToNull(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
+}
+
 @Injectable()
 export class StudentService {
-  constructor(private readonly repo: StudentRepository) {}
+  constructor(
+    private readonly repo: StudentRepository,
+    private readonly accounts: AccountRepository,
+  ) {}
 
   async create(dto: CreateStudentDto): Promise<Student> {
-    await this.assertSection(dto.sectionId);
+    // A Student is a permanent identity record; placement is set when the student is enrolled.
     return this.repo.create(this.toCreateInput(dto));
   }
 
@@ -41,8 +56,8 @@ export class StudentService {
 
   async update(id: string, dto: UpdateStudentDto): Promise<Student> {
     await this.get(id);
-    await this.assertSection(dto.sectionId);
-    await this.assertArea(dto.areaId);
+    // Identity only. Grade/section/classroom/area/transport are year-scoped placement — they live on
+    // the Enrollment and are changed via the enrollment endpoints, never on the Student (Decisions 4 & 13).
     const data: Prisma.StudentUpdateInput = {
       ...(dto.firstNameEn !== undefined ? { firstNameEn: dto.firstNameEn } : {}),
       ...(dto.lastNameEn !== undefined ? { lastNameEn: dto.lastNameEn } : {}),
@@ -52,27 +67,41 @@ export class StudentService {
       ...(dto.fatherNameAr !== undefined ? { fatherNameAr: dto.fatherNameAr } : {}),
       ...(dto.thirdNameEn !== undefined ? { thirdNameEn: dto.thirdNameEn } : {}),
       ...(dto.thirdNameAr !== undefined ? { thirdNameAr: dto.thirdNameAr } : {}),
-      ...(dto.moeStudentNumber !== undefined ? { moeStudentNumber: dto.moeStudentNumber } : {}),
-      ...(dto.nationalId !== undefined ? { nationalId: dto.nationalId } : {}),
+      ...(dto.moeStudentNumber !== undefined
+        ? { moeStudentNumber: blankToNull(dto.moeStudentNumber) }
+        : {}),
+      ...(dto.nationalId !== undefined ? { nationalId: blankToNull(dto.nationalId) } : {}),
       ...(dto.dateOfBirth ? { dateOfBirth: new Date(dto.dateOfBirth) } : {}),
       ...(dto.gender !== undefined ? { gender: dto.gender } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
-      ...(dto.sectionId !== undefined
-        ? { section: dto.sectionId ? { connect: { id: dto.sectionId } } : { disconnect: true } }
-        : {}),
-      ...(dto.areaId !== undefined
-        ? { area: dto.areaId ? { connect: { id: dto.areaId } } : { disconnect: true } }
-        : {}),
-      ...(dto.transportRequested !== undefined
-        ? { transportRequested: dto.transportRequested }
-        : {}),
     };
     return this.repo.update(id, data);
   }
 
   async remove(id: string): Promise<void> {
     await this.get(id);
+    // Deletion is only for a draft student with NO dependent records; otherwise Withdraw / Cancel
+    // Admission (never destroy history). See deletability().
+    const blockers = await this.repo.deletionBlockers(id);
+    if (blockers.length > 0) {
+      throw new BadRequestException(
+        `Student cannot be deleted (has ${blockers.join(', ')}). Withdraw or cancel the admission instead.`,
+      );
+    }
     await this.repo.softDelete(id);
+  }
+
+  /** Whether the student may be hard-deleted, and if not, why (drives showing Delete vs Withdraw). */
+  async deletability(id: string): Promise<{ deletable: boolean; blockers: string[] }> {
+    await this.get(id);
+    const blockers = await this.repo.deletionBlockers(id);
+    return { deletable: blockers.length === 0, blockers };
+  }
+
+  /** Immutable per-year Enrollment History for the profile (Decisions 12 & 13). */
+  async enrollmentHistory(id: string) {
+    await this.get(id);
+    return this.repo.enrollmentHistory(id);
   }
 
   async qr(id: string): Promise<{ qrCode: string }> {
@@ -86,7 +115,17 @@ export class StudentService {
     if (!(await this.repo.parentExists(dto.parentId))) {
       throw new BadRequestException('Parent not found in this tenant');
     }
-    return this.repo.linkParent(studentId, dto.parentId, dto.relation, dto.isPrimary ?? false);
+    const link = await this.repo.linkParent(
+      studentId,
+      dto.parentId,
+      dto.relation,
+      dto.isPrimary ?? false,
+    );
+    // Assigning the paying guardian places the student under that guardian's Financial Account so
+    // they surface in Finance and family payments allocate across siblings. Non-destructive: a
+    // student already billed to another account is left untouched.
+    await this.accounts.reconcileStudentAccount(studentId);
+    return link;
   }
 
   async unlinkParent(studentId: string, parentId: string): Promise<void> {
@@ -207,25 +246,12 @@ export class StudentService {
       fatherNameAr: dto.fatherNameAr ?? null,
       thirdNameEn: dto.thirdNameEn ?? null,
       thirdNameAr: dto.thirdNameAr ?? null,
-      moeStudentNumber: dto.moeStudentNumber ?? null,
-      nationalId: dto.nationalId ?? null,
+      moeStudentNumber: blankToNull(dto.moeStudentNumber),
+      nationalId: blankToNull(dto.nationalId),
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
       gender: dto.gender ?? null,
-      sectionId: dto.sectionId ?? null,
       status: dto.status ?? 'ACTIVE',
       qrCode: generateStudentQrCode(),
     };
-  }
-
-  private async assertSection(sectionId?: string): Promise<void> {
-    if (sectionId && !(await this.repo.sectionExists(sectionId))) {
-      throw new BadRequestException('Section not found in this tenant');
-    }
-  }
-
-  private async assertArea(areaId?: string): Promise<void> {
-    if (areaId && !(await this.repo.areaExists(areaId))) {
-      throw new BadRequestException('Area not found in this tenant');
-    }
   }
 }

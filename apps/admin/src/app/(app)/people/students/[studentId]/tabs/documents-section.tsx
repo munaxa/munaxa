@@ -1,17 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
+import { usePrincipal } from '@/components/shell';
 import { useToast } from '@/components/toast';
 import {
   documentsApi,
-  type AcademicYearOption,
+  type AgreementStatus,
   type DocumentAccessLog,
   type DocumentMeta,
   type DocumentType,
   type DocumentLanguage,
   type EmailDocumentInput,
-  type FeeItemKind,
   type RegistrationAgreementRow,
 } from '@/lib/documents';
 import {
@@ -49,18 +49,24 @@ const GENERATABLE: DocumentType[] = [
   'ANNUAL_TUITION_CERTIFICATE',
 ];
 
-/** Optional categories the Annual Tuition Certificate can include alongside tuition. */
-const OPTIONAL_KINDS: FeeItemKind[] = [
-  'TRANSPORT',
-  'REGISTRATION',
-  'BOOKS',
-  'ACTIVITY',
-  'UNIFORM',
-  'INSURANCE',
-];
+/** Recent calendar years offered for the Annual Tuition Certificate (current year first). */
+const CERT_YEARS: number[] = Array.from({ length: 7 }, (_, i) => new Date().getFullYear() - i);
 
 const dateStr = (v?: string | null) => (v ? new Date(v).toLocaleDateString() : '—');
 const docNo = (n: number) => String(n).padStart(6, '0');
+
+/** Badge tone for the agreement's (derived) lifecycle status. */
+const AGREEMENT_TONE: Record<AgreementStatus, 'success' | 'muted' | 'warning' | 'danger'> = {
+  SIGNED: 'success',
+  PRINTED: 'warning',
+  GENERATED: 'muted',
+  COMMITTED: 'muted',
+  DRAFT: 'muted',
+  CANCELLED: 'danger',
+  ARCHIVED: 'muted',
+};
+
+const ACCEPT_SIGNED = 'application/pdf,image/jpeg,image/png';
 
 /**
  * Student Finance Card → Documents (Part 5). Lists the immutable document archive and the
@@ -71,15 +77,23 @@ const docNo = (n: number) => String(n).padStart(6, '0');
 export function DocumentsSection({ studentId }: { studentId: string }) {
   const { t } = useI18n();
   const toast = useToast();
+  const principal = usePrincipal();
+  const can = (p: string) => principal.permissions.includes(p);
+  const canUploadSigned = can('document:upload_signed');
+  const canReplaceSigned = can('document:replace_signed');
+  const canDeleteSigned = can('document:delete_signed');
+  const canGenerateAgreement = can('document:generate');
+
   const [docs, setDocs] = useState<DocumentMeta[]>([]);
   const [agreements, setAgreements] = useState<RegistrationAgreementRow[]>([]);
-  const [years, setYears] = useState<AcademicYearOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
 
+  // Language the registration agreement is (re)generated in — bilingual (Arabic + English) default.
+  const [agreementLang, setAgreementLang] = useState<DocumentLanguage>('BILINGUAL');
   const [language, setLanguage] = useState<DocumentLanguage>('EN');
-  const [yearId, setYearId] = useState('');
-  const [includeKinds, setIncludeKinds] = useState<Set<FeeItemKind>>(new Set());
+  // Calendar year to certify on the Annual Tuition Certificate (defaults to the current year).
+  const [certYear, setCertYear] = useState<number>(new Date().getFullYear());
 
   // Email dialog state.
   const [emailDoc, setEmailDoc] = useState<DocumentMeta | null>(null);
@@ -98,24 +112,33 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
   const [historyDoc, setHistoryDoc] = useState<DocumentMeta | null>(null);
   const [history, setHistory] = useState<DocumentAccessLog[] | null>(null);
 
+  // Signed-agreement upload/replace dialog state.
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [signAgreement, setSignAgreement] = useState<RegistrationAgreementRow | null>(null);
+  const [signReplace, setSignReplace] = useState(false);
+  const [signForm, setSignForm] = useState({
+    signedBy: '',
+    signedAt: '',
+    file: null as File | null,
+  });
+  const [signing, setSigning] = useState(false);
+  const [deleteSignedFor, setDeleteSignedFor] = useState<RegistrationAgreementRow | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, a, y] = await Promise.all([
+      const [d, a] = await Promise.all([
         documentsApi.list(studentId),
         documentsApi.listAgreements(studentId).catch(() => []),
-        documentsApi.academicYears().catch(() => []),
       ]);
       setDocs(d);
       setAgreements(a);
-      setYears(y);
-      if (!yearId) setYearId(y.find((yy) => yy.isCurrent)?.id ?? y[0]?.id ?? '');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to load documents');
     } finally {
       setLoading(false);
     }
-  }, [studentId, yearId, toast]);
+  }, [studentId, toast]);
 
   useEffect(() => {
     void load();
@@ -125,7 +148,7 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
     t(`studentProfile.docTypes.${type}`) || type.replace(/_/g, ' ');
 
   async function generate(type: DocumentType) {
-    if (type === 'ANNUAL_TUITION_CERTIFICATE' && !yearId) {
+    if (type === 'ANNUAL_TUITION_CERTIFICATE' && !certYear) {
       toast.error(t('studentProfile.selectYear'));
       return;
     }
@@ -135,9 +158,7 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
         type,
         studentId,
         language,
-        ...(type === 'ANNUAL_TUITION_CERTIFICATE'
-          ? { academicYearId: yearId, includeKinds: [...includeKinds] }
-          : {}),
+        ...(type === 'ANNUAL_TUITION_CERTIFICATE' ? { year: certYear } : {}),
       });
       toast.success(t('studentProfile.documentGenerated'));
       await load();
@@ -148,17 +169,50 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
     }
   }
 
-  async function regenerateAgreement(enrollmentId: string) {
-    setBusy('agreement');
+  async function regenerateAgreement(agreement: RegistrationAgreementRow) {
+    await withBusy(`regen-${agreement.id}`, async () => {
+      await documentsApi.generateAgreement(agreement.enrollmentId, agreementLang);
+      toast.success(t('studentProfile.agreementRegenerated'));
+      await load();
+    });
+  }
+
+  function openSign(agreement: RegistrationAgreementRow, replace: boolean) {
+    setSignReplace(replace);
+    setSignForm({ signedBy: '', signedAt: '', file: null });
+    setSignAgreement(agreement);
+  }
+
+  async function submitSigned() {
+    if (!signAgreement || !signForm.file) {
+      toast.error(t('studentProfile.selectFile'));
+      return;
+    }
+    setSigning(true);
     try {
-      await documentsApi.generateAgreement(enrollmentId, language);
-      toast.success(t('studentProfile.documentGenerated'));
+      await documentsApi.uploadSignedAgreement(signAgreement.id, signForm.file, {
+        ...(signForm.signedBy.trim() ? { signedBy: signForm.signedBy.trim() } : {}),
+        ...(signForm.signedAt ? { signedAt: signForm.signedAt } : {}),
+        replace: signReplace,
+      });
+      toast.success(t('studentProfile.signedUploaded'));
+      setSignAgreement(null);
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Generation failed');
+      toast.error(e instanceof Error ? e.message : 'Upload failed');
     } finally {
-      setBusy(null);
+      setSigning(false);
     }
+  }
+
+  async function confirmDeleteSigned() {
+    if (!deleteSignedFor) return;
+    await withBusy(`del-signed-${deleteSignedFor.id}`, async () => {
+      await documentsApi.deleteSignedAgreement(deleteSignedFor.id);
+      toast.success(t('studentProfile.signedDeleted'));
+      setDeleteSignedFor(null);
+      await load();
+    });
   }
 
   async function withBusy(key: string, fn: () => Promise<unknown>) {
@@ -233,20 +287,28 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
     );
   }
 
-  const toggleKind = (k: FeeItemKind) =>
-    setIncludeKinds((prev) => {
-      const next = new Set(prev);
-      if (next.has(k)) next.delete(k);
-      else next.add(k);
-      return next;
-    });
-
   return (
     <div className="space-y-6">
       {/* Registration Agreement (legal commitment, auto-generated at registration) */}
       <Card>
         <CardHeader>
-          <CardTitle>{t('studentProfile.docTypes.REGISTRATION_AGREEMENT')}</CardTitle>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <CardTitle>{t('studentProfile.docTypes.REGISTRATION_AGREEMENT')}</CardTitle>
+            {canGenerateAgreement && agreements.length > 0 ? (
+              <Field label={t('studentProfile.agreementLanguage')}>
+                <Select
+                  value={agreementLang}
+                  onChange={(e) => setAgreementLang(e.target.value as DocumentLanguage)}
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l} value={l}>
+                      {l}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {agreements.length === 0 ? (
@@ -258,10 +320,11 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
               <THead>
                 <TR>
                   <TH>{t('studentProfile.agreementNo')}</TH>
-                  <TH>{t('studentProfile.version')}</TH>
                   <TH>{t('common.status')}</TH>
+                  <TH>{t('studentProfile.createdAt')}</TH>
+                  <TH className="text-end">{t('studentProfile.printed')}</TH>
+                  <TH>{t('studentProfile.signed')}</TH>
                   <TH className="text-end">{t('finance.amount')}</TH>
-                  <TH>{t('studentProfile.generatedAt')}</TH>
                   <TH className="text-end">{t('common.actions')}</TH>
                 </TR>
               </THead>
@@ -269,20 +332,38 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                 {agreements.map((a) => (
                   <TR key={a.id}>
                     <TD className="font-mono text-xs">AGR-{docNo(a.agreementNo)}</TD>
-                    <TD className="font-mono text-xs">v{a.version}</TD>
                     <TD>
-                      <Badge
-                        tone={
-                          a.status === 'COMMITTED' || a.status === 'SIGNED' ? 'success' : 'muted'
-                        }
-                      >
-                        {a.status}
+                      <Badge tone={AGREEMENT_TONE[a.effectiveStatus] ?? 'muted'}>
+                        {a.effectiveStatus}
                       </Badge>
                     </TD>
-                    <TD className="text-end font-mono">{Number(a.grandTotal).toFixed(3)}</TD>
                     <TD className="whitespace-nowrap font-mono text-xs">{dateStr(a.createdAt)}</TD>
+                    <TD className="text-end font-mono text-xs">
+                      {a.printedCount}
+                      {a.lastPrintedAt ? (
+                        <span className="block text-[10px] text-muted-foreground">
+                          {dateStr(a.lastPrintedAt)}
+                        </span>
+                      ) : null}
+                    </TD>
+                    <TD className="text-xs">
+                      {a.hasSigned ? (
+                        <>
+                          <span className="font-mono">{dateStr(a.signedAt)}</span>
+                          {a.signedBy ? <span className="block">{a.signedBy}</span> : null}
+                          {a.signedUploadedByName ? (
+                            <span className="block text-[10px] text-muted-foreground">
+                              {t('studentProfile.uploadedBy')}: {a.signedUploadedByName}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TD>
+                    <TD className="text-end font-mono">{Number(a.grandTotal).toFixed(3)}</TD>
                     <TD className="text-end">
-                      <div className="flex justify-end gap-1">
+                      <div className="flex flex-wrap justify-end gap-1">
                         {a.documentId ? (
                           <>
                             <Button
@@ -311,14 +392,52 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                             </Button>
                           </>
                         ) : null}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={busy !== null}
-                          onClick={() => void regenerateAgreement(a.enrollmentId)}
-                        >
-                          {t('studentProfile.newVersion')}
-                        </Button>
+                        {a.hasSigned ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy !== null}
+                            onClick={() =>
+                              void withBusy(`view-signed-${a.id}`, () =>
+                                documentsApi.viewSignedAgreement(a.id),
+                              )
+                            }
+                          >
+                            {t('studentProfile.viewSigned')}
+                          </Button>
+                        ) : null}
+                        {canGenerateAgreement ? (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={busy !== null}
+                            onClick={() => void regenerateAgreement(a)}
+                          >
+                            {busy === `regen-${a.id}`
+                              ? t('common.recording')
+                              : t('studentProfile.regenerateAgreement')}
+                          </Button>
+                        ) : null}
+                        {!a.hasSigned && canUploadSigned ? (
+                          <Button size="sm" variant="ghost" onClick={() => openSign(a, false)}>
+                            {t('studentProfile.uploadSigned')}
+                          </Button>
+                        ) : null}
+                        {a.hasSigned && canReplaceSigned ? (
+                          <Button size="sm" variant="ghost" onClick={() => openSign(a, true)}>
+                            {t('studentProfile.replaceSigned')}
+                          </Button>
+                        ) : null}
+                        {a.hasSigned && canDeleteSigned ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-danger/40 text-danger hover:bg-danger/10"
+                            onClick={() => setDeleteSignedFor(a)}
+                          >
+                            {t('common.delete')}
+                          </Button>
+                        ) : null}
                       </div>
                     </TD>
                   </TR>
@@ -348,33 +467,19 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
                 ))}
               </Select>
             </Field>
-            <Field label={t('studentProfile.academicYear')}>
-              <Select value={yearId} onChange={(e) => setYearId(e.target.value)}>
-                <option value="">—</option>
-                {years.map((y) => (
-                  <option key={y.id} value={y.id}>
-                    {y.name}
+            {/* Calendar year (1 Jan – 31 Dec) certified by the Annual Tuition Certificate. */}
+            <Field label={t('studentProfile.tuitionYear')}>
+              <Select
+                value={String(certYear)}
+                onChange={(e) => setCertYear(Number(e.target.value))}
+              >
+                {CERT_YEARS.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
                   </option>
                 ))}
               </Select>
             </Field>
-          </div>
-
-          {/* Annual Tuition Certificate optional categories */}
-          <div>
-            <div className="mb-1 font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-              {t('studentProfile.includeCategories')}
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {OPTIONAL_KINDS.map((k) => (
-                <Checkbox
-                  key={k}
-                  label={k}
-                  checked={includeKinds.has(k)}
-                  onChange={() => toggleKind(k)}
-                />
-              ))}
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -581,6 +686,81 @@ export function DocumentsSection({ studentId }: { studentId: string }) {
             </TBody>
           </Table>
         )}
+      </Dialog>
+
+      {/* Upload / replace signed agreement dialog */}
+      <Dialog
+        open={signAgreement !== null}
+        onClose={() => setSignAgreement(null)}
+        title={signReplace ? t('studentProfile.replaceSigned') : t('studentProfile.uploadSigned')}
+        description={signAgreement ? `AGR-${docNo(signAgreement.agreementNo)}` : ''}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setSignAgreement(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              disabled={signing || !signForm.file}
+              onClick={() => void submitSigned()}
+            >
+              {signing ? t('common.recording') : t('studentProfile.upload')}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <Field label={t('studentProfile.signedFile')}>
+            <input
+              ref={fileRef}
+              type="file"
+              accept={ACCEPT_SIGNED}
+              className="block w-full text-sm"
+              onChange={(e) => setSignForm({ ...signForm, file: e.target.files?.[0] ?? null })}
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {t('studentProfile.signedFileHint')}
+            </p>
+          </Field>
+          <Field label={t('studentProfile.signedByName')}>
+            <Input
+              value={signForm.signedBy}
+              onChange={(e) => setSignForm({ ...signForm, signedBy: e.target.value })}
+            />
+          </Field>
+          <Field label={t('studentProfile.signedDate')}>
+            <Input
+              type="date"
+              value={signForm.signedAt}
+              onChange={(e) => setSignForm({ ...signForm, signedAt: e.target.value })}
+            />
+          </Field>
+        </div>
+      </Dialog>
+
+      {/* Delete signed agreement confirm */}
+      <Dialog
+        open={deleteSignedFor !== null}
+        onClose={() => setDeleteSignedFor(null)}
+        title={t('studentProfile.deleteSignedTitle')}
+        description={deleteSignedFor ? `AGR-${docNo(deleteSignedFor.agreementNo)}` : ''}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setDeleteSignedFor(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              className="bg-danger text-white"
+              disabled={busy !== null}
+              onClick={() => void confirmDeleteSigned()}
+            >
+              {t('common.delete')}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted-foreground">{t('studentProfile.deleteSignedConfirm')}</p>
       </Dialog>
     </div>
   );

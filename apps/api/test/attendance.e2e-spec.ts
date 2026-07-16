@@ -114,11 +114,17 @@ describe('Attendance (e2e)', () => {
   }
 
   async function createStudent(firstNameEn: string): Promise<{ id: string; qrCode: string }> {
+    // The Student API is identity-only — placement is year-scoped on the Enrollment (ADR-0001).
     const res = await http()
       .post('/api/v1/students')
       .set(auth(adminToken))
-      .send({ firstNameEn, lastNameEn: 'X', firstNameAr: 'س', lastNameAr: 'x', sectionId })
+      .send({ firstNameEn, lastNameEn: 'X', firstNameAr: 'س', lastNameAr: 'x' })
       .expect(201);
+    // Attendance still reads the deprecated Student.sectionId shim (a Phase-B reader). Populate it
+    // directly here — the read-through cache that createEnrollmentRowTx/EnrollmentChange keep in sync.
+    await withPlatform(prisma, (tx) =>
+      tx.student.update({ where: { id: res.body.id as string }, data: { sectionId } }),
+    );
     return { id: res.body.id, qrCode: res.body.qrCode };
   }
 

@@ -38,6 +38,14 @@ export class ParentService {
 
   async remove(id: string): Promise<void> {
     await this.get(id);
+    // A guardian still linked to a student cannot be deleted — the student would be left without a
+    // guardian. Staff must transfer/reassign the student(s) to another guardian first.
+    const linked = await this.repo.countActiveStudents(id);
+    if (linked > 0) {
+      throw new ConflictException(
+        `This parent is the guardian of ${linked} student(s). Reassign the student(s) to another guardian before deleting this parent.`,
+      );
+    }
     await this.repo.softDelete(id);
   }
 }

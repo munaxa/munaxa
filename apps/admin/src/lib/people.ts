@@ -15,6 +15,8 @@ export interface Student {
   thirdNameAr?: string | null;
   nationalId?: string | null;
   moeStudentNumber?: string | null;
+  /** Internal, school-generated student number (Decision 6) — permanent, distinct from National/MoE. */
+  studentNumber?: string | null;
   sectionId?: string | null;
   /** Home area (geographic); set during registration. Drives Fleet's Area Planning. */
   areaId?: string | null;
@@ -25,6 +27,20 @@ export interface Student {
   enrollmentDate?: string | null;
   qrCode: string;
   status: string;
+}
+
+/** One immutable row of a student's Enrollment History (per academic year). */
+export interface EnrollmentHistoryRow {
+  id: string;
+  admissionStatus: string;
+  status: string;
+  admissionDate: string | null;
+  withdrawalDate: string | null;
+  graduationDate: string | null;
+  reason: string | null;
+  grade: { id: string; nameEn: string; nameAr: string } | null;
+  section: { id: string; name: string } | null;
+  academicYear: { id: string; name: string; startDate: string; status: string } | null;
 }
 
 /** Full English name from its parts: given · father · grandfather · family. */
@@ -103,6 +119,14 @@ export const studentsApi = {
   get: (id: string) => authFetch(`/students/${id}`).then((r) => json<Student>(r)),
   bySection: (sectionId: string) =>
     authFetch(`/students?sectionId=${sectionId}`).then((r) => json<Student[]>(r)),
+  // Immutable per-year Enrollment History (year · grade · status · dates).
+  enrollmentHistory: (id: string) =>
+    authFetch(`/students/${id}/enrollment-history`).then((r) => json<EnrollmentHistoryRow[]>(r)),
+  // Whether the student can be hard-deleted (else the UI offers Withdraw / Cancel Admission).
+  deletability: (id: string) =>
+    authFetch(`/students/${id}/deletability`).then((r) =>
+      json<{ deletable: boolean; blockers: string[] }>(r),
+    ),
   create: (data: {
     firstNameEn: string;
     lastNameEn: string;

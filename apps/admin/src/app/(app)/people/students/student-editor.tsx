@@ -12,10 +12,13 @@ import {
   type UpsertVaccineInput,
 } from '@/lib/people';
 import { type Section } from '@/lib/structure';
-import { type Area } from '@/lib/areas';
 import { Badge, Button, Checkbox, Field, Input, Select } from '@/components/ui';
 
+// Full set — used by the students-list status filter.
 export const STUDENT_STATUSES = ['ACTIVE', 'INACTIVE', 'GRADUATED', 'WITHDRAWN'];
+// Manually settable states only. Terminal participation states (WITHDRAWN/GRADUATED) are DERIVED
+// from the enrollment lifecycle and must be reached via Withdraw / Year-End, never set directly here.
+export const EDITABLE_STUDENT_STATUSES = ['ACTIVE', 'INACTIVE'];
 export const GENDERS = ['MALE', 'FEMALE'];
 
 /** Grade + section selectors. Grades are derived from the sections list; picking a grade filters
@@ -79,20 +82,19 @@ export function GradeSectionFields({
 
 export function StudentEditor({
   student,
-  sections,
-  areas,
   onClose,
   onSaved,
 }: {
   student: Student;
-  sections: Section[];
-  areas: Area[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
   const toast = useToast();
   const alert = useAlert();
+  // Identity only. Grade, section, classroom, academic year, fee plan and transport are year-scoped
+  // placement — they live on the Enrollment and are changed via the Current Enrollment panel, never
+  // by editing the Student (Decisions 4 & 13).
   const [form, setForm] = useState<UpdateStudentInput>({
     firstNameEn: student.firstNameEn,
     lastNameEn: student.lastNameEn,
@@ -105,9 +107,6 @@ export function StudentEditor({
     nationalId: student.nationalId ?? '',
     moeStudentNumber: student.moeStudentNumber ?? '',
     gender: student.gender ?? '',
-    sectionId: student.sectionId ?? '',
-    areaId: student.areaId ?? '',
-    transportRequested: student.transportRequested ?? false,
     status: student.status,
   });
   const [saving, setSaving] = useState(false);
@@ -116,11 +115,9 @@ export function StudentEditor({
     e.preventDefault();
     setSaving(true);
     try {
-      // Drop empty enum/uuid fields — the API rejects "" for gender/section/area.
+      // Drop empty enum fields — the API rejects "" for gender.
       const payload: UpdateStudentInput = { ...form };
       if (!payload.gender) delete payload.gender;
-      if (!payload.sectionId) delete payload.sectionId;
-      if (!payload.areaId) delete payload.areaId;
       await studentsApi.update(student.id, payload);
       toast.success(t('people.studentUpdated'));
       await onSaved();
@@ -132,13 +129,6 @@ export function StudentEditor({
   }
 
   const set = (patch: Partial<UpdateStudentInput>) => setForm((f) => ({ ...f, ...patch }));
-
-  // When the registrar picks a different area that maps to a route, surface it — but the
-  // student is NOT moved automatically (the update only persists areaId). Reassign in Fleet.
-  const originalAreaId = student.areaId ?? '';
-  const pickedArea = areas.find((a) => a.id === form.areaId);
-  const areaChangedRoute =
-    form.areaId && form.areaId !== originalAreaId ? (pickedArea?.route?.name ?? null) : null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
@@ -186,10 +176,11 @@ export function StudentEditor({
               required
             />
           </Field>
-          <Field label={t('people.nationalId')}>
+          <Field label={`${t('people.nationalId')} *`}>
             <Input
               value={form.nationalId ?? ''}
               onChange={(e) => set({ nationalId: e.target.value })}
+              required
             />
           </Field>
           <Field label={t('people.moeNumber')}>
@@ -208,51 +199,30 @@ export function StudentEditor({
               ))}
             </Select>
           </Field>
-          <GradeSectionFields
-            sections={sections}
-            sectionId={form.sectionId ?? ''}
-            onChange={(sectionId) => set({ sectionId })}
-          />
           <Field label={t('common.status')}>
-            <Select
-              value={form.status ?? 'ACTIVE'}
-              onChange={(e) => set({ status: e.target.value })}
-            >
-              {STUDENT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Select>
+            {EDITABLE_STUDENT_STATUSES.includes(form.status ?? 'ACTIVE') ? (
+              <Select
+                value={form.status ?? 'ACTIVE'}
+                onChange={(e) => set({ status: e.target.value })}
+              >
+                {EDITABLE_STUDENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              // Terminal (derived) status — shown read-only; changed only via Withdraw / Year-End.
+              <>
+                <Select value={form.status ?? ''} disabled>
+                  <option value={form.status ?? ''}>{form.status}</option>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('studentProfile.statusLifecycleHint')}
+                </p>
+              </>
+            )}
           </Field>
-
-          {/* Transportation demand — mirrors the registration fields. Feeds Fleet's
-              Area Planning (areaId) and Unassigned queue (transportRequested). */}
-          <Field label={t('transport.table.area')}>
-            <Select value={form.areaId ?? ''} onChange={(e) => set({ areaId: e.target.value })}>
-              <option value="">—</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                  {a.active ? '' : ` (${t('transport.area.inactive')})`}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label=" ">
-            <Checkbox
-              label={t('transport.editStudent.transportRequested')}
-              checked={form.transportRequested ?? false}
-              onChange={(e) => set({ transportRequested: e.target.checked })}
-            />
-          </Field>
-          {/* Area changed → surface the new route but never silently move the student. */}
-          {areaChangedRoute ? (
-            <p className="col-span-full rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-              {t('transport.editStudent.areaChanged')} {areaChangedRoute}.{' '}
-              {t('transport.editStudent.reassignHint')}
-            </p>
-          ) : null}
 
           <div className="col-span-full flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose}>

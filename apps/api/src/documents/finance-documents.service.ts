@@ -1,20 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { DocumentLanguage, DocumentType, FeeItemKind } from '@prisma/client';
+import { DocumentLanguage, DocumentType } from '@prisma/client';
 import { StatementService, type StudentStatement } from '../finance/statement/statement.service';
 import { DocumentRepository } from './document.repository';
 import type { BuiltDocument, DocumentParams } from './document.types';
 import type { DocumentLayout, FieldRow, LayoutBlock } from './pdf/document-layout';
-import { feeKindLabel } from './templates/fee-labels';
-import { allocatePaidAcrossCategories } from './templates/tuition-calc';
 import { L, amount, dateStr, docNumber, fullNameAr, fullNameEn, money } from './templates/util';
 
 type StudentCtx = NonNullable<Awaited<ReturnType<DocumentRepository['studentContext']>>>;
-
-export interface TuitionCertificateOptions {
-  academicYearId: string;
-  /** Optional categories to include alongside tuition (tuition is always included). */
-  includeKinds?: FeeItemKind[];
-}
 
 /**
  * Finance Documents (Part 2 + Part 6). Each builder collects data from the existing billing ledger /
@@ -42,16 +34,9 @@ export class FinanceDocumentsService {
         if (!params.paymentId) throw new BadRequestException('paymentId is required for a receipt');
         return this.paymentReceipt(params.paymentId, language);
       case DocumentType.ANNUAL_TUITION_CERTIFICATE:
-        if (!params.studentId || !params.academicYearId)
-          throw new BadRequestException('studentId and academicYearId are required');
-        return this.annualTuitionCertificate(
-          params.studentId,
-          {
-            academicYearId: params.academicYearId,
-            ...(params.includeKinds ? { includeKinds: params.includeKinds } : {}),
-          },
-          language,
-        );
+        if (!params.studentId || !params.year)
+          throw new BadRequestException('studentId and year are required');
+        return this.annualTuitionCertificate(params.studentId, params.year, language);
       case DocumentType.OUTSTANDING_BALANCE_CERTIFICATE:
         return this.outstandingBalanceCertificate(this.requireStudentId(params), language);
       case DocumentType.CLEARANCE_CERTIFICATE:
@@ -79,8 +64,9 @@ export class FinanceDocumentsService {
     const parent = ctx.parentLinks[0]?.parent ?? null;
     const grade = ctx.section?.grade;
     return [
-      { label: L(language, 'Student (EN)', 'الطالب (إنجليزي)'), value: fullNameEn(ctx) },
-      { label: L(language, 'Student (AR)', 'الطالب (عربي)'), value: fullNameAr(ctx) },
+      // Script-matched labels (no language suffix): the label's own script signals the name's language.
+      { label: 'Student', value: fullNameEn(ctx) },
+      { label: 'الطالب', value: fullNameAr(ctx) },
       { label: L(language, 'National ID', 'الرقم الوطني'), value: ctx.nationalId ?? '—' },
       {
         label: L(language, 'Grade / Section', 'الصف / الشعبة'),
@@ -201,86 +187,57 @@ export class FinanceDocumentsService {
   }
 
   // ── Annual Tuition Certificate (Part 6) ─────────────────────────────────────
+  /**
+   * Certifies the WHOLE amount the family actually paid to the school during a calendar year
+   * (1 Jan … 31 Dec) as a single figure — never separated by fee category. This is the annual/tax
+   * certificate, so the period is a calendar year (not the academic year) and the amount is every
+   * verified payment received in that window.
+   */
   async annualTuitionCertificate(
     studentId: string,
-    options: TuitionCertificateOptions,
+    year: number,
     language: DocumentLanguage,
   ): Promise<BuiltDocument> {
     const ctx = await this.requireStudent(studentId);
-    const enrollment = await this.repo.yearEnrollment(studentId, options.academicYearId);
-    if (!enrollment?.quote) {
-      throw new BadRequestException(
-        'No enrollment/quote found for this student in the selected year',
-      );
-    }
-    // Net charged per category from the immutable quote (gross − discounts).
-    const categories = enrollment.quote.items.map((it) => ({
-      kind: it.kind,
-      net: it.amount.minus(it.discountAmount).toFixed(3),
-    }));
-    // Paid toward the year: verified allocations to the installments of this enrollment's charges.
-    const paid = await this.repo.paidForEnrollment(enrollment.id);
+    const paid = await this.repo.paidInCalendarYear(studentId, year);
 
-    const selected = new Set(options.includeKinds ?? []);
-    const { allocations, grandTotal } = allocatePaidAcrossCategories(categories, paid, selected);
+    const periodEn = `1 January ${year} – 31 December ${year}`;
+    const periodAr = `1 يناير ${year} – 31 ديسمبر ${year}`;
 
     const snapshot = {
-      academicYear: enrollment.academicYear?.name ?? '—',
+      year,
+      period: L(language, periodEn, periodAr),
       student: fullNameEn(ctx),
       parent: ctx.parentLinks[0]?.parent ? fullNameEn(ctx.parentLinks[0].parent) : null,
       paid,
-      grandTotal,
-      lines: allocations.map((a) => ({
-        category: feeKindLabel(a.kind, language),
-        net: a.net,
-        paid: a.paid,
-      })),
     };
 
     const layout: DocumentLayout = {
       title: L(language, 'Annual Tuition Certificate', 'شهادة الرسوم الدراسية السنوية'),
       subtitle: L(
         language,
-        'Certifies the amount of tuition (and selected fees) actually paid in the stated academic year.',
-        'تشهد بقيمة الرسوم الدراسية (والرسوم المختارة) المدفوعة فعلياً في العام الدراسي المذكور.',
+        `Certifies the total amount paid to the school during the calendar year ${year}.`,
+        `تشهد بإجمالي المبلغ المدفوع للمدرسة خلال السنة الميلادية ${year}.`,
       ),
       language,
       meta: [
-        { label: L(language, 'Academic Year', 'العام الدراسي'), value: snapshot.academicYear },
+        { label: L(language, 'Year', 'السنة'), value: String(year) },
+        { label: L(language, 'Period', 'الفترة'), value: L(language, periodEn, periodAr) },
         this.metaNow(language),
       ],
       blocks: [
         { kind: 'fields', columns: 2, rows: this.studentFields(ctx, language) },
         {
-          kind: 'heading',
-          text: L(language, 'Amounts Paid by Category', 'المبالغ المدفوعة حسب البند'),
-        },
-        {
-          kind: 'table',
-          columns: [
-            { header: L(language, 'Category', 'البند'), key: 'category', width: 2 },
-            { header: L(language, 'Net Charged', 'الصافي المستحق'), key: 'net', align: 'right' },
-            { header: L(language, 'Paid', 'المدفوع'), key: 'paid', align: 'right' },
-          ],
-          rows: snapshot.lines.map((l) => ({
-            category: l.category,
-            net: amount(l.net),
-            paid: amount(l.paid),
-          })),
-          totalsRow: {
-            category: L(language, 'Total Paid', 'إجمالي المدفوع'),
-            net: '',
-            paid: amount(snapshot.grandTotal),
-          },
+          kind: 'paragraph',
+          text: L(
+            language,
+            `This is to certify that the total amount paid to the school for the above-named student during the period ${periodEn} is ${money(paid)}.`,
+            `نشهد بأن إجمالي المبلغ المدفوع للمدرسة عن الطالب المذكور أعلاه خلال الفترة ${periodAr} هو ${money(paid)}.`,
+          ),
         },
         {
           kind: 'totals',
-          rows: [
-            {
-              label: L(language, 'Total Paid', 'إجمالي المدفوع'),
-              value: money(snapshot.grandTotal),
-            },
-          ],
+          rows: [{ label: L(language, 'Total Paid', 'إجمالي المدفوع'), value: money(paid) }],
         },
         {
           kind: 'signatures',
@@ -298,7 +255,6 @@ export class FinanceDocumentsService {
       layout,
       studentId,
       parentId: ctx.parentLinks[0]?.parent?.id ?? null,
-      academicYearId: options.academicYearId,
       dataSnapshot: snapshot,
     };
   }

@@ -3,7 +3,12 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger'
 import { Permission } from '@munaxa/domain';
 import { RequirePermissions } from '../../auth/decorators/require-permissions.decorator';
 import { PaymentService } from './payment.service';
-import { CreatePaymentDto, PresignReceiptDto, RejectPaymentDto } from './payment.dto';
+import {
+  CreateFinancialAccountPaymentDto,
+  CreatePaymentDto,
+  PresignReceiptDto,
+  RejectPaymentDto,
+} from './payment.dto';
 
 @ApiTags('finance')
 @ApiBearerAuth()
@@ -55,5 +60,25 @@ export class PaymentController {
   @ApiQuery({ name: 'studentId', required: true })
   list(@Query('studentId') studentId: string) {
     return this.service.listForStudent(studentId);
+  }
+
+  @Post('family/:financialAccountId')
+  @RequirePermissions(Permission.RECEIPT_UPLOAD)
+  @ApiOperation({
+    summary:
+      'Record a single family payment against a financial account (auto-allocated on verify)',
+  })
+  createForFamily(
+    @Param('financialAccountId') financialAccountId: string,
+    @Body() dto: CreateFinancialAccountPaymentDto,
+  ) {
+    return this.service.createForFinancialAccount(financialAccountId, dto);
+  }
+
+  @Get('family/:financialAccountId')
+  @RequirePermissions(Permission.FINANCE_READ)
+  @ApiOperation({ summary: 'Family payment history for a financial account' })
+  listForFamily(@Param('financialAccountId') financialAccountId: string) {
+    return this.service.listForFinancialAccount(financialAccountId);
   }
 }

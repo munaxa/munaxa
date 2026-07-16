@@ -18,7 +18,13 @@ import { FinanceDocumentsService } from './finance-documents.service';
 import { RegistrationAgreementService } from './registration-agreement.service';
 import { DocumentEngineService } from './document-engine.service';
 import type { AccessContext, DocumentParams } from './document.types';
-import type { EmailDocumentDto, GenerateAgreementDto, GenerateDocumentDto } from './documents.dto';
+import type {
+  ConfirmSignedAgreementDto,
+  EmailDocumentDto,
+  GenerateAgreementDto,
+  GenerateDocumentDto,
+  PresignSignedAgreementDto,
+} from './documents.dto';
 import { docNumber } from './templates/util';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -41,7 +47,7 @@ export class DocumentsService {
   ) {}
 
   /** Generate (and persist per strategy) a finance document. Registration agreements use their own
-   * versioned flow (POST /documents/agreements). */
+   * idempotent flow (POST /documents/agreements) — one immutable agreement per enrollment. */
   async generate(dto: GenerateDocumentDto): Promise<DocumentMeta> {
     if (dto.type === DocumentType.REGISTRATION_AGREEMENT) {
       throw new BadRequestException(
@@ -54,7 +60,7 @@ export class DocumentsService {
       ...(dto.studentId ? { studentId: dto.studentId } : {}),
       ...(dto.paymentId ? { paymentId: dto.paymentId } : {}),
       ...(dto.academicYearId ? { academicYearId: dto.academicYearId } : {}),
-      ...(dto.includeKinds ? { includeKinds: dto.includeKinds } : {}),
+      ...(dto.year ? { year: dto.year } : {}),
     };
     const built = await this.finance.build(params);
     return this.engine.persist(built, params);
@@ -76,6 +82,34 @@ export class DocumentsService {
 
   listAgreements(filter: { studentId?: string; enrollmentId?: string }) {
     return this.repo.listAgreements(filter);
+  }
+
+  // ── Signed (countersigned) registration agreement ──────────────────────────
+
+  presignSignedAgreement(agreementId: string, dto: PresignSignedAgreementDto) {
+    return this.agreements.presignSigned(agreementId, dto);
+  }
+
+  confirmSignedAgreement(
+    agreementId: string,
+    dto: ConfirmSignedAgreementDto,
+    mode: 'upload' | 'replace',
+    ctx?: AccessContext,
+  ) {
+    return this.agreements.confirmSigned(agreementId, dto, mode, ctx);
+  }
+
+  viewSignedAgreement(agreementId: string, ctx?: AccessContext) {
+    return this.agreements.viewSigned(agreementId, ctx);
+  }
+
+  /** Stream the signed copy's bytes back through the API (works with or without object storage). */
+  streamSignedAgreement(agreementId: string, ctx?: AccessContext) {
+    return this.agreements.streamSigned(agreementId, ctx);
+  }
+
+  deleteSignedAgreement(agreementId: string, ctx?: AccessContext) {
+    return this.agreements.deleteSigned(agreementId, ctx);
   }
 
   academicYears() {

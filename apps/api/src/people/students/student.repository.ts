@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { ParentStudent, Prisma, Student, StudentStatus, StudentVaccine } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
+import { allocateStudentNumber } from './student-number';
 
 /** A parent↔student link enriched with the parent's contact details. */
 export type ParentLink = Prisma.ParentStudentGetPayload<{ include: { parent: true } }>;
@@ -8,7 +9,11 @@ export type ParentLink = Prisma.ParentStudentGetPayload<{ include: { parent: tru
 @Injectable()
 export class StudentRepository extends TenantRepository {
   create(data: Omit<Prisma.StudentUncheckedCreateInput, 'tenantId'>): Promise<Student> {
-    return this.run((tx, tenantId) => tx.student.create({ data: { ...data, tenantId } }));
+    return this.run(async (tx, tenantId) => {
+      // Every student gets a permanent internal Student Number (Decision 6), unless one is supplied.
+      const studentNumber = data.studentNumber ?? (await allocateStudentNumber(tx, tenantId));
+      return tx.student.create({ data: { ...data, tenantId, studentNumber } });
+    });
   }
 
   /** Create many students in one transaction; returns the created rows. */
@@ -16,7 +21,12 @@ export class StudentRepository extends TenantRepository {
     rows: Array<Omit<Prisma.StudentUncheckedCreateInput, 'tenantId'>>,
   ): Promise<Student[]> {
     return this.run((tx, tenantId) =>
-      Promise.all(rows.map((data) => tx.student.create({ data: { ...data, tenantId } }))),
+      Promise.all(
+        rows.map(async (data) => {
+          const studentNumber = data.studentNumber ?? (await allocateStudentNumber(tx, tenantId));
+          return tx.student.create({ data: { ...data, tenantId, studentNumber } });
+        }),
+      ),
     );
   }
 
@@ -48,6 +58,7 @@ export class StudentRepository extends TenantRepository {
                   { lastNameAr: contains },
                   { nationalId: contains },
                   { moeStudentNumber: contains },
+                  { studentNumber: contains },
                 ],
               }
             : {}),
@@ -68,6 +79,75 @@ export class StudentRepository extends TenantRepository {
 
   softDelete(id: string): Promise<Student> {
     return this.run((tx) => tx.student.update({ where: { id }, data: { deletedAt: new Date() } }));
+  }
+
+  /**
+   * Records that block hard deletion (spec: delete only a draft student with NO dependent records;
+   * otherwise Withdraw or Cancel Admission). Any non-cancelled/non-draft enrollment, or any academic /
+   * finance / document / transport / clinic / card record, blocks. Returns the list of blocker kinds.
+   */
+  deletionBlockers(id: string): Promise<string[]> {
+    return this.run(async (tx) => {
+      const [
+        enrollments,
+        attendance,
+        grades,
+        behavior,
+        charges,
+        payments,
+        documents,
+        transport,
+        clinic,
+        cards,
+      ] = await Promise.all([
+        tx.enrollment.count({
+          where: { studentId: id, admissionStatus: { notIn: ['CANCELLED', 'DRAFT'] } },
+        }),
+        tx.studentAttendance.count({ where: { studentId: id } }),
+        tx.gradeRecord.count({ where: { studentId: id } }),
+        tx.behaviorLog.count({ where: { studentId: id } }),
+        tx.charge.count({ where: { studentId: id } }),
+        tx.payment.count({ where: { studentId: id } }),
+        tx.document.count({ where: { studentId: id } }),
+        tx.studentBusAssignment.count({ where: { studentId: id } }),
+        tx.clinicVisit.count({ where: { studentId: id } }),
+        tx.studentCard.count({ where: { studentId: id } }),
+      ]);
+      const blockers: string[] = [];
+      if (enrollments > 0) blockers.push('enrollments');
+      if (attendance > 0) blockers.push('attendance');
+      if (grades > 0) blockers.push('grades');
+      if (behavior > 0) blockers.push('behavior');
+      if (charges > 0) blockers.push('finance');
+      if (payments > 0) blockers.push('payments');
+      if (documents > 0) blockers.push('documents');
+      if (transport > 0) blockers.push('transport');
+      if (clinic > 0) blockers.push('clinic');
+      if (cards > 0) blockers.push('cards');
+      return blockers;
+    });
+  }
+
+  /** Immutable per-year Enrollment History (Decisions 12 & 13), newest year first. */
+  enrollmentHistory(id: string) {
+    return this.run((tx) =>
+      tx.enrollment.findMany({
+        where: { studentId: id },
+        select: {
+          id: true,
+          admissionStatus: true,
+          status: true,
+          admissionDate: true,
+          withdrawalDate: true,
+          graduationDate: true,
+          reason: true,
+          grade: { select: { id: true, nameEn: true, nameAr: true } },
+          section: { select: { id: true, name: true } },
+          academicYear: { select: { id: true, name: true, startDate: true, status: true } },
+        },
+        orderBy: { academicYear: { startDate: 'desc' } },
+      }),
+    );
   }
 
   sectionExists(sectionId: string): Promise<boolean> {

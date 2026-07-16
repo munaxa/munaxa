@@ -51,8 +51,14 @@ export type LayoutBlock =
       columns: TableColumn[];
       rows: Array<Record<string, string | number>>;
       totalsRow?: Record<string, string | number>;
+      /** Tighten row height + vertical padding to save vertical space (e.g. a long payment schedule). */
+      dense?: boolean;
     }
   | { kind: 'totals'; rows: FieldRow[] }
+  // Mirrored bilingual legal clauses: English numbered list on the left, Arabic numbered list on the
+  // right. When only one side is present it fills the width as a single numbered column (LTR for `en`,
+  // RTL for `ar`) — so an English-only or Arabic-only document collapses to one column automatically.
+  | { kind: 'legal'; en: string[]; ar: string[] }
   | { kind: 'signatures'; blocks: Array<{ label: string; name?: string }> }
   | { kind: 'spacer'; size?: number };
 
@@ -66,4 +72,7 @@ export interface DocumentLayout {
   /** Overrides the branding footer note for this document. */
   footer?: string;
   language?: DocumentLanguage;
+  /** Type/spacing density. 'compact' shrinks the type ramp and spacing so a dense document fits fewer
+   * pages (e.g. a single-page commitment). Omitted / 'default' renders at the standard scale. */
+  density?: 'default' | 'compact';
 }

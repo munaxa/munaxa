@@ -1,6 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { DocumentLanguage, DocumentType, FeeItemKind } from '@prisma/client';
-import { IsArray, IsBoolean, IsEmail, IsEnum, IsOptional, IsString, IsUUID } from 'class-validator';
+import { DocumentLanguage, DocumentType } from '@prisma/client';
+import {
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEmail,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 /** Generate a finance document for a student. `type` selects the template. */
 export class GenerateDocumentDto {
@@ -11,18 +24,19 @@ export class GenerateDocumentDto {
   @IsEnum(DocumentLanguage)
   language?: DocumentLanguage;
 
-  /** Required for ANNUAL_TUITION_CERTIFICATE. */
+  /** Retained for other academic-year-scoped documents; the tuition certificate uses `year`. */
   @ApiPropertyOptional() @IsOptional() @IsUUID() academicYearId?: string;
+
+  /** Required for ANNUAL_TUITION_CERTIFICATE: the calendar year (1 Jan … 31 Dec) to certify. */
+  @ApiPropertyOptional({ example: 2026, description: 'Calendar year for the tuition certificate' })
+  @IsOptional()
+  @IsInt()
+  @Min(2000)
+  @Max(2100)
+  year?: number;
 
   /** Required for PAYMENT_RECEIPT. */
   @ApiPropertyOptional() @IsOptional() @IsUUID() paymentId?: string;
-
-  /** ANNUAL_TUITION_CERTIFICATE: optional categories to include alongside tuition. */
-  @ApiPropertyOptional({ enum: FeeItemKind, isArray: true })
-  @IsOptional()
-  @IsArray()
-  @IsEnum(FeeItemKind, { each: true })
-  includeKinds?: FeeItemKind[];
 }
 
 /** (Re)generate the registration agreement for an enrollment (creates a new version). */
@@ -32,6 +46,67 @@ export class GenerateAgreementDto {
   @IsOptional()
   @IsEnum(DocumentLanguage)
   language?: DocumentLanguage;
+}
+
+/** Pre-sign a direct-to-bucket upload for a signed registration agreement (PDF/JPG/PNG). */
+export class PresignSignedAgreementDto {
+  @ApiProperty({ example: 'signed-agreement.pdf' })
+  @IsString()
+  @MaxLength(200)
+  fileName!: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  @IsString()
+  @MaxLength(150)
+  contentType!: string;
+
+  @ApiProperty({ example: 512000, description: 'Bytes' })
+  @IsInt()
+  @Min(1)
+  @Max(15728640) // 15 MB
+  size!: number;
+}
+
+/**
+ * Confirm/record a signed registration agreement. Two mutually exclusive paths:
+ *  - Direct (default): the file bytes are sent base64-encoded in `fileData` and the API stores them
+ *    (to the bucket when S3 is configured, otherwise inline). This avoids any browser→bucket PUT.
+ *  - Presigned (legacy): the browser PUT the file straight to storage and echoes back `fileKey`.
+ */
+export class ConfirmSignedAgreementDto {
+  @ApiPropertyOptional({ description: 'The tenant-scoped storage key returned by presign.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  fileKey?: string;
+
+  @ApiPropertyOptional({ description: 'Base64-encoded file bytes (API-proxied upload path).' })
+  @IsOptional()
+  @IsString()
+  fileData?: string;
+
+  @ApiProperty({ example: 'signed-agreement.pdf' })
+  @IsString()
+  @MaxLength(200)
+  fileName!: string;
+
+  @ApiProperty({ example: 'application/pdf' })
+  @IsString()
+  @MaxLength(150)
+  contentType!: string;
+
+  @ApiPropertyOptional({ example: 512000, description: 'Bytes' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(15728640)
+  size?: number;
+
+  /** Name of the signatory (the parent who signed), recorded by staff. */
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(200) signedBy?: string;
+
+  /** The date the parent signed (YYYY-MM-DD). Defaults to the upload date. */
+  @ApiPropertyOptional() @IsOptional() @IsDateString() signedAt?: string;
 }
 
 /**

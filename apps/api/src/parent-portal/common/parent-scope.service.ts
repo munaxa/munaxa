@@ -33,6 +33,11 @@ export class ParentScopeService extends TenantRepository {
     }
   }
 
+  /** The Parent profile (id) linked to the acting user, if any (public accessor). */
+  async myParentId(): Promise<string | null> {
+    return this.currentParentId();
+  }
+
   /** The Parent profile (id) linked to the acting user, if any. */
   private async currentParentId(): Promise<string | null> {
     const userId = TenantContextStore.get()?.actorUserId;

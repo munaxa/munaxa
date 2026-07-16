@@ -7,12 +7,14 @@ import { cn } from '@munaxa/ui';
 import { logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache } from '@/lib/session';
 import { advancedApi } from '@/lib/advanced';
-import { Button } from '@munaxa/ui';
+import { academicYearsApi, type AcademicYear } from '@/lib/structure';
+import { Badge, Button } from '@munaxa/ui';
 import { Logo } from './logo';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
 import { GlobalSearch } from './global-search';
 import { useI18n } from './i18n-provider';
 import { NavIcon, type NavIconKey } from './nav-icons';
+import { usePrivacy } from './privacy-provider';
 
 interface NavItem {
   href: string;
@@ -84,12 +86,6 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'nav.section.finance',
     items: [
       { href: '/finance', labelKey: 'nav.finance', icon: 'finance', perm: 'finance:read' },
-      {
-        href: '/finance/dashboard',
-        labelKey: 'nav.financeDashboard',
-        icon: 'dashboard',
-        perm: 'finance:read',
-      },
       {
         href: '/finance/collections',
         labelKey: 'nav.collections',
@@ -183,6 +179,12 @@ const NAV_GROUPS: NavGroup[] = [
         perm: 'school:manage',
       },
       {
+        href: '/structure/academic-year',
+        labelKey: 'nav.academicYearWorkspace',
+        icon: 'academicStructure',
+        perm: 'school:manage',
+      },
+      {
         href: '/structure/academic',
         labelKey: 'nav.academicStructure',
         icon: 'academicStructure',
@@ -228,6 +230,7 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const { t } = useI18n();
+  const privacy = usePrivacy();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   // Collapsed (icon-rail) vs. expanded sidebar; persisted across sessions.
@@ -256,6 +259,8 @@ export function AppShell({
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   const held = new Set(principal.permissions);
+  // Only users who can actually see money get the Privacy Mode control.
+  const canFinance = principal.isPlatform || held.has('finance:read');
   // Fail closed: an item is visible only when the user actually holds its permission (platform
   // super-admins see everything). A user with no permissions sees no permissioned items — the
   // API enforces the same permissions server-side, so this just keeps the nav honest.
@@ -315,7 +320,7 @@ export function AppShell({
                     'group flex items-center gap-3 rounded-lg text-sm transition-colors',
                     mini ? 'justify-center px-0 py-2.5' : 'px-3 py-2',
                     active
-                      ? 'bg-accent font-medium text-accent-foreground'
+                      ? 'bg-gradient-to-r from-primary to-primary/85 font-medium text-primary-foreground shadow-sm'
                       : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                   )}
                 >
@@ -347,6 +352,15 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen">
+      {/* Aurora backdrop — subtle brand-tinted mesh behind all content (decorative). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{
+          background:
+            'radial-gradient(1200px 560px at 8% -10%, color-mix(in oklch, var(--aqua) 14%, transparent), transparent 60%), radial-gradient(1000px 520px at 100% -8%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 60%)',
+        }}
+      />
       {/* Skip link — first focusable element; jumps keyboard/SR users past the nav. */}
       <a
         href="#main-content"
@@ -449,6 +463,7 @@ export function AppShell({
           </button>
 
           <div className="ms-auto flex items-center gap-2">
+            <CurrentYearIndicator />
             <span
               className="hidden items-center gap-2 rounded-lg border border-border px-3 py-1.5 lg:flex"
               title={principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
@@ -458,6 +473,25 @@ export function AppShell({
                 {principal.tenantId}
               </span>
             </span>
+            {canFinance ? (
+              <button
+                type="button"
+                onClick={privacy.toggle}
+                aria-pressed={privacy.enabled}
+                title={privacy.enabled ? t('privacy.reveal') : t('privacy.hide')}
+                className={cn(
+                  'hidden h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors sm:flex',
+                  privacy.enabled
+                    ? 'border-primary/30 bg-primary/10 text-primary'
+                    : 'border-border text-muted-foreground hover:bg-accent',
+                )}
+              >
+                {privacy.enabled ? <EyeOffIcon /> : <EyeIcon />}
+                <span className="hidden lg:inline">
+                  {privacy.enabled ? t('privacy.on') : t('privacy.off')}
+                </span>
+              </button>
+            ) : null}
             <ThemeLocaleToggle />
             <button
               type="button"
@@ -498,6 +532,48 @@ export function AppShell({
   );
 }
 
+/**
+ * Top-bar indicator of the current (ACTIVE) Academic Year — visible across the whole Admin Portal.
+ * Falls back to a "Finish setup" link when no year is active. Read-only; never mutates anything.
+ */
+function CurrentYearIndicator() {
+  const { t } = useI18n();
+  const [year, setYear] = useState<AcademicYear | null | undefined>(undefined);
+
+  useEffect(() => {
+    academicYearsApi
+      .current()
+      .then(setYear)
+      .catch(() => setYear(null));
+  }, []);
+
+  if (year === undefined) return null; // still loading — render nothing to avoid a flash
+
+  if (!year) {
+    return (
+      <Link
+        href="/structure/academic-year"
+        className="hidden items-center gap-2 rounded-lg border border-coral/40 bg-coral/10 px-3 py-1.5 text-xs font-medium text-coral md:flex"
+        title={t('shell.noActiveYear')}
+      >
+        <span>{t('shell.noActiveYear')}</span>
+        <span className="opacity-70">· {t('shell.finishSetup')}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href="/structure/academic-year"
+      className="hidden items-center gap-2 rounded-lg border border-border px-3 py-1.5 md:flex"
+      title={t('shell.academicYear')}
+    >
+      <span className="font-mono text-xs text-muted-foreground">{year.name}</span>
+      <Badge tone="success">{t('academicYear.status.ACTIVE')}</Badge>
+    </Link>
+  );
+}
+
 /** Top-bar notifications glyph (decorative; same stroke convention as nav-icons). */
 function BellIcon() {
   return (
@@ -513,6 +589,46 @@ function BellIcon() {
       aria-hidden="true"
     >
       <path d="M6 9a6 6 0 0 1 12 0c0 5 1.5 6 1.5 6h-15S6 14 6 9M10 19a2 2 0 0 0 4 0" />
+    </svg>
+  );
+}
+
+/** Privacy Mode "on" glyph — an eye with a slash (figures hidden). */
+function EyeOffIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12s3.5-6.5 10-6.5c1.6 0 3 .4 4.2 1M22 12s-3.5 6.5-10 6.5c-1.6 0-3-.4-4.2-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />
+    </svg>
+  );
+}
+
+/** Privacy Mode "off" glyph — an open eye (figures visible). */
+function EyeIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   );
 }

@@ -128,14 +128,25 @@ export class LedgerService {
   }
 
   /**
-   * On verify, auto-allocate a payment across the account's open installments (FIFO by due date),
-   * then bank any residue as an over-payment Credit (AR-2, AR-5, BR-23, BR-24).
+   * On verify, auto-allocate a payment across the open installments (FIFO by due date), then bank
+   * any residue as an over-payment Credit (AR-2, AR-5, BR-23, BR-24).
+   *
+   * When the payment is account-scoped (`accountScoped` — the unified Financial-Account flow), the
+   * scope is the union of ALL the account's (payer's) students' open installments (cross-student FIFO
+   * — the CROSS_STUDENT seam) and the residue banks to the account credit (owned via payerId). A
+   * legacy student payment (accountScoped=false) allocates within its own student only — unchanged
+   * behaviour. The allocation policy is identical either way; only the candidate installments differ.
    */
   async allocateOnVerify(payment: Payment): Promise<void> {
     let remaining = await this.repo.unallocatedFor(payment.id);
     if (remaining.lessThanOrEqualTo(ZERO)) return;
 
-    const open = await this.repo.openInstallments(payment.studentId);
+    const open =
+      payment.accountScoped && payment.payerId
+        ? await this.repo.openInstallmentsForStudents(
+            await this.repo.studentIdsForFinancialAccount(payment.payerId),
+          )
+        : await this.repo.openInstallments(payment.studentId);
     const lines = this.fifo.allocate(
       remaining,
       open.map((o, i) => ({ id: o.id, dueDate: o.dueDate, seq: i, balance: o.balance })),
@@ -147,6 +158,62 @@ export class LedgerService {
         amount: line.amount,
       });
       remaining = remaining.minus(line.amount);
+    }
+    if (remaining.greaterThan(ZERO)) {
+      await this.repo.grantOverpaymentCredit({
+        accountId: payment.accountId,
+        payerId: payment.payerId,
+        paymentId: payment.id,
+        amount: remaining,
+      });
+    }
+  }
+
+  /**
+   * Manual allocation on verify (AR-6, account flow): apply a just-verified account payment to the
+   * installments the officer chose, instead of FIFO. Each target must be one of the account's OWN
+   * open installments (cross-student), and no line may exceed that installment's balance or the
+   * payment total; any residue banks to the account credit — identical banking to the automatic path.
+   */
+  async allocateManualOnVerify(
+    payment: Payment,
+    allocations: Array<{ installmentId: string; amount: number }>,
+  ): Promise<void> {
+    let remaining = await this.repo.unallocatedFor(payment.id);
+    const requested = allocations.reduce((s, a) => s.plus(a.amount), ZERO);
+    if (requested.greaterThan(remaining)) {
+      throw new BadRequestException(
+        `Allocation ${requested.toFixed(3)} exceeds the payment amount ${remaining.toFixed(3)}`,
+      );
+    }
+    // The installments the officer may target: this account's open installments (cross-student).
+    const open =
+      payment.accountScoped && payment.payerId
+        ? await this.repo.openInstallmentsForStudents(
+            await this.repo.studentIdsForFinancialAccount(payment.payerId),
+          )
+        : await this.repo.openInstallments(payment.studentId);
+    const balById = new Map(open.map((o) => [o.id, o.balance]));
+    for (const line of allocations) {
+      const amt = new Prisma.Decimal(line.amount);
+      if (amt.lessThanOrEqualTo(ZERO)) continue;
+      const balance = balById.get(line.installmentId);
+      if (balance === undefined) {
+        throw new BadRequestException(
+          `Installment ${line.installmentId} is not an open installment of this account`,
+        );
+      }
+      if (amt.greaterThan(balance)) {
+        throw new BadRequestException(
+          `Allocation ${amt.toFixed(3)} exceeds the installment balance ${balance.toFixed(3)}`,
+        );
+      }
+      await this.repo.allocate({
+        paymentId: payment.id,
+        installmentId: line.installmentId,
+        amount: amt,
+      });
+      remaining = remaining.minus(amt);
     }
     if (remaining.greaterThan(ZERO)) {
       await this.repo.grantOverpaymentCredit({

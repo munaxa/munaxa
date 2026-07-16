@@ -10,7 +10,8 @@
  *
  * Prints the login credentials at the end.
  */
-import { PrismaClient, Prisma } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { ALL_PERMISSIONS, SCHOOL_ROLES, permissionsForRole } from '@munaxa/domain';
 import { InstallmentScheduleService } from '../src/finance/charges/installment-schedule.service';
@@ -106,21 +107,25 @@ async function main(): Promise<void> {
       create: { tenantId: TENANT_ID, userId: admin.id, roleId: adminRole.id },
     });
 
-    // A sample student so the Finance/People screens have something to show.
-    const student = await tx.student.upsert({
-      where: { tenantId_nationalId: { tenantId: TENANT_ID, nationalId: '9901012345' } },
-      create: {
-        tenantId: TENANT_ID,
-        firstNameEn: 'Omar',
-        lastNameEn: 'Haddad',
-        firstNameAr: 'عمر',
-        lastNameAr: 'الحداد',
-        fatherNameEn: 'Khalid',
-        nationalId: '9901012345',
-        qrCode: `QR-${TENANT_ID}-omar`,
-      },
-      update: {},
-    });
+    // A sample student so the Finance/People screens have something to show. National-id uniqueness
+    // is now a PARTIAL index (live rows only), so there is no compound where-unique to upsert on —
+    // find the existing live student, else create.
+    const student =
+      (await tx.student.findFirst({
+        where: { tenantId: TENANT_ID, nationalId: '9901012345', deletedAt: null },
+      })) ??
+      (await tx.student.create({
+        data: {
+          tenantId: TENANT_ID,
+          firstNameEn: 'Omar',
+          lastNameEn: 'Haddad',
+          firstNameAr: 'عمر',
+          lastNameAr: 'الحداد',
+          fatherNameEn: 'Khalid',
+          nationalId: '9901012345',
+          qrCode: `QR-${TENANT_ID}-omar`,
+        },
+      }));
 
     await seedFinance(tx, student.id);
   });

@@ -93,8 +93,19 @@ function installmentTone(inst: Installment): 'success' | 'warning' | 'danger' | 
  *
  * Every figure comes from the ledger (single source of truth). No duplicated charges, no flat
  * installment list — installments live only inside their plan. Munaxa Design System only.
+ *
+ * Preview-only by default (`readOnly`): a student's finance is a read view of the ledger. Money is
+ * moved and the account is managed at the FINANCIAL ACCOUNT level in the Finance module — one
+ * account pays for all its students — so every mutating control is hidden here. Pass
+ * `readOnly={false}` only from a surface that is explicitly authorised to transact per-student.
  */
-export function FinanceTab({ studentId }: { studentId: string }) {
+export function FinanceTab({
+  studentId,
+  readOnly = true,
+}: {
+  studentId: string;
+  readOnly?: boolean;
+}) {
   useI18n();
   const toast = useToast();
   const [statement, setStatement] = useState<Statement | null>(null);
@@ -176,7 +187,8 @@ export function FinanceTab({ studentId }: { studentId: string }) {
   async function submitPayment() {
     const amount = Number(payForm.amount);
     if (!amount || amount <= 0) return toast.error('Enter an amount in JOD');
-    await run(async () => {
+    setBusy(true);
+    try {
       const p = await financeApi.recordPayment({
         studentId,
         amount,
@@ -185,7 +197,55 @@ export function FinanceTab({ studentId }: { studentId: string }) {
       });
       await financeApi.verify(p.id); // record + verify (auto-allocates FIFO to installments)
       setPayForm({ amount: '', method: 'CASH', reference: '' });
-    }, 'Payment recorded and allocated');
+      await load();
+      // Confirm the outcome to the cashier: when the payment clears the account, say so — and if it
+      // over-pays, make it explicit that the surplus is kept as credit for the student.
+      const fresh = await financeApi.statement(studentId);
+      const outstanding = Number(fresh.totals.outstanding);
+      const credit = Number(fresh.totals.creditBalance);
+      if (outstanding <= 0 && credit > 0) {
+        toast.success(
+          `Payment recorded — no outstanding balance remains. ${num(credit)} JOD is kept as credit for the student.`,
+        );
+      } else if (outstanding <= 0) {
+        toast.success('Payment recorded — the account is fully settled, no outstanding balance.');
+      } else {
+        toast.success('Payment recorded and allocated');
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Settle a one-time charge (the registration fee) in full: record a cash payment for its
+   * outstanding balance and verify it. Verification auto-allocates FIFO, and the registration fee is
+   * the earliest-due obligation, so the payment lands on it. For anything else (method, part payment)
+   * the cashier uses the Record payment form below.
+   */
+  async function payCharge(cv: ChargeView) {
+    const balance = Number(cv.balance);
+    if (!balance || balance <= 0) return;
+    if (
+      !window.confirm(
+        `Record a cash payment of ${num(cv.balance)} JOD for "${cv.charge.description}"?`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const p = await financeApi.recordPayment({ studentId, amount: balance, method: 'CASH' });
+      await financeApi.verify(p.id);
+      toast.success(`${cv.charge.description} paid`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not record the payment');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function submitPlan() {
@@ -194,10 +254,10 @@ export function FinanceTab({ studentId }: { studentId: string }) {
     if (!installments || installments < 1) return toast.error('Enter a number of installments');
     if (!planForm.firstDueDate) return toast.error('Choose a first due date');
     if (planForm.isReplace) {
-      if (!planForm.reason.trim()) return toast.error('A reason is required to replace a plan');
+      if (!planForm.reason.trim()) return toast.error('A reason is required to renegotiate a plan');
       if (
         !window.confirm(
-          'Replace the active payment plan?\n\nThe current plan will be superseded (kept for ' +
+          'Renegotiate the active payment plan?\n\nThe current plan will be superseded (kept for ' +
             'history), and a new plan will be generated for the OUTSTANDING balance only. Existing ' +
             'payments and allocations are preserved. This is an exceptional administrative action.',
         )
@@ -215,7 +275,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
         });
         setPlanForm(null);
       },
-      planForm.isReplace ? 'Payment plan replaced' : 'Payment plan created',
+      planForm.isReplace ? 'Payment plan renegotiated' : 'Payment plan created',
     );
   }
 
@@ -325,6 +385,15 @@ export function FinanceTab({ studentId }: { studentId: string }) {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Preview notice — transactions happen at the account level in the Finance module. */}
+      {readOnly && (
+        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          Preview only. Record payments and manage this account in the{' '}
+          <span className="font-medium text-foreground">Finance</span> module — one account pays for
+          all its students.
+        </div>
+      )}
+
       {/* ── Student Financial Account header ── */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -363,6 +432,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
         <CollectionsPanel
           profile={collections}
           busy={busy}
+          readOnly={readOnly}
           promiseForm={promiseForm}
           setPromiseForm={setPromiseForm}
           commForm={commForm}
@@ -393,6 +463,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
               cv={cv}
               open={!!expanded[cv.charge.id]}
               busy={busy}
+              readOnly={readOnly}
               onToggle={() => setExpanded((p) => ({ ...p, [cv.charge.id]: !p[cv.charge.id] }))}
               onPlan={() =>
                 setPlanForm({
@@ -407,17 +478,18 @@ export function FinanceTab({ studentId }: { studentId: string }) {
               onDiscount={() =>
                 setAdjForm({ chargeId: cv.charge.id, type: 'DISCOUNT', amount: '', reason: '' })
               }
+              onPay={() => void payCharge(cv)}
             />
           ))}
         </CardContent>
       </Card>
 
       {/* Create-plan inline form */}
-      {planForm && (
+      {!readOnly && planForm && (
         <Card>
           <CardHeader>
             <CardTitle>
-              {planForm.isReplace ? 'Replace payment plan' : 'Create payment plan'}
+              {planForm.isReplace ? 'Renegotiate payment plan' : 'Create payment plan'}
             </CardTitle>
           </CardHeader>
           {planForm.isReplace && (
@@ -471,7 +543,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                 onClick={() => void submitPlan()}
                 disabled={busy}
               >
-                {planForm.isReplace ? 'Replace plan' : 'Create plan'}
+                {planForm.isReplace ? 'Renegotiate plan' : 'Create plan'}
               </Button>
               <Button variant="ghost" onClick={() => setPlanForm(null)}>
                 Cancel
@@ -482,7 +554,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
       )}
 
       {/* Apply-adjustment inline form */}
-      {adjForm && (
+      {!readOnly && adjForm && (
         <Card>
           <CardHeader>
             <CardTitle>Apply adjustment</CardTitle>
@@ -525,44 +597,46 @@ export function FinanceTab({ studentId }: { studentId: string }) {
         </Card>
       )}
 
-      {/* ── Record payment ── */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Record payment</CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <Field label="Amount (JOD)">
-            <Input
-              type="number"
-              value={payForm.amount}
-              onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
-            />
-          </Field>
-          <Field label="Method">
-            <Select
-              value={payForm.method}
-              onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
-            >
-              {PAYMENT_METHODS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Reference">
-            <Input
-              value={payForm.reference}
-              onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
-            />
-          </Field>
-          <div className="flex items-end">
-            <Button onClick={() => void submitPayment()} disabled={busy}>
-              Record &amp; verify
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {/* ── Record payment (account-level only; hidden in preview) ── */}
+      {!readOnly && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Record payment</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+            <Field label="Amount (JOD)">
+              <Input
+                type="number"
+                value={payForm.amount}
+                onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })}
+              />
+            </Field>
+            <Field label="Method">
+              <Select
+                value={payForm.method}
+                onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
+              >
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Reference">
+              <Input
+                value={payForm.reference}
+                onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
+              />
+            </Field>
+            <div className="flex items-end">
+              <Button onClick={() => void submitPayment()} disabled={busy}>
+                Record &amp; verify
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Payments ── */}
       <SectionTable title="Payments">
@@ -593,7 +667,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                   </TD>
                   <TD>{p.einvoice ? p.einvoice.invoiceNumber : '—'}</TD>
                   <TD className="flex gap-2">
-                    {p.status === 'PENDING' && (
+                    {!readOnly && p.status === 'PENDING' && (
                       <>
                         <Button
                           size="sm"
@@ -625,7 +699,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                         >
                           Receipt
                         </Button>
-                        {!p.parentNotifiedAt && (
+                        {!readOnly && !p.parentNotifiedAt && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -677,24 +751,26 @@ export function FinanceTab({ studentId }: { studentId: string }) {
       <SectionTable
         title="Refunds"
         action={
-          <div className="flex items-end gap-2">
-            <Input
-              className="w-28"
-              type="number"
-              placeholder="Amount"
-              value={refundForm.amount}
-              onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })}
-            />
-            <Input
-              className="w-40"
-              placeholder="Reason"
-              value={refundForm.reason}
-              onChange={(e) => setRefundForm({ ...refundForm, reason: e.target.value })}
-            />
-            <Button size="sm" onClick={() => void submitRefund()} disabled={busy}>
-              Refund credit
-            </Button>
-          </div>
+          readOnly ? undefined : (
+            <div className="flex items-end gap-2">
+              <Input
+                className="w-28"
+                type="number"
+                placeholder="Amount"
+                value={refundForm.amount}
+                onChange={(e) => setRefundForm({ ...refundForm, amount: e.target.value })}
+              />
+              <Input
+                className="w-40"
+                placeholder="Reason"
+                value={refundForm.reason}
+                onChange={(e) => setRefundForm({ ...refundForm, reason: e.target.value })}
+              />
+              <Button size="sm" onClick={() => void submitRefund()} disabled={busy}>
+                Refund credit
+              </Button>
+            </div>
+          )
         }
       >
         {statement.refunds.length === 0 ? (
@@ -722,7 +798,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                     <TransactionStatusBadge status={r.status} />
                   </TD>
                   <TD>
-                    {r.status === 'PENDING' && (
+                    {!readOnly && r.status === 'PENDING' && (
                       <Button
                         size="sm"
                         onClick={() =>
@@ -764,7 +840,7 @@ export function FinanceTab({ studentId }: { studentId: string }) {
                     <Badge tone={a.status === 'APPLIED' ? 'success' : 'muted'}>{a.status}</Badge>
                   </TD>
                   <TD>
-                    {a.status === 'APPLIED' && (
+                    {!readOnly && a.status === 'APPLIED' && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -827,6 +903,7 @@ function SectionTable({
 function CollectionsPanel({
   profile,
   busy,
+  readOnly,
   promiseForm,
   setPromiseForm,
   commForm,
@@ -840,6 +917,7 @@ function CollectionsPanel({
 }: {
   profile: CollectionsProfile;
   busy: boolean;
+  readOnly: boolean;
   promiseForm: { amount: string; promiseBy: string; note: string };
   setPromiseForm: (v: { amount: string; promiseBy: string; note: string }) => void;
   commForm: { medium: string; note: string };
@@ -860,24 +938,33 @@ function CollectionsPanel({
         <CardTitle>Collections</CardTitle>
         <div className="flex items-center gap-2">
           {profile.transportSuspended && <Badge tone="danger">Transport suspended</Badge>}
-          <Select value={level} onChange={(e) => setLevel(e.target.value)} disabled={busy}>
-            {REMINDER_LEVELS.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label}
-              </option>
-            ))}
-          </Select>
-          <Button size="sm" variant="ghost" onClick={() => onSendReminder(level)} disabled={busy}>
-            Send reminder
-          </Button>
-          {profile.transportSuspended ? (
-            <Button size="sm" variant="ghost" onClick={onReinstateTransport} disabled={busy}>
-              Reinstate transport
-            </Button>
-          ) : (
-            <Button size="sm" variant="ghost" onClick={onSuspendTransport} disabled={busy}>
-              Suspend transport
-            </Button>
+          {!readOnly && (
+            <>
+              <Select value={level} onChange={(e) => setLevel(e.target.value)} disabled={busy}>
+                {REMINDER_LEVELS.map((l) => (
+                  <option key={l.value} value={l.value}>
+                    {l.label}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onSendReminder(level)}
+                disabled={busy}
+              >
+                Send reminder
+              </Button>
+              {profile.transportSuspended ? (
+                <Button size="sm" variant="ghost" onClick={onReinstateTransport} disabled={busy}>
+                  Reinstate transport
+                </Button>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={onSuspendTransport} disabled={busy}>
+                  Suspend transport
+                </Button>
+              )}
+            </>
           )}
         </div>
       </CardHeader>
@@ -914,36 +1001,38 @@ function CollectionsPanel({
         {/* Promise to Pay — prominent. */}
         <div>
           <div className="mb-2 text-sm font-medium">Promise to pay</div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <Field label="Amount">
-              <Input
-                type="number"
-                min={0}
-                placeholder="0.000"
-                value={promiseForm.amount}
-                onChange={(e) => setPromiseForm({ ...promiseForm, amount: e.target.value })}
-              />
-            </Field>
-            <Field label="Expected date">
-              <Input
-                type="date"
-                value={promiseForm.promiseBy}
-                onChange={(e) => setPromiseForm({ ...promiseForm, promiseBy: e.target.value })}
-              />
-            </Field>
-            <Field label="Note" className="sm:col-span-1">
-              <Input
-                placeholder="optional"
-                value={promiseForm.note}
-                onChange={(e) => setPromiseForm({ ...promiseForm, note: e.target.value })}
-              />
-            </Field>
-            <div className="flex items-end">
-              <Button onClick={onRecordPromise} disabled={busy}>
-                Record promise
-              </Button>
+          {!readOnly && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <Field label="Amount">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0.000"
+                  value={promiseForm.amount}
+                  onChange={(e) => setPromiseForm({ ...promiseForm, amount: e.target.value })}
+                />
+              </Field>
+              <Field label="Expected date">
+                <Input
+                  type="date"
+                  value={promiseForm.promiseBy}
+                  onChange={(e) => setPromiseForm({ ...promiseForm, promiseBy: e.target.value })}
+                />
+              </Field>
+              <Field label="Note" className="sm:col-span-1">
+                <Input
+                  placeholder="optional"
+                  value={promiseForm.note}
+                  onChange={(e) => setPromiseForm({ ...promiseForm, note: e.target.value })}
+                />
+              </Field>
+              <div className="flex items-end">
+                <Button onClick={onRecordPromise} disabled={busy}>
+                  Record promise
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
           {profile.promises.length > 0 && (
             <Table>
               <THead>
@@ -965,7 +1054,7 @@ function CollectionsPanel({
                       <Badge tone={promiseTone(p.status)}>{p.status}</Badge>
                     </TD>
                     <TD>
-                      {(p.status === 'OPEN' || p.status === 'OVERDUE') && (
+                      {!readOnly && (p.status === 'OPEN' || p.status === 'OVERDUE') && (
                         <div className="flex gap-1">
                           <Button
                             size="sm"
@@ -996,32 +1085,34 @@ function CollectionsPanel({
         {/* Communication log. */}
         <div>
           <div className="mb-2 text-sm font-medium">Communication log</div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-            <Field label="Medium">
-              <Select
-                value={commForm.medium}
-                onChange={(e) => setCommForm({ ...commForm, medium: e.target.value })}
-              >
-                {COMM_MEDIUMS.map((m) => (
-                  <option key={m} value={m}>
-                    {mediumLabel[m]}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="What was discussed" className="sm:col-span-2">
-              <Input
-                placeholder="e.g. Called father — will pay 2 installments Sunday"
-                value={commForm.note}
-                onChange={(e) => setCommForm({ ...commForm, note: e.target.value })}
-              />
-            </Field>
-            <div className="flex items-end">
-              <Button onClick={onLogCommunication} disabled={busy}>
-                Log contact
-              </Button>
+          {!readOnly && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+              <Field label="Medium">
+                <Select
+                  value={commForm.medium}
+                  onChange={(e) => setCommForm({ ...commForm, medium: e.target.value })}
+                >
+                  {COMM_MEDIUMS.map((m) => (
+                    <option key={m} value={m}>
+                      {mediumLabel[m]}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="What was discussed" className="sm:col-span-2">
+                <Input
+                  placeholder="e.g. Called father — will pay 2 installments Sunday"
+                  value={commForm.note}
+                  onChange={(e) => setCommForm({ ...commForm, note: e.target.value })}
+                />
+              </Field>
+              <div className="flex items-end">
+                <Button onClick={onLogCommunication} disabled={busy}>
+                  Log contact
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
           {profile.communications.length > 0 && (
             <Table>
               <THead>
@@ -1053,20 +1144,28 @@ function ChargeNode({
   cv,
   open,
   busy,
+  readOnly,
   onToggle,
   onPlan,
   onDiscount,
+  onPay,
 }: {
   cv: ChargeView;
   open: boolean;
   busy: boolean;
+  readOnly: boolean;
   onToggle: () => void;
   onPlan: () => void;
   onDiscount: () => void;
+  onPay: () => void;
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const history = cv.history ?? [];
+  // The one-time registration fee is paid in full when the student registers — it is never put on a
+  // payment plan, so it gets a "Pay" action instead of the installment/plan controls.
+  const isRegistrationFee = cv.charge.description === 'Registration fee';
+  const outstanding = Number(cv.balance) > 0;
   return (
     <div className="rounded-lg border border-border">
       <button
@@ -1089,6 +1188,33 @@ function ChargeNode({
 
       {open && (
         <div className="border-t border-border px-4 py-3">
+          {/* Fee-line breakdown for an aggregate charge: the details, then the sum. */}
+          {cv.lineItems && cv.lineItems.length > 0 && (
+            <div className="mb-3">
+              <div className="mb-2 text-sm font-medium">Fee breakdown</div>
+              <Table>
+                <THead>
+                  <TR>
+                    <TH>Fee</TH>
+                    <TH>Amount</TH>
+                  </TR>
+                </THead>
+                <TBody>
+                  {cv.lineItems.map((li, i) => (
+                    <TR key={`${li.label}-${i}`}>
+                      <TD>{li.label}</TD>
+                      <TD>{num(li.amount)}</TD>
+                    </TR>
+                  ))}
+                  <TR>
+                    <TD className="font-semibold">Total</TD>
+                    <TD className="font-semibold">{num(cv.gross)}</TD>
+                  </TR>
+                </TBody>
+              </Table>
+            </div>
+          )}
+
           <div className="mb-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             <Stat label="Gross" value={num(cv.gross)} />
             <Stat label="Discount" value={num(cv.discount)} />
@@ -1098,52 +1224,71 @@ function ChargeNode({
 
           <div className="mb-2 flex items-center justify-between">
             <span className="text-sm font-medium">
-              {cv.plan
-                ? `Payment Plan · ${cv.plan.cadence} × ${cv.plan.installments}`
-                : 'No payment plan'}
+              {isRegistrationFee
+                ? 'One-time registration fee'
+                : cv.plan
+                  ? `Payment Plan · ${cv.plan.cadence} × ${cv.plan.installments}`
+                  : 'No payment plan'}
             </span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={onDiscount} disabled={busy}>
-                Adjust
-              </Button>
-              {/* Creating the first plan is a normal action; REPLACING an existing plan is an
-                  exceptional admin action moved under Advanced actions below. */}
-              {!cv.plan && (
-                <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
-                  Create plan
+            {!readOnly && (
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={onDiscount} disabled={busy}>
+                  Adjust
                 </Button>
-              )}
-            </div>
+                {/* The registration fee is paid once, in full — a single "Pay" action, never a plan. */}
+                {isRegistrationFee
+                  ? outstanding && (
+                      <Button size="sm" onClick={onPay} disabled={busy}>
+                        Pay
+                      </Button>
+                    )
+                  : // Creating the first plan is a normal action; REPLACING an existing plan is an
+                    // exceptional admin action moved under Advanced actions below.
+                    !cv.plan && (
+                      <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
+                        Create plan
+                      </Button>
+                    )}
+              </div>
+            )}
           </div>
 
-          <Table>
-            <THead>
-              <TR>
-                <TH>#</TH>
-                <TH>Due</TH>
-                <TH>Amount</TH>
-                <TH>Paid</TH>
-                <TH>Balance</TH>
-                <TH>Status</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {cv.installments.map((inst) => (
-                <TR key={inst.id}>
-                  <TD>{inst.seq}</TD>
-                  <TD>{dateStr(inst.dueDate)}</TD>
-                  <TD>{num(inst.amount)}</TD>
-                  <TD>{num(inst.paid)}</TD>
-                  <TD>{num(inst.balance)}</TD>
-                  <TD>
-                    <Badge tone={installmentTone(inst)}>
-                      {inst.overdue ? 'OVERDUE' : inst.status}
-                    </Badge>
-                  </TD>
+          {isRegistrationFee ? (
+            <div className="text-sm text-muted-foreground">
+              {outstanding
+                ? `Due ${dateStr(cv.installments[0]?.dueDate)} · ${num(cv.balance)} outstanding.`
+                : 'Paid in full.'}
+            </div>
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>#</TH>
+                  <TH>Due</TH>
+                  <TH>Amount</TH>
+                  <TH>Paid</TH>
+                  <TH>Balance</TH>
+                  <TH>Status</TH>
                 </TR>
-              ))}
-            </TBody>
-          </Table>
+              </THead>
+              <TBody>
+                {cv.installments.map((inst) => (
+                  <TR key={inst.id}>
+                    <TD>{inst.seq}</TD>
+                    <TD>{dateStr(inst.dueDate)}</TD>
+                    <TD>{num(inst.amount)}</TD>
+                    <TD>{num(inst.paid)}</TD>
+                    <TD>{num(inst.balance)}</TD>
+                    <TD>
+                      <Badge tone={installmentTone(inst)}>
+                        {inst.overdue ? 'OVERDUE' : inst.status}
+                      </Badge>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
 
           {history.length > 0 && (
             <div className="mt-4 border-t border-border pt-3">
@@ -1195,7 +1340,7 @@ function ChargeNode({
           )}
 
           {/* Advanced actions — exceptional, not part of the daily collection workflow. */}
-          {cv.plan && (
+          {!readOnly && cv.plan && (
             <div className="mt-4 border-t border-border pt-3">
               <button
                 type="button"
@@ -1207,7 +1352,7 @@ function ChargeNode({
               {showAdvanced && (
                 <div className="mt-2 flex items-center gap-3">
                   <Button size="sm" variant="ghost" onClick={onPlan} disabled={busy}>
-                    Replace payment plan
+                    Renegotiate payment plan
                   </Button>
                   <span className="text-xs text-muted-foreground">
                     Supersedes the current plan and re-schedules the outstanding balance. Requires a

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { IDLE_TIMEOUT_MS, logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache, loadPrincipal } from '@/lib/session';
 import { AppShell } from './app-shell';
+import { PrivacyProvider } from './privacy-provider';
 import { Spinner } from './ui';
 
 /** User-activity events that reset the inactivity countdown. */
@@ -115,7 +116,9 @@ function ShellGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <PrincipalContext.Provider value={principal}>
-      <AppShell principal={principal}>{children}</AppShell>
+      <PrivacyProvider>
+        <AppShell principal={principal}>{children}</AppShell>
+      </PrivacyProvider>
     </PrincipalContext.Provider>
   );
 }

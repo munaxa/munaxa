@@ -1,34 +1,22 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Shell, usePrincipal } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
+import { usePrivacy } from '@/components/privacy-provider';
 import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
-import { studentsApi, type Student } from '@/lib/people';
-import { sectionsApi, type Section } from '@/lib/structure';
+import { financeApi, type FinanceDashboard } from '@/lib/finance';
 import { NavIcon, type NavIconKey } from '@/components/nav-icons';
 import type { Locale } from '@/lib/i18n';
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  EmptyState,
-  Field,
-  Input,
-  Select,
-  Table,
-  TBody,
-  TD,
-  TH,
-  THead,
-  TR,
-  cn,
-} from '@/components/ui';
+import { Button, Card, CardContent, EmptyState, cn } from '@/components/ui';
 
 type Translate = (k: string) => string;
+type Tone = 'primary' | 'aqua' | 'coral';
+
+// Chart palette — semantic design tokens (amber/late, blue/excused, grey/absent).
+const LATE = 'var(--warning)';
+const EXCUSED = 'var(--info)';
+const ABSENT = 'var(--muted-foreground)';
 
 export default function Home() {
   return (
@@ -38,121 +26,24 @@ export default function Home() {
   );
 }
 
-/** Accent tone — all sourced from existing DS tokens. */
-type Tone = 'primary' | 'aqua' | 'coral' | 'danger';
-
-const chipTone: Record<Tone, string> = {
-  primary: 'bg-primary/10 text-primary',
-  aqua: 'bg-aqua/10 text-aqua',
-  coral: 'bg-coral/10 text-coral',
-  danger: 'bg-destructive/10 text-destructive',
-};
-const dotTone: Record<Tone, string> = {
-  primary: 'bg-primary',
-  aqua: 'bg-aqua',
-  coral: 'bg-coral',
-  danger: 'bg-destructive',
-};
-const strokeTone: Record<Tone, string> = {
-  primary: 'stroke-primary',
-  aqua: 'stroke-aqua',
-  coral: 'stroke-coral',
-  danger: 'stroke-destructive',
-};
-const GRADE_TONES: Tone[] = ['primary', 'aqua', 'coral', 'danger'];
-
-const STATUS_TONE: Record<string, 'success' | 'muted' | 'warning' | 'danger'> = {
-  ACTIVE: 'success',
-  INACTIVE: 'muted',
-  GRADUATED: 'warning',
-  WITHDRAWN: 'danger',
-  PENDING: 'warning',
-};
-
-const QUICK_ACTIONS: Array<{
-  href: string;
-  labelKey: string;
-  icon: NavIconKey;
-  tone: Tone;
-  perm?: string;
-}> = [
-  {
-    href: '/people/students',
-    labelKey: 'dashboard.action.addStudent',
-    icon: 'students',
-    tone: 'primary',
-    perm: 'student:manage',
-  },
-  {
-    href: '/admissions',
-    labelKey: 'dashboard.action.newAdmission',
-    icon: 'enrollment',
-    tone: 'aqua',
-    perm: 'enrollment:manage',
-  },
-  {
-    href: '/attendance',
-    labelKey: 'dashboard.action.markAttendance',
-    icon: 'attendance',
-    tone: 'primary',
-    perm: 'attendance:read',
-  },
-  {
-    href: '/finance',
-    labelKey: 'dashboard.action.createInvoice',
-    icon: 'finance',
-    tone: 'coral',
-    perm: 'finance:read',
-  },
-  {
-    href: '/communication',
-    labelKey: 'dashboard.action.sendMessage',
-    icon: 'communication',
-    tone: 'primary',
-    perm: 'announcement:manage',
-  },
-  {
-    href: '/reports',
-    labelKey: 'dashboard.action.generateReport',
-    icon: 'reports',
-    tone: 'primary',
-    perm: 'report:read',
-  },
-];
-
-const PAGE_SIZE = 10;
-
 function Dashboard() {
   const principal = usePrincipal();
-  const router = useRouter();
   const { t, locale } = useI18n();
+  const privacy = usePrivacy();
+
   const held = useMemo(() => new Set(principal.permissions), [principal.permissions]);
-  const can = (perm?: string) => !perm || held.has(perm) || held.has('*') || principal.isPlatform;
-  const actions = QUICK_ACTIONS.filter((a) => can(a.perm));
-  const canSeeKpis = can('report:read');
-  const canSeeStudents = can('student:manage');
+  const can = useCallback(
+    (perm?: string) => !perm || held.has(perm) || held.has('*') || principal.isPlatform,
+    [held, principal.isPlatform],
+  );
+  const canReport = can('report:read');
+  const canFinance = can('finance:read');
 
   const [data, setData] = useState<DashboardOverview | null>(null);
+  const [fin, setFin] = useState<FinanceDashboard | null>(null);
   const [error, setError] = useState(false);
-  const [students, setStudents] = useState<Student[] | null>(null);
-  const [sections, setSections] = useState<Section[]>([]);
 
-  // Directory state
-  const [search, setSearch] = useState('');
-  const [fGrade, setFGrade] = useState('');
-  const [fSection, setFSection] = useState('');
-  const [fStatus, setFStatus] = useState('');
-  const [fGender, setFGender] = useState('');
-  const [page, setPage] = useState(1);
-
-  // Selected student → fills the preview; opening the full profile routes to its page.
-  const [selected, setSelected] = useState<Student | null>(null);
-  const openProfile = useCallback(
-    (s: Student) => router.push(`/people/students/${s.id}`),
-    [router],
-  );
-
-  const loadOverview = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       setError(false);
       setData(await dashboardApi.overview());
@@ -162,82 +53,23 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (canSeeKpis) void loadOverview();
-  }, [canSeeKpis, loadOverview]);
+    if (canReport) void load();
+  }, [canReport, load]);
 
   useEffect(() => {
-    if (!canSeeStudents) return;
-    studentsApi
-      .list()
-      .then((rows) => {
-        setStudents(rows);
-        setSelected((cur) => cur ?? rows[0] ?? null);
-      })
-      .catch(() => setStudents([]));
-    sectionsApi
-      .list()
-      .then(setSections)
+    if (!canFinance) return;
+    financeApi
+      .financeDashboard()
+      .then(setFin)
       .catch(() => undefined);
-  }, [canSeeStudents]);
+  }, [canFinance]);
 
-  const gradeName = useCallback(
-    (id?: string | null) => sections.find((s) => s.id === id)?.grade?.nameEn ?? '—',
-    [sections],
-  );
-  const sectionName = useCallback(
-    (id?: string | null) => sections.find((s) => s.id === id)?.name ?? '—',
-    [sections],
-  );
-  const sectionLabel = useCallback(
-    (id?: string | null) => {
-      const sec = sections.find((s) => s.id === id);
-      if (!sec) return undefined;
-      return sec.grade ? `${sec.grade.nameEn} · ${sec.name}` : sec.name;
-    },
-    [sections],
+  // A finance figure is masked only when the user can see finance AND privacy mode hides that scope.
+  const masked = useCallback(
+    (scope: string) => canFinance && privacy.isMasked(scope),
+    [canFinance, privacy],
   );
 
-  const grades = useMemo(
-    () =>
-      [
-        ...new Map(
-          sections
-            .filter((s) => s.grade)
-            .map((s) => [
-              s.grade!.id,
-              { id: s.grade!.id, name: s.grade!.nameEn, level: s.grade!.level },
-            ]),
-        ).values(),
-      ].sort((a, b) => a.level - b.level),
-    [sections],
-  );
-  const sectionsForGrade = useMemo(
-    () => (fGrade ? sections.filter((s) => s.grade?.id === fGrade) : sections),
-    [sections, fGrade],
-  );
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (students ?? []).filter(
-      (s) =>
-        (!q ||
-          `${s.firstNameEn} ${s.lastNameEn}`.toLowerCase().includes(q) ||
-          (s.moeStudentNumber ?? '').toLowerCase().includes(q) ||
-          (s.nationalId ?? '').toLowerCase().includes(q)) &&
-        (!fGrade || sections.find((x) => x.id === s.sectionId)?.grade?.id === fGrade) &&
-        (!fSection || s.sectionId === fSection) &&
-        (!fStatus || s.status === fStatus) &&
-        (!fGender || s.gender === fGender),
-    );
-  }, [students, sections, search, fGrade, fSection, fStatus, fGender]);
-
-  // Keep the page within bounds when filters shrink the list.
-  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount);
-  const pageRows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  useEffect(() => setPage(1), [search, fGrade, fSection, fStatus, fGender]);
-
-  const activeCount = students ? students.filter((s) => s.status === 'ACTIVE').length : null;
   const att = data?.attendanceToday;
   const rate =
     att && att.total > 0 ? Math.round(((att.present + att.late) / att.total) * 100) : null;
@@ -248,53 +80,70 @@ function Dashboard() {
   const attendanceDelta =
     prevRate !== undefined && lastRate !== undefined ? lastRate - prevRate : null;
 
+  const greetingKey = greetingFor(new Date());
+  const dateLabel = new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-US', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date());
+
+  if (!canReport) {
+    return (
+      <div className="mx-auto w-full max-w-[1600px]">
+        <Card>
+          <CardContent className="p-8">
+            <EmptyState title={t('dashboard.overviewUnavailable')} />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-6">
-      {/* KPI row */}
-      {canSeeKpis ? (
-        error && !data ? (
-          <Card>
-            <CardContent className="p-6">
-              <EmptyState
-                title={t('dashboard.overviewUnavailable')}
-                action={
-                  <Button variant="outline" size="sm" onClick={() => void loadOverview()}>
-                    {t('common.retry')}
-                  </Button>
-                }
-              />
-            </CardContent>
-          </Card>
-        ) : data ? (
+      {/* Header */}
+      <div className="flex flex-wrap items-end gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">
+            {t(`dashboard.${greetingKey}`)}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {dateLabel} · {t('dashboard.welcomeLine')}
+          </p>
+        </div>
+      </div>
+
+      {error && !data ? (
+        <Card>
+          <CardContent className="p-6">
+            <EmptyState
+              title={t('dashboard.overviewUnavailable')}
+              action={
+                <Button variant="outline" size="sm" onClick={() => void load()}>
+                  {t('common.retry')}
+                </Button>
+              }
+            />
+          </CardContent>
+        </Card>
+      ) : !data ? (
+        <KpiSkeleton />
+      ) : (
+        <>
+          {/* KPI row */}
           <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             <Kpi
               icon="students"
+              tone="primary"
               label={t('dashboard.totalStudents')}
               value={formatNumber(data.students, locale)}
               delta={{ value: data.deltas.studentsThisMonth, suffix: t('dashboard.fromLastMonth') }}
               spark={data.sparklines.students}
             />
             <Kpi
-              icon="students"
-              tone="aqua"
-              label={t('dashboard.activeStudents')}
-              value={activeCount !== null ? formatNumber(activeCount, locale) : '—'}
-              sparkTone="aqua"
-            />
-            <Kpi
-              icon="enrollment"
-              tone="coral"
-              label={t('dashboard.newAdmissions')}
-              value={formatNumber(data.deltas.studentsThisMonth, locale)}
-            />
-            <Kpi
-              icon="finance"
-              tone="aqua"
-              label={t('dashboard.collectedFees')}
-              value={formatMoneyCompact(data.finance.collectedThisMonth, locale)}
-            />
-            <Kpi
               icon="attendance"
+              tone="aqua"
               label={t('dashboard.attendanceToday')}
               value={rate !== null ? `${rate}%` : '—'}
               delta={
@@ -303,69 +152,75 @@ function Dashboard() {
                   : undefined
               }
               spark={markedRates}
+              sparkTone="aqua"
+            />
+            <Kpi
+              icon="enrollment"
+              tone="coral"
+              label={t('dashboard.newAdmissions')}
+              value={formatNumber(data.deltas.studentsThisMonth, locale)}
+            />
+            <SensitiveKpi
+              icon="finance"
+              label={t('dashboard.collectedFees')}
+              canFinance={canFinance}
+              masked={masked('kpi.collected')}
+              onReveal={() => privacy.reveal('kpi.collected')}
+              value={
+                data.finance ? formatMoneyCompact(data.finance.collectedThisMonth, locale) : '—'
+              }
+              t={t}
+            />
+            <SensitiveKpi
+              icon="reports"
+              label={t('dashboard.outstandingBalance')}
+              canFinance={canFinance}
+              masked={masked('kpi.outstanding')}
+              onReveal={() => privacy.reveal('kpi.outstanding')}
+              value={data.finance ? formatMoneyCompact(data.finance.outstanding, locale) : '—'}
+              t={t}
             />
           </section>
-        ) : (
-          <KpiSkeleton />
-        )
-      ) : null}
 
-      {/* Main: directory + right rail */}
-      <section className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <StudentDirectoryCard
-            t={t}
-            locale={locale}
-            canSeeStudents={canSeeStudents}
-            students={students}
-            rows={pageRows}
-            total={filtered.length}
-            page={safePage}
-            pageCount={pageCount}
-            onPage={setPage}
-            search={search}
-            onSearch={setSearch}
-            grades={grades}
-            sectionsForGrade={sectionsForGrade}
-            fGrade={fGrade}
-            fSection={fSection}
-            fStatus={fStatus}
-            fGender={fGender}
-            setFGrade={setFGrade}
-            setFSection={setFSection}
-            setFStatus={setFStatus}
-            setFGender={setFGender}
-            gradeName={gradeName}
-            sectionName={sectionName}
-            selectedId={selected?.id}
-            onSelect={setSelected}
-            onOpenProfile={openProfile}
-            canRegister={can('enrollment:manage')}
-          />
-        </div>
-        <div className="space-y-6">
-          <ProfilePreviewCard
-            t={t}
-            student={selected}
-            gradeSection={sectionLabel(selected?.sectionId)}
-            onOpenProfile={() => selected && openProfile(selected)}
-          />
-          <ActivityTimelineCard t={t} locale={locale} activity={data?.recentActivity ?? []} />
-        </div>
-      </section>
+          {/* Attendance + Fee collection */}
+          <section className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+            <AttendanceWidget
+              t={t}
+              locale={locale}
+              data={data}
+              rate={rate}
+              delta={attendanceDelta}
+            />
+            <FeeCollectionCard
+              t={t}
+              locale={locale}
+              finance={data.finance}
+              canFinance={canFinance}
+              masked={masked('fee-collection')}
+              onReveal={() => privacy.reveal('fee-collection')}
+            />
+          </section>
 
-      {/* Bottom: fee overview · grade donut · quick actions */}
-      <section className="grid gap-6 lg:grid-cols-3">
-        <FeeCollectionCard t={t} locale={locale} finance={data?.finance} />
-        <StudentsByGradeCard t={t} locale={locale} data={data?.studentsByGrade ?? []} />
-        <QuickActionsCard t={t} actions={actions} />
-      </section>
+          {/* Fees at risk + Recent activity */}
+          <section className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
+            <FeesAtRiskCard
+              t={t}
+              locale={locale}
+              rows={fin?.topOutstanding ?? []}
+              canFinance={canFinance}
+              masked={masked('fees-at-risk')}
+              onReveal={() => privacy.reveal('fees-at-risk')}
+            />
+            <ActivityCard t={t} locale={locale} activity={data.recentActivity} />
+          </section>
+        </>
+      )}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// KPI
+// KPI cards
 // ---------------------------------------------------------------------------
 function Kpi({
   icon,
@@ -380,17 +235,17 @@ function Kpi({
   label: string;
   value: string;
   tone?: Tone;
-  delta?: { value: number; suffix: string; unit?: string | undefined } | undefined;
+  delta?: { value: number; suffix: string; unit?: string } | undefined;
   spark?: number[] | undefined;
   sparkTone?: Tone;
 }) {
   return (
-    <Card className="h-full w-full">
+    <Card className="h-full">
       <CardContent className="flex h-full flex-col gap-3 p-5">
         <div className="flex items-center justify-between">
           <span
-            aria-hidden="true"
             className={cn('flex h-10 w-10 items-center justify-center rounded-xl', chipTone[tone])}
+            aria-hidden="true"
           >
             <NavIcon name={icon} />
           </span>
@@ -398,13 +253,88 @@ function Kpi({
         </div>
         <div>
           <p className="truncate text-sm text-muted-foreground">{label}</p>
-          <p className="mt-0.5 font-display text-2xl font-semibold tabular-nums">{value}</p>
+          <p className="mt-0.5 font-display text-[26px] font-semibold tabular-nums tracking-tight">
+            {value}
+          </p>
+          {delta ? <DeltaChip value={delta.value} suffix={delta.suffix} unit={delta.unit} /> : null}
         </div>
-        {delta ? (
-          <DeltaChip value={delta.value} suffix={delta.suffix} unit={delta.unit} />
-        ) : (
-          <span className="h-4" />
-        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/** A finance KPI: locked ("Restricted") without finance:read, otherwise masked-until-revealed. */
+function SensitiveKpi({
+  icon,
+  label,
+  value,
+  canFinance,
+  masked,
+  onReveal,
+  t,
+}: {
+  icon: NavIconKey;
+  label: string;
+  value: string;
+  canFinance: boolean;
+  masked: boolean;
+  onReveal: () => void;
+  t: Translate;
+}) {
+  return (
+    <Card className={cn('h-full', canFinance ? 'border-warning/30' : 'border-dashed')}>
+      <CardContent className="relative flex h-full flex-col gap-3 p-5">
+        <div className="flex items-center justify-between">
+          <span
+            className={cn(
+              'flex h-10 w-10 items-center justify-center rounded-xl',
+              canFinance ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground',
+            )}
+            aria-hidden="true"
+          >
+            <NavIcon name={icon} />
+          </span>
+          <span
+            className={cn(
+              'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
+              canFinance ? 'bg-warning/10 text-warning' : 'bg-muted text-muted-foreground',
+            )}
+          >
+            <LockGlyph />
+            {canFinance ? t('privacy.on') : t('privacy.restricted')}
+          </span>
+        </div>
+        <div>
+          <p className="truncate text-sm text-muted-foreground">{label}</p>
+          {!canFinance ? (
+            <>
+              <p className="mt-0.5 font-display text-[26px] font-semibold tracking-tight text-muted-foreground/50">
+                — — —
+              </p>
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                {t('privacy.requiresFinance')}
+              </p>
+            </>
+          ) : masked ? (
+            <>
+              <p className="mt-0.5 font-mono text-[26px] font-semibold tracking-[0.15em] text-warning/70">
+                ••• •••
+              </p>
+              <button
+                type="button"
+                onClick={onReveal}
+                className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/5 px-2 py-1 text-[11px] font-semibold text-warning transition-colors hover:bg-warning/10"
+              >
+                <EyeGlyph />
+                {t('privacy.revealForSession')}
+              </button>
+            </>
+          ) : (
+            <p className="mt-0.5 font-display text-[26px] font-semibold tabular-nums tracking-tight">
+              {value}
+            </p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -421,17 +351,20 @@ function DeltaChip({
 }) {
   const up = value >= 0;
   return (
-    <span
+    <p
       className={cn(
-        'inline-flex items-center gap-1 text-xs font-medium tabular-nums',
+        'mt-1.5 flex items-center gap-1 text-[11px] font-semibold',
         up ? 'text-aqua' : 'text-coral',
       )}
     >
-      <span aria-hidden="true">{up ? '↑' : '↓'}</span>
-      {Math.abs(value)}
-      {unit ?? ''}
+      <span aria-hidden="true">{up ? '▲' : '▼'}</span>
+      <span className="tabular-nums">
+        {up ? '+' : ''}
+        {value}
+        {unit ?? ''}
+      </span>
       <span className="font-normal text-muted-foreground">{suffix}</span>
-    </span>
+    </p>
   );
 }
 
@@ -464,368 +397,566 @@ function Sparkline({ values, tone = 'primary' }: { values: number[]; tone?: Tone
 
 function KpiSkeleton() {
   return (
-    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5" aria-hidden>
+    <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-[124px] animate-pulse rounded-xl bg-secondary/60" />
+        <Card key={i} className="h-full">
+          <CardContent className="flex h-full flex-col gap-3 p-5">
+            <div className="h-10 w-10 animate-pulse rounded-xl bg-muted" />
+            <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+            <div className="h-6 w-16 animate-pulse rounded bg-muted" />
+          </CardContent>
+        </Card>
       ))}
-    </div>
+    </section>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Section header
+// Attendance widget: live gauge + 7-day trend + composition meter
 // ---------------------------------------------------------------------------
-function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-2 p-6 pb-3">
-      <h3 className="font-display text-lg font-semibold leading-none">{title}</h3>
-      {action}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Student directory (table + filters + pagination)
-// ---------------------------------------------------------------------------
-function StudentDirectoryCard({
+function AttendanceWidget({
   t,
   locale,
-  canSeeStudents,
-  students,
-  rows,
-  total,
-  page,
-  pageCount,
-  onPage,
-  search,
-  onSearch,
-  grades,
-  sectionsForGrade,
-  fGrade,
-  fSection,
-  fStatus,
-  fGender,
-  setFGrade,
-  setFSection,
-  setFStatus,
-  setFGender,
-  gradeName,
-  sectionName,
-  selectedId,
-  onSelect,
-  onOpenProfile,
-  canRegister,
+  data,
+  rate,
+  delta,
 }: {
   t: Translate;
   locale: Locale;
-  canSeeStudents: boolean;
-  students: Student[] | null;
-  rows: Student[];
-  total: number;
-  page: number;
-  pageCount: number;
-  onPage: (p: number) => void;
-  search: string;
-  onSearch: (v: string) => void;
-  grades: Array<{ id: string; name: string; level: number }>;
-  sectionsForGrade: Section[];
-  fGrade: string;
-  fSection: string;
-  fStatus: string;
-  fGender: string;
-  setFGrade: (v: string) => void;
-  setFSection: (v: string) => void;
-  setFStatus: (v: string) => void;
-  setFGender: (v: string) => void;
-  gradeName: (id?: string | null) => string;
-  sectionName: (id?: string | null) => string;
-  selectedId?: string | undefined;
-  onSelect: (s: Student) => void;
-  onOpenProfile: (s: Student) => void;
-  canRegister: boolean;
+  data: DashboardOverview;
+  rate: number | null;
+  delta: number | null;
 }) {
-  const from = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
-  const to = Math.min(page * PAGE_SIZE, total);
+  const att = data.attendanceToday;
+  const presentTotal = att.present + att.late;
+  const avg = useMemo(() => {
+    const r = data.attendanceTrend.map((d) => d.rate).filter((v): v is number => v !== null);
+    return r.length ? Math.round(r.reduce((s, v) => s + v, 0) / r.length) : null;
+  }, [data.attendanceTrend]);
 
-  return (
-    <Card className="flex h-full flex-col">
-      <SectionHeader
-        title={t('nav.people')}
-        action={
-          canRegister ? (
-            <Link href="/admissions">
-              <Button size="sm">
-                <span aria-hidden="true">+</span>
-                {t('people.newRegistration')}
-              </Button>
-            </Link>
-          ) : null
-        }
-      />
-      <CardContent className="flex flex-1 flex-col gap-4">
-        {/* Filters */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label={t('common.search')} className="lg:col-span-2">
-            <Input
-              value={search}
-              placeholder={t('dashboard.searchStudents')}
-              onChange={(e) => onSearch(e.target.value)}
-            />
-          </Field>
-          <Field label={t('structure.grade')}>
-            <Select
-              value={fGrade}
-              onChange={(e) => {
-                setFGrade(e.target.value);
-                setFSection('');
-              }}
-            >
-              <option value="">{t('people.allGrades')}</option>
-              {grades.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t('structure.section')}>
-            <Select value={fSection} onChange={(e) => setFSection(e.target.value)}>
-              <option value="">{t('people.allSections')}</option>
-              {sectionsForGrade.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.grade ? `${s.grade.nameEn} · ${s.name}` : s.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t('common.status')}>
-            <Select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
-              <option value="">{t('people.allStatuses')}</option>
-              {['ACTIVE', 'INACTIVE', 'GRADUATED', 'WITHDRAWN'].map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label={t('people.gender')}>
-            <Select value={fGender} onChange={(e) => setFGender(e.target.value)}>
-              <option value="">{t('people.allGenders')}</option>
-              <option value="MALE">{t('people.male')}</option>
-              <option value="FEMALE">{t('people.female')}</option>
-            </Select>
-          </Field>
-        </div>
+  const segments: Array<{ label: string; n: number; color: string }> = [
+    { label: t('dashboard.present'), n: att.present, color: 'var(--primary)' },
+    { label: t('dashboard.late'), n: att.late, color: LATE },
+    { label: t('dashboard.excused'), n: att.excused, color: EXCUSED },
+    { label: t('dashboard.absent'), n: att.absent, color: ABSENT },
+  ];
+  const total = att.total || 1;
 
-        {!canSeeStudents ? (
-          <EmptyState title={t('people.noStudents')} />
-        ) : students === null ? (
-          <div className="space-y-2" aria-hidden>
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-12 animate-pulse rounded-md bg-secondary/60" />
-            ))}
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>{t('people.studentNo')}</TH>
-                    <TH>{t('common.name')}</TH>
-                    <TH>{t('structure.grade')}</TH>
-                    <TH>{t('structure.section')}</TH>
-                    <TH>{t('common.status')}</TH>
-                    <TH className="text-end">{t('common.actions')}</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {rows.map((s) => (
-                    <TR
-                      key={s.id}
-                      className={cn('cursor-pointer', selectedId === s.id ? 'bg-primary/5' : '')}
-                    >
-                      <TD className="font-mono text-xs text-muted-foreground">
-                        {s.moeStudentNumber || '—'}
-                      </TD>
-                      <TD>
-                        <button
-                          type="button"
-                          className="flex items-center gap-3 text-start"
-                          onClick={() => onSelect(s)}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary"
-                          >
-                            {(s.firstNameEn.trim()[0] ?? '?').toUpperCase()}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium text-foreground">
-                              {s.firstNameEn} {s.lastNameEn}
-                            </span>
-                            <span
-                              className="block truncate text-xs text-muted-foreground"
-                              dir="rtl"
-                            >
-                              {s.firstNameAr} {s.lastNameAr}
-                            </span>
-                          </span>
-                        </button>
-                      </TD>
-                      <TD>{gradeName(s.sectionId)}</TD>
-                      <TD>{sectionName(s.sectionId)}</TD>
-                      <TD>
-                        <Badge tone={STATUS_TONE[s.status] ?? 'muted'}>{s.status}</Badge>
-                      </TD>
-                      <TD>
-                        <div className="flex items-center justify-end gap-1">
-                          <IconButton label={t('people.view')} onClick={() => onSelect(s)}>
-                            <EyeIcon />
-                          </IconButton>
-                          <IconButton
-                            label={t('dashboard.viewFullProfile')}
-                            onClick={() => onOpenProfile(s)}
-                          >
-                            <ExpandIcon />
-                          </IconButton>
-                        </div>
-                      </TD>
-                    </TR>
-                  ))}
-                  {rows.length === 0 ? (
-                    <TR>
-                      <TD colSpan={6}>
-                        <EmptyState title={t('people.noStudentsMatch')} />
-                      </TD>
-                    </TR>
-                  ) : null}
-                </TBody>
-              </Table>
-            </div>
-
-            {/* Pagination */}
-            <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-2 text-sm">
-              <span className="text-muted-foreground">
-                {t('dashboard.showingRange')
-                  .replace('{from}', formatNumber(from, locale))
-                  .replace('{to}', formatNumber(to, locale))
-                  .replace('{total}', formatNumber(total, locale))}
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onPage(page - 1)}
-                  disabled={page <= 1}
-                  aria-label={t('common.previous')}
-                >
-                  ‹
-                </Button>
-                <span className="px-2 font-mono text-xs tabular-nums">
-                  {page} / {pageCount}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onPage(page + 1)}
-                  disabled={page >= pageCount}
-                  aria-label={t('common.next')}
-                >
-                  ›
-                </Button>
-              </div>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Profile preview
-// ---------------------------------------------------------------------------
-function ProfilePreviewCard({
-  t,
-  student,
-  gradeSection,
-  onOpenProfile,
-}: {
-  t: Translate;
-  student: Student | null;
-  gradeSection?: string | undefined;
-  onOpenProfile: () => void;
-}) {
   return (
     <Card>
-      <SectionHeader title={t('dashboard.studentProfilePreview')} />
-      <CardContent>
-        {!student ? (
-          <EmptyState
-            icon={<NavIcon name="students" className="h-6 w-6" />}
-            title={t('dashboard.selectStudentPreview')}
-          />
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span
-                aria-hidden="true"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 font-display text-lg font-semibold text-primary"
-              >
-                {(student.firstNameEn.trim()[0] ?? '?').toUpperCase()}
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="truncate font-display font-semibold">
-                    {student.firstNameEn} {student.lastNameEn}
-                  </p>
-                  <Badge tone={STATUS_TONE[student.status] ?? 'muted'}>{student.status}</Badge>
-                </div>
-                <p className="truncate font-mono text-xs text-muted-foreground">
-                  {student.moeStudentNumber || '—'}
-                  {gradeSection ? ` · ${gradeSection}` : ''}
-                </p>
-              </div>
-            </div>
-
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 border-t border-border pt-4">
-              <Detail label={t('dashboard.admissionDate')}>
-                {student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : '—'}
-              </Detail>
-              <Detail label={t('people.nationalId')}>{student.nationalId || '—'}</Detail>
-              <Detail label={t('structure.grade')}>{gradeSection ?? '—'}</Detail>
-              <Detail label={t('people.gender')}>
-                {student.gender ? t(`people.${student.gender.toLowerCase()}`) : '—'}
-              </Detail>
-            </dl>
-
-            <Button variant="outline" className="w-full" onClick={onOpenProfile}>
-              {t('dashboard.viewFullProfile')}
-              <span aria-hidden="true">→</span>
-            </Button>
+      <CardContent className="flex flex-col gap-5 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-base font-semibold">
+              {t('dashboard.attendanceToday')}
+            </h2>
+            <p className="text-xs text-muted-foreground">{t('dashboard.thisWeek')}</p>
           </div>
-        )}
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-aqua/10 px-2.5 py-1 text-[11px] font-semibold text-aqua">
+            <span className="h-1.5 w-1.5 rounded-full bg-aqua" aria-hidden="true" />
+            {t('dashboard.live')}
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+          <Ring pct={rate ?? 0}>
+            <div className="text-center">
+              <p className="font-display text-3xl font-semibold leading-none tabular-nums">
+                {rate !== null ? `${rate}` : '—'}
+                <span className="text-base text-muted-foreground">%</span>
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {t('dashboard.presentToday')}
+              </p>
+              {delta !== null ? (
+                <p
+                  className={cn(
+                    'mt-1 text-[11px] font-semibold',
+                    delta >= 0 ? 'text-aqua' : 'text-coral',
+                  )}
+                >
+                  {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% {t('dashboard.vsYesterday')}
+                </p>
+              ) : null}
+              <p className="mt-1 font-mono text-[11px] text-muted-foreground tabular-nums">
+                {formatNumber(presentTotal, locale)} / {formatNumber(att.total, locale)}
+              </p>
+            </div>
+          </Ring>
+
+          <div className="min-w-0 flex-1">
+            <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>{t('dashboard.attendanceTrend')}</span>
+              <span className="flex items-center gap-1.5 font-medium text-aqua">
+                <span
+                  className="inline-block h-0 w-3.5 border-t border-dashed border-aqua"
+                  aria-hidden="true"
+                />
+                {t('dashboard.target')} 90%
+              </span>
+            </div>
+            <TrendSpline points={data.attendanceTrend} />
+            <div className="mt-1 flex justify-between px-0.5 text-[10px] font-medium text-muted-foreground">
+              {data.attendanceTrend.map((d, i) => (
+                <span
+                  key={d.date}
+                  className={i === data.attendanceTrend.length - 1 ? 'font-semibold text-aqua' : ''}
+                >
+                  {shortDay(d.date, locale)}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Composition meter */}
+        <div className="border-t border-border pt-4">
+          <div className="flex h-3 gap-0.5 overflow-hidden">
+            {segments.map((s) => (
+              <span
+                key={s.label}
+                className="block rounded-sm first:rounded-s-md last:rounded-e-md"
+                style={{ width: `${(s.n / total) * 100}%`, background: s.color }}
+                aria-hidden="true"
+              />
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-1.5">
+            {segments.map((s) => (
+              <span
+                key={s.label}
+                className="flex items-center gap-2 text-[11px] text-muted-foreground"
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-sm"
+                  style={{ background: s.color }}
+                  aria-hidden="true"
+                />
+                {s.label}{' '}
+                <b className="font-mono font-semibold tabular-nums text-foreground">
+                  {formatNumber(s.n, locale)}
+                </b>
+                <span className="text-muted-foreground/70">{Math.round((s.n / total) * 100)}%</span>
+              </span>
+            ))}
+            {avg !== null ? (
+              <span className="ms-auto text-[11px] font-semibold text-aqua">
+                {t('dashboard.averageThisWeek')} {avg}%
+              </span>
+            ) : null}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function Detail({ label, children }: { label: string; children: React.ReactNode }) {
+/** Circular progress ring (full circle). */
+function Ring({
+  pct,
+  children,
+  size = 150,
+  thickness = 14,
+}: {
+  pct: number;
+  children: React.ReactNode;
+  size?: number;
+  thickness?: number;
+}) {
+  const r = (size - thickness) / 2;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - Math.max(0, Math.min(100, pct)) / 100);
   return (
-    <div className="min-w-0">
-      <dt className="font-mono text-[10px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </dt>
-      <dd className="truncate text-sm">{children}</dd>
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+        aria-hidden="true"
+      >
+        <defs>
+          <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="var(--aqua)" />
+            <stop offset="1" stopColor="var(--primary)" />
+          </linearGradient>
+        </defs>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          strokeWidth={thickness}
+          className="stroke-secondary"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          strokeWidth={thickness}
+          stroke="url(#ring-grad)"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={off}
+        />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center">{children}</div>
+    </div>
+  );
+}
+
+/** Gradient area spline for the 7-day attendance rate, with a 90% target line. */
+function TrendSpline({ points }: { points: DashboardOverview['attendanceTrend'] }) {
+  const W = 560;
+  const H = 120;
+  const vals = points.map((p) => p.rate);
+  const known = vals.filter((v): v is number => v !== null);
+  if (known.length < 2) {
+    return (
+      <div className="flex h-[120px] items-center justify-center text-xs text-muted-foreground">
+        —
+      </div>
+    );
+  }
+  const lo = Math.min(80, ...known);
+  const hi = 100;
+  const y = (v: number) => H - 6 - ((v - lo) / (hi - lo)) * (H - 12);
+  // Carry forward the last known value across gaps so the line stays continuous.
+  let last = known[0]!;
+  const filled = vals.map((v) => (v !== null ? ((last = v), v) : last));
+  const xs = filled.map((_, i) => (i / (filled.length - 1)) * W);
+  const line = filled.map((v, i) => `${xs[i]!.toFixed(1)},${y(v).toFixed(1)}`).join(' L');
+  const targetY = y(90);
+  return (
+    <div className="h-[120px] w-full">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="h-full w-full overflow-visible"
+      >
+        <defs>
+          <linearGradient id="att-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--primary)" stopOpacity="0.2" />
+            <stop offset="1" stopColor="var(--primary)" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <line
+          x1="0"
+          y1={targetY}
+          x2={W}
+          y2={targetY}
+          stroke="var(--aqua)"
+          strokeWidth="1.5"
+          strokeDasharray="5 5"
+          opacity="0.5"
+        />
+        <path d={`M${line} L${W},${H} L0,${H} Z`} fill="url(#att-fill)" />
+        <path
+          d={`M${line}`}
+          fill="none"
+          stroke="url(#ring-grad)"
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {filled.map((v, i) =>
+          i === filled.length - 1 ? (
+            <circle
+              key={i}
+              cx={xs[i]}
+              cy={y(v)}
+              r="5.5"
+              fill="var(--primary)"
+              stroke="var(--card)"
+              strokeWidth="2.5"
+            />
+          ) : vals[i] !== null ? (
+            <circle
+              key={i}
+              cx={xs[i]}
+              cy={y(v)}
+              r="3.5"
+              fill="var(--card)"
+              stroke="var(--primary)"
+              strokeWidth="2.5"
+            />
+          ) : null,
+        )}
+      </svg>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Activity timeline
+// Fee collection (masked / gated)
 // ---------------------------------------------------------------------------
-function ActivityTimelineCard({
+function FeeCollectionCard({
+  t,
+  locale,
+  finance,
+  canFinance,
+  masked,
+  onReveal,
+}: {
+  t: Translate;
+  locale: Locale;
+  finance: DashboardOverview['finance'];
+  canFinance: boolean;
+  masked: boolean;
+  onReveal: () => void;
+}) {
+  const collectedPct = useMemo(() => {
+    if (!finance) return null;
+    const net = Number(finance.billed) - Number(finance.discounts);
+    if (!(net > 0)) return null;
+    return Math.round((Number(finance.paid) / net) * 100);
+  }, [finance]);
+
+  return (
+    <Card className="flex flex-col">
+      <CardContent className="flex flex-1 flex-col p-6">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="font-display text-base font-semibold">{t('dashboard.feeCollection')}</h2>
+            <p className="text-xs text-muted-foreground">{t('dashboard.thisMonth')}</p>
+          </div>
+        </div>
+
+        {!canFinance ? (
+          <LockedPanel t={t} restricted />
+        ) : masked ? (
+          <LockedPanel t={t} onReveal={onReveal} />
+        ) : finance ? (
+          <div className="flex flex-1 flex-col justify-center gap-5">
+            <div className="flex items-center gap-6">
+              <Ring pct={collectedPct ?? 0} size={132} thickness={13}>
+                <div className="text-center">
+                  <p className="font-display text-xl font-semibold tabular-nums">
+                    {collectedPct ?? 0}%
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {t('dashboard.collectedShort')}
+                  </p>
+                </div>
+              </Ring>
+              <ul className="flex-1 space-y-2.5">
+                <FinRow
+                  color="var(--primary)"
+                  label={t('dashboard.paid')}
+                  value={formatMoneyCompact(finance.paid, locale)}
+                />
+                <FinRow
+                  color={ABSENT}
+                  label={t('dashboard.billed')}
+                  value={formatMoneyCompact(finance.billed, locale)}
+                />
+                <FinRow
+                  color={LATE}
+                  label={t('dashboard.outstanding')}
+                  value={formatMoneyCompact(finance.outstanding, locale)}
+                />
+                <FinRow
+                  color="var(--coral)"
+                  label={t('dashboard.overdue')}
+                  value={formatMoneyCompact(finance.overdue, locale)}
+                  danger
+                />
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            className="flex-1 justify-center"
+            title={t('dashboard.overviewUnavailable')}
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FinRow({
+  color,
+  label,
+  value,
+  danger,
+}: {
+  color: string;
+  label: string;
+  value: string;
+  danger?: boolean;
+}) {
+  return (
+    <li className="flex items-center gap-2.5 text-sm">
+      <span
+        className="h-2.5 w-2.5 shrink-0 rounded-sm"
+        style={{ background: color }}
+        aria-hidden="true"
+      />
+      <span className="flex-1 text-muted-foreground">{label}</span>
+      <span
+        className={cn('font-mono text-[13px] font-semibold tabular-nums', danger && 'text-coral')}
+      >
+        {value}
+      </span>
+    </li>
+  );
+}
+
+/** The frosted lock state shown when finance is masked (revealable) or restricted (no access). */
+function LockedPanel({
+  t,
+  onReveal,
+  restricted,
+}: {
+  t: Translate;
+  onReveal?: () => void;
+  restricted?: boolean;
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-2 py-6 text-center">
+      <span className="mb-1 flex h-12 w-12 items-center justify-center rounded-2xl bg-foreground/90 text-background">
+        <LockGlyph large />
+      </span>
+      <h3 className="font-display text-[15px] font-semibold">
+        {restricted ? t('privacy.restricted') : t('privacy.hiddenTitle')}
+      </h3>
+      <p className="max-w-[300px] text-xs leading-relaxed text-muted-foreground">
+        {restricted ? t('privacy.requiresFinance') : t('privacy.hiddenBody')}
+      </p>
+      {!restricted && onReveal ? (
+        <Button size="sm" className="mt-2" onClick={onReveal}>
+          <EyeGlyph />
+          <span className="ms-1.5">{t('privacy.revealForSession')}</span>
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fees at risk (masked / gated)
+// ---------------------------------------------------------------------------
+function FeesAtRiskCard({
+  t,
+  locale,
+  rows,
+  canFinance,
+  masked,
+  onReveal,
+}: {
+  t: Translate;
+  locale: Locale;
+  rows: FinanceDashboard['topOutstanding'];
+  canFinance: boolean;
+  masked: boolean;
+  onReveal: () => void;
+}) {
+  return (
+    <Card className="flex flex-col">
+      <CardContent className="flex flex-1 flex-col p-6">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="font-display text-base font-semibold">{t('dashboard.feesAtRisk')}</h2>
+            <p className="text-xs text-muted-foreground">{t('dashboard.feesAtRiskSub')}</p>
+          </div>
+          {canFinance && masked ? (
+            <button
+              type="button"
+              onClick={onReveal}
+              className="inline-flex items-center gap-1.5 rounded-md border border-warning/40 bg-warning/5 px-2.5 py-1 text-[11px] font-semibold text-warning transition-colors hover:bg-warning/10"
+            >
+              <EyeGlyph />
+              {t('privacy.revealForSession')}
+            </button>
+          ) : null}
+        </div>
+
+        {!canFinance ? (
+          <LockedPanel t={t} restricted />
+        ) : rows.length === 0 ? (
+          <EmptyState className="flex-1 justify-center" title={t('dashboard.allClear')} />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="pb-2.5 text-start text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {t('dashboard.students')}
+                  </th>
+                  <th className="pb-2.5 text-end text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {t('dashboard.outstanding')}
+                  </th>
+                  <th className="pb-2.5 text-end text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {t('dashboard.overdue')}
+                  </th>
+                  <th className="pb-2.5 text-end text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {t('dashboard.status')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.slice(0, 6).map((r) => {
+                  const overdue = Number(r.overdue) > 0;
+                  return (
+                    <tr key={r.studentId} className="border-b border-border/60 last:border-0">
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-[11px] font-semibold text-primary-foreground"
+                            style={{ background: 'var(--primary)' }}
+                            aria-hidden="true"
+                          >
+                            {initials(r.studentName)}
+                          </span>
+                          <span className="truncate text-[13px] font-medium">{r.studentName}</span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 text-end font-mono text-[13px] font-semibold tabular-nums">
+                        {masked ? <Dots /> : formatMoney(r.outstanding, locale)}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-2.5 text-end font-mono text-[13px] font-semibold tabular-nums',
+                          overdue && 'text-coral',
+                        )}
+                      >
+                        {masked ? <Dots /> : formatMoney(r.overdue, locale)}
+                      </td>
+                      <td className="py-2.5 text-end">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold',
+                            overdue ? 'bg-coral/10 text-coral' : 'bg-aqua/10 text-aqua',
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'h-1.5 w-1.5 rounded-full',
+                              overdue ? 'bg-coral' : 'bg-aqua',
+                            )}
+                            aria-hidden="true"
+                          />
+                          {overdue ? t('dashboard.overdue') : t('dashboard.current')}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Recent activity (audit feed)
+// ---------------------------------------------------------------------------
+function ActivityCard({
   t,
   locale,
   activity,
@@ -834,54 +965,36 @@ function ActivityTimelineCard({
   locale: Locale;
   activity: DashboardOverview['recentActivity'];
 }) {
-  const fmt = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      }),
-    [locale],
-  );
-  const items = activity.slice(0, 5);
   return (
-    <Card>
-      <SectionHeader
-        title={t('dashboard.activityTimeline')}
-        action={
-          <Link href="/reports" className="text-xs font-medium text-primary hover:underline">
-            {t('dashboard.viewAll')}
-          </Link>
-        }
-      />
-      <CardContent>
-        {items.length === 0 ? (
-          <EmptyState
-            icon={<NavIcon name="reports" className="h-6 w-6" />}
-            title={t('dashboard.noRecentActivity')}
-          />
+    <Card className="flex flex-col">
+      <CardContent className="flex flex-1 flex-col p-6">
+        <h2 className="mb-4 font-display text-base font-semibold">
+          {t('dashboard.recentActivity')}
+        </h2>
+        {activity.length === 0 ? (
+          <EmptyState className="flex-1 justify-center" title={t('dashboard.noRecentActivity')} />
         ) : (
-          <ul className="space-y-3">
-            {items.map((a, i) => {
-              const who = a.actorName ?? a.actorUsername ?? t('dashboard.systemActor');
-              return (
-                <li key={i} className="flex items-start gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm">
-                      <span className="font-medium">{a.action}</span>
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {who} · {fmt.format(new Date(a.at))}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
+          <ul className="flex flex-col">
+            {activity.slice(0, 6).map((a, i) => (
+              <li key={i} className="flex gap-3 border-b border-border/60 py-2.5 last:border-0">
+                <span
+                  className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+                  aria-hidden="true"
+                >
+                  <NavIcon name="reports" className="h-4 w-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px]">
+                    <span className="font-semibold">{humanizeAction(a.action)}</span>
+                    <span className="text-muted-foreground"> · {a.entityType}</span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {a.actorName || a.actorUsername || t('dashboard.systemActor')} ·{' '}
+                    {relativeTime(a.at, locale)}
+                  </p>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </CardContent>
@@ -890,269 +1003,96 @@ function ActivityTimelineCard({
 }
 
 // ---------------------------------------------------------------------------
-// Fee collection overview (real figures; monthly trend needs history)
+// Small glyphs
 // ---------------------------------------------------------------------------
-function FeeCollectionCard({
-  t,
-  locale,
-  finance,
-}: {
-  t: Translate;
-  locale: Locale;
-  finance?: DashboardOverview['finance'] | undefined;
-}) {
-  return (
-    <Card className="flex flex-col">
-      <SectionHeader title={t('dashboard.feeCollectionOverview')} />
-      <CardContent className="flex flex-1 flex-col gap-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="rounded-lg border border-border p-4">
-            <p className="text-xs text-muted-foreground">{t('dashboard.totalCollected')}</p>
-            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-aqua">
-              {finance ? formatMoney(finance.collectedThisMonth, locale) : '—'}
-            </p>
-          </div>
-          <div className="rounded-lg border border-border p-4">
-            <p className="text-xs text-muted-foreground">{t('dashboard.pending')}</p>
-            <p className="mt-1 font-display text-xl font-semibold tabular-nums text-coral">
-              {finance ? formatMoney(finance.outstanding, locale) : '—'}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border py-8">
-          <p className="text-xs text-muted-foreground">{t('dashboard.monthlyTrendUnavailable')}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Students by grade donut
-// ---------------------------------------------------------------------------
-function StudentsByGradeCard({
-  t,
-  locale,
-  data,
-}: {
-  t: Translate;
-  locale: Locale;
-  data: DashboardOverview['studentsByGrade'];
-}) {
-  const total = data.reduce((s, d) => s + d.students, 0);
-  const gradeLabel = (level: number) => (level === 0 ? 'KG' : formatNumber(level, locale));
-  return (
-    <Card className="flex flex-col">
-      <SectionHeader title={t('dashboard.studentsByGrade')} />
-      <CardContent className="flex flex-1 flex-col">
-        {total > 0 ? (
-          <div className="flex flex-col items-center gap-6 sm:flex-row">
-            <DonutChart
-              segments={data.map((d, i) => ({
-                value: (d.students / total) * 100,
-                tone: GRADE_TONES[i % GRADE_TONES.length]!,
-              }))}
-              center={
-                <div>
-                  <p className="font-display text-2xl font-semibold tabular-nums">
-                    {formatNumber(total, locale)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{t('dashboard.students')}</p>
-                </div>
-              }
-            />
-            <ul className="flex-1 space-y-2">
-              {data.map((d, i) => (
-                <li key={d.level} className="flex items-center gap-2.5 text-sm">
-                  <span
-                    aria-hidden="true"
-                    className={cn(
-                      'h-2.5 w-2.5 shrink-0 rounded-full',
-                      dotTone[GRADE_TONES[i % GRADE_TONES.length]!],
-                    )}
-                  />
-                  <span className="flex-1 text-muted-foreground">{gradeLabel(d.level)}</span>
-                  <span className="font-medium tabular-nums">
-                    {formatNumber(d.students, locale)}
-                  </span>
-                  <span className="w-10 text-end font-mono text-xs text-muted-foreground tabular-nums">
-                    {total > 0 ? `${Math.round((d.students / total) * 100)}%` : '0%'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : (
-          <EmptyState
-            className="flex-1 justify-center"
-            icon={<NavIcon name="academics" className="h-6 w-6" />}
-            title={t('dashboard.noGradeData')}
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function DonutChart({
-  segments,
-  size = 160,
-  thickness = 16,
-  center,
-}: {
-  segments: Array<{ value: number; tone: Tone }>;
-  size?: number;
-  thickness?: number;
-  center?: React.ReactNode;
-}) {
-  const r = (size - thickness) / 2;
-  let acc = 0;
-  return (
-    <div className="relative shrink-0" style={{ width: size, height: size }}>
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        className="-rotate-90"
-        role="img"
-        aria-hidden="true"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          strokeWidth={thickness}
-          className="stroke-secondary"
-          pathLength={100}
-        />
-        {segments
-          .filter((s) => s.value > 0)
-          .map((s, i) => {
-            const el = (
-              <circle
-                key={i}
-                cx={size / 2}
-                cy={size / 2}
-                r={r}
-                fill="none"
-                strokeWidth={thickness}
-                className={strokeTone[s.tone]}
-                pathLength={100}
-                strokeDasharray={`${s.value} ${100 - s.value}`}
-                strokeDashoffset={-acc}
-              />
-            );
-            acc += s.value;
-            return el;
-          })}
-      </svg>
-      {center ? (
-        <div className="absolute inset-0 grid place-items-center text-center">{center}</div>
-      ) : null}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Quick actions
-// ---------------------------------------------------------------------------
-function QuickActionsCard({ t, actions }: { t: Translate; actions: typeof QUICK_ACTIONS }) {
-  if (actions.length === 0) return null;
-  return (
-    <Card className="flex flex-col">
-      <SectionHeader title={t('dashboard.quickActions')} />
-      <CardContent className="flex-1">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {actions.map((a) => (
-            <Link
-              key={a.href}
-              href={a.href as never}
-              className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-border p-4 text-center transition-colors hover:border-primary/40 hover:bg-accent"
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  'flex h-10 w-10 items-center justify-center rounded-lg',
-                  chipTone[a.tone],
-                )}
-              >
-                <NavIcon name={a.icon} />
-              </span>
-              <span className="text-xs font-medium leading-tight">{t(a.labelKey)}</span>
-            </Link>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Icons
-// ---------------------------------------------------------------------------
-function IconButton({
-  label,
-  onClick,
-  children,
-}: {
-  label: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-    >
-      {children}
-    </button>
-  );
-}
-
-function EyeIcon() {
+function LockGlyph({ large }: { large?: boolean }) {
+  const s = large ? 22 : 11;
   return (
     <svg
-      width="16"
-      height="16"
+      width={s}
+      height={s}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.75"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
-      <circle cx="12" cy="12" r="3" />
+      <rect x="5" y="11" width="14" height="9" rx="2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
     </svg>
   );
 }
 
-function ExpandIcon() {
+function EyeGlyph() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.75"
+      strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M9 5H5v4M15 5h4v4M9 19H5v-4M15 19h4v-4" />
+      <path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="2.5" />
     </svg>
   );
 }
 
+function Dots() {
+  return <span className="tracking-[0.2em] text-muted-foreground/50">••• •••</span>;
+}
+
 // ---------------------------------------------------------------------------
-// Formatting helpers
+// Tones + helpers
 // ---------------------------------------------------------------------------
+const chipTone: Record<Tone, string> = {
+  primary: 'bg-primary/10 text-primary',
+  aqua: 'bg-aqua/10 text-aqua',
+  coral: 'bg-coral/10 text-coral',
+};
+const strokeTone: Record<Tone, string> = {
+  primary: 'stroke-primary',
+  aqua: 'stroke-aqua',
+  coral: 'stroke-coral',
+};
+
+function greetingFor(d: Date): 'greetingMorning' | 'greetingAfternoon' | 'greetingEvening' {
+  const h = d.getHours();
+  if (h < 12) return 'greetingMorning';
+  if (h < 18) return 'greetingAfternoon';
+  return 'greetingEvening';
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? '') + (parts[1]?.[0] ?? '')).toUpperCase() || '—';
+}
+
+function humanizeAction(action: string): string {
+  return action.replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function shortDay(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-US', { weekday: 'short' }).format(
+    new Date(iso),
+  );
+}
+
+function relativeTime(iso: string, locale: Locale): string {
+  const diffMin = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  const rtf = new Intl.RelativeTimeFormat(locale === 'ar' ? 'ar-JO' : 'en-US', { numeric: 'auto' });
+  if (diffMin < 60) return rtf.format(-diffMin, 'minute');
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return rtf.format(-diffH, 'hour');
+  return rtf.format(-Math.round(diffH / 24), 'day');
+}
+
 function formatNumber(n: number, locale: Locale): string {
   return new Intl.NumberFormat(locale === 'ar' ? 'ar-JO' : 'en-US').format(n);
 }
@@ -1174,6 +1114,7 @@ function formatMoneyCompact(value: string, locale: Locale): string {
   return new Intl.NumberFormat(locale === 'ar' ? 'ar-JO' : 'en-JO', {
     style: 'currency',
     currency: 'JOD',
-    maximumFractionDigits: 0,
+    notation: 'compact',
+    maximumFractionDigits: 1,
   }).format(n);
 }

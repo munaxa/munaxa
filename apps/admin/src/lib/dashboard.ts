@@ -12,6 +12,7 @@ export interface DashboardOverview {
     excused: number;
     total: number;
   };
+  /** Financial figures — `null` when the signed-in user lacks `finance:read` (server-gated). */
   finance: {
     billed: string;
     discounts: string;
@@ -19,8 +20,9 @@ export interface DashboardOverview {
     outstanding: string;
     overdue: string;
     collectedThisMonth: string;
-  };
-  einvoice: { accepted: number; pending: number; rejected: number };
+  } | null;
+  /** e-Invoice status counts — `null` when the user lacks `finance:read`. */
+  einvoice: { accepted: number; pending: number; rejected: number } | null;
   /** Daily student-attendance rate for the last 7 days (oldest first). */
   attendanceTrend: Array<{
     date: string;
@@ -55,4 +57,12 @@ export const dashboardApi = {
       if (!r.ok) throw new Error(`Request failed (${r.status})`);
       return (await r.json()) as DashboardOverview;
     }),
+  /** Audits a reveal of masked financial figures (requires finance:read server-side). */
+  reveal: (scope: string) =>
+    authFetch('/dashboard/reveal', { method: 'POST', body: JSON.stringify({ scope }) }).then(
+      (r) => {
+        if (!r.ok) throw new Error(`Request failed (${r.status})`);
+        return r.json() as Promise<{ ok: boolean }>;
+      },
+    ),
 };

@@ -6,6 +6,9 @@ import { DocumentsModule } from '../documents/documents.module';
 import { AccountController } from './account/account.controller';
 import { AccountService } from './account/account.service';
 import { AccountRepository } from './account/account.repository';
+import { FinancialAccountController } from './financial-account/financial-account.controller';
+import { FinancialAccountService } from './financial-account/financial-account.service';
+import { FinancialAccountRepository } from './financial-account/financial-account.repository';
 import { ChargeController } from './charges/charge.controller';
 import { ChargeService } from './charges/charge.service';
 import { ChargeRepository } from './charges/charge.repository';
@@ -32,6 +35,8 @@ import { AdmissionsController } from './admissions/admissions.controller';
 import { AdmissionsService } from './admissions/admissions.service';
 import { AdmissionsRepository } from './admissions/admissions.repository';
 import { QuoteService } from './admissions/quote.service';
+import { StudentIdentityService } from './admissions/student-identity.service';
+import { StudentIdentityRepository } from './admissions/student-identity.repository';
 import { FinanceReportsController } from './reports/reports.controller';
 import { FinanceReportsRepository } from './reports/reports.repository';
 
@@ -48,6 +53,7 @@ import { FinanceReportsRepository } from './reports/reports.repository';
   imports: [EInvoicingModule, CommunicationModule, DocumentsModule],
   controllers: [
     AccountController,
+    FinancialAccountController,
     ChargeController,
     PaymentController,
     StatementController,
@@ -62,6 +68,8 @@ import { FinanceReportsRepository } from './reports/reports.repository';
     StorageService,
     AccountService,
     AccountRepository,
+    FinancialAccountService,
+    FinancialAccountRepository,
     ChargeService,
     ChargeRepository,
     InstallmentScheduleService,
@@ -80,7 +88,12 @@ import { FinanceReportsRepository } from './reports/reports.repository';
     AdmissionsService,
     AdmissionsRepository,
     QuoteService,
+    StudentIdentityService,
+    StudentIdentityRepository,
     FinanceReportsRepository,
   ],
+  // AccountRepository is exported so the People module can place a student under their guardian's
+  // Financial Account when a parent is (re)assigned (keeps billing linkage in sync).
+  exports: [AccountRepository, AdmissionsService, QuoteService, ChargeService],
 })
 export class FinanceModule {}

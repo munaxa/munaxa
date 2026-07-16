@@ -48,6 +48,8 @@ export const Permission = {
   FINANCE_MANAGE: 'finance:manage',
   FINANCE_READ: 'finance:read',
   FINANCE_EXPORT: 'finance:export',
+  // Changing the LEGAL payer of a student's Financial Account — stronger than ordinary finance editing.
+  FINANCE_TRANSFER_BILLING: 'finance:transfer-billing',
   TRANSACTION_CREATE: 'transaction:create',
   RECEIPT_UPLOAD: 'receipt:upload',
   // Admissions / enrollment (Phase 22)
@@ -70,6 +72,10 @@ export const Permission = {
   // Enterprise Document Engine (Phase 23): official document generation & archive.
   DOCUMENT_READ: 'document:read',
   DOCUMENT_GENERATE: 'document:generate',
+  // Signed registration-agreement handling (upload the parent's countersigned copy; replace/delete).
+  DOCUMENT_UPLOAD_SIGNED: 'document:upload_signed',
+  DOCUMENT_REPLACE_SIGNED: 'document:replace_signed',
+  DOCUMENT_DELETE_SIGNED: 'document:delete_signed',
 
   // Student app (resources & gamification)
   RESOURCE_READ: 'resource:read',
@@ -155,6 +161,8 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.FINANCE_MANAGE]: 'Manage fee plans, invoices, and financial configuration.',
   [Permission.FINANCE_READ]: 'View invoices, payments, and outstanding balances.',
   [Permission.FINANCE_EXPORT]: 'Export financial reports and statements.',
+  [Permission.FINANCE_TRANSFER_BILLING]:
+    "Change the legal payer of a student's Financial Account (billing responsibility transfer).",
   [Permission.TRANSACTION_CREATE]: 'Record payments and other financial transactions.',
   [Permission.RECEIPT_UPLOAD]: 'Upload payment receipts.',
   [Permission.ENROLLMENT_MANAGE]: 'Manage admissions and enrollment applications.',
@@ -175,6 +183,12 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
     'View, download and reprint archived official documents (agreements, receipts, certificates, statements).',
   [Permission.DOCUMENT_GENERATE]:
     'Generate official documents (registration agreements, tuition/clearance/balance certificates, statements) and email them.',
+  [Permission.DOCUMENT_UPLOAD_SIGNED]:
+    "Upload the parent's countersigned registration agreement as the school's legal copy.",
+  [Permission.DOCUMENT_REPLACE_SIGNED]:
+    'Replace a previously uploaded signed registration agreement (fully audited).',
+  [Permission.DOCUMENT_DELETE_SIGNED]:
+    'Delete an uploaded signed registration agreement (fully audited).',
 
   [Permission.RESOURCE_READ]: 'View shared learning resources.',
   [Permission.RESOURCE_MANAGE]: 'Upload and manage shared learning resources.',

@@ -9,8 +9,6 @@ import { usePrincipal } from '@/components/shell';
 import { useToast } from '@/components/toast';
 import { useConfirm } from '@/components/confirm';
 import { fullNameAr, fullNameEn, studentsApi, type Student } from '@/lib/people';
-import { sectionsApi, type Section } from '@/lib/structure';
-import { areasApi, type Area } from '@/lib/areas';
 import { StudentEditor } from '../student-editor';
 import { Badge, Button, Card, Spinner, Tabs, TabsList, TabsTrigger } from '@/components/ui';
 import { PlaceholderTab } from './tabs/placeholder-tab';
@@ -79,11 +77,12 @@ export function StudentProfile() {
   const studentId = params.studentId;
 
   const [student, setStudent] = useState<Student | null>(null);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  // Deletion is only for a draft student with no dependent records; otherwise the API blocks it and we
+  // hide Delete, pointing the registrar to Withdraw / Cancel Admission (Decision — deletion rules).
+  const [deletable, setDeletable] = useState(false);
 
   const canSee = useMemo(() => {
     const held = new Set(principal.permissions);
@@ -127,24 +126,17 @@ export function StudentProfile() {
     void loadStudent();
   }, [loadStudent]);
 
-  // Sections (for the grade/section label + editor) and areas (for the editor) — loaded once.
+  // Whether Delete may be shown (else the registrar withdraws / cancels the admission).
   useEffect(() => {
-    sectionsApi
-      .list()
-      .then(setSections)
-      .catch(() => undefined);
-    areasApi
-      .list()
-      .then(setAreas)
-      .catch(() => undefined);
-  }, []);
-
-  const sectionLabel = useMemo(() => {
-    if (!student?.sectionId) return undefined;
-    const sec = sections.find((s) => s.id === student.sectionId);
-    if (!sec) return undefined;
-    return sec.grade ? `${sec.grade.nameEn} · ${sec.name}` : sec.name;
-  }, [student, sections]);
+    let active = true;
+    studentsApi
+      .deletability(studentId)
+      .then((d) => active && setDeletable(d.deletable))
+      .catch(() => active && setDeletable(false));
+    return () => {
+      active = false;
+    };
+  }, [studentId]);
 
   async function remove() {
     if (!student) return;
@@ -209,7 +201,7 @@ export function StudentProfile() {
                 <Badge tone={student.status === 'ACTIVE' ? 'success' : 'muted'}>
                   {student.status}
                 </Badge>
-                {sectionLabel ? <Badge tone="muted">{sectionLabel}</Badge> : null}
+                <Meta label={t('people.studentNumber')} value={student.studentNumber} />
                 <Meta label={t('people.studentNo')} value={student.moeStudentNumber} />
                 <Meta label={t('people.nationalId')} value={student.nationalId} />
                 <Meta
@@ -240,13 +232,19 @@ export function StudentProfile() {
                 >
                   {t('studentProfile.openInFinance')}
                 </Link>
-                <button
-                  type="button"
-                  onClick={() => void remove()}
-                  className="block w-full px-3 py-2 text-start text-sm text-destructive hover:bg-accent"
-                >
-                  {t('common.delete')}
-                </button>
+                {deletable ? (
+                  <button
+                    type="button"
+                    onClick={() => void remove()}
+                    className="block w-full px-3 py-2 text-start text-sm text-destructive hover:bg-accent"
+                  >
+                    {t('common.delete')}
+                  </button>
+                ) : (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    {t('studentProfile.cannotDelete')}
+                  </div>
+                )}
               </div>
             </details>
           </div>
@@ -268,14 +266,12 @@ export function StudentProfile() {
 
       {/* Active tab panel (lazy-loaded) */}
       <div role="tabpanel" className="focus-visible:outline-none">
-        <TabPanel activeTab={activeTab} student={student} sectionLabel={sectionLabel} />
+        <TabPanel activeTab={activeTab} student={student} onChanged={loadStudent} />
       </div>
 
       {editing ? (
         <StudentEditor
           student={student}
-          sections={sections}
-          areas={areas}
           onClose={() => setEditing(false)}
           onSaved={async () => {
             setEditing(false);
@@ -290,15 +286,15 @@ export function StudentProfile() {
 function TabPanel({
   activeTab,
   student,
-  sectionLabel,
+  onChanged,
 }: {
   activeTab: string;
   student: Student;
-  sectionLabel?: string | undefined;
+  onChanged?: (() => void | Promise<void>) | undefined;
 }): ReactNode {
   switch (activeTab) {
     case 'overview':
-      return <OverviewTab student={student} sectionLabel={sectionLabel} />;
+      return <OverviewTab student={student} onChanged={onChanged} />;
     case 'parents':
       return <ParentsTab student={student} />;
     case 'finance':
@@ -322,7 +318,7 @@ function TabPanel({
     case 'audit':
       return <PlaceholderTab titleKey="studentProfile.tabAudit" />;
     default:
-      return <OverviewTab student={student} sectionLabel={sectionLabel} />;
+      return <OverviewTab student={student} onChanged={onChanged} />;
   }
 }
 

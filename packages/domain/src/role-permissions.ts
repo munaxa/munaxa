@@ -83,6 +83,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.FINANCE_MANAGE,
     Permission.FINANCE_READ,
     Permission.FINANCE_EXPORT,
+    Permission.FINANCE_TRANSFER_BILLING, // manager-level: change the legal payer
+
     Permission.TRANSACTION_CREATE,
     Permission.RECEIPT_UPLOAD,
     Permission.ENROLLMENT_MANAGE,
@@ -90,6 +92,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.FINANCE_APPROVE,
     Permission.DOCUMENT_READ,
     Permission.DOCUMENT_GENERATE,
+    Permission.DOCUMENT_UPLOAD_SIGNED,
+    Permission.DOCUMENT_REPLACE_SIGNED,
+    Permission.DOCUMENT_DELETE_SIGNED,
     Permission.REPORT_READ,
     Permission.REPORT_EXPORT,
     Permission.AUDIT_READ,
@@ -106,6 +111,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.FEE_OVERRIDE,
     Permission.DOCUMENT_READ,
     Permission.DOCUMENT_GENERATE,
+    Permission.DOCUMENT_UPLOAD_SIGNED,
+    Permission.DOCUMENT_REPLACE_SIGNED,
     Permission.REPORT_READ,
     Permission.REPORT_EXPORT,
   ],
@@ -174,6 +181,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.FINANCE_READ,
     Permission.DOCUMENT_READ,
     Permission.DOCUMENT_GENERATE,
+    Permission.DOCUMENT_UPLOAD_SIGNED,
+    Permission.DOCUMENT_REPLACE_SIGNED,
+    Permission.DOCUMENT_DELETE_SIGNED,
     Permission.REPORT_READ,
   ],
   // Counselor: behaviour & achievements, reads attendance.
