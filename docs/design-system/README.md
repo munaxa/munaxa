@@ -37,7 +37,7 @@ The Munaxa mark is a stylised **open book with a graduation cap** drawn in the b
 (`#00B8DB → #007595 → #005066`) on a **transparent** background. It is the single brand mark across
 every surface.
 
-- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 894×736, transparent) — the landscape wordless
+- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 1103×904, transparent) — the landscape wordless
   mark used in-app (shell rail, login, splash) and for SEO/`Organization` logo.
 - **App copies (kept in sync with the source):** `apps/admin/public/munaxa-logo.png`,
   `apps/mobile/assets/munaxa-logo.png`.
