@@ -9,7 +9,6 @@ import { useToast } from '@/components/toast';
 import { useConfirm } from '@/components/confirm';
 import { studentsApi, type ImportResult, type Student } from '@/lib/people';
 import { sectionsApi, type Section } from '@/lib/structure';
-import { areasApi, type Area } from '@/lib/areas';
 import { StudentEditor, STUDENT_STATUSES, GENDERS } from './student-editor';
 import {
   Badge,
@@ -57,7 +56,6 @@ export default function StudentsPage() {
   );
   const [search, setSearch] = useState('');
   const [sections, setSections] = useState<Section[]>([]);
-  const [areas, setAreas] = useState<Area[]>([]);
 
   // Client-side directory filters (server search handles the free-text query).
   const [fStatus, setFStatus] = useState('');
@@ -80,11 +78,6 @@ export default function StudentsPage() {
     sectionsApi
       .list()
       .then(setSections)
-      .catch(() => undefined);
-    // Areas label/edit a student's home area (transportation). Best-effort.
-    areasApi
-      .list()
-      .then(setAreas)
       .catch(() => undefined);
   }, []);
 
@@ -436,8 +429,6 @@ export default function StudentsPage() {
       {editing ? (
         <StudentEditor
           student={editing}
-          sections={sections}
-          areas={areas}
           onClose={() => setEditing(null)}
           onSaved={async () => {
             setEditing(null);

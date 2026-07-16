@@ -38,9 +38,9 @@ export interface EnrollmentHistoryRow {
   withdrawalDate: string | null;
   graduationDate: string | null;
   reason: string | null;
-  grade: { nameEn: string; nameAr: string } | null;
-  section: { name: string } | null;
-  academicYear: { name: string; startDate: string; status: string } | null;
+  grade: { id: string; nameEn: string; nameAr: string } | null;
+  section: { id: string; name: string } | null;
+  academicYear: { id: string; name: string; startDate: string; status: string } | null;
 }
 
 /** Full English name from its parts: given · father · grandfather · family. */

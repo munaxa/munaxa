@@ -36,7 +36,7 @@ export class StudentService {
   ) {}
 
   async create(dto: CreateStudentDto): Promise<Student> {
-    await this.assertSection(dto.sectionId);
+    // A Student is a permanent identity record; placement is set when the student is enrolled.
     return this.repo.create(this.toCreateInput(dto));
   }
 
@@ -56,8 +56,8 @@ export class StudentService {
 
   async update(id: string, dto: UpdateStudentDto): Promise<Student> {
     await this.get(id);
-    await this.assertSection(dto.sectionId);
-    await this.assertArea(dto.areaId);
+    // Identity only. Grade/section/classroom/area/transport are year-scoped placement — they live on
+    // the Enrollment and are changed via the enrollment endpoints, never on the Student (Decisions 4 & 13).
     const data: Prisma.StudentUpdateInput = {
       ...(dto.firstNameEn !== undefined ? { firstNameEn: dto.firstNameEn } : {}),
       ...(dto.lastNameEn !== undefined ? { lastNameEn: dto.lastNameEn } : {}),
@@ -74,15 +74,6 @@ export class StudentService {
       ...(dto.dateOfBirth ? { dateOfBirth: new Date(dto.dateOfBirth) } : {}),
       ...(dto.gender !== undefined ? { gender: dto.gender } : {}),
       ...(dto.status !== undefined ? { status: dto.status } : {}),
-      ...(dto.sectionId !== undefined
-        ? { section: dto.sectionId ? { connect: { id: dto.sectionId } } : { disconnect: true } }
-        : {}),
-      ...(dto.areaId !== undefined
-        ? { area: dto.areaId ? { connect: { id: dto.areaId } } : { disconnect: true } }
-        : {}),
-      ...(dto.transportRequested !== undefined
-        ? { transportRequested: dto.transportRequested }
-        : {}),
     };
     return this.repo.update(id, data);
   }
@@ -259,21 +250,8 @@ export class StudentService {
       nationalId: blankToNull(dto.nationalId),
       dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
       gender: dto.gender ?? null,
-      sectionId: dto.sectionId ?? null,
       status: dto.status ?? 'ACTIVE',
       qrCode: generateStudentQrCode(),
     };
-  }
-
-  private async assertSection(sectionId?: string): Promise<void> {
-    if (sectionId && !(await this.repo.sectionExists(sectionId))) {
-      throw new BadRequestException('Section not found in this tenant');
-    }
-  }
-
-  private async assertArea(areaId?: string): Promise<void> {
-    if (areaId && !(await this.repo.areaExists(areaId))) {
-      throw new BadRequestException('Area not found in this tenant');
-    }
   }
 }

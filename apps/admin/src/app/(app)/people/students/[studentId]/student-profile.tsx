@@ -9,8 +9,6 @@ import { usePrincipal } from '@/components/shell';
 import { useToast } from '@/components/toast';
 import { useConfirm } from '@/components/confirm';
 import { fullNameAr, fullNameEn, studentsApi, type Student } from '@/lib/people';
-import { sectionsApi, type Section } from '@/lib/structure';
-import { areasApi, type Area } from '@/lib/areas';
 import { StudentEditor } from '../student-editor';
 import { Badge, Button, Card, Spinner, Tabs, TabsList, TabsTrigger } from '@/components/ui';
 import { PlaceholderTab } from './tabs/placeholder-tab';
@@ -79,8 +77,6 @@ export function StudentProfile() {
   const studentId = params.studentId;
 
   const [student, setStudent] = useState<Student | null>(null);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -141,25 +137,6 @@ export function StudentProfile() {
       active = false;
     };
   }, [studentId]);
-
-  // Sections (for the grade/section label + editor) and areas (for the editor) — loaded once.
-  useEffect(() => {
-    sectionsApi
-      .list()
-      .then(setSections)
-      .catch(() => undefined);
-    areasApi
-      .list()
-      .then(setAreas)
-      .catch(() => undefined);
-  }, []);
-
-  const sectionLabel = useMemo(() => {
-    if (!student?.sectionId) return undefined;
-    const sec = sections.find((s) => s.id === student.sectionId);
-    if (!sec) return undefined;
-    return sec.grade ? `${sec.grade.nameEn} · ${sec.name}` : sec.name;
-  }, [student, sections]);
 
   async function remove() {
     if (!student) return;
@@ -224,7 +201,6 @@ export function StudentProfile() {
                 <Badge tone={student.status === 'ACTIVE' ? 'success' : 'muted'}>
                   {student.status}
                 </Badge>
-                {sectionLabel ? <Badge tone="muted">{sectionLabel}</Badge> : null}
                 <Meta label={t('people.studentNumber')} value={student.studentNumber} />
                 <Meta label={t('people.studentNo')} value={student.moeStudentNumber} />
                 <Meta label={t('people.nationalId')} value={student.nationalId} />
@@ -290,19 +266,12 @@ export function StudentProfile() {
 
       {/* Active tab panel (lazy-loaded) */}
       <div role="tabpanel" className="focus-visible:outline-none">
-        <TabPanel
-          activeTab={activeTab}
-          student={student}
-          sectionLabel={sectionLabel}
-          onChanged={loadStudent}
-        />
+        <TabPanel activeTab={activeTab} student={student} onChanged={loadStudent} />
       </div>
 
       {editing ? (
         <StudentEditor
           student={student}
-          sections={sections}
-          areas={areas}
           onClose={() => setEditing(false)}
           onSaved={async () => {
             setEditing(false);
@@ -317,17 +286,15 @@ export function StudentProfile() {
 function TabPanel({
   activeTab,
   student,
-  sectionLabel,
   onChanged,
 }: {
   activeTab: string;
   student: Student;
-  sectionLabel?: string | undefined;
   onChanged?: (() => void | Promise<void>) | undefined;
 }): ReactNode {
   switch (activeTab) {
     case 'overview':
-      return <OverviewTab student={student} sectionLabel={sectionLabel} onChanged={onChanged} />;
+      return <OverviewTab student={student} onChanged={onChanged} />;
     case 'parents':
       return <ParentsTab student={student} />;
     case 'finance':
@@ -351,7 +318,7 @@ function TabPanel({
     case 'audit':
       return <PlaceholderTab titleKey="studentProfile.tabAudit" />;
     default:
-      return <OverviewTab student={student} sectionLabel={sectionLabel} onChanged={onChanged} />;
+      return <OverviewTab student={student} onChanged={onChanged} />;
   }
 }
 

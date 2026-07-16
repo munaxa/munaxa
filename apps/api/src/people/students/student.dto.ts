@@ -82,28 +82,14 @@ export class CreateStudentDto {
   @IsEnum(Gender)
   gender?: Gender;
 
-  @ApiPropertyOptional({ format: 'uuid' })
-  @IsOptional()
-  @IsUUID()
-  sectionId?: string;
-
   @ApiPropertyOptional({ enum: StudentStatus })
   @IsOptional()
   @IsEnum(StudentStatus)
   status?: StudentStatus;
 }
 
-export class UpdateStudentDto extends PartialType(CreateStudentDto) {
-  @ApiPropertyOptional({ description: "Home area (geographic); drives Fleet's Area Planning." })
-  @IsOptional()
-  @IsUUID()
-  areaId?: string;
-
-  @ApiPropertyOptional({ description: 'Whether the parent requested transportation.' })
-  @IsOptional()
-  @IsBoolean()
-  transportRequested?: boolean;
-}
+// Identity only — grade/section/classroom/area/transport are year-scoped placement on the Enrollment.
+export class UpdateStudentDto extends PartialType(CreateStudentDto) {}
 
 export class LinkParentDto {
   @ApiProperty({ format: 'uuid' })
