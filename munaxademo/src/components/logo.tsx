@@ -22,9 +22,9 @@ export function Logo({
       width={Math.round(size * RATIO)}
       height={size}
       priority={priority}
-      // The detailed glossy mark loses gradient/edge detail at next/image's default
-      // quality (75) — render it lossless so it stays crisp at hero sizes.
-      quality={100}
+      // Serve the mark as a static asset: the Cloudflare/OpenNext image optimizer chokes on
+      // this detailed logo (broken image), and it's already sized for its small display use.
+      unoptimized
       className={cn('object-contain', className)}
     />
   );

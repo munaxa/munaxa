@@ -7,7 +7,8 @@ import { Menu, X } from '@munaxa/icons';
 import { buttonVariants } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
-import { SITE_NAME, DEMO_URL } from '@/lib/constants';
+import { DEMO_URL } from '@/lib/constants';
+import { Wordmark } from '@/components/wordmark';
 import type { Locale } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/types';
 import type { Theme } from '@/lib/theme/config';
@@ -39,11 +40,10 @@ export function Header({
             width={44}
             height={36}
             priority
-            quality={100}
+            unoptimized
             className="h-9 w-auto object-contain"
           />
-          {SITE_NAME}
-          <span className="text-primary">.</span>
+          <Wordmark />
         </a>
 
         <nav className="hidden items-center gap-8 md:flex" aria-label={dict.nav.primaryNav}>

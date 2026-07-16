@@ -10,6 +10,7 @@ import { advancedApi } from '@/lib/advanced';
 import { academicYearsApi, type AcademicYear } from '@/lib/structure';
 import { Badge, Button } from '@munaxa/ui';
 import { Logo } from './logo';
+import { Wordmark } from './wordmark';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
 import { GlobalSearch } from './global-search';
 import { useI18n } from './i18n-provider';
@@ -384,7 +385,7 @@ export function AppShell({
             )}
           >
             <Logo size={32} priority />
-            {!collapsed ? <span className="font-display text-lg font-semibold">Munaxa</span> : null}
+            {!collapsed ? <Wordmark className="font-display text-lg font-semibold" /> : null}
           </div>
 
           {/* Collapse / expand toggle on the rail edge */}
