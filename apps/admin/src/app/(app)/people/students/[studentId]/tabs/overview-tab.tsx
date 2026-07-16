@@ -7,6 +7,8 @@ import { studentsApi, type Student, type EnrollmentHistoryRow } from '@/lib/peop
 import { financeApi, type Statement } from '@/lib/finance';
 import { busApi, type StudentTransport } from '@/lib/bus';
 import { enrollmentExitApi } from '@/lib/enrollment-exit';
+import { enrollmentChangeApi } from '@/lib/enrollment-change';
+import { sectionsApi, type Section } from '@/lib/structure';
 import {
   Badge,
   Button,
@@ -17,6 +19,7 @@ import {
   Checkbox,
   Field,
   Input,
+  Select,
 } from '@/components/ui';
 
 const num = (v: string | number) => Number(v).toFixed(3);
@@ -41,6 +44,7 @@ export function OverviewTab({
   const [history, setHistory] = useState<EnrollmentHistoryRow[]>([]);
   const [withdrawRow, setWithdrawRow] = useState<EnrollmentHistoryRow | null>(null);
   const [reactivateRow, setReactivateRow] = useState<EnrollmentHistoryRow | null>(null);
+  const [changePlacement, setChangePlacement] = useState(false);
 
   const loadHistory = useCallback(
     () => studentsApi.enrollmentHistory(student.id).then(setHistory),
@@ -145,7 +149,29 @@ export function OverviewTab({
         </Card>
       ) : null}
 
-      {/* Immutable per-year Enrollment History (Decisions 12 & 13). */}
+      {/* Current Enrollment — the single place to change grade/placement (never the Student). */}
+      {currentEnrollment ? (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle>{t('studentProfile.currentEnrollment')}</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => setChangePlacement(true)}>
+              {t('studentProfile.changePlacement')}
+            </Button>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
+            <Detail
+              label={t('studentProfile.academicYear')}
+              value={currentEnrollment.academicYear?.name ?? null}
+            />
+            <Detail label={t('structure.grade')} value={currentEnrollment.grade?.nameEn ?? null} />
+            <Detail
+              label={t('structure.section')}
+              value={currentEnrollment.section?.name ?? null}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>{t('studentProfile.enrollmentHistory')}</CardTitle>
@@ -221,6 +247,203 @@ export function OverviewTab({
           }}
         />
       ) : null}
+
+      {changePlacement && currentEnrollment ? (
+        <PlacementDialog
+          enrollment={currentEnrollment}
+          onClose={() => setChangePlacement(false)}
+          onDone={async () => {
+            setChangePlacement(false);
+            await loadHistory().catch(() => undefined);
+            await onChanged?.();
+          }}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Reason-first placement change (Decision — the system asks WHY before deciding HOW). Grade Correction
+ * and Administrative Transfer edit the current Enrollment (never the Student); Promotion and Repeat are
+ * Year-End Processing operations that create a NEW enrollment, so they are redirected, not performed
+ * here. PR 1 makes no ledger change — a grade change only WARNS that fees should be reviewed in Finance.
+ */
+type PlacementReason = 'CORRECTION' | 'TRANSFER' | 'PROMOTION' | 'REPEAT';
+
+function PlacementDialog({
+  enrollment,
+  onClose,
+  onDone,
+}: {
+  enrollment: EnrollmentHistoryRow;
+  onClose: () => void;
+  onDone: () => void | Promise<void>;
+}) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const [reason, setReason] = useState<PlacementReason | null>(null);
+  const [sections, setSections] = useState<Section[]>([]);
+  const [gradeId, setGradeId] = useState(enrollment.grade?.id ?? '');
+  const [sectionId, setSectionId] = useState('');
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    sectionsApi
+      .list()
+      .then(setSections)
+      .catch(() => undefined);
+  }, []);
+
+  const grades = [
+    ...new Map(
+      sections
+        .filter((s) => s.grade)
+        .map((s) => [
+          s.grade!.id,
+          { id: s.grade!.id, name: s.grade!.nameEn, level: s.grade!.level },
+        ]),
+    ).values(),
+  ].sort((a, b) => a.level - b.level);
+
+  // Correction: sections of the CHOSEN grade. Transfer: sections of the CURRENT grade only.
+  const sectionOptions = sections.filter((s) =>
+    reason === 'TRANSFER' ? s.grade?.id === enrollment.grade?.id : s.grade?.id === gradeId,
+  );
+
+  async function submit() {
+    setSaving(true);
+    try {
+      if (reason === 'TRANSFER') {
+        if (!sectionId) {
+          toast.error(t('studentProfile.pickSection'));
+          return;
+        }
+        await enrollmentChangeApi.transfer(enrollment.id, {
+          sectionId,
+          ...(note.trim() ? { reason: note.trim() } : {}),
+        });
+        toast.success(t('studentProfile.placementUpdated'));
+      } else if (reason === 'CORRECTION') {
+        if (!gradeId) {
+          toast.error(t('studentProfile.pickGrade'));
+          return;
+        }
+        const res = await enrollmentChangeApi.correctGrade(enrollment.id, {
+          gradeId,
+          ...(sectionId ? { sectionId } : {}),
+          ...(note.trim() ? { reason: note.trim() } : {}),
+        });
+        toast.success(res.feeWarning ?? t('studentProfile.placementUpdated'));
+      }
+      await onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Change failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const redirect = reason === 'PROMOTION' || reason === 'REPEAT';
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
+      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
+      <div
+        className="relative my-8 w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-card"
+        role="dialog"
+        aria-modal="true"
+      >
+        <h2 className="font-display text-lg font-semibold">
+          {t('studentProfile.changePlacement')}
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t('studentProfile.changeReasonAsk')}</p>
+
+        {/* Step 1 — WHY. */}
+        <div className="mt-3 grid gap-2">
+          {(['CORRECTION', 'TRANSFER', 'PROMOTION', 'REPEAT'] as PlacementReason[]).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => {
+                setReason(r);
+                setSectionId('');
+                setGradeId(enrollment.grade?.id ?? '');
+              }}
+              className={`rounded-lg border px-3 py-2 text-start text-sm ${
+                reason === r ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
+              }`}
+            >
+              <div className="font-medium">{t(`studentProfile.reason_${r}`)}</div>
+              <div className="text-xs text-muted-foreground">
+                {t(`studentProfile.reasonHint_${r}`)}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Step 2 — HOW. */}
+        {reason === 'CORRECTION' || reason === 'TRANSFER' ? (
+          <div className="mt-4 space-y-3">
+            {reason === 'CORRECTION' ? (
+              <Field label={t('structure.grade')}>
+                <Select
+                  value={gradeId}
+                  onChange={(e) => {
+                    setGradeId(e.target.value);
+                    setSectionId('');
+                  }}
+                >
+                  <option value="">—</option>
+                  {grades.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
+            <Field
+              label={`${t('structure.section')}${reason === 'CORRECTION' ? ` (${t('common.optional')})` : ''}`}
+            >
+              <Select value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
+                <option value="">—</option>
+                {sectionOptions.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label={t('studentProfile.withdrawReason')}>
+              <Input value={note} onChange={(e) => setNote(e.target.value)} />
+            </Field>
+            {reason === 'CORRECTION' && gradeId && gradeId !== enrollment.grade?.id ? (
+              <p className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-warning">
+                {t('studentProfile.gradeChangeFeeWarning')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {redirect ? (
+          <p className="mt-4 rounded-md border border-border bg-background/50 px-3 py-2 text-sm text-muted-foreground">
+            {t('studentProfile.yearEndRedirect')}
+          </p>
+        ) : null}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
+            {t('common.cancel')}
+          </Button>
+          {reason === 'CORRECTION' || reason === 'TRANSFER' ? (
+            <Button type="button" onClick={() => void submit()} disabled={saving}>
+              {saving ? t('common.saving') : t('common.saveChanges')}
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

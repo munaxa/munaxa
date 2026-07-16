@@ -10,7 +10,6 @@ import { useToast } from '@/components/toast';
 import { useConfirm } from '@/components/confirm';
 import { fullNameAr, fullNameEn, studentsApi, type Student } from '@/lib/people';
 import { sectionsApi, type Section } from '@/lib/structure';
-import { areasApi, type Area } from '@/lib/areas';
 import { StudentEditor } from '../student-editor';
 import { Badge, Button, Card, Spinner, Tabs, TabsList, TabsTrigger } from '@/components/ui';
 import { PlaceholderTab } from './tabs/placeholder-tab';
@@ -80,7 +79,6 @@ export function StudentProfile() {
 
   const [student, setStudent] = useState<Student | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
-  const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -142,15 +140,11 @@ export function StudentProfile() {
     };
   }, [studentId]);
 
-  // Sections (for the grade/section label + editor) and areas (for the editor) — loaded once.
+  // Sections (for the grade/section label) — loaded once.
   useEffect(() => {
     sectionsApi
       .list()
       .then(setSections)
-      .catch(() => undefined);
-    areasApi
-      .list()
-      .then(setAreas)
       .catch(() => undefined);
   }, []);
 
@@ -301,8 +295,6 @@ export function StudentProfile() {
       {editing ? (
         <StudentEditor
           student={student}
-          sections={sections}
-          areas={areas}
           onClose={() => setEditing(false)}
           onSaved={async () => {
             setEditing(false);
