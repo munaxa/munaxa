@@ -6,27 +6,21 @@ import { useI18n } from '@/components/i18n-provider';
 import { useConfirm } from '@/components/confirm';
 import { useToast } from '@/components/toast';
 import {
-  academicYearsApi,
   campusesApi,
   classroomsApi,
   gradesApi,
   schoolsApi,
   sectionsApi,
-  semestersApi,
-  type AcademicYear,
-  type AcademicYearStatus,
   type Campus,
   type Classroom,
   type Grade,
   type School,
   type Section,
-  type Semester,
 } from '@/lib/structure';
 import {
   Badge,
   Button,
   Card,
-  Checkbox,
   CardContent,
   CardHeader,
   CardTitle,
@@ -105,7 +99,20 @@ export default function AcademicStructurePage() {
           <>
             <Grades campusId={campusId} />
             <Classrooms campusId={campusId} />
-            <AcademicYears campusId={campusId} />
+            <Card>
+              <CardHeader>
+                <CardTitle>{t('structure.academicYears')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">{t('academicYear.subtitle')}</p>
+                <a
+                  href="/structure/academic-year"
+                  className="mt-3 inline-flex items-center text-sm font-medium text-primary hover:underline"
+                >
+                  {t('academicYear.title')} →
+                </a>
+              </CardContent>
+            </Card>
           </>
         ) : (
           <p className="text-sm text-muted-foreground">{t('structure.emptyHint')}</p>
@@ -464,271 +471,5 @@ function Classrooms({ campusId }: { campusId: string }) {
         </Table>
       </CardContent>
     </Card>
-  );
-}
-
-// --------------------------------------------------------------------------- Academic years + Semesters
-
-function AcademicYears({ campusId }: { campusId: string }) {
-  const onErr = useError();
-  const toast = useToast();
-  const { t } = useI18n();
-  const confirm = useConfirm();
-  const [years, setYears] = useState<AcademicYear[]>([]);
-  const [form, setForm] = useState({ name: '', startDate: '', endDate: '', isCurrent: false });
-  const [openYear, setOpenYear] = useState<string | null>(null);
-
-  const load = useCallback(() => {
-    academicYearsApi
-      .list(campusId)
-      .then(setYears)
-      .catch((e) => onErr(e, 'Failed to load academic years'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campusId]);
-
-  useEffect(() => load(), [load]);
-
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await academicYearsApi.create({
-        campusId,
-        name: form.name,
-        startDate: form.startDate,
-        endDate: form.endDate,
-        isCurrent: form.isCurrent,
-      });
-      setForm({ name: '', startDate: '', endDate: '', isCurrent: false });
-      toast.success('Academic year added');
-      load();
-    } catch (e) {
-      onErr(e, 'Create failed');
-    }
-  }
-
-  async function makeCurrent(id: string) {
-    try {
-      await academicYearsApi.makeCurrent(id);
-      toast.success(t('structure.yearNowCurrent'));
-      load();
-    } catch (e) {
-      onErr(e, 'Update failed');
-    }
-  }
-
-  async function close(id: string) {
-    if (!(await confirm())) return;
-    try {
-      await academicYearsApi.close(id);
-      toast.success(t('structure.yearClosed'));
-      load();
-    } catch (e) {
-      onErr(e, 'Close failed');
-    }
-  }
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t('structure.academicYears')}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
-          <Field label={t('structure.name')} className="flex-1">
-            <Input
-              placeholder={t('structure.yearNamePlaceholder')}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label={t('structure.start')}>
-            <Input
-              type="date"
-              value={form.startDate}
-              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label={t('structure.end')}>
-            <Input
-              type="date"
-              value={form.endDate}
-              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-              required
-            />
-          </Field>
-          <label className="flex items-center gap-1.5 pb-2 text-sm text-muted-foreground">
-            <Checkbox
-              checked={form.isCurrent}
-              onChange={(e) => setForm({ ...form, isCurrent: e.target.checked })}
-            />
-            {t('structure.current')}
-          </label>
-          <Button type="submit">{t('common.add')}</Button>
-        </form>
-
-        <Table>
-          <THead>
-            <TR>
-              <TH>{t('structure.name')}</TH>
-              <TH>{t('structure.status')}</TH>
-              <TH>{t('structure.start')}</TH>
-              <TH>{t('structure.end')}</TH>
-              <TH className="text-end">{t('common.actions')}</TH>
-            </TR>
-          </THead>
-          <TBody>
-            {years.map((y) => (
-              <TR key={y.id}>
-                <TD>
-                  {y.name}
-                  {openYear === y.id ? <Semesters academicYearId={y.id} /> : null}
-                </TD>
-                <TD>
-                  <YearStatusBadge status={y.status} />
-                </TD>
-                <TD className="font-mono text-xs">{y.startDate.slice(0, 10)}</TD>
-                <TD className="font-mono text-xs">{y.endDate.slice(0, 10)}</TD>
-                <TD className="text-end">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setOpenYear(openYear === y.id ? null : y.id)}
-                  >
-                    {openYear === y.id ? t('structure.hideTerms') : t('structure.terms')}
-                  </Button>
-                  {/* Change the current year: only a non-current, non-closed year can be made current. */}
-                  {y.status !== 'ACTIVE' && y.status !== 'CLOSED' ? (
-                    <Button variant="ghost" size="sm" onClick={() => void makeCurrent(y.id)}>
-                      {t('structure.makeCurrent')}
-                    </Button>
-                  ) : null}
-                  {/* Close: available for any year that is not already closed (Student/Enrollment untouched). */}
-                  {y.status !== 'CLOSED' ? (
-                    <Button variant="ghost" size="sm" onClick={() => void close(y.id)}>
-                      {t('structure.closeYear')}
-                    </Button>
-                  ) : null}
-                </TD>
-              </TR>
-            ))}
-            {years.length === 0 ? (
-              <TR>
-                <TD colSpan={5}>
-                  <EmptyState title={t('structure.noYears')} />
-                </TD>
-              </TR>
-            ) : null}
-          </TBody>
-        </Table>
-      </CardContent>
-    </Card>
-  );
-}
-
-function YearStatusBadge({ status }: { status: AcademicYearStatus }) {
-  const { t } = useI18n();
-  const tone = status === 'ACTIVE' ? 'success' : status === 'CLOSED' ? 'muted' : 'default';
-  return <Badge tone={tone}>{t(`structure.status_${status}`)}</Badge>;
-}
-
-function Semesters({ academicYearId }: { academicYearId: string }) {
-  const onErr = useError();
-  const { t } = useI18n();
-  const confirm = useConfirm();
-  const [terms, setTerms] = useState<Semester[]>([]);
-  const [form, setForm] = useState({ name: '', sequence: '', startDate: '', endDate: '' });
-
-  const load = useCallback(() => {
-    semestersApi
-      .list(academicYearId)
-      .then(setTerms)
-      .catch((e) => onErr(e, 'Failed to load terms'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [academicYearId]);
-
-  useEffect(() => load(), [load]);
-
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await semestersApi.create({
-        academicYearId,
-        name: form.name,
-        sequence: Number(form.sequence) || 1,
-        startDate: form.startDate,
-        endDate: form.endDate,
-      });
-      setForm({ name: '', sequence: '', startDate: '', endDate: '' });
-      load();
-    } catch (e) {
-      onErr(e, 'Create failed');
-    }
-  }
-
-  return (
-    <div className="mt-2 space-y-2 rounded-lg border border-border bg-background/40 p-3">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {terms.map((s) => (
-          <Badge key={s.id} tone="muted">
-            {s.sequence}. {s.name}
-            <button
-              type="button"
-              className="ms-1 text-muted-foreground hover:text-destructive"
-              onClick={() =>
-                void confirm().then((ok) => {
-                  if (ok)
-                    void semestersApi
-                      .remove(s.id)
-                      .then(load)
-                      .catch((e) => onErr(e, 'Delete failed'));
-                })
-              }
-              aria-label={`Delete term ${s.name}`}
-            >
-              ✕
-            </button>
-          </Badge>
-        ))}
-        {terms.length === 0 ? (
-          <span className="text-xs text-muted-foreground">{t('structure.noTerms')}</span>
-        ) : null}
-      </div>
-      <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
-        <Input
-          className="h-8 w-16"
-          type="number"
-          placeholder="#"
-          value={form.sequence}
-          onChange={(e) => setForm({ ...form, sequence: e.target.value })}
-          required
-        />
-        <Input
-          className="h-8 w-32"
-          placeholder={t('structure.termName')}
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
-        <Input
-          className="h-8"
-          type="date"
-          value={form.startDate}
-          onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-          required
-        />
-        <Input
-          className="h-8"
-          type="date"
-          value={form.endDate}
-          onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-          required
-        />
-        <Button type="submit" size="sm">
-          {t('structure.addTerm')}
-        </Button>
-      </form>
-    </div>
   );
 }
