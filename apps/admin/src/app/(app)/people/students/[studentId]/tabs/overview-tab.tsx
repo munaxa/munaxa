@@ -31,11 +31,9 @@ const num = (v: string | number) => Number(v).toFixed(3);
  */
 export function OverviewTab({
   student,
-  sectionLabel,
   onChanged,
 }: {
   student: Student;
-  sectionLabel?: string | undefined;
   onChanged?: (() => void | Promise<void>) | undefined;
 }) {
   const { t } = useI18n();
@@ -91,12 +89,13 @@ export function OverviewTab({
         <CardHeader>
           <CardTitle>{t('people.details')}</CardTitle>
         </CardHeader>
+        {/* Identity only — personal info + identifiers. Academic placement + transport are shown in
+            the Current Enrollment panel below (they belong to the Enrollment, never the Student). */}
         <CardContent className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
           <Detail label={t('people.nationalId')} value={student.nationalId} mono />
           <Detail label={t('people.moeNumber')} value={student.moeStudentNumber} mono />
           <Detail label={t('people.qr')} value={student.qrCode} mono />
           <Detail label={t('common.status')} value={student.status} />
-          <Detail label={t('structure.section')} value={sectionLabel ?? null} />
           <Detail
             label={t('people.gender')}
             value={student.gender ? t(`people.${student.gender.toLowerCase()}`) : null}
@@ -105,20 +104,6 @@ export function OverviewTab({
             label={t('people.admitted')}
             value={student.enrollmentDate ? student.enrollmentDate.slice(0, 10) : null}
             mono
-          />
-          <Detail
-            label={t('fleet.route')}
-            value={
-              transport?.routeName
-                ? tripLabel
-                  ? `${transport.routeName} · ${tripLabel}`
-                  : transport.routeName
-                : null
-            }
-          />
-          <Detail
-            label={t('fleet.busNumber')}
-            value={transport?.busNumber ?? transport?.busPlate ?? null}
           />
         </CardContent>
       </Card>
@@ -167,6 +152,21 @@ export function OverviewTab({
             <Detail
               label={t('structure.section')}
               value={currentEnrollment.section?.name ?? null}
+            />
+            <Detail label={t('common.status')} value={currentEnrollment.status.toLowerCase()} />
+            <Detail
+              label={t('fleet.route')}
+              value={
+                transport?.routeName
+                  ? tripLabel
+                    ? `${transport.routeName} · ${tripLabel}`
+                    : transport.routeName
+                  : null
+              }
+            />
+            <Detail
+              label={t('fleet.busNumber')}
+              value={transport?.busNumber ?? transport?.busPlate ?? null}
             />
           </CardContent>
         </Card>

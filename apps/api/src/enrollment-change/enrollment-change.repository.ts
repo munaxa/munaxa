@@ -62,13 +62,19 @@ export class EnrollmentChangeRepository extends TenantRepository {
       // Read-through shim (placement stays authoritative on the Enrollment).
       await tx.student.update({ where: { id: e.studentId }, data: { sectionId: dto.sectionId } });
 
+      // Full before/after placement (grade unchanged on a transfer) so the audit trail reconstructs
+      // the complete history. writeAudit also stamps the actor (user) and timestamp.
       await this.writeAudit(tx, tenantId, {
         action: 'enrollment.transfer',
         entityType: 'Enrollment',
         entityId: enrollmentId,
         metadata: {
+          fromGradeId: e.gradeId,
+          toGradeId: e.gradeId,
           fromSectionId: e.sectionId,
           toSectionId: dto.sectionId,
+          fromClassroomId: e.classroomId,
+          toClassroomId: section.classroomId ?? null,
           ...(dto.reason ? { reason: dto.reason } : {}),
         },
       });
@@ -110,6 +116,8 @@ export class EnrollmentChangeRepository extends TenantRepository {
       });
       await tx.student.update({ where: { id: e.studentId }, data: { sectionId } });
 
+      // Full before/after placement so the audit trail reconstructs the complete history. writeAudit
+      // also stamps the actor (user) and timestamp.
       await this.writeAudit(tx, tenantId, {
         action: 'enrollment.gradeCorrection',
         entityType: 'Enrollment',
@@ -117,7 +125,10 @@ export class EnrollmentChangeRepository extends TenantRepository {
         metadata: {
           fromGradeId: e.gradeId,
           toGradeId: dto.gradeId,
-          ...(sectionId ? { toSectionId: sectionId } : {}),
+          fromSectionId: e.sectionId,
+          toSectionId: sectionId,
+          fromClassroomId: e.classroomId,
+          toClassroomId: classroomId,
           ...(dto.reason ? { reason: dto.reason } : {}),
         },
       });

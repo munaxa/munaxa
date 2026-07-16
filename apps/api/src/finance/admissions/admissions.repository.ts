@@ -108,12 +108,14 @@ export class AdmissionsRepository extends TenantRepository {
     // must reactivate that enrollment, not duplicate it.
     const existingForYear = await tx.enrollment.findFirst({
       where: { studentId: params.studentId, academicYearId: params.academicYearId },
-      select: { status: true },
+      select: { status: true, academicYear: { select: { name: true } } },
     });
     if (existingForYear) {
+      const yearName = existingForYear.academicYear?.name ?? 'this academic year';
       throw new BadRequestException(
-        `This student already has an enrollment for this academic year (status: ${existingForYear.status.toLowerCase()}). ` +
-          `Reactivate that enrollment instead of creating a new admission for the same year.`,
+        `This student is already enrolled in Academic Year ${yearName} ` +
+          `(status: ${existingForYear.status.toLowerCase()}). Open the student's Current Enrollment to ` +
+          `correct or reactivate it instead of creating a new admission for the same year.`,
       );
     }
 
@@ -137,7 +139,8 @@ export class AdmissionsRepository extends TenantRepository {
     }
 
     const campusId = await this.yearCampusId(tx, params.academicYearId);
-    return tx.enrollment.create({
+    const admissionDate = params.admissionDate ?? new Date();
+    const enrollment = await tx.enrollment.create({
       data: {
         tenantId,
         studentId: params.studentId,
@@ -151,7 +154,7 @@ export class AdmissionsRepository extends TenantRepository {
         ...(params.transportRequested !== undefined
           ? { transportRequested: params.transportRequested }
           : {}),
-        admissionDate: params.admissionDate ?? new Date(),
+        admissionDate,
         ...(params.quoteId ? { quoteId: params.quoteId } : {}),
         transportDirection: params.transportDirection ?? TransportDirection.NONE,
         // Decision 2: admission workflow (`admissionStatus`) vs. participation (`status`) are separate;
@@ -162,6 +165,42 @@ export class AdmissionsRepository extends TenantRepository {
         feeModified: params.feeModified ?? false,
         registrationFeePaid: params.registrationFeePaid ?? true,
         createdById: this.actor(),
+      },
+    });
+
+    // Enrollment is the ONLY source of truth for placement. The deprecated Student.* placement columns
+    // are a read-through cache for legacy readers during the transition (dropped in Phase B) and are
+    // written ONLY here (creation) and by EnrollmentLifecycle/EnrollmentChange — never by callers.
+    await this.syncStudentPlacementShim(tx, params.studentId, {
+      sectionId: params.sectionId ?? null,
+      areaId: params.areaId ?? null,
+      transportRequested: params.transportRequested,
+      enrollmentDate: admissionDate,
+    });
+    return enrollment;
+  }
+
+  /**
+   * Sync the DEPRECATED Student placement shims from the authoritative Enrollment (read-through cache,
+   * single-writer). See ADR-0001. Removed in Phase B once every reader uses the Enrollment.
+   */
+  private syncStudentPlacementShim(
+    tx: TxClient,
+    studentId: string,
+    p: {
+      sectionId?: string | null;
+      areaId?: string | null;
+      transportRequested?: boolean;
+      enrollmentDate?: Date;
+    },
+  ) {
+    return tx.student.update({
+      where: { id: studentId },
+      data: {
+        sectionId: p.sectionId ?? null,
+        areaId: p.areaId ?? null,
+        ...(p.transportRequested !== undefined ? { transportRequested: p.transportRequested } : {}),
+        ...(p.enrollmentDate ? { enrollmentDate: p.enrollmentDate } : {}),
       },
     });
   }
@@ -694,28 +733,16 @@ export class AdmissionsRepository extends TenantRepository {
               ...(s.gender ? { gender: s.gender } : {}),
               ...(s.dateOfBirth ? { dateOfBirth: new Date(s.dateOfBirth) } : {}),
               ...(s.nationalId ? { nationalId: s.nationalId } : {}),
-              ...(entry.sectionId ? { sectionId: entry.sectionId } : {}),
-              ...(entry.areaId ? { areaId: entry.areaId } : {}),
-              ...(entry.transportRequested !== undefined
-                ? { transportRequested: entry.transportRequested }
-                : {}),
+              // Identity only — placement (section/area/transport) is set on the Enrollment and
+              // cached to the Student shim by createEnrollmentRowTx (ADR-0001). Never set here.
               status: StudentStatus.ACTIVE,
               qrCode: generateStudentQrCode(),
             },
             select: { id: true },
           });
           studentId = created.id;
-        } else {
-          const data: Prisma.StudentUpdateInput = {
-            ...(entry.sectionId ? { section: { connect: { id: entry.sectionId } } } : {}),
-            ...(entry.areaId ? { area: { connect: { id: entry.areaId } } } : {}),
-            ...(entry.transportRequested !== undefined
-              ? { transportRequested: entry.transportRequested }
-              : {}),
-          };
-          if (Object.keys(data).length > 0)
-            await tx.student.update({ where: { id: studentId }, data });
         }
+        // A returning student is NOT edited for placement — the new-year Enrollment carries it.
 
         // Link the guardian (skip if already linked). The first student's guardian is primary.
         const existingLink = await tx.parentStudent.findFirst({
@@ -942,11 +969,7 @@ export class AdmissionsRepository extends TenantRepository {
             ...(s.gender ? { gender: s.gender } : {}),
             ...(s.dateOfBirth ? { dateOfBirth: new Date(s.dateOfBirth) } : {}),
             ...(s.nationalId ? { nationalId: s.nationalId } : {}),
-            ...(dto.sectionId ? { sectionId: dto.sectionId } : {}),
-            ...(dto.areaId ? { areaId: dto.areaId } : {}),
-            ...(dto.transportRequested !== undefined
-              ? { transportRequested: dto.transportRequested }
-              : {}),
+            // Identity only — placement is set on the Enrollment and cached by createEnrollmentRowTx.
             status: StudentStatus.ACTIVE,
             qrCode: generateStudentQrCode(),
           },
