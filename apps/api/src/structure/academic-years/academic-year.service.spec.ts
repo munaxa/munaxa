@@ -14,8 +14,23 @@ const YEAR = {
   isCurrent: false,
 } as AcademicYear;
 
+const EMPTY_USAGE = {
+  enrollments: 0,
+  charges: 0,
+  semesters: 0,
+  reports: 0,
+  timetable: 0,
+  auditLogs: 0,
+};
+
 /** Build a service with stubbed repo functions exposed for assertions. */
-function setup(opts: { found?: AcademicYear | null; schoolId?: string | null } = {}) {
+function setup(
+  opts: {
+    found?: AcademicYear | null;
+    schoolId?: string | null;
+    usage?: Partial<typeof EMPTY_USAGE>;
+  } = {},
+) {
   const campusExists = jest.fn<Promise<boolean>, [string]>().mockResolvedValue(true);
   const campusSchoolId = jest
     .fn<Promise<string | null>, [string]>()
@@ -30,6 +45,8 @@ function setup(opts: { found?: AcademicYear | null; schoolId?: string | null } =
   const update = jest
     .fn()
     .mockImplementation((_id, data) => Promise.resolve({ ...YEAR, ...data } as AcademicYear));
+  const usage = jest.fn().mockResolvedValue({ ...EMPTY_USAGE, ...opts.usage });
+  const del = jest.fn().mockResolvedValue(YEAR);
   const repo = {
     campusExists,
     campusSchoolId,
@@ -37,6 +54,8 @@ function setup(opts: { found?: AcademicYear | null; schoolId?: string | null } =
     create,
     findById,
     update,
+    usage,
+    delete: del,
   } as unknown as AcademicYearRepository;
   return {
     service: new AcademicYearService(repo),
@@ -44,6 +63,8 @@ function setup(opts: { found?: AcademicYear | null; schoolId?: string | null } =
     clearActiveForSchool,
     create,
     update,
+    usage,
+    delete: del,
   };
 }
 
@@ -103,8 +124,23 @@ describe('AcademicYearService — School-scoped status machine (Decisions 1 & 8)
     expect(update).not.toHaveBeenCalled();
   });
 
-  it('refuses deletion — academic years are never deletable', async () => {
-    const { service } = setup();
+  it('deletes a completely unused, non-closed year', async () => {
+    const { service, delete: del } = setup();
+    await service.remove('ay1');
+    expect(del).toHaveBeenCalledWith('ay1');
+  });
+
+  it('refuses deletion once the year anchors historical data', async () => {
+    const { service, delete: del } = setup({ usage: { enrollments: 3 } });
     await expect(service.remove('ay1')).rejects.toThrow(BadRequestException);
+    expect(del).not.toHaveBeenCalled();
+  });
+
+  it('refuses deletion of a CLOSED year even when otherwise unused', async () => {
+    const { service, delete: del } = setup({
+      found: { ...YEAR, status: AcademicYearStatus.CLOSED },
+    });
+    await expect(service.remove('ay1')).rejects.toThrow(BadRequestException);
+    expect(del).not.toHaveBeenCalled();
   });
 });

@@ -57,7 +57,9 @@
     "pagination": "Pagination",
     "retry": "Retry",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "done": "Done",
+    "back": "Back"
   },
   "auth": {
     "signIn": "Sign in",
@@ -132,7 +134,10 @@
     "expandNav": "Expand navigation",
     "collapseNav": "Collapse navigation",
     "notifications": "Notifications",
-    "account": "Account"
+    "account": "Account",
+    "academicYear": "Academic year",
+    "noActiveYear": "No active academic year",
+    "finishSetup": "Finish setup"
   },
   "search": {
     "title": "Search",
@@ -190,7 +195,8 @@
     "clinic": "School clinic",
     "presence": "Presence & gate",
     "roles": "Roles & permissions",
-    "users": "Users & staff"
+    "users": "Users & staff",
+    "academicYearWorkspace": "Academic year"
   },
   "dashboard": {
     "title": "Overview",
@@ -1460,5 +1466,69 @@
     "description": "The page you were looking for may have been moved, renamed, or never existed. Let’s get you back to where your school runs smoothly.",
     "ctaHome": "Back to home",
     "illustrationAlt": "Munaxa 404 — page not found"
+  },
+  "academicYear": {
+    "title": "Academic year",
+    "subtitle": "The operational control center for your school’s academic lifecycle — status, readiness, activation and closing.",
+    "selectHint": "Select a school and campus to manage its academic years.",
+    "count": "{n} academic year(s)",
+    "addYear": "Add academic year",
+    "addYearHint": "A new year starts as Planned. Configure it, then set it as current when ready.",
+    "created": "Academic year created",
+    "deleted": "Academic year deleted",
+    "ready": "Ready",
+    "noData": "No data",
+    "advisory": "Advisory",
+    "resolve": "Resolve",
+    "currentMarker": "Current academic year",
+    "setCurrent": "Set current",
+    "closeYear": "Close academic year",
+    "cannotActivate": "Cannot activate. Missing:",
+    "deleteBlocked": "This academic year contains historical data and cannot be deleted.",
+    "deleteBlockedShort": "Contains data — cannot delete",
+    "status": {
+      "UPCOMING": "Planned",
+      "ACTIVE": "Active",
+      "CLOSED": "Closed"
+    },
+    "kpi": {
+      "students": "Students",
+      "enrollments": "Active enrollments",
+      "classes": "Classes",
+      "semesters": "Semesters",
+      "attendance": "Attendance",
+      "reportCards": "Report cards",
+      "timetable": "Timetable",
+      "outstanding": "Outstanding fees",
+      "unverified": "Unverified payments"
+    },
+    "summary": {
+      "graduating": "Graduating students",
+      "withdrawn": "Withdrawn students"
+    },
+    "setCurrentTitle": "Set current academic year",
+    "setCurrentConfirm": "Set as current",
+    "setCurrentDone": "Current academic year updated",
+    "setCurrentExplain": "Changing the current academic year is an administrative configuration change.",
+    "setCurrentChangesOnly": "Changing the current year only changes the system default for:",
+    "setCurrentDefaults": "Admissions, attendance, homework, timetable, reporting and finance defaults.",
+    "setCurrentDoesNot": "It does NOT:",
+    "setCurrentDoesNotList": "Promote students, create enrollments, modify grades, generate charges, or copy timetables.",
+    "close": {
+      "title": "Close academic year",
+      "step1": "Summary",
+      "step2": "Validation",
+      "step3": "Confirmation",
+      "step4": "Close",
+      "confirmButton": "Close academic year",
+      "confirmIntro": "Closing this academic year has the following effects. This is reversible only by an administrator.",
+      "locks": "Closing an academic year:",
+      "locksList": "Locks attendance|Locks grades|Locks report cards|Locks timetables",
+      "preservesList": "Preserves finance|Preserves audit history",
+      "doesNot": "Closing DOES NOT:",
+      "doesNotList": "Promote students|Create new enrollments|Archive students|Generate fees",
+      "done": "Academic year closed",
+      "doneDetail": "The status is now Closed. Nothing else changed — promotion remains a separate wizard."
+    }
   }
 }

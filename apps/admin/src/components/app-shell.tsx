@@ -7,7 +7,8 @@ import { cn } from '@munaxa/ui';
 import { logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache } from '@/lib/session';
 import { advancedApi } from '@/lib/advanced';
-import { Button } from '@munaxa/ui';
+import { academicYearsApi, type AcademicYear } from '@/lib/structure';
+import { Badge, Button } from '@munaxa/ui';
 import { Logo } from './logo';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
 import { GlobalSearch } from './global-search';
@@ -175,6 +176,12 @@ const NAV_GROUPS: NavGroup[] = [
         href: '/structure/schools',
         labelKey: 'nav.structure',
         icon: 'structure',
+        perm: 'school:manage',
+      },
+      {
+        href: '/structure/academic-year',
+        labelKey: 'nav.academicYearWorkspace',
+        icon: 'academicStructure',
         perm: 'school:manage',
       },
       {
@@ -456,6 +463,7 @@ export function AppShell({
           </button>
 
           <div className="ms-auto flex items-center gap-2">
+            <CurrentYearIndicator />
             <span
               className="hidden items-center gap-2 rounded-lg border border-border px-3 py-1.5 lg:flex"
               title={principal.isPlatform ? t('shell.platformPlane') : t('shell.schoolPlane')}
@@ -521,6 +529,48 @@ export function AppShell({
 
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} principal={principal} />
     </div>
+  );
+}
+
+/**
+ * Top-bar indicator of the current (ACTIVE) Academic Year — visible across the whole Admin Portal.
+ * Falls back to a "Finish setup" link when no year is active. Read-only; never mutates anything.
+ */
+function CurrentYearIndicator() {
+  const { t } = useI18n();
+  const [year, setYear] = useState<AcademicYear | null | undefined>(undefined);
+
+  useEffect(() => {
+    academicYearsApi
+      .current()
+      .then(setYear)
+      .catch(() => setYear(null));
+  }, []);
+
+  if (year === undefined) return null; // still loading — render nothing to avoid a flash
+
+  if (!year) {
+    return (
+      <Link
+        href="/structure/academic-year"
+        className="hidden items-center gap-2 rounded-lg border border-coral/40 bg-coral/10 px-3 py-1.5 text-xs font-medium text-coral md:flex"
+        title={t('shell.noActiveYear')}
+      >
+        <span>{t('shell.noActiveYear')}</span>
+        <span className="opacity-70">· {t('shell.finishSetup')}</span>
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href="/structure/academic-year"
+      className="hidden items-center gap-2 rounded-lg border border-border px-3 py-1.5 md:flex"
+      title={t('shell.academicYear')}
+    >
+      <span className="font-mono text-xs text-muted-foreground">{year.name}</span>
+      <Badge tone="success">{t('academicYear.status.ACTIVE')}</Badge>
+    </Link>
   );
 }
 
