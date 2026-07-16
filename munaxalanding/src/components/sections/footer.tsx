@@ -14,7 +14,7 @@ export function Footer({ dict }: { dict: Dictionary }) {
             <Image
               src="/logo.png"
               alt="Munaxa"
-              width={24}
+              width={44}
               height={36}
               className="h-8 w-auto object-contain"
             />

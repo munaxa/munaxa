@@ -1,8 +1,8 @@
 import Image from 'next/image';
 import { cn } from '@munaxa/ui';
 
-// Intrinsic aspect ratio of the Munaxa ibex mark (docs/design-system/logo.png).
-const RATIO = 406 / 617;
+// Intrinsic aspect ratio of the Munaxa open-book + graduation-cap mark (docs/design-system/logo.png).
+const RATIO = 894 / 736;
 
 /**
  * The Munaxa brand mark. `size` is the rendered height in px; width is derived from the
