@@ -207,6 +207,49 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/settings/users', labelKey: 'nav.users', icon: 'users', perm: 'user:manage' },
       { href: '/settings/roles', labelKey: 'nav.roles', icon: 'roles', perm: 'role:manage' },
       {
+        href: '/settings/subscription',
+        labelKey: 'nav.subscription',
+        icon: 'finance',
+        perm: 'subscription:read',
+      },
+    ],
+  },
+  // Platform plane (Munaxa employees only). Every item is gated by a platform permission, so
+  // school users never see this section; the API enforces the same permissions server-side.
+  {
+    titleKey: 'nav.section.platform',
+    items: [
+      {
+        href: '/platform/console',
+        labelKey: 'nav.platformConsole',
+        icon: 'dashboard',
+        perm: 'platform:dashboard:read',
+      },
+      {
+        href: '/platform/console/schools',
+        labelKey: 'nav.platformSchools',
+        icon: 'structure',
+        perm: 'platform:school:read',
+      },
+      {
+        href: '/platform/console/subscriptions',
+        labelKey: 'nav.platformSubscriptions',
+        icon: 'finance',
+        perm: 'platform:subscription:read',
+      },
+      {
+        href: '/platform/console/upgrade-requests',
+        labelKey: 'nav.platformUpgrades',
+        icon: 'reports',
+        perm: 'platform:upgrade:review',
+      },
+      {
+        href: '/platform/console/audit',
+        labelKey: 'nav.platformAudit',
+        icon: 'reports',
+        perm: 'platform:audit:read',
+      },
+      {
         href: '/platform/databases',
         labelKey: 'nav.tenantDatabases',
         icon: 'databases',

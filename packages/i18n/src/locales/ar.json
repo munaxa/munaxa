@@ -165,7 +165,8 @@
       "finance": "المالية",
       "operations": "العمليات",
       "reports": "التحليلات",
-      "settings": "الإدارة"
+      "settings": "الإدارة",
+      "platform": "المنصة"
     },
     "structure": "هيكل المدرسة",
     "academicStructure": "الهيكل الأكاديمي",
@@ -196,7 +197,13 @@
     "presence": "الحضور والبوابة",
     "roles": "الأدوار والصلاحيات",
     "users": "المستخدمون والموظفون",
-    "academicYearWorkspace": "العام الدراسي"
+    "academicYearWorkspace": "العام الدراسي",
+    "subscription": "الاشتراك",
+    "platformConsole": "وحدة تحكم المنصة",
+    "platformSchools": "المدارس",
+    "platformSubscriptions": "الاشتراكات",
+    "platformUpgrades": "طلبات الترقية",
+    "platformAudit": "سجل التدقيق"
   },
   "dashboard": {
     "title": "نظرة عامة",
