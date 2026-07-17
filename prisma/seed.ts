@@ -8,14 +8,20 @@
  * Run: `pnpm --filter @munaxa/api db:seed` (DATABASE_URL must be set).
  */
 import { PrismaClient } from '@prisma/client';
-import { ALL_PERMISSIONS, PERMISSION_DESCRIPTIONS } from '@munaxa/domain';
+import {
+  ALL_PERMISSIONS,
+  PERMISSION_DESCRIPTIONS,
+  PLAN_CATALOG_LIST,
+} from '@munaxa/domain';
 
 const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
   let count = 0;
-  // The Permission table is RLS-protected: writes require the platform context
-  // (app.is_platform='on'). Run the upserts inside one platform transaction.
+  let planCount = 0;
+  let featureCount = 0;
+  // The Permission/SubscriptionPlan tables are RLS-protected: writes require the platform
+  // context (app.is_platform='on'). Run the upserts inside one platform transaction.
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('app.is_platform', 'on', true)`;
     for (const key of ALL_PERMISSIONS) {
@@ -28,9 +34,55 @@ async function main(): Promise<void> {
       });
       count += 1;
     }
+
+    // Subscription plan catalog (idempotent). Plans keyed by tier; capability rows keyed by
+    // (plan, key). Limits with `null` mean unlimited. Core School OS modules are never seeded
+    // here — they are always available on every plan.
+    for (const def of PLAN_CATALOG_LIST) {
+      const plan = await tx.subscriptionPlan.upsert({
+        where: { tier: def.tier },
+        update: {
+          name: def.name,
+          description: def.description,
+          sortOrder: def.sortOrder,
+          priceMonthly: def.priceMonthly,
+          priceYearly: def.priceYearly,
+          currency: def.currency,
+          maxStudents: def.limits.maxStudents,
+          maxCampuses: def.limits.maxCampuses,
+          maxStaff: def.limits.maxStaff,
+          storageGb: def.limits.storageGb,
+          isActive: true,
+        },
+        create: {
+          tier: def.tier,
+          name: def.name,
+          description: def.description,
+          sortOrder: def.sortOrder,
+          priceMonthly: def.priceMonthly,
+          priceYearly: def.priceYearly,
+          currency: def.currency,
+          maxStudents: def.limits.maxStudents,
+          maxCampuses: def.limits.maxCampuses,
+          maxStaff: def.limits.maxStaff,
+          storageGb: def.limits.storageGb,
+        },
+      });
+      planCount += 1;
+      for (const key of def.features) {
+        await tx.subscriptionFeature.upsert({
+          where: { planId_key: { planId: plan.id, key } },
+          update: { enabled: true },
+          create: { planId: plan.id, key, enabled: true },
+        });
+        featureCount += 1;
+      }
+    }
   });
   // eslint-disable-next-line no-console
-  console.log(`✔ Seeded ${count} permissions into the global catalog.`);
+  console.log(
+    `✔ Seeded ${count} permissions, ${planCount} plans, ${featureCount} plan features.`,
+  );
 }
 
 main()

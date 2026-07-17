@@ -111,9 +111,33 @@ export const Permission = {
   FEATUREFLAG_MANAGE: 'featureflag:manage',
   AUDIT_READ: 'audit:read',
 
+  // Subscription (school-plane: a school admin views its own subscription and requests upgrades;
+  // schools can NEVER change their own plan — only request a change the platform reviews).
+  SUBSCRIPTION_READ: 'subscription:read',
+  SUBSCRIPTION_UPGRADE_REQUEST: 'subscription:upgrade-request',
+
   // Platform
   PLATFORM_TENANT_MANAGE: 'platform:tenant:manage',
   SUPPORT_IMPERSONATE: 'support:impersonate',
+
+  // Platform Console (super-admin plane — Munaxa employees only; outside tenant RBAC).
+  PLATFORM_DASHBOARD_READ: 'platform:dashboard:read',
+  PLATFORM_SCHOOL_READ: 'platform:school:read',
+  PLATFORM_SUBSCRIPTION_READ: 'platform:subscription:read',
+  PLATFORM_SUBSCRIPTION_MANAGE: 'platform:subscription:manage',
+  PLATFORM_PLAN_MANAGE: 'platform:plan:manage',
+  PLATFORM_UPGRADE_REVIEW: 'platform:upgrade:review',
+  PLATFORM_TRIAL_MANAGE: 'platform:trial:manage',
+  PLATFORM_BILLING_READ: 'platform:billing:read',
+  PLATFORM_BILLING_MANAGE: 'platform:billing:manage',
+  PLATFORM_COUPON_MANAGE: 'platform:coupon:manage',
+  PLATFORM_FEATURE_OVERRIDE: 'platform:feature:override',
+  PLATFORM_FEATUREFLAG_MANAGE: 'platform:featureflag:manage',
+  PLATFORM_SUPPORT_MANAGE: 'platform:support:manage',
+  PLATFORM_AUDIT_READ: 'platform:audit:read',
+  PLATFORM_USER_MANAGE: 'platform:user:manage',
+  PLATFORM_SYSTEM_HEALTH_READ: 'platform:system:read',
+  PLATFORM_REVENUE_READ: 'platform:revenue:read',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -226,6 +250,32 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.FEATUREFLAG_MANAGE]: 'Enable or disable feature flags for the tenant.',
   [Permission.AUDIT_READ]: 'View the audit log of actions taken in the system.',
 
+  [Permission.SUBSCRIPTION_READ]:
+    "View this school's current subscription plan, usage, limits, and renewal.",
+  [Permission.SUBSCRIPTION_UPGRADE_REQUEST]:
+    'Request a subscription plan change (reviewed and applied by Munaxa — schools cannot self-serve plan changes).',
+
   [Permission.PLATFORM_TENANT_MANAGE]: 'Manage tenant accounts at the platform level.',
   [Permission.SUPPORT_IMPERSONATE]: 'Temporarily sign in as another user for support purposes.',
+
+  [Permission.PLATFORM_DASHBOARD_READ]: 'View the Platform Console operational dashboard.',
+  [Permission.PLATFORM_SCHOOL_READ]: 'View all customer schools (tenants) in the Platform Console.',
+  [Permission.PLATFORM_SUBSCRIPTION_READ]: 'View every school subscription across the platform.',
+  [Permission.PLATFORM_SUBSCRIPTION_MANAGE]:
+    'Create, change, suspend, or cancel school subscriptions.',
+  [Permission.PLATFORM_PLAN_MANAGE]: 'Create and edit subscription plans and their entitlements.',
+  [Permission.PLATFORM_UPGRADE_REVIEW]: 'Review, approve, or reject school upgrade requests.',
+  [Permission.PLATFORM_TRIAL_MANAGE]: 'Start, extend, convert, or end school trials.',
+  [Permission.PLATFORM_BILLING_READ]: 'View billing profiles and invoices across the platform.',
+  [Permission.PLATFORM_BILLING_MANAGE]:
+    'Manage billing profiles, payment methods, and manual activations.',
+  [Permission.PLATFORM_COUPON_MANAGE]: 'Create and manage discount coupons.',
+  [Permission.PLATFORM_FEATURE_OVERRIDE]:
+    'Override individual features or limits for a single tenant without changing its plan.',
+  [Permission.PLATFORM_FEATUREFLAG_MANAGE]: 'Manage platform-wide and per-tenant feature flags.',
+  [Permission.PLATFORM_SUPPORT_MANAGE]: 'Access and manage platform support operations.',
+  [Permission.PLATFORM_AUDIT_READ]: 'Read the cross-tenant platform audit log.',
+  [Permission.PLATFORM_USER_MANAGE]: 'Manage Platform Console (Munaxa employee) user accounts.',
+  [Permission.PLATFORM_SYSTEM_HEALTH_READ]: 'View platform system health and operational metrics.',
+  [Permission.PLATFORM_REVENUE_READ]: 'View platform revenue and MRR/ARR reporting.',
 };

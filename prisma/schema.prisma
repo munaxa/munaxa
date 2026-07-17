@@ -357,6 +357,10 @@ enum RoleKey {
   // Platform plane
   PlatformOwner
   PlatformAdmin
+  PlatformFinance
+  PlatformSupport
+  PlatformSales
+  PlatformReadOnly
   SupportAgent
   // School plane
   SchoolAdmin
@@ -511,6 +515,15 @@ model Tenant {
   yearEndProcesses         YearEndProcess[]
   yearEndDecisions         YearEndDecision[]
 
+  // SaaS subscription plane
+  subscription       TenantSubscription?
+  subscriptionUsages SubscriptionUsage[]
+  planChanges        PlanChangeHistory[]
+  billingProfile     BillingProfile?
+  trial              Trial?
+  upgradeRequests    UpgradeRequest[]
+  featureOverrides   TenantFeatureOverride[]
+
   @@index([status])
 }
 
@@ -571,27 +584,27 @@ enum AcademicYearStatus {
 }
 
 model AcademicYear {
-  id        String             @id @default(uuid()) @db.Uuid
-  tenantId  String             @db.Uuid
+  id                    String             @id @default(uuid()) @db.Uuid
+  tenantId              String             @db.Uuid
   // TRANSITIONAL: an Academic Year is a SCHOOL-level entity (Decision 1); campuses participate but do
   // not own it. `campusId` is kept only as a migration shim and is dropped in the Phase-B cleanup once
   // the validator (scripts/validate-academic-year-migration.ts) confirms no (schoolId,name) conflicts.
   // New code should read/write `schoolId`; `schoolId` is backfilled from `campus.schoolId`.
-  campusId  String             @db.Uuid
-  schoolId  String?            @db.Uuid
-  name      String // e.g. "2025/2026"
-  startDate DateTime           @db.Date
-  endDate   DateTime           @db.Date
+  campusId              String             @db.Uuid
+  schoolId              String?            @db.Uuid
+  name                  String // e.g. "2025/2026"
+  startDate             DateTime           @db.Date
+  endDate               DateTime           @db.Date
   // Admission/registration window for the year (optional; independent of the instructional
   // boundaries, which live on Semester). Used by the workspace Registration section + readiness.
-  registrationStartDate DateTime? @db.Date
-  registrationEndDate   DateTime? @db.Date
+  registrationStartDate DateTime?          @db.Date
+  registrationEndDate   DateTime?          @db.Date
   // Explicit lifecycle. `isCurrent` is retained (== status ACTIVE) for backward-compatible readers
   // during the transition; the single source of truth is `status`.
-  status    AcademicYearStatus @default(UPCOMING)
-  isCurrent Boolean            @default(false)
-  createdAt DateTime           @default(now()) @db.Timestamptz(6)
-  updatedAt DateTime           @updatedAt @db.Timestamptz(6)
+  status                AcademicYearStatus @default(UPCOMING)
+  isCurrent             Boolean            @default(false)
+  createdAt             DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime           @updatedAt @db.Timestamptz(6)
 
   tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   campus                 Campus                  @relation(fields: [campusId], references: [id], onDelete: Cascade)
@@ -1826,20 +1839,20 @@ model OrganizationSettings {
   tenantId String @unique @db.Uuid
 
   // ── General / identity ──
-  nameEn           String?
-  nameAr           String?
-  legalName        String?
-  shortName        String?
-  schoolCode       String?
-  ministryNumber   String?
-  schoolType       OrganizationSchoolType @default(PRIVATE)
-  motto            String?
-  mission          String?
-  vision           String?
-  establishedYear  Int?
-  description      String?
-  timezone         String                 @default("Asia/Amman")
-  defaultLanguage  String                 @default("en")
+  nameEn          String?
+  nameAr          String?
+  legalName       String?
+  shortName       String?
+  schoolCode      String?
+  ministryNumber  String?
+  schoolType      OrganizationSchoolType @default(PRIVATE)
+  motto           String?
+  mission         String?
+  vision          String?
+  establishedYear Int?
+  description     String?
+  timezone        String                 @default("Asia/Amman")
+  defaultLanguage String                 @default("en")
 
   // ── Contact ──
   phone            String?
@@ -3943,4 +3956,307 @@ model BillingResponsibilityTransfer {
   @@index([tenantId])
   @@index([tenantId, studentFinancialAccountId])
   @@index([tenantId, studentId])
+}
+
+// ----------------------------------------------------------------------------
+// SaaS Subscription & Platform Billing (Phase 24)
+//
+// Munaxa is a multi-tenant School OS sold as SaaS. These models describe the
+// commercial plane: which plan a school is on, what it may use, how much of its
+// quota it has consumed, and the workflow the Platform Console (Munaxa employees)
+// uses to review upgrade requests and override features per-tenant.
+//
+// Plan/Feature/Coupon rows are GLOBAL (no tenantId) — one catalog shared by all
+// tenants; only platform sessions may write them. Everything else is tenant-scoped
+// (RLS in the migration): a school reads its own subscription/usage/billing, the
+// platform plane reads and writes across all tenants.
+//
+// IMPORTANT: Core School OS modules (Admissions, Students, Attendance, Finance,
+// Academics, Parent Portal, Student App, Timetable, Communication, Reporting) are
+// NEVER gated by a plan. Plans only control limits, integrations, AI, automation,
+// branding, storage, API, and enterprise capabilities.
+// ----------------------------------------------------------------------------
+
+/// The three commercial tiers. A plan's tier is its stable identity across renames.
+enum PlanTier {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+/// How a subscription is billed. TRIAL is a time-boxed evaluation with no charge.
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+  TRIAL
+}
+
+/// Lifecycle of a school's subscription. GRACE_PERIOD follows a missed renewal before
+/// suspension; SUSPENDED locks upgrades/writes to paid capabilities but never core modules.
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  GRACE_PERIOD
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+/// Upgrade-request workflow: a school requests, the platform reviews and decides.
+enum UpgradeRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Coupon discount shape.
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+/// How long a coupon's discount applies once redeemed.
+enum CouponDuration {
+  ONCE
+  REPEATING
+  FOREVER
+}
+
+/// Payment provider behind a school's billing. Manual/offline are supported today;
+/// STRIPE and MYFATOORAH are wired for future online billing.
+enum PaymentProvider {
+  MANUAL
+  OFFLINE
+  STRIPE
+  MYFATOORAH
+}
+
+/// A subscription plan (global catalog). Limits are columns (null = unlimited);
+/// boolean capabilities live in {@link SubscriptionFeature} rows. Core modules are
+/// implicit and never represented here.
+model SubscriptionPlan {
+  id           String   @id @default(uuid()) @db.Uuid
+  tier         PlanTier @unique
+  name         String
+  description  String?
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  // Pricing in minor currency units (e.g. fils/cents). Null price = "contact sales".
+  priceMonthly Int?
+  priceYearly  Int?
+  currency     String   @default("JOD")
+  // Quota limits. NULL means UNLIMITED for that dimension.
+  maxCampuses  Int?
+  maxStudents  Int?
+  maxStaff     Int?
+  storageGb    Int?
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  features            SubscriptionFeature[]
+  subscriptions       TenantSubscription[]
+  trials              Trial[]
+  upgradeRequestsTo   UpgradeRequest[]      @relation("UpgradeRequestTo")
+  upgradeRequestsFrom UpgradeRequest[]      @relation("UpgradeRequestFrom")
+  planChangesTo       PlanChangeHistory[]   @relation("PlanChangeTo")
+  planChangesFrom     PlanChangeHistory[]   @relation("PlanChangeFrom")
+
+  @@index([isActive])
+}
+
+/// A boolean capability entitlement for a plan (e.g. api, ai_assistant, sso, white_label,
+/// jofotara, advanced_reports, custom_integrations, dedicated_support, enterprise_security,
+/// enterprise_ai, automation, branding). Absence of a row = disabled.
+model SubscriptionFeature {
+  id        String   @id @default(uuid()) @db.Uuid
+  planId    String   @db.Uuid
+  key       String
+  enabled   Boolean  @default(true)
+  // Optional numeric entitlement for metered capabilities (e.g. api rate). Null = not metered.
+  limit     Int?
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  plan SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+  @@index([planId])
+}
+
+/// The single active subscription for a tenant. Renewal = currentPeriodEnd.
+model TenantSubscription {
+  id                 String             @id @default(uuid()) @db.Uuid
+  tenantId           String             @unique @db.Uuid
+  planId             String             @db.Uuid
+  status             SubscriptionStatus @default(TRIALING)
+  billingCycle       BillingCycle       @default(MONTHLY)
+  currentPeriodStart DateTime           @default(now()) @db.Timestamptz(6)
+  currentPeriodEnd   DateTime?          @db.Timestamptz(6)
+  trialEndsAt        DateTime?          @db.Timestamptz(6)
+  graceEndsAt        DateTime?          @db.Timestamptz(6)
+  cancelledAt        DateTime?          @db.Timestamptz(6)
+  couponId           String?            @db.Uuid
+  startedAt          DateTime           @default(now()) @db.Timestamptz(6)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+  coupon Coupon?          @relation(fields: [couponId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([planId])
+  @@index([currentPeriodEnd])
+}
+
+/// A current usage counter for a tenant against one metered dimension
+/// (students, campuses, staff, storage_gb, api_calls). One row per metric.
+model SubscriptionUsage {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  metric    String
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, metric])
+  @@index([tenantId])
+}
+
+/// Immutable history of plan/status changes for a tenant (who, when, why).
+model PlanChangeHistory {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @db.Uuid
+  fromPlanId       String?  @db.Uuid
+  toPlanId         String   @db.Uuid
+  fromStatus       String?
+  toStatus         String?
+  fromCycle        String?
+  toCycle          String?
+  reason           String?
+  upgradeRequestId String?  @db.Uuid
+  changedById      String?  @db.Uuid
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fromPlan SubscriptionPlan? @relation("PlanChangeFrom", fields: [fromPlanId], references: [id], onDelete: SetNull)
+  toPlan   SubscriptionPlan  @relation("PlanChangeTo", fields: [toPlanId], references: [id])
+
+  @@index([tenantId, createdAt])
+}
+
+/// Billing identity + payment routing for a tenant.
+model BillingProfile {
+  id                 String          @id @default(uuid()) @db.Uuid
+  tenantId           String          @unique @db.Uuid
+  legalName          String?
+  taxId              String?
+  billingEmail       String?
+  billingPhone       String?
+  addressLine1       String?
+  addressLine2       String?
+  city               String?
+  country            String?
+  provider           PaymentProvider @default(MANUAL)
+  externalCustomerId String?
+  notes              String?
+  createdAt          DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime        @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+/// Discount coupon (global catalog).
+model Coupon {
+  id             String         @id @default(uuid()) @db.Uuid
+  code           String         @unique
+  description    String?
+  type           CouponType
+  // PERCENT: percentOff (0-100). FIXED: amountOff in minor currency units.
+  percentOff     Int?
+  amountOff      Int?
+  currency       String?
+  duration       CouponDuration @default(ONCE)
+  durationMonths Int?
+  appliesToTier  PlanTier?
+  maxRedemptions Int?
+  timesRedeemed  Int            @default(0)
+  validFrom      DateTime?      @db.Timestamptz(6)
+  validUntil     DateTime?      @db.Timestamptz(6)
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(6)
+
+  subscriptions TenantSubscription[]
+
+  @@index([isActive])
+}
+
+/// A time-boxed evaluation for a tenant (usually of the Professional plan).
+model Trial {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @unique @db.Uuid
+  planId        String    @db.Uuid
+  startedAt     DateTime  @default(now()) @db.Timestamptz(6)
+  endsAt        DateTime  @db.Timestamptz(6)
+  convertedAt   DateTime? @db.Timestamptz(6)
+  expiredAt     DateTime? @db.Timestamptz(6)
+  extendedCount Int       @default(0)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  @@index([endsAt])
+}
+
+/// A school-initiated request to change plan/cycle. Schools cannot self-serve plan
+/// changes — the Platform Console reviews and applies the change, which takes effect
+/// immediately (no deployment).
+model UpgradeRequest {
+  id              String               @id @default(uuid()) @db.Uuid
+  tenantId        String               @db.Uuid
+  fromPlanId      String?              @db.Uuid
+  requestedPlanId String               @db.Uuid
+  requestedCycle  BillingCycle?
+  status          UpgradeRequestStatus @default(PENDING)
+  note            String?
+  requestedById   String?              @db.Uuid
+  reviewedById    String?              @db.Uuid
+  reviewedAt      DateTime?            @db.Timestamptz(6)
+  decisionNote    String?
+  createdAt       DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fromPlan      SubscriptionPlan? @relation("UpgradeRequestFrom", fields: [fromPlanId], references: [id], onDelete: SetNull)
+  requestedPlan SubscriptionPlan  @relation("UpgradeRequestTo", fields: [requestedPlanId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([status, createdAt])
+}
+
+/// A per-tenant override of a single feature or limit, without minting a custom plan.
+/// enabled overrides a boolean capability; limitOverride raises/lowers a numeric limit.
+/// Optional expiresAt supports temporary beta access. Every change is audited.
+model TenantFeatureOverride {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @db.Uuid
+  key           String
+  enabled       Boolean?
+  limitOverride Int?
+  reason        String?
+  expiresAt     DateTime? @db.Timestamptz(6)
+  createdById   String?   @db.Uuid
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
 }
