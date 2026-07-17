@@ -3,8 +3,12 @@ import type { Prisma, PrismaClient } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { withPlatform, type TxClient } from '../../prisma/tenant.helpers';
 import { TenantContextStore } from '../../prisma/tenant-context';
+import { PLATFORM_TENANT_ID } from '../platform.constants';
 
 const planInclude = { features: true } as const;
+
+/** Exclude the reserved platform "home" tenant from customer-facing listings. */
+const notPlatformTenant = { id: { not: PLATFORM_TENANT_ID } } as const;
 
 /**
  * Control-plane data access for the Platform Console. Every operation runs under
@@ -113,6 +117,7 @@ export class PlatformConsoleRepository {
   async listSchools() {
     return withPlatform(this.client(), async (tx) => {
       const tenants = await tx.tenant.findMany({
+        where: notPlatformTenant,
         orderBy: { createdAt: 'desc' },
         include: {
           subscription: { include: { plan: true } },
@@ -583,7 +588,7 @@ export class PlatformConsoleRepository {
   async metrics() {
     return withPlatform(this.client(), async (tx) => {
       const [tenantCount, subs, pendingRequests, activeTrials, plans] = await Promise.all([
-        tx.tenant.count(),
+        tx.tenant.count({ where: notPlatformTenant }),
         tx.tenantSubscription.findMany({ include: { plan: true } }),
         tx.upgradeRequest.count({ where: { status: 'PENDING' } }),
         tx.trial.count({ where: { convertedAt: null, expiredAt: null } }),

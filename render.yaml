@@ -34,6 +34,9 @@ services:
       - key: DATABASE_URL
         sync: false
       # Must list the admin service's exact public origin (set after admin deploys).
+      # The Platform Console is served by the same admin app, so one origin covers both
+      # the school portal and the console — e.g. https://admin.munaxa.com. See
+      # docs/PLATFORM_CONSOLE.md for the custom-domain + platform-login setup.
       - key: CORS_ORIGINS
         sync: false
       # Generated per-service and guaranteed distinct (prod requires they differ).
