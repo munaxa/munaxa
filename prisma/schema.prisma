@@ -4304,19 +4304,24 @@ model TenantFeatureOverride {
 /// A school group. Enterprise customers manage multiple schools (tenants) under one organization.
 /// Platform-plane (cross-tenant): readable by any bound session, writable only by the platform.
 model Organization {
-  id                  String   @id @default(uuid()) @db.Uuid
+  id                  String    @id @default(uuid()) @db.Uuid
   name                String
-  slug                String   @unique
+  slug                String    @unique
   billingEmail        String?
   countryCode         String?
   // Consolidated billing (future): when true, invoices roll up to the organization.
-  consolidatedBilling Boolean  @default(false)
-  createdAt           DateTime @default(now()) @db.Timestamptz(6)
-  updatedAt           DateTime @updatedAt @db.Timestamptz(6)
+  consolidatedBilling Boolean   @default(false)
+  // Archived organizations are retained for history but hidden from the active list; their schools
+  // are detached (organizationId set null) on archive, so standalone behavior is unaffected.
+  isArchived          Boolean   @default(false)
+  archivedAt          DateTime? @db.Timestamptz(6)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(6)
 
   tenants Tenant[]
 
   @@index([slug])
+  @@index([isArchived])
 }
 
 /// Multi-currency / per-country / time-boxed pricing for a plan (global catalog). One plan may

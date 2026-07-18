@@ -1,5 +1,5 @@
-import { createHmac } from 'node:crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { createHmac, randomBytes } from 'node:crypto';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Prisma, WebhookEndpoint } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { withPlatform } from '../prisma/tenant.helpers';
@@ -148,16 +148,44 @@ export class WebhookService {
   }
 
   deleteEndpoint(id: string) {
-    return withPlatform(this.prisma, (tx) => tx.webhookEndpoint.delete({ where: { id } }));
+    return withPlatform(this.prisma, (tx) =>
+      tx.webhookDelivery
+        .deleteMany({ where: { endpointId: id } })
+        .then(() => tx.webhookEndpoint.delete({ where: { id } })),
+    );
   }
 
-  listDeliveries(endpointId: string) {
+  /** Enable or disable an endpoint (disabled endpoints receive no deliveries). */
+  setEndpointActive(id: string, isActive: boolean) {
+    return withPlatform(this.prisma, (tx) =>
+      tx.webhookEndpoint.update({ where: { id }, data: { isActive } }),
+    );
+  }
+
+  /** Generate and store a new signing secret; returns the endpoint with the new secret. */
+  rotateSecret(id: string) {
+    const secret = `whsec_${randomBytes(24).toString('hex')}`;
+    return withPlatform(this.prisma, (tx) =>
+      tx.webhookEndpoint.update({ where: { id }, data: { secret } }),
+    );
+  }
+
+  listDeliveries(endpointId: string, onlyFailed = false) {
     return withPlatform(this.prisma, (tx) =>
       tx.webhookDelivery.findMany({
-        where: { endpointId },
+        where: { endpointId, ...(onlyFailed ? { status: 'FAILED' } : {}) },
         orderBy: { createdAt: 'desc' },
         take: 100,
       }),
     );
+  }
+
+  /** Re-attempt a failed/pending delivery using its stored payload. */
+  async retryDelivery(deliveryId: string): Promise<void> {
+    const delivery = await withPlatform(this.prisma, (tx) =>
+      tx.webhookDelivery.findUnique({ where: { id: deliveryId }, include: { endpoint: true } }),
+    );
+    if (!delivery) throw new NotFoundException('Delivery not found');
+    await this.dispatch(delivery.endpoint, delivery.id, delivery.payload);
   }
 }

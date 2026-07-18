@@ -32,11 +32,14 @@ CREATE TABLE "Organization" (
     "billingEmail" TEXT,
     "countryCode" TEXT,
     "consolidatedBilling" BOOLEAN NOT NULL DEFAULT false,
+    "isArchived" BOOLEAN NOT NULL DEFAULT false,
+    "archivedAt" TIMESTAMPTZ(6),
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMPTZ(6) NOT NULL,
 
     CONSTRAINT "Organization_pkey" PRIMARY KEY ("id")
 );
+CREATE INDEX "Organization_isArchived_idx" ON "Organization"("isArchived");
 
 -- CreateTable
 CREATE TABLE "PriceBook" (

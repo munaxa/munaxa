@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   ArrayUnique,
@@ -60,6 +60,27 @@ export class WebhookController {
     });
   }
 
+  @Post(':id/disable')
+  @RequirePermissions(Permission.PLATFORM_FEATUREFLAG_MANAGE)
+  @ApiOperation({ summary: 'Disable an endpoint' })
+  disable(@Param('id') id: string) {
+    return this.service.setEndpointActive(id, false);
+  }
+
+  @Post(':id/enable')
+  @RequirePermissions(Permission.PLATFORM_FEATUREFLAG_MANAGE)
+  @ApiOperation({ summary: 'Enable an endpoint' })
+  enable(@Param('id') id: string) {
+    return this.service.setEndpointActive(id, true);
+  }
+
+  @Post(':id/rotate-secret')
+  @RequirePermissions(Permission.PLATFORM_FEATUREFLAG_MANAGE)
+  @ApiOperation({ summary: 'Rotate the signing secret' })
+  rotate(@Param('id') id: string) {
+    return this.service.rotateSecret(id);
+  }
+
   @Delete(':id')
   @RequirePermissions(Permission.PLATFORM_FEATUREFLAG_MANAGE)
   @ApiOperation({ summary: 'Delete a webhook endpoint' })
@@ -69,8 +90,15 @@ export class WebhookController {
 
   @Get(':id/deliveries')
   @RequirePermissions(Permission.PLATFORM_FEATUREFLAG_MANAGE)
-  @ApiOperation({ summary: 'Recent delivery attempts for an endpoint' })
-  deliveries(@Param('id') id: string) {
-    return this.service.listDeliveries(id);
+  @ApiOperation({ summary: 'Recent delivery attempts (optionally only failed)' })
+  deliveries(@Param('id') id: string, @Query('failed') failed?: string) {
+    return this.service.listDeliveries(id, failed === 'true');
+  }
+
+  @Post('deliveries/:deliveryId/retry')
+  @RequirePermissions(Permission.PLATFORM_FEATUREFLAG_MANAGE)
+  @ApiOperation({ summary: 'Retry a failed delivery' })
+  retry(@Param('deliveryId') deliveryId: string) {
+    return this.service.retryDelivery(deliveryId);
   }
 }

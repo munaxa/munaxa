@@ -7,12 +7,18 @@ import {
   PlatformSchoolsController,
   PlatformSubscriptionsController,
 } from './platform-console.controllers';
+import { OrganizationsController } from './organizations.controller';
+import { OrganizationsService } from './organizations.service';
+import { OrganizationsRepository } from './organizations.repository';
+import { PlanVersionsController } from './plan-versions.controller';
+import { PlanVersionsService } from './plan-versions.service';
+import { PlanVersionsRepository } from './plan-versions.repository';
 
 /**
  * Platform Console (super-admin plane): Dashboard, Schools, Subscriptions, Upgrade Requests,
- * Trials, Billing, Coupons, Feature Overrides, Audit, Revenue and System Health. Cross-tenant,
- * gated by platform permissions, fully audited. Depends on the global SubscriptionModule for
- * resolver cache invalidation after changes.
+ * Trials, Billing, Coupons, Feature Overrides, Audit, Revenue, System Health, Organizations and
+ * Plan Versions. Cross-tenant, gated by platform permissions, fully audited. Depends on the global
+ * SubscriptionModule for resolver cache invalidation after changes.
  */
 @Module({
   controllers: [
@@ -20,7 +26,16 @@ import {
     PlatformCatalogController,
     PlatformSubscriptionsController,
     PlatformSchoolsController,
+    OrganizationsController,
+    PlanVersionsController,
   ],
-  providers: [PlatformConsoleService, PlatformConsoleRepository],
+  providers: [
+    PlatformConsoleService,
+    PlatformConsoleRepository,
+    OrganizationsService,
+    OrganizationsRepository,
+    PlanVersionsService,
+    PlanVersionsRepository,
+  ],
 })
 export class PlatformConsoleModule {}
