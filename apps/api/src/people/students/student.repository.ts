@@ -16,6 +16,11 @@ export class StudentRepository extends TenantRepository {
     });
   }
 
+  /** Count non-deleted students in the tenant — the live figure for subscription quota checks. */
+  countActive(): Promise<number> {
+    return this.run((tx) => tx.student.count({ where: { deletedAt: null } }));
+  }
+
   /** Create many students in one transaction; returns the created rows. */
   createManyTx(
     rows: Array<Omit<Prisma.StudentUncheckedCreateInput, 'tenantId'>>,

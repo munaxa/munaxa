@@ -6,6 +6,11 @@
 export const PlatformRole = {
   PlatformOwner: 'PlatformOwner',
   PlatformAdmin: 'PlatformAdmin',
+  PlatformFinance: 'PlatformFinance',
+  PlatformSupport: 'PlatformSupport',
+  PlatformSales: 'PlatformSales',
+  PlatformReadOnly: 'PlatformReadOnly',
+  // Legacy support persona (kept for backward compatibility; superseded by PlatformSupport).
   SupportAgent: 'SupportAgent',
 } as const;
 export type PlatformRole = (typeof PlatformRole)[keyof typeof PlatformRole];
