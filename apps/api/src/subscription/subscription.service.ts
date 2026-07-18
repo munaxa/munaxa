@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { isCoreModule, LimitKey, PlanFeature } from '@munaxa/domain';
+import { canMutate, isCoreModule, LimitKey, PlanFeature } from '@munaxa/domain';
 import type { SubscriptionPlan, SubscriptionFeature } from '@prisma/client';
 import { SubscriptionRepository } from './subscription.repository';
 import type {
@@ -101,6 +101,21 @@ export class SubscriptionService {
     if (!snap.subscription) return null; // unlimited when un-subscribed
     const column = LIMIT_COLUMN[key];
     return column ? snap.subscription.plan[column] : null;
+  }
+
+  /** The tenant's subscription status, or `null` when it has no subscription. */
+  async status(tenantId: string): Promise<string | null> {
+    const snap = await this.snapshot(tenantId);
+    return snap.subscription?.status ?? null;
+  }
+
+  /**
+   * Whether the tenant may perform create/update/delete right now. False in READ_ONLY and any
+   * suspended/terminal state; true when ACTIVE/TRIALING/PAST_DUE/GRACE_PERIOD or un-subscribed.
+   * Delegates the state→policy decision to the shared domain helper (single source of truth).
+   */
+  async canMutate(tenantId: string): Promise<boolean> {
+    return canMutate(await this.status(tenantId));
   }
 
   /** Whether the tenant is currently on a trial. */

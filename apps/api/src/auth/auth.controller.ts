@@ -19,6 +19,7 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import { setAuthCookies, clearAuthCookies, refreshTokenFromCookie } from './cookies';
 import type { AuthenticatedUser } from './auth.types';
 import type { TokenPair } from './auth.types';
+import { AllowInReadOnly } from '../subscription/allow-in-read-only.decorator';
 import {
   LoginDto,
   SessionExchangeDto,
@@ -143,6 +144,7 @@ export class AuthController {
 
   @ApiBearerAuth()
   @AllowDuringPasswordChange()
+  @AllowInReadOnly()
   @Post('password/change')
   @HttpCode(204)
   // Authenticated, but still throttle to blunt online guessing of the current password.

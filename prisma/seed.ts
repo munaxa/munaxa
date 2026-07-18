@@ -10,6 +10,7 @@
 import { PrismaClient } from '@prisma/client';
 import {
   ALL_PERMISSIONS,
+  FEATURE_CATALOG,
   PERMISSION_DESCRIPTIONS,
   PLAN_CATALOG_LIST,
 } from '@munaxa/domain';
@@ -78,10 +79,39 @@ async function main(): Promise<void> {
         featureCount += 1;
       }
     }
+
+    // Feature Catalog (v2): the single catalog of capabilities that plans reference. Idempotent
+    // by code. Core School OS modules are seeded as isCore = true (permanently enabled).
+    for (const entry of FEATURE_CATALOG) {
+      await tx.featureCatalog.upsert({
+        where: { code: entry.code },
+        update: {
+          name: entry.name,
+          description: entry.description,
+          category: entry.category,
+          isCore: entry.isCore,
+          defaultEnabled: entry.defaultEnabled,
+          enterpriseOnly: entry.enterpriseOnly,
+          requiresApproval: entry.requiresApproval,
+          sortOrder: entry.sortOrder,
+        },
+        create: {
+          code: entry.code,
+          name: entry.name,
+          description: entry.description,
+          category: entry.category,
+          isCore: entry.isCore,
+          defaultEnabled: entry.defaultEnabled,
+          enterpriseOnly: entry.enterpriseOnly,
+          requiresApproval: entry.requiresApproval,
+          sortOrder: entry.sortOrder,
+        },
+      });
+    }
   });
   // eslint-disable-next-line no-console
   console.log(
-    `✔ Seeded ${count} permissions, ${planCount} plans, ${featureCount} plan features.`,
+    `✔ Seeded ${count} permissions, ${planCount} plans, ${featureCount} plan features, ${FEATURE_CATALOG.length} catalog entries.`,
   );
 }
 

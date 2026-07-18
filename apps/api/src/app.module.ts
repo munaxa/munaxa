@@ -30,6 +30,7 @@ import { PlatformModule } from './platform/platform.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { PlatformConsoleModule } from './platform/console/platform-console.module';
 import { PlanFeatureGuard } from './subscription/plan-feature.guard';
+import { ReadOnlyStateGuard } from './subscription/read-only-state.guard';
 import { OrganizationModule } from './organization/organization.module';
 import { DocumentsModule } from './documents/documents.module';
 import { YearEndModule } from './year-end/year-end.module';
@@ -104,6 +105,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     { provide: APP_GUARD, useClass: CsrfGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
     { provide: APP_GUARD, useClass: PlanFeatureGuard },
+    { provide: APP_GUARD, useClass: ReadOnlyStateGuard },
     { provide: APP_GUARD, useClass: TenantIsolationGuard },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TenantContextInterceptor },
