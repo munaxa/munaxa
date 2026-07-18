@@ -587,14 +587,54 @@ export class PlatformConsoleRepository {
 
   async metrics() {
     return withPlatform(this.client(), async (tx) => {
-      const [tenantCount, subs, pendingRequests, activeTrials, plans] = await Promise.all([
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const [
+        tenantCount,
+        subs,
+        pendingRequests,
+        activeTrials,
+        plans,
+        trials,
+        failedPayments,
+        renewalsThisMonth,
+        churnedThisMonth,
+        usageRows,
+        overrideRows,
+      ] = await Promise.all([
         tx.tenant.count({ where: notPlatformTenant }),
-        tx.tenantSubscription.findMany({ include: { plan: true } }),
+        tx.tenantSubscription.findMany({ include: { plan: { include: { features: true } } } }),
         tx.upgradeRequest.count({ where: { status: 'PENDING' } }),
         tx.trial.count({ where: { convertedAt: null, expiredAt: null } }),
         tx.subscriptionPlan.findMany(),
+        tx.trial.findMany({ select: { convertedAt: true, expiredAt: true } }),
+        tx.billingPayment.count({ where: { status: 'FAILED' } }),
+        tx.tenantSubscription.count({
+          where: { currentPeriodEnd: { gte: monthStart, lt: monthEnd } },
+        }),
+        tx.tenantSubscription.count({
+          where: {
+            status: { in: ['CANCELLED', 'EXPIRED'] },
+            cancelledAt: { gte: monthStart, lt: monthEnd },
+          },
+        }),
+        tx.subscriptionUsage.findMany(),
+        tx.tenantFeatureOverride.findMany({ where: { enabled: true } }),
       ]);
-      return { tenantCount, subs, pendingRequests, activeTrials, plans };
+      return {
+        tenantCount,
+        subs,
+        pendingRequests,
+        activeTrials,
+        plans,
+        trials,
+        failedPayments,
+        renewalsThisMonth,
+        churnedThisMonth,
+        usageRows,
+        overrideRows,
+      };
     });
   }
 }

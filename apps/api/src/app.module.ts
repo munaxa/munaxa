@@ -28,6 +28,8 @@ import { PresenceModule } from './presence/presence.module';
 import { AdvancedModule } from './advanced/advanced.module';
 import { PlatformModule } from './platform/platform.module';
 import { EventsModule } from './events/events.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { BillingModule } from './billing/billing.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { PlatformConsoleModule } from './platform/console/platform-console.module';
 import { PlanFeatureGuard } from './subscription/plan-feature.guard';
@@ -92,7 +94,9 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     PresenceModule,
     PlatformModule,
     EventsModule,
+    WebhooksModule,
     SubscriptionModule,
+    BillingModule,
     PlatformConsoleModule,
     OrganizationModule,
     DocumentsModule,
