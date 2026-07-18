@@ -281,6 +281,17 @@ export function AppShell({
   const [collapsed, setCollapsed] = useState(false);
   // Enabled feature flags; `null` while loading so flagged items stay hidden until known.
   const [flags, setFlags] = useState<Record<string, boolean> | null>(null);
+  // Which audience this hostname serves: 'console' (admin.), 'app' (app.) or 'all' (single domain).
+  // Mirrors the host-based middleware so the sidebar shows only the relevant sections per host.
+  const [hostMode, setHostMode] = useState<'console' | 'app' | 'all'>('all');
+  useEffect(() => {
+    const host = window.location.hostname.toLowerCase();
+    const consoleHost = (process.env.NEXT_PUBLIC_CONSOLE_HOST ?? '').toLowerCase();
+    const appHost = (process.env.NEXT_PUBLIC_APP_HOST ?? '').toLowerCase();
+    if (consoleHost && host === consoleHost) setHostMode('console');
+    else if (appHost && host === appHost) setHostMode('app');
+    else setHostMode('all');
+  }, []);
 
   useEffect(() => {
     setCollapsed(localStorage.getItem('munaxa.nav.collapsed') === '1');
@@ -333,9 +344,20 @@ export function AppShell({
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   // `mini` renders the icon-only rail (desktop collapsed); the mobile drawer always passes false.
+  // Per-host section visibility: the console host shows only the Platform section; the app host
+  // hides it; a single-domain deploy shows everything (permissions still gate individual items).
+  const isPlatformGroup = (group: NavGroup) => group.titleKey === 'nav.section.platform';
+  const groupsForHost = NAV_GROUPS.filter((group) =>
+    hostMode === 'console'
+      ? isPlatformGroup(group)
+      : hostMode === 'app'
+        ? !isPlatformGroup(group)
+        : true,
+  );
+
   const renderNav = (mini: boolean) => (
     <nav className={cn('flex flex-1 flex-col', mini ? 'gap-2' : 'gap-5')}>
-      {NAV_GROUPS.map((group, gi) => {
+      {groupsForHost.map((group, gi) => {
         const groupItems = group.items.filter(canSee);
         if (groupItems.length === 0) return null;
         return (

@@ -35,24 +35,40 @@ sidebar shows the **Platform** section (Platform Console, Schools, Subscriptions
 Requests, Audit). The bootstrap password is a bcrypt hash that verifies immediately and is
 transparently upgraded to scrypt on first login.
 
-## 3. Serve it at `admin.munaxa.com`
+## 3. Two domains, one deployment (`app.munaxa.com` + `admin.munaxa.com`)
 
-Because the console lives in the admin app, hosting the admin app at `admin.munaxa.com`
-serves the console too (same login; school admins and platform staff both authenticate
-there, and each sees only what their role permits). To wire the domain:
+Best practice for an internal back-office console is to separate it from the customer app at
+the **host** boundary — different origins isolate session cookies and let you lock the console
+host down independently. You do NOT need two deployments: one admin service with two custom
+domains is enough, and a host-based middleware (`apps/admin/src/middleware.ts`) enforces the split:
 
-1. **DNS** — add a `CNAME` for `admin` → your admin deployment host (Render/Cloudflare/…),
-   and (recommended) `api` → the API host.
-2. **Admin deploy** — add `admin.munaxa.com` as a custom domain on the admin service, and
-   set the build-time `NEXT_PUBLIC_API_URL` to the API's public URL, e.g.
-   `https://api.munaxa.com/api/v1` (baked in at build → redeploy the admin after changing).
-3. **API deploy** — set `CORS_ORIGINS=https://admin.munaxa.com` (the API's CORS origin must
-   equal the admin's exact public origin) and redeploy.
+| Host | Serves | Blocks |
+|------|--------|--------|
+| `app.munaxa.com` (`NEXT_PUBLIC_APP_HOST`) | School Admin Portal | `/platform/*` → redirects to `/` |
+| `admin.munaxa.com` (`NEXT_PUBLIC_CONSOLE_HOST`) | Platform Console (`/platform/*`) | everything else → redirects to `/platform/console` |
 
-The admin reverse-proxies `/api/v1/*` to the API (`apps/admin/next.config.mjs`), so the
-httpOnly session + CSRF cookies stay first-party on `admin.munaxa.com`.
+Auth pages (`/login`, `/change-password`, `/forgot-password`) and the `/api` proxy are shared.
+The sidebar mirrors the split, showing only the relevant sections per host. If neither host var
+is set, the app runs in single-domain mode (everything on one domain), which is the local-dev and
+default behavior. **The middleware is UX/hardening — the API still enforces every permission
+server-side (permissions + RLS + audit) regardless of host.**
 
-> Want the console on its own host, fully separate from the school portal? Point a second
-> domain (e.g. `console.munaxa.com`) at the **same** admin deployment — platform staff use
-> that URL, schools use theirs, and role gating keeps them apart. A physically separate
-> console app/deployment is possible but unnecessary given the permission isolation.
+### Render setup
+1. **DNS** — `CNAME app → <admin host>`, `CNAME admin → <admin host>` (same target), and
+   (recommended) `api → <api host>`.
+2. **Admin service** — add both `app.munaxa.com` and `admin.munaxa.com` under Custom Domains
+   (Render issues a cert for each). Set these **build-time** env vars (inlined → redeploy to change):
+   - `NEXT_PUBLIC_API_URL=https://api.munaxa.com/api/v1`
+   - `NEXT_PUBLIC_APP_HOST=app.munaxa.com`
+   - `NEXT_PUBLIC_CONSOLE_HOST=admin.munaxa.com`
+3. **API service** — set `CORS_ORIGINS=https://app.munaxa.com,https://admin.munaxa.com` (both
+   origins, comma-separated) and redeploy.
+
+The admin reverse-proxies `/api/v1/*` to the API (`apps/admin/next.config.mjs`), so the httpOnly
+session + CSRF cookies stay first-party on each host — and because the two hosts are different
+origins, their cookie jars are isolated automatically.
+
+> Prefer a single shared domain for now? Leave `NEXT_PUBLIC_APP_HOST` / `NEXT_PUBLIC_CONSOLE_HOST`
+> unset and put everything on one domain — the console stays reachable but permission-gated.
+> Later you can promote the console to its own deployment behind an IP allowlist / employee SSO;
+> because the API is the enforcement boundary, that's a lift-and-shift, not a rewrite.
