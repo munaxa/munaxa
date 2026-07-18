@@ -524,7 +524,19 @@ model Tenant {
   upgradeRequests    UpgradeRequest[]
   featureOverrides   TenantFeatureOverride[]
 
+  // v2: optional membership in a school group (Organization). NULL = standalone school (unchanged).
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  // v2: platform billing (Munaxa → school) and outbound webhooks.
+  invoices         BillingInvoice[]
+  billingPayments  BillingPayment[]
+  paymentMethods   BillingPaymentMethod[]
+  billingContacts  BillingContact[]
+  webhookEndpoints WebhookEndpoint[]
+
   @@index([status])
+  @@index([organizationId])
 }
 
 // ----------------------------------------------------------------------------
@@ -3998,9 +4010,14 @@ enum SubscriptionStatus {
   ACTIVE
   PAST_DUE
   GRACE_PERIOD
+  // READ_ONLY: the school can log in and view data, but all create/update/delete is blocked and
+  // upgrade prompts remain available (v2). A soft-suspension short of losing access.
+  READ_ONLY
   SUSPENDED
   CANCELLED
   EXPIRED
+  // ARCHIVED: terminal, retained for history/analytics; not billable, not loginable as a customer.
+  ARCHIVED
 }
 
 /// Upgrade-request workflow: a school requests, the platform reviews and decides.
@@ -4043,7 +4060,9 @@ model SubscriptionPlan {
   description  String?
   isActive     Boolean  @default(true)
   sortOrder    Int      @default(0)
-  // Pricing in minor currency units (e.g. fils/cents). Null price = "contact sales".
+  // LEGACY pricing (minor units). v2 moves pricing to {@link PriceBook} (multi-currency /
+  // per-country / time-boxed). These columns are retained as the default-currency fallback so
+  // existing subscriptions and callers keep working unchanged. Null price = "contact sales".
   priceMonthly Int?
   priceYearly  Int?
   currency     String   @default("JOD")
@@ -4062,6 +4081,8 @@ model SubscriptionPlan {
   upgradeRequestsFrom UpgradeRequest[]      @relation("UpgradeRequestFrom")
   planChangesTo       PlanChangeHistory[]   @relation("PlanChangeTo")
   planChangesFrom     PlanChangeHistory[]   @relation("PlanChangeFrom")
+  priceBooks          PriceBook[]
+  planVersions        PlanVersion[]
 
   @@index([isActive])
 }
@@ -4098,13 +4119,17 @@ model TenantSubscription {
   graceEndsAt        DateTime?          @db.Timestamptz(6)
   cancelledAt        DateTime?          @db.Timestamptz(6)
   couponId           String?            @db.Uuid
+  // v2: the plan VERSION this subscription was purchased on (NULL = latest/unversioned; existing
+  // subscriptions are unaffected). Customers stay on their version until migrated.
+  planVersionId      String?            @db.Uuid
   startedAt          DateTime           @default(now()) @db.Timestamptz(6)
   createdAt          DateTime           @default(now()) @db.Timestamptz(6)
   updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
 
-  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
-  coupon Coupon?          @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan        SubscriptionPlan @relation(fields: [planId], references: [id])
+  coupon      Coupon?          @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  planVersion PlanVersion?     @relation(fields: [planVersionId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([planId])
@@ -4259,4 +4284,300 @@ model TenantFeatureOverride {
 
   @@unique([tenantId, key])
   @@index([tenantId])
+}
+
+// ----------------------------------------------------------------------------
+// Platform Console v2 — Enterprise SaaS enhancements (Phase 25)
+//
+// All ADDITIVE. Existing tenants/subscriptions keep working unchanged:
+//   - Pricing moves to PriceBook (multi-currency / per-country / time-boxed); the legacy
+//     SubscriptionPlan price columns remain as the default-currency fallback.
+//   - Organizations group schools (nullable Tenant.organizationId; NULL = standalone).
+//   - PlanVersion preserves purchased limits/pricing; FeatureCatalog replaces hard-coded keys.
+//   - Billing is its own domain (Munaxa → school), distinct from school finance (school → parent).
+//   - Webhooks fan out subscription/billing lifecycle events to external integrations.
+//
+// Naming avoids collisions with the school-finance domain (Payment/Refund/PaymentMethod there
+// are school→parent) by prefixing platform billing models with `Billing`.
+// ----------------------------------------------------------------------------
+
+/// A school group. Enterprise customers manage multiple schools (tenants) under one organization.
+/// Platform-plane (cross-tenant): readable by any bound session, writable only by the platform.
+model Organization {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String
+  slug                String   @unique
+  billingEmail        String?
+  countryCode         String?
+  // Consolidated billing (future): when true, invoices roll up to the organization.
+  consolidatedBilling Boolean  @default(false)
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(6)
+
+  tenants Tenant[]
+
+  @@index([slug])
+}
+
+/// Multi-currency / per-country / time-boxed pricing for a plan (global catalog). One plan may
+/// have many price books; the effective one is resolved by currency + country + date, preferring
+/// the most specific, active, `isDefault` row. Supports future promotional pricing via effectiveTo.
+model PriceBook {
+  id            String    @id @default(uuid()) @db.Uuid
+  planId        String    @db.Uuid
+  currency      String
+  countryCode   String? // NULL = applies to any country in this currency
+  monthlyPrice  Int? // minor units; NULL = "contact sales"
+  yearlyPrice   Int?
+  setupFee      Int       @default(0)
+  effectiveFrom DateTime  @default(now()) @db.Timestamptz(6)
+  effectiveTo   DateTime? @db.Timestamptz(6)
+  isDefault     Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
+
+  plan SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId, currency, countryCode])
+  @@index([planId, isActive])
+}
+
+/// An immutable snapshot of a plan's entitlements + pricing at a point in time. Plans are never
+/// edited in place: publishing a change creates a new version. Existing customers stay on their
+/// purchased version (TenantSubscription.planVersionId); new customers get the current one.
+model PlanVersion {
+  id           String   @id @default(uuid()) @db.Uuid
+  planId       String   @db.Uuid
+  version      Int
+  isCurrent    Boolean  @default(false)
+  // Frozen snapshot of limits + capability codes + pricing at publish time.
+  limits       Json
+  featureCodes String[]
+  pricing      Json?
+  notes        String?
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+
+  plan          SubscriptionPlan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  subscriptions TenantSubscription[]
+
+  @@unique([planId, version])
+  @@index([planId, isCurrent])
+}
+
+/// The catalog of platform capabilities (replaces hard-coded feature keys). Plans reference these
+/// codes. Core School OS modules are `isCore = true` and permanently enabled (never gated).
+model FeatureCatalog {
+  id               String   @id @default(uuid()) @db.Uuid
+  code             String   @unique
+  name             String
+  description      String?
+  category         String   @default("general")
+  isCore           Boolean  @default(false)
+  defaultEnabled   Boolean  @default(false)
+  enterpriseOnly   Boolean  @default(false)
+  requiresApproval Boolean  @default(false)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([category])
+}
+
+/// Status of a platform billing invoice (Munaxa → school).
+enum BillingInvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+  REFUNDED
+}
+
+/// Status of a platform billing payment.
+enum BillingPaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+/// Delivery status of a webhook attempt.
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  DISABLED
+}
+
+/// A platform invoice raised against a school (tenant-scoped; platform reads all).
+model BillingInvoice {
+  id          String               @id @default(uuid()) @db.Uuid
+  tenantId    String               @db.Uuid
+  number      String
+  status      BillingInvoiceStatus @default(DRAFT)
+  currency    String               @default("JOD")
+  subtotal    Int                  @default(0)
+  taxAmount   Int                  @default(0)
+  total       Int                  @default(0)
+  periodStart DateTime?            @db.Timestamptz(6)
+  periodEnd   DateTime?            @db.Timestamptz(6)
+  dueDate     DateTime?            @db.Timestamptz(6)
+  issuedAt    DateTime?            @db.Timestamptz(6)
+  paidAt      DateTime?            @db.Timestamptz(6)
+  notes       String?
+  createdAt   DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines    BillingInvoiceLine[]
+  payments BillingPayment[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status])
+  @@index([status, dueDate])
+}
+
+/// A line on a platform invoice.
+model BillingInvoiceLine {
+  id          String @id @default(uuid()) @db.Uuid
+  invoiceId   String @db.Uuid
+  description String
+  quantity    Int    @default(1)
+  unitAmount  Int    @default(0)
+  amount      Int    @default(0)
+
+  invoice BillingInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+/// A payment recorded against a school's platform billing.
+model BillingPayment {
+  id            String               @id @default(uuid()) @db.Uuid
+  tenantId      String               @db.Uuid
+  invoiceId     String?              @db.Uuid
+  provider      PaymentProvider      @default(MANUAL)
+  amount        Int
+  currency      String               @default("JOD")
+  status        BillingPaymentStatus @default(PENDING)
+  externalRef   String?
+  failureReason String?
+  paidAt        DateTime?            @db.Timestamptz(6)
+  createdAt     DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice BillingInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  refunds BillingRefund[]
+
+  @@index([tenantId, status])
+  @@index([status])
+}
+
+/// A refund against a platform payment. Scalar tenant scoping (RLS); no Tenant back-relation.
+model BillingRefund {
+  id        String               @id @default(uuid()) @db.Uuid
+  tenantId  String               @db.Uuid
+  paymentId String               @db.Uuid
+  amount    Int
+  reason    String?
+  status    BillingPaymentStatus @default(COMPLETED)
+  createdAt DateTime             @default(now()) @db.Timestamptz(6)
+
+  payment BillingPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([paymentId])
+}
+
+/// A stored payment method for a school's platform billing (tokenized reference only).
+model BillingPaymentMethod {
+  id          String          @id @default(uuid()) @db.Uuid
+  tenantId    String          @db.Uuid
+  provider    PaymentProvider @default(MANUAL)
+  brand       String?
+  last4       String?
+  expMonth    Int?
+  expYear     Int?
+  externalRef String?
+  isDefault   Boolean         @default(false)
+  createdAt   DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+/// A billing contact for a school (who receives invoices/receipts).
+model BillingContact {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  name      String
+  email     String
+  phone     String?
+  role      String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+/// Tax rate by country for platform billing (global catalog).
+model BillingTaxRate {
+  id          String   @id @default(uuid()) @db.Uuid
+  countryCode String
+  name        String
+  // Rate in basis points (e.g. 1600 = 16%).
+  rateBps     Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([countryCode, name])
+  @@index([countryCode, isActive])
+}
+
+/// An outbound webhook endpoint. tenantId NULL = a platform-global integration (CRM/accounting/
+/// analytics); non-null = a school-specific endpoint.
+model WebhookEndpoint {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String?  @db.Uuid
+  url         String
+  description String?
+  // Subscribed event types (e.g. "subscription.created"); empty = all events.
+  eventTypes  String[]
+  secret      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant     Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+/// One delivery attempt of an event to an endpoint (the event log + retry bookkeeping).
+model WebhookDelivery {
+  id             String                @id @default(uuid()) @db.Uuid
+  endpointId     String                @db.Uuid
+  eventType      String
+  payload        Json
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  responseStatus Int?
+  lastError      String?
+  deliveredAt    DateTime?             @db.Timestamptz(6)
+  createdAt      DateTime              @default(now()) @db.Timestamptz(6)
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, status])
+  @@index([eventType, createdAt])
 }
