@@ -9,9 +9,22 @@ import { Permission, ALL_PERMISSIONS } from './permissions.js';
  * Scoped (row-level) restrictions for roles like Teacher/Parent/Student (e.g. only their own
  * sections/children) are enforced in the service/repository layer, not by the permission set.
  */
+/**
+ * Every platform-plane capability: the whole `platform:*` namespace plus the cross-cutting keys a
+ * console operator needs. Deliberately EXCLUDES school-operational permissions — platform employees
+ * manage the platform, and reach a specific school only via audited impersonation, never by holding
+ * school permissions directly. This keeps platform accounts "console-only".
+ */
+const PLATFORM_CONSOLE_PERMISSIONS: Permission[] = [
+  ...ALL_PERMISSIONS.filter((p) => p.startsWith('platform:')),
+  Permission.SUPPORT_IMPERSONATE,
+  Permission.AUDIT_READ,
+  Permission.FEATUREFLAG_MANAGE,
+];
+
 export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
-  // Platform plane
-  PlatformOwner: '*',
+  // Platform plane — console-only (no school-operational permissions; see above).
+  PlatformOwner: PLATFORM_CONSOLE_PERMISSIONS,
   PlatformAdmin: [
     Permission.PLATFORM_TENANT_MANAGE,
     Permission.SUPPORT_IMPERSONATE,
