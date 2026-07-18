@@ -232,10 +232,22 @@ const NAV_GROUPS: NavGroup[] = [
         perm: 'platform:school:read',
       },
       {
+        href: '/platform/console/organizations',
+        labelKey: 'nav.platformOrganizations',
+        icon: 'structure',
+        perm: 'platform:school:read',
+      },
+      {
         href: '/platform/console/subscriptions',
         labelKey: 'nav.platformSubscriptions',
         icon: 'finance',
         perm: 'platform:subscription:read',
+      },
+      {
+        href: '/platform/console/webhooks',
+        labelKey: 'nav.platformWebhooks',
+        icon: 'integrations',
+        perm: 'platform:featureflag:manage',
       },
       {
         href: '/platform/console/upgrade-requests',

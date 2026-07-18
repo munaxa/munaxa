@@ -203,7 +203,9 @@
     "platformSchools": "Schools",
     "platformSubscriptions": "Subscriptions",
     "platformUpgrades": "Upgrade Requests",
-    "platformAudit": "Audit Log"
+    "platformAudit": "Audit Log",
+    "platformOrganizations": "Organizations",
+    "platformWebhooks": "Webhooks"
   },
   "dashboard": {
     "title": "Overview",
