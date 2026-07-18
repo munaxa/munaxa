@@ -86,6 +86,12 @@ export default function PlatformSchoolDetailPage() {
             <h1 className="font-display text-2xl font-semibold">{detail.name}</h1>
             <div className="flex items-center gap-2">
               <Link
+                href={`/platform/console/schools/${tenantId}/billing`}
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary/60"
+              >
+                Billing →
+              </Link>
+              <Link
                 href={`/platform/console/schools/${tenantId}/timeline`}
                 className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary/60"
               >

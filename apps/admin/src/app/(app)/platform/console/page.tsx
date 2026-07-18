@@ -147,6 +147,7 @@ export default function PlatformConsoleDashboard() {
               <QuickLink href="/platform/console/organizations" label="Organizations" />
               <QuickLink href="/platform/console/subscriptions" label="Subscriptions" />
               <QuickLink href="/platform/console/upgrade-requests" label="Upgrade Requests" />
+              <QuickLink href="/platform/console/plans" label="Plan Versions" />
               <QuickLink href="/platform/console/webhooks" label="Webhooks" />
               <QuickLink href="/platform/console/audit" label="Audit Log" />
             </div>
