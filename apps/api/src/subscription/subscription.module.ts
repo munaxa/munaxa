@@ -5,6 +5,7 @@ import { SubscriptionRepository } from './subscription.repository';
 import { PlanFeatureGuard } from './plan-feature.guard';
 import { PricingService } from './pricing.service';
 import { ReadOnlyStateGuard } from './read-only-state.guard';
+import { UsageService } from './usage.service';
 
 /**
  * Subscription plane. Exported globally so any module can enforce limits/capabilities through
@@ -21,6 +22,7 @@ import { ReadOnlyStateGuard } from './read-only-state.guard';
     PlanFeatureGuard,
     PricingService,
     ReadOnlyStateGuard,
+    UsageService,
   ],
   exports: [SubscriptionService, PlanFeatureGuard, PricingService, ReadOnlyStateGuard],
 })

@@ -4,6 +4,7 @@ import { StudentService } from './student.service';
 import type { StudentRepository } from './student.repository';
 import type { AccountRepository } from '../../finance/account/account.repository';
 import type { SubscriptionService } from '../../subscription/subscription.service';
+import type { DomainEvents } from '../../events/domain-events';
 
 function setup(blockers: string[]) {
   const findById = jest
@@ -14,8 +15,9 @@ function setup(blockers: string[]) {
   const repo = { findById, deletionBlockers, softDelete } as unknown as StudentRepository;
   const accounts = {} as unknown as AccountRepository;
   const subscriptions = {} as unknown as SubscriptionService;
+  const events = { emit: jest.fn() } as unknown as DomainEvents;
   return {
-    service: new StudentService(repo, accounts, subscriptions),
+    service: new StudentService(repo, accounts, subscriptions, events),
     deletionBlockers,
     softDelete,
   };

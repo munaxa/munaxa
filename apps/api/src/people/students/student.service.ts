@@ -5,6 +5,7 @@ import { LimitKey } from '@munaxa/domain';
 import { StudentRepository, type ParentLink } from './student.repository';
 import { AccountRepository } from '../../finance/account/account.repository';
 import { SubscriptionService } from '../../subscription/subscription.service';
+import { DomainEvents } from '../../events/domain-events';
 import { requireTenantId } from '../../common/tenant.util';
 import { generateStudentQrCode } from '../people.util';
 import type {
@@ -37,6 +38,7 @@ export class StudentService {
     private readonly repo: StudentRepository,
     private readonly accounts: AccountRepository,
     private readonly subscriptions: SubscriptionService,
+    private readonly events: DomainEvents,
   ) {}
 
   async create(dto: CreateStudentDto): Promise<Student> {
@@ -47,7 +49,9 @@ export class StudentService {
     const count = await this.repo.countActive();
     await this.subscriptions.assertCapacity(tenantId, LimitKey.STUDENTS, count, 1);
     const student = await this.repo.create(this.toCreateInput(dto));
-    await this.subscriptions.syncUsage(tenantId, LimitKey.STUDENTS, count + 1);
+    // Publish a fact; the UsageService consumer updates the usage counter (event-driven, decoupled
+    // from subscription logic). The new count is authoritative so the counter never drifts.
+    this.events.emit({ type: 'StudentCreated', tenantId, total: count + 1 });
     return student;
   }
 

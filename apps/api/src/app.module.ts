@@ -27,6 +27,7 @@ import { MailModule } from './mail/mail.module';
 import { PresenceModule } from './presence/presence.module';
 import { AdvancedModule } from './advanced/advanced.module';
 import { PlatformModule } from './platform/platform.module';
+import { EventsModule } from './events/events.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { PlatformConsoleModule } from './platform/console/platform-console.module';
 import { PlanFeatureGuard } from './subscription/plan-feature.guard';
@@ -90,6 +91,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     MailModule,
     PresenceModule,
     PlatformModule,
+    EventsModule,
     SubscriptionModule,
     PlatformConsoleModule,
     OrganizationModule,
