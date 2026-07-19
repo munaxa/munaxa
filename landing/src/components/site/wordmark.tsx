@@ -1,19 +1,23 @@
 import { cn } from '@/lib/cn';
 
 /**
- * Munaxa wordmark — the monogram "M" tile (brand teal) + name, built from tokens so it tracks
- * the theme. Used in the header and footer.
+ * The Munaxa wordmark — the name always set lowercase, followed by the square brand mark (the
+ * teal `--primary` square from the official "munaxa." logo / favicon). The square is sized in
+ * `em` so it scales with the surrounding type and tracks the brand color across themes.
  */
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <span className={cn('flex items-center gap-2.5', className)}>
+    <span
+      className={cn(
+        'inline-flex items-end font-display text-[1.15rem] font-semibold lowercase tracking-[-0.02em]',
+        className,
+      )}
+    >
+      munaxa
       <span
         aria-hidden
-        className="grid h-7 w-7 place-items-center rounded-[0.55rem] bg-primary font-display text-sm font-bold text-primary-foreground shadow-[0_6px_18px_-8px_var(--glow)]"
-      >
-        M
-      </span>
-      <span className="font-display text-[1.05rem] font-semibold tracking-[-0.02em]">Munaxa</span>
+        className="mb-[0.12em] ms-[0.14em] inline-block h-[0.26em] w-[0.26em] rounded-[1px] bg-primary"
+      />
     </span>
   );
 }
