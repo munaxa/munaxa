@@ -8,7 +8,7 @@ export function Monogram({ className = '' }: { className?: string }) {
   return (
     <span
       aria-label="munaxa"
-      className={`inline-flex items-end font-display font-bold leading-none text-primary ${className}`.trim()}
+      className={`inline-flex items-end font-display font-bold leading-none text-foreground ${className}`.trim()}
     >
       <span aria-hidden="true">m</span>
       <span
