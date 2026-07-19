@@ -1,15 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import {
-  Mail,
-  Clock,
-  MapPin,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-  ArrowRight,
-} from '@munaxa/icons';
+import { Mail, Clock, MapPin, Loader2, CheckCircle2, AlertCircle, Send } from '@munaxa/icons';
 import { Button, Input, Textarea, Label } from '@munaxa/ui';
 import { CONTACT_EMAIL } from '@/lib/site';
 import { Reveal } from '@/components/motion/reveal';
@@ -22,11 +14,12 @@ function field(formData: FormData, key: string): string {
 }
 
 /**
- * Book a demo + contact. One functional form posts to /api/demo (zod-validated, rate-limited,
- * honeypot-protected) which sends the designed Munaxa welcome email to the visitor and an
- * internal notification to the sales inbox. A contact rail covers "talk to us first".
+ * Contact us. A functional message form posts to /api/contact (zod-validated, rate-limited,
+ * honeypot-protected), which sends the designed Munaxa welcome email to the visitor and an
+ * internal notification to the sales inbox. To book a demo, visitors use the demo CTA, which
+ * opens the standalone demo app.
  */
-export function Demo() {
+export function Contact() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +40,7 @@ export function Demo() {
     };
 
     try {
-      const response = await fetch('/api/demo', {
+      const response = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -67,21 +60,21 @@ export function Demo() {
   }
 
   return (
-    <section id="demo" className="relative overflow-hidden border-t border-border py-24 sm:py-32">
+    <section id="contact" className="relative overflow-hidden border-t border-border py-24 sm:py-32">
       <div className="brand-glow pointer-events-none absolute -top-20 left-1/2 -z-10 h-[420px] w-[820px] max-w-[92vw] -translate-x-1/2" aria-hidden />
 
       <div className="shell grid items-start gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-16">
         {/* Left — invitation + contact rail */}
         <Reveal>
-          <p className="eyebrow">09 — Book a demo</p>
+          <p className="eyebrow">09 — Contact us</p>
           <h2 className="display mt-4 text-4xl sm:text-5xl">
-            See it on
+            Let&apos;s talk about
             <br />
             your school.
           </h2>
           <p className="mt-5 max-w-md text-lg text-muted-foreground">
-            Tell us about your school and we&apos;ll map Munaxa to it — your grades, your fee
-            structure, your campuses. A working demo, not a slideshow.
+            Have a question or want to learn more? Tell us about your school and our team will get
+            back to you. Ready to see Munaxa in action? Book a demo instead.
           </p>
 
           <ul className="mt-8 space-y-4">
@@ -168,7 +161,7 @@ export function Demo() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <Label htmlFor="message">What would you like to see?</Label>
+                <Label htmlFor="message">Message</Label>
                 <Textarea
                   id="message"
                   name="message"
@@ -176,7 +169,7 @@ export function Demo() {
                   minLength={10}
                   maxLength={2000}
                   rows={4}
-                  placeholder="Number of campuses, grade levels, and what matters most to you."
+                  placeholder="Tell us about your school — campuses, grade levels, and what you're looking for."
                 />
               </div>
             </div>
@@ -200,8 +193,8 @@ export function Demo() {
                 </>
               ) : (
                 <>
-                  Book a demo
-                  <ArrowRight className="h-4 w-4" aria-hidden />
+                  Send message
+                  <Send className="h-4 w-4" aria-hidden />
                 </>
               )}
             </Button>
@@ -209,7 +202,7 @@ export function Demo() {
             {status === 'success' && (
               <p className="mt-4 flex items-center gap-2 text-sm font-medium text-aqua" role="status">
                 <CheckCircle2 className="h-4 w-4" aria-hidden />
-                Thank you — we&apos;ve received your request and sent a confirmation to your inbox.
+                Thank you! We&apos;ve received your message and will be in touch shortly.
               </p>
             )}
             {status === 'error' && (

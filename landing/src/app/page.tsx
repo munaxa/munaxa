@@ -9,7 +9,7 @@ import { Engagement } from '@/components/sections/engagement';
 import { Intelligence } from '@/components/sections/intelligence';
 import { Architecture } from '@/components/sections/architecture';
 import { CTA } from '@/components/sections/cta';
-import { Demo } from '@/components/sections/demo';
+import { Contact } from '@/components/sections/contact';
 import { AdmissionsBoard } from '@/components/product/admissions-board';
 import { FinanceWorkspace } from '@/components/product/finance-workspace';
 
@@ -72,7 +72,7 @@ export default function HomePage() {
         <Intelligence />
         <Architecture />
         <CTA />
-        <Demo />
+        <Contact />
       </main>
       <Footer />
     </>

@@ -27,8 +27,8 @@ export interface InquiryEmailData {
 }
 
 /**
- * Sends the visitor-facing welcome / acknowledgment email, confirming receipt of their demo
- * request and summarizing what they submitted. Design mirrors the Munaxa brand email.
+ * Sends the visitor-facing welcome / acknowledgment email, confirming receipt of their message
+ * and summarizing what they submitted. Design mirrors the Munaxa brand email.
  */
 export async function sendAcknowledgmentEmail(data: InquiryEmailData): Promise<void> {
   const resend = getClient();
@@ -44,8 +44,8 @@ export async function sendAcknowledgmentEmail(data: InquiryEmailData): Promise<v
     '',
     `Thanks for reaching out to ${SITE_NAME} on behalf of ${data.schoolName}.`,
     '',
-    'We have received your request and a member of our team will get back to you within one ' +
-      'business day to schedule your demo and answer any questions.',
+    'We have received your message and a member of our team will get back to you within one ' +
+      'business day to answer any questions and, when you are ready, arrange a demo.',
     '',
     'Here is a copy of what you sent us:',
     `  Name: ${data.name}`,
@@ -76,8 +76,8 @@ export async function sendAcknowledgmentEmail(data: InquiryEmailData): Promise<v
                   <td style="padding:32px;color:${colors.neutral.ink};font-size:15px;line-height:1.6;">
                     <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:${colors.neutral.ink};">Thanks for reaching out, ${escapeHtml(firstName)}!</h1>
                     <p style="margin:0 0 16px;">
-                      We've received your request on behalf of <strong>${escapeHtml(data.schoolName)}</strong> and a member of
-                      our team will be in touch within one business day to schedule your demo and answer any questions.
+                      We've received your message on behalf of <strong>${escapeHtml(data.schoolName)}</strong> and a member of
+                      our team will be in touch within one business day to answer any questions and, when you are ready, arrange a demo.
                     </p>
                     <p style="margin:0 0 12px;">Here's a copy of what you sent us:</p>
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border:1px solid ${colors.neutral.border};border-radius:8px;overflow:hidden;">
@@ -124,7 +124,7 @@ export async function sendAcknowledgmentEmail(data: InquiryEmailData): Promise<v
     await resend.emails.send({
       from: FROM_ADDRESS,
       to: data.email,
-      subject: `Welcome to ${SITE_NAME} — We've Received Your Request`,
+      subject: `Welcome to ${SITE_NAME} — We've Received Your Message`,
       text,
       html,
     });
@@ -155,7 +155,7 @@ export async function sendInternalNotification(data: InquiryEmailData): Promise<
   ];
 
   const html = `
-    <h2>New Munaxa demo request</h2>
+    <h2>New Munaxa contact inquiry</h2>
     <table cellpadding="6" cellspacing="0" border="1" style="border-collapse:collapse;font-family:sans-serif;font-size:14px;">
       ${rows
         .map(
@@ -168,7 +168,7 @@ export async function sendInternalNotification(data: InquiryEmailData): Promise<
   `;
 
   const text = [
-    'New Munaxa demo request',
+    'New Munaxa contact inquiry',
     ...rows.map(([label, value]) => `${label}: ${value}`),
     `Message: ${data.message}`,
   ].join('\n');
@@ -178,7 +178,7 @@ export async function sendInternalNotification(data: InquiryEmailData): Promise<
       from: CONTACT_FROM_EMAIL,
       to: CONTACT_EMAIL,
       replyTo: data.email,
-      subject: `New demo request from ${data.schoolName}`,
+      subject: `New inquiry from ${data.schoolName}`,
       text,
       html,
     });
