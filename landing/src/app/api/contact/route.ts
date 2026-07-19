@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { demoRequestSchema } from '@/lib/validation';
+import { contactFormSchema } from '@/lib/validation';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { sendAcknowledgmentEmail, sendInternalNotification } from '@/lib/email';
 import { logger, maskIp } from '@/lib/logger';
@@ -22,9 +22,9 @@ export async function POST(request: NextRequest) {
   const userAgent = request.headers.get('user-agent');
 
   // 1. Per-IP sliding-window rate limit.
-  const rateLimit = checkRateLimit(`demo:${ip}`, RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
+  const rateLimit = checkRateLimit(`contact:${ip}`, RATE_LIMIT, RATE_LIMIT_WINDOW_MS);
   if (!rateLimit.allowed) {
-    logger.warn('demo.rate_limited', { ip: maskIp(ip) });
+    logger.warn('contact.rate_limited', { ip: maskIp(ip) });
     return NextResponse.json(
       { ok: false, error: 'Too many requests. Please try again later.' },
       {
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const parsed = demoRequestSchema.safeParse(body);
+  const parsed = contactFormSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { ok: false, error: 'Please check the form for errors.', issues: parsed.error.flatten() },
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
   // 3. Honeypot — silently accept so bots don't learn they were detected.
   if (data.website) {
-    logger.warn('demo.honeypot_triggered', { ip: maskIp(ip) });
+    logger.warn('contact.honeypot_triggered', { ip: maskIp(ip) });
     return NextResponse.json({ ok: true });
   }
 
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   // 4. Notify: welcome/acknowledgment to the visitor + internal notification to the sales inbox.
   await Promise.all([sendAcknowledgmentEmail(emailData), sendInternalNotification(emailData)]);
 
-  logger.info('demo.submitted', { ip: maskIp(ip), school: data.schoolName });
+  logger.info('contact.submitted', { ip: maskIp(ip), school: data.schoolName });
 
   return NextResponse.json({ ok: true });
 }

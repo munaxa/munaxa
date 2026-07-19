@@ -1,7 +1,7 @@
 import { ArrowRight } from '@munaxa/icons';
 import { buttonVariants } from '@munaxa/ui';
 import { cn } from '@/lib/cn';
-import { CONTACT_EMAIL } from '@/lib/site';
+import { DEMO_URL } from '@/lib/site';
 import { Reveal } from '@/components/motion/reveal';
 
 /** Closing call to action — quiet confidence, one clear ask. */
@@ -25,12 +25,12 @@ export function CTA() {
           working demo, not a slideshow.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-          <a href="#demo" className={cn(buttonVariants('default', 'lg', 'group'), 'w-full sm:w-auto')}>
+          <a href={DEMO_URL} className={cn(buttonVariants('default', 'lg', 'group'), 'w-full sm:w-auto')}>
             Book a demo
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden />
           </a>
-          <a href={`mailto:${CONTACT_EMAIL}`} className={cn(buttonVariants('ghost', 'lg'), 'w-full sm:w-auto')}>
-            Talk to us
+          <a href="#contact" className={cn(buttonVariants('ghost', 'lg'), 'w-full sm:w-auto')}>
+            Contact us
           </a>
         </div>
       </Reveal>

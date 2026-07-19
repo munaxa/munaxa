@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Demo / contact request schema. Shared between the client form and the `/api/demo` route so the
+ * Contact form schema. Shared between the client form and the `/api/contact` route so the
  * rules never drift between the two.
  *
  * Security notes:
@@ -10,7 +10,7 @@ import { z } from 'zod';
  *    auto-fill every field populate it; the route silently discards those submissions without
  *    revealing that detection occurred.
  */
-export const demoRequestSchema = z.object({
+export const contactFormSchema = z.object({
   name: z.string().trim().min(2, 'Please enter your full name.').max(100, 'Name is too long.'),
   schoolName: z
     .string()
@@ -39,7 +39,7 @@ export const demoRequestSchema = z.object({
   website: z.string().max(200).optional().default(''),
 });
 
-export type DemoRequestInput = z.infer<typeof demoRequestSchema>;
+export type ContactFormInput = z.infer<typeof contactFormSchema>;
 
 /** Strips characters with special meaning in HTML so user input is safe to embed in emails. */
 export function escapeHtml(value: string): string {
