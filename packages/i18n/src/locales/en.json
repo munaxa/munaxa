@@ -1545,6 +1545,7 @@
     "registrationNotSet": "Not set",
     "edit": "Edit",
     "editTitle": "Edit academic year",
-    "saved": "Academic year updated"
+    "saved": "Academic year updated",
+    "termSaved": "Term updated"
   }
 }

@@ -270,5 +270,12 @@ export const semestersApi = {
     authFetch('/semesters', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<Semester>(r),
     ),
+  update: (
+    id: string,
+    data: Partial<{ name: string; sequence: number; startDate: string; endDate: string }>,
+  ) =>
+    authFetch(`/semesters/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<Semester>(r),
+    ),
   remove: (id: string) => del(`/semesters/${id}`),
 };
