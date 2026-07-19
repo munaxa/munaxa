@@ -133,4 +133,15 @@ export class SubscriptionRepository {
       }),
     );
   }
+
+  /** Increment (upsert) a usage counter by a delta. Used for metered dimensions (API/AI traffic). */
+  incrementUsage(tenantId: string, metric: string, delta: number) {
+    return withTenant(this.connections.clientFor(tenantId), tenantId, (tx) =>
+      tx.subscriptionUsage.upsert({
+        where: { tenantId_metric: { tenantId, metric } },
+        create: { tenantId, metric, value: Math.max(0, delta) },
+        update: { value: { increment: delta } },
+      }),
+    );
+  }
 }

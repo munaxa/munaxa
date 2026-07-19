@@ -6,6 +6,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/auth.types';
 import { SubscriptionService } from './subscription.service';
 import { CreateUpgradeRequestDto } from './subscription.dto';
+import { AllowInReadOnly } from './allow-in-read-only.decorator';
 
 /**
  * School-plane subscription surface (Settings → Subscription). A school can VIEW its plan,
@@ -40,6 +41,7 @@ export class SubscriptionController {
   }
 
   @Post('upgrade-requests')
+  @AllowInReadOnly()
   @RequirePermissions(Permission.SUBSCRIPTION_UPGRADE_REQUEST)
   @ApiOperation({ summary: 'Request a plan change (reviewed by Munaxa — not applied immediately)' })
   requestUpgrade(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateUpgradeRequestDto) {

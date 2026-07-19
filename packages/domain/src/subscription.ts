@@ -42,6 +42,55 @@ export function isCoreModule(key: string): boolean {
 }
 
 /**
+ * Subscription lifecycle states (mirrors the Prisma `SubscriptionStatus` enum). v2 adds READ_ONLY
+ * (login + read, no writes) and ARCHIVED (terminal, not loginable as a customer).
+ */
+export const SubscriptionState = {
+  TRIALING: 'TRIALING',
+  ACTIVE: 'ACTIVE',
+  PAST_DUE: 'PAST_DUE',
+  GRACE_PERIOD: 'GRACE_PERIOD',
+  READ_ONLY: 'READ_ONLY',
+  SUSPENDED: 'SUSPENDED',
+  CANCELLED: 'CANCELLED',
+  EXPIRED: 'EXPIRED',
+  ARCHIVED: 'ARCHIVED',
+} as const;
+export type SubscriptionState = (typeof SubscriptionState)[keyof typeof SubscriptionState];
+
+/** States in which the school may still sign in and view data. */
+const LOGINABLE = new Set<string>([
+  SubscriptionState.TRIALING,
+  SubscriptionState.ACTIVE,
+  SubscriptionState.PAST_DUE,
+  SubscriptionState.GRACE_PERIOD,
+  SubscriptionState.READ_ONLY,
+]);
+
+/** States in which the school retains full read+write access to its data. */
+const WRITABLE = new Set<string>([
+  SubscriptionState.TRIALING,
+  SubscriptionState.ACTIVE,
+  SubscriptionState.PAST_DUE,
+  SubscriptionState.GRACE_PERIOD,
+]);
+
+/** Whether a school in this state can sign in at all. */
+export function canLogin(status: string): boolean {
+  return LOGINABLE.has(status);
+}
+
+/**
+ * Whether create/update/delete is allowed in this state. READ_ONLY (and any suspended/terminal
+ * state) blocks writes while still allowing reads and upgrade prompts. Absence of a subscription
+ * (undefined/null) is permissive — pre-billing schools keep working.
+ */
+export function canMutate(status: string | null | undefined): boolean {
+  if (status === null || status === undefined) return true;
+  return WRITABLE.has(status);
+}
+
+/**
  * Paid capability keys (booleans) that a plan or a per-tenant override can grant.
  * Distinct from CORE_MODULES, which are never gated.
  */
@@ -78,6 +127,75 @@ export const PLAN_FEATURE_LABELS: Record<PlanFeature, string> = {
   [PlanFeature.ENTERPRISE_AI]: 'Enterprise AI',
   [PlanFeature.BRANDING]: 'Custom branding',
 };
+
+/** A catalog entry: the metadata behind a feature code (seeds the `FeatureCatalog` table). */
+export interface FeatureCatalogEntry {
+  code: string;
+  name: string;
+  description: string;
+  category: string;
+  isCore: boolean;
+  defaultEnabled: boolean;
+  enterpriseOnly: boolean;
+  requiresApproval: boolean;
+  sortOrder: number;
+}
+
+const ENTERPRISE_FEATURES = new Set<string>([
+  PlanFeature.WHITE_LABEL,
+  PlanFeature.CUSTOM_INTEGRATIONS,
+  PlanFeature.DEDICATED_SUPPORT,
+  PlanFeature.ENTERPRISE_SECURITY,
+  PlanFeature.ENTERPRISE_AI,
+]);
+
+const FEATURE_CATEGORY: Record<string, string> = {
+  [PlanFeature.API]: 'integrations',
+  [PlanFeature.AI_ASSISTANT]: 'ai',
+  [PlanFeature.ENTERPRISE_AI]: 'ai',
+  [PlanFeature.SSO]: 'security',
+  [PlanFeature.ENTERPRISE_SECURITY]: 'security',
+  [PlanFeature.JOFOTARA]: 'integrations',
+  [PlanFeature.CUSTOM_INTEGRATIONS]: 'integrations',
+  [PlanFeature.ADVANCED_REPORTS]: 'reporting',
+  [PlanFeature.AUTOMATION]: 'automation',
+  [PlanFeature.WHITE_LABEL]: 'branding',
+  [PlanFeature.BRANDING]: 'branding',
+  [PlanFeature.DEDICATED_SUPPORT]: 'support',
+};
+
+/**
+ * The full Feature Catalog: CORE School OS modules (always enabled, never gated) plus every paid
+ * capability with its metadata. Single source of truth for seeding the `FeatureCatalog` table, so
+ * plans reference catalog codes instead of hard-coded constants.
+ */
+export const FEATURE_CATALOG: FeatureCatalogEntry[] = [
+  ...CORE_MODULES.map((code, i) => ({
+    code,
+    name: code
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' '),
+    description: 'Core School OS module — always available on every plan.',
+    category: 'core',
+    isCore: true,
+    defaultEnabled: true,
+    enterpriseOnly: false,
+    requiresApproval: false,
+    sortOrder: i,
+  })),
+  ...ALL_PLAN_FEATURES.map((code, i) => ({
+    code,
+    name: PLAN_FEATURE_LABELS[code],
+    description: `Paid capability: ${PLAN_FEATURE_LABELS[code]}.`,
+    category: FEATURE_CATEGORY[code] ?? 'general',
+    isCore: false,
+    defaultEnabled: false,
+    enterpriseOnly: ENTERPRISE_FEATURES.has(code),
+    requiresApproval: false,
+    sortOrder: 100 + i,
+  })),
+];
 
 /** Metered limit dimensions. Mirrors {@link SubscriptionPlan} numeric columns + usage metrics. */
 export const LimitKey = {

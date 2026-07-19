@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PlanTier } from '@munaxa/domain';
+import { LimitKey, PlanFeature, PlanTier } from '@munaxa/domain';
 import { SubscriptionService, toPlanView } from '../../subscription/subscription.service';
+import { WebhookService, WebhookEvent } from '../../webhooks/webhook.service';
 import { PlatformConsoleRepository } from './platform-console.repository';
 import type {
   ChangeSubscriptionDto,
@@ -21,6 +22,7 @@ export class PlatformConsoleService {
   constructor(
     private readonly repo: PlatformConsoleRepository,
     private readonly subscriptions: SubscriptionService,
+    private readonly webhooks: WebhookService,
   ) {}
 
   // --- Schools ---------------------------------------------------------------
@@ -125,12 +127,22 @@ export class PlatformConsoleService {
       reason: dto.reason ?? 'platform change',
     });
     this.subscriptions.invalidate(tenantId);
+    await this.webhooks.publish(WebhookEvent.SUBSCRIPTION_UPDATED, {
+      tenantId,
+      data: { planId: dto.planId, status: sub.status, billingCycle: sub.billingCycle },
+    });
     return sub;
   }
 
   async setStatus(tenantId: string, status: string) {
     const sub = await this.repo.setSubscriptionStatus(tenantId, status);
     this.subscriptions.invalidate(tenantId);
+    await this.webhooks.publish(
+      status === 'CANCELLED'
+        ? WebhookEvent.SUBSCRIPTION_CANCELLED
+        : WebhookEvent.SUBSCRIPTION_UPDATED,
+      { tenantId, data: { status } },
+    );
     return sub;
   }
 
@@ -157,7 +169,12 @@ export class PlatformConsoleService {
         upgradeRequestId: req.id,
       });
       this.subscriptions.invalidate(req.tenantId);
-      return this.repo.markUpgradeRequestReviewed(id, 'APPROVED', dto.decisionNote);
+      const reviewed = await this.repo.markUpgradeRequestReviewed(id, 'APPROVED', dto.decisionNote);
+      await this.webhooks.publish(WebhookEvent.UPGRADE_APPROVED, {
+        tenantId: req.tenantId,
+        data: { upgradeRequestId: id, requestedPlanId: req.requestedPlanId },
+      });
+      return reviewed;
     }
     return this.repo.markUpgradeRequestReviewed(id, 'REJECTED', dto.decisionNote);
   }
@@ -171,6 +188,10 @@ export class PlatformConsoleService {
   async startTrial(tenantId: string, dto: StartTrialDto) {
     const trial = await this.repo.startTrial(tenantId, dto.planId, dto.days ?? 14);
     this.subscriptions.invalidate(tenantId);
+    await this.webhooks.publish(WebhookEvent.TRIAL_STARTED, {
+      tenantId,
+      data: { planId: dto.planId, endsAt: trial.endsAt.toISOString() },
+    });
     return trial;
   }
 
@@ -183,6 +204,10 @@ export class PlatformConsoleService {
   async endTrial(tenantId: string, convert: boolean) {
     const trial = await this.repo.endTrial(tenantId, convert);
     this.subscriptions.invalidate(tenantId);
+    await this.webhooks.publish(
+      convert ? WebhookEvent.SUBSCRIPTION_UPDATED : WebhookEvent.TRIAL_EXPIRED,
+      { tenantId, data: { converted: convert } },
+    );
     return trial;
   }
 
@@ -239,6 +264,23 @@ export class PlatformConsoleService {
     return this.repo.listAudit(params);
   }
 
+  /**
+   * A chronological activity timeline for one school, derived from the Audit Log (every item links
+   * back to its audit entry). Reuses the audit log as the source of truth — no parallel store.
+   */
+  async timeline(tenantId: string) {
+    const rows = await this.repo.listAudit({ tenantId, take: 200 });
+    return rows.map((r) => ({
+      auditId: r.id,
+      at: r.createdAt.toISOString(),
+      action: r.action,
+      title: timelineTitle(r.action),
+      entityType: r.entityType,
+      entityId: r.entityId,
+      actorUserId: r.actorUserId,
+    }));
+  }
+
   // --- Plans -----------------------------------------------------------------
 
   async listPlans() {
@@ -260,11 +302,74 @@ export class PlatformConsoleService {
       byStatus[s.status] = (byStatus[s.status] ?? 0) + 1;
       byTier[s.plan.tier] = (byTier[s.plan.tier] ?? 0) + 1;
     }
+
+    // Trial conversion: converted / (converted + expired) — decided trials only.
+    const converted = m.trials.filter((t) => t.convertedAt !== null).length;
+    const expired = m.trials.filter((t) => t.expiredAt !== null && t.convertedAt === null).length;
+    const decidedTrials = converted + expired;
+    const trialConversionRate = decidedTrials > 0 ? converted / decidedTrials : null;
+
+    // Usage rollups + "approaching limits" (any dimension ≥ 80% of a finite plan limit).
+    const usageByTenant = new Map<string, Map<string, number>>();
+    for (const u of m.usageRows) {
+      const t = usageByTenant.get(u.tenantId) ?? new Map<string, number>();
+      t.set(u.metric, u.value);
+      usageByTenant.set(u.tenantId, t);
+    }
+    const overrideKeys = new Map<string, Set<string>>();
+    for (const o of m.overrideRows) {
+      const s = overrideKeys.get(o.tenantId) ?? new Set<string>();
+      s.add(o.key);
+      overrideKeys.set(o.tenantId, s);
+    }
+
+    let approachingLimits = 0;
+    let jofotaraAdoption = 0;
+    let aiAdoption = 0;
+    let storageUsageGb = 0;
+    let apiTraffic = 0;
+    const LIMIT_COLS: Array<[string, 'maxStudents' | 'maxCampuses' | 'maxStaff' | 'storageGb']> = [
+      [LimitKey.STUDENTS, 'maxStudents'],
+      [LimitKey.CAMPUSES, 'maxCampuses'],
+      [LimitKey.STAFF, 'maxStaff'],
+      [LimitKey.STORAGE_GB, 'storageGb'],
+    ];
+    for (const s of m.subs) {
+      const usage = usageByTenant.get(s.tenantId) ?? new Map<string, number>();
+      const planFeatures = new Set(s.plan.features.filter((f) => f.enabled).map((f) => f.key));
+      const overrides = overrideKeys.get(s.tenantId) ?? new Set<string>();
+      if (planFeatures.has(PlanFeature.JOFOTARA) || overrides.has(PlanFeature.JOFOTARA)) {
+        jofotaraAdoption += 1;
+      }
+      if (planFeatures.has(PlanFeature.AI_ASSISTANT) || overrides.has(PlanFeature.AI_ASSISTANT)) {
+        aiAdoption += 1;
+      }
+      const near = LIMIT_COLS.some(([metric, col]) => {
+        const limit = s.plan[col];
+        if (limit === null || limit === 0) return false;
+        return (usage.get(metric) ?? 0) / limit >= 0.8;
+      });
+      if (near) approachingLimits += 1;
+    }
+    for (const u of m.usageRows) {
+      if (u.metric === LimitKey.STORAGE_GB) storageUsageGb += u.value;
+      if (u.metric === 'api_calls') apiTraffic += u.value;
+    }
+
     return {
       schools: m.tenantCount,
       subscriptions: m.subs.length,
       pendingUpgradeRequests: m.pendingRequests,
       activeTrials: m.activeTrials,
+      trialSchools: m.activeTrials,
+      trialConversionRate,
+      renewalsThisMonth: m.renewalsThisMonth,
+      churnedThisMonth: m.churnedThisMonth,
+      failedPayments: m.failedPayments,
+      schoolsApproachingLimits: approachingLimits,
+      featureAdoption: { jofotara: jofotaraAdoption, ai: aiAdoption },
+      storageUsageGb,
+      apiTraffic,
       subscriptionsByStatus: byStatus,
       subscriptionsByTier: byTier,
       revenue: this.computeRevenue(m.subs),
@@ -304,4 +409,34 @@ export class PlatformConsoleService {
     if (!plan) throw new NotFoundException('Professional plan not seeded');
     return plan.id;
   }
+}
+
+/** Human-readable title for a timeline item, derived from its audit `action`. */
+function timelineTitle(action: string): string {
+  const TITLES: Record<string, string> = {
+    'platform.subscription.change': 'Plan changed',
+    'platform.subscription.status': 'Subscription status changed',
+    'platform.upgrade_request.approve': 'Upgrade approved',
+    'platform.upgrade_request.reject': 'Upgrade rejected',
+    'subscription.upgrade_request.create': 'Upgrade requested',
+    'platform.trial.start': 'Trial started',
+    'platform.trial.extend': 'Trial extended',
+    'platform.trial.convert': 'Trial converted',
+    'platform.trial.expire': 'Trial expired',
+    'platform.feature_override.set': 'Feature override applied',
+    'platform.feature_override.delete': 'Feature override removed',
+    'platform.billing.upsert': 'Billing profile updated',
+    'platform.billing.invoice.create': 'Invoice issued',
+    'platform.billing.payment.record': 'Payment received',
+    'platform.billing.refund': 'Refund issued',
+    'platform.coupon.create': 'Coupon created',
+    'tenant.create': 'School created',
+    'support.impersonate': 'Support impersonation',
+  };
+  if (TITLES[action]) return TITLES[action];
+  // Fall back to a humanized version of the action key.
+  return action
+    .replace(/^platform\./, '')
+    .replace(/[._]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }

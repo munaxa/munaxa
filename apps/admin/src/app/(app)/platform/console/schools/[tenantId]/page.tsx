@@ -27,9 +27,11 @@ const STATUSES = [
   'TRIALING',
   'PAST_DUE',
   'GRACE_PERIOD',
+  'READ_ONLY',
   'SUSPENDED',
   'CANCELLED',
   'EXPIRED',
+  'ARCHIVED',
 ] as const;
 
 export default function PlatformSchoolDetailPage() {
@@ -82,9 +84,29 @@ export default function PlatformSchoolDetailPage() {
           </Link>
           <div className="mt-1 flex items-center justify-between">
             <h1 className="font-display text-2xl font-semibold">{detail.name}</h1>
-            <Badge tone="muted">{detail.slug}</Badge>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/platform/console/schools/${tenantId}/billing`}
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary/60"
+              >
+                Billing →
+              </Link>
+              <Link
+                href={`/platform/console/schools/${tenantId}/timeline`}
+                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-secondary/60"
+              >
+                Timeline →
+              </Link>
+              <Badge tone="muted">{detail.slug}</Badge>
+            </div>
           </div>
         </div>
+
+        <SubscriptionStateActions
+          tenantId={tenantId}
+          status={detail.subscription?.status ?? 'NONE'}
+          onChanged={load}
+        />
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <StatCard label="Students" value={detail.counts.students} />
@@ -391,6 +413,109 @@ function ActivityCard({ detail }: { detail: SchoolDetail }) {
             <p className="text-sm text-muted-foreground">None.</p>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SubscriptionStateActions({
+  tenantId,
+  status,
+  onChanged,
+}: {
+  tenantId: string;
+  status: string;
+  onChanged: () => Promise<void>;
+}) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function run(label: string, fn: () => Promise<unknown>, confirmMsg?: string) {
+    if (confirmMsg && !confirm(confirmMsg)) return;
+    setBusy(true);
+    try {
+      await fn();
+      toast.success(label);
+      await onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Action failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const setStatus = (s: string) => platformConsoleApi.setStatus(tenantId, s as never);
+  const suspended = status === 'SUSPENDED' || status === 'READ_ONLY';
+  const terminal = status === 'CANCELLED' || status === 'EXPIRED';
+  const active = ['ACTIVE', 'TRIALING', 'PAST_DUE', 'GRACE_PERIOD'].includes(status);
+
+  if (status === 'NONE') return null;
+
+  return (
+    <Card>
+      <CardContent className="flex flex-wrap items-center gap-2 py-4">
+        <span className="mr-1 text-sm text-muted-foreground">
+          State: <Badge tone="muted">{status}</Badge>
+        </span>
+        {status === 'TRIALING' ? (
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={() =>
+              void run('Trial extended', () => platformConsoleApi.extendTrial(tenantId, 14))
+            }
+          >
+            Extend trial 14d
+          </Button>
+        ) : null}
+        {active ? (
+          <>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() => void run('Moved to read-only', () => setStatus('READ_ONLY'))}
+            >
+              Read-only
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                void run('Suspended', () => setStatus('SUSPENDED'), 'Suspend this school?')
+              }
+            >
+              Suspend
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                void run('Cancelled', () => setStatus('CANCELLED'), 'Cancel this subscription?')
+              }
+            >
+              Cancel
+            </Button>
+          </>
+        ) : null}
+        {suspended ? (
+          <Button disabled={busy} onClick={() => void run('Resumed', () => setStatus('ACTIVE'))}>
+            Resume
+          </Button>
+        ) : null}
+        {terminal ? (
+          <Button
+            disabled={busy}
+            onClick={() =>
+              void run(
+                'Restored',
+                () => setStatus('ACTIVE'),
+                'Restore this subscription to active?',
+              )
+            }
+          >
+            Restore
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );

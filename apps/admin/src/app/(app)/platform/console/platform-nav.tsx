@@ -8,8 +8,10 @@ export function PlatformNav({ active }: { active: string }) {
   const items: Array<{ key: string; href: Route; label: string }> = [
     { key: 'dashboard', href: '/platform/console', label: 'Dashboard' },
     { key: 'schools', href: '/platform/console/schools', label: 'Schools' },
+    { key: 'organizations', href: '/platform/console/organizations', label: 'Organizations' },
     { key: 'subscriptions', href: '/platform/console/subscriptions', label: 'Subscriptions' },
     { key: 'upgrades', href: '/platform/console/upgrade-requests', label: 'Upgrades' },
+    { key: 'webhooks', href: '/platform/console/webhooks', label: 'Webhooks' },
     { key: 'audit', href: '/platform/console/audit', label: 'Audit' },
   ];
   return (

@@ -61,7 +61,31 @@ export default function PlatformConsoleDashboard() {
               <StatCard label="Schools" value={data.schools} />
               <StatCard label="Active subscriptions" value={data.subscriptions} />
               <StatCard label="Pending upgrades" value={data.pendingUpgradeRequests} />
-              <StatCard label="Active trials" value={data.activeTrials} />
+              <StatCard label="Active trials" value={data.trialSchools} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <StatCard
+                label="Trial conversion"
+                value={
+                  data.trialConversionRate === null
+                    ? '—'
+                    : `${Math.round(data.trialConversionRate * 100)}%`
+                }
+              />
+              <StatCard label="Renewals this month" value={data.renewalsThisMonth} />
+              <StatCard label="Churned this month" value={data.churnedThisMonth} />
+              <StatCard label="Failed payments" value={data.failedPayments} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <StatCard label="Schools near limits" value={data.schoolsApproachingLimits} />
+              <StatCard
+                label="JoFotara / AI adoption"
+                value={`${data.featureAdoption.jofotara} / ${data.featureAdoption.ai}`}
+              />
+              <StatCard label="Storage used (GB)" value={data.storageUsageGb.toLocaleString()} />
+              <StatCard label="API traffic" value={data.apiTraffic.toLocaleString()} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -120,8 +144,11 @@ export default function PlatformConsoleDashboard() {
 
             <div className="flex flex-wrap gap-3">
               <QuickLink href="/platform/console/schools" label="Schools" />
+              <QuickLink href="/platform/console/organizations" label="Organizations" />
               <QuickLink href="/platform/console/subscriptions" label="Subscriptions" />
               <QuickLink href="/platform/console/upgrade-requests" label="Upgrade Requests" />
+              <QuickLink href="/platform/console/plans" label="Plan Versions" />
+              <QuickLink href="/platform/console/webhooks" label="Webhooks" />
               <QuickLink href="/platform/console/audit" label="Audit Log" />
             </div>
           </>

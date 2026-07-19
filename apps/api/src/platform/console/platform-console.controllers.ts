@@ -160,6 +160,13 @@ export class PlatformSchoolsController {
     return this.service.getSchool(tenantId);
   }
 
+  @Get(':tenantId/timeline')
+  @RequirePermissions(Permission.PLATFORM_SCHOOL_READ)
+  @ApiOperation({ summary: 'Chronological activity timeline for a school (from the audit log)' })
+  timeline(@Param('tenantId') tenantId: string) {
+    return this.service.timeline(tenantId);
+  }
+
   @Post(':tenantId/subscription')
   @RequirePermissions(Permission.PLATFORM_SUBSCRIPTION_MANAGE)
   @ApiOperation({ summary: 'Change a school subscription (plan/cycle/status)' })

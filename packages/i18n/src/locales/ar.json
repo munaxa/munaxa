@@ -203,7 +203,9 @@
     "platformSchools": "المدارس",
     "platformSubscriptions": "الاشتراكات",
     "platformUpgrades": "طلبات الترقية",
-    "platformAudit": "سجل التدقيق"
+    "platformAudit": "سجل التدقيق",
+    "platformOrganizations": "المنظمات",
+    "platformWebhooks": "الويب هوك"
   },
   "dashboard": {
     "title": "نظرة عامة",
