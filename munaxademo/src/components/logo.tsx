@@ -16,14 +16,17 @@ export function Logo({
   className?: string;
   priority?: boolean;
 }) {
-  const width = Math.round(size * RATIO);
+  // Rendered at 2x the requested height — the bordered wordmark lockup needs the extra size
+  // to stay legible in compact chrome (sidebar rail, headers).
+  const height = size * 2;
+  const width = Math.round(height * RATIO);
   return (
     <>
       <Image
         src="/munaxa-logo-light.png"
         alt="Munaxa"
         width={width}
-        height={size}
+        height={height}
         priority={priority}
         unoptimized
         className={cn('object-contain dark:hidden', className)}
@@ -32,7 +35,7 @@ export function Logo({
         src="/munaxa-logo-dark.png"
         alt="Munaxa"
         width={width}
-        height={size}
+        height={height}
         priority={priority}
         unoptimized
         className={cn('hidden object-contain dark:block', className)}

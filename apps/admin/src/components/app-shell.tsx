@@ -458,8 +458,8 @@ export function AppShell({
           {/* Brand */}
           <div
             className={cn(
-              'flex items-center gap-2 py-2',
-              collapsed ? 'justify-center px-0' : 'px-2',
+              'flex items-center justify-center gap-2 py-2',
+              collapsed ? 'px-0' : 'px-2',
             )}
           >
             {collapsed ? <Monogram className="text-2xl" /> : <Logo size={32} priority />}
