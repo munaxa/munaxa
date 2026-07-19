@@ -9,14 +9,88 @@ import { Permission, ALL_PERMISSIONS } from './permissions.js';
  * Scoped (row-level) restrictions for roles like Teacher/Parent/Student (e.g. only their own
  * sections/children) are enforced in the service/repository layer, not by the permission set.
  */
+/**
+ * Every platform-plane capability: the whole `platform:*` namespace plus the cross-cutting keys a
+ * console operator needs. Deliberately EXCLUDES school-operational permissions — platform employees
+ * manage the platform, and reach a specific school only via audited impersonation, never by holding
+ * school permissions directly. This keeps platform accounts "console-only".
+ */
+const PLATFORM_CONSOLE_PERMISSIONS: Permission[] = [
+  ...ALL_PERMISSIONS.filter((p) => p.startsWith('platform:')),
+  Permission.SUPPORT_IMPERSONATE,
+  Permission.AUDIT_READ,
+  Permission.FEATUREFLAG_MANAGE,
+];
+
 export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
-  // Platform plane
-  PlatformOwner: '*',
+  // Platform plane — console-only (no school-operational permissions; see above).
+  PlatformOwner: PLATFORM_CONSOLE_PERMISSIONS,
   PlatformAdmin: [
     Permission.PLATFORM_TENANT_MANAGE,
     Permission.SUPPORT_IMPERSONATE,
     Permission.AUDIT_READ,
     Permission.FEATUREFLAG_MANAGE,
+    // Platform Console
+    Permission.PLATFORM_DASHBOARD_READ,
+    Permission.PLATFORM_SCHOOL_READ,
+    Permission.PLATFORM_SUBSCRIPTION_READ,
+    Permission.PLATFORM_SUBSCRIPTION_MANAGE,
+    Permission.PLATFORM_PLAN_MANAGE,
+    Permission.PLATFORM_UPGRADE_REVIEW,
+    Permission.PLATFORM_TRIAL_MANAGE,
+    Permission.PLATFORM_BILLING_READ,
+    Permission.PLATFORM_BILLING_MANAGE,
+    Permission.PLATFORM_COUPON_MANAGE,
+    Permission.PLATFORM_FEATURE_OVERRIDE,
+    Permission.PLATFORM_FEATUREFLAG_MANAGE,
+    Permission.PLATFORM_SUPPORT_MANAGE,
+    Permission.PLATFORM_AUDIT_READ,
+    Permission.PLATFORM_USER_MANAGE,
+    Permission.PLATFORM_SYSTEM_HEALTH_READ,
+    Permission.PLATFORM_REVENUE_READ,
+  ],
+  // Platform Finance: subscriptions, billing, coupons, revenue.
+  PlatformFinance: [
+    Permission.PLATFORM_DASHBOARD_READ,
+    Permission.PLATFORM_SCHOOL_READ,
+    Permission.PLATFORM_SUBSCRIPTION_READ,
+    Permission.PLATFORM_SUBSCRIPTION_MANAGE,
+    Permission.PLATFORM_UPGRADE_REVIEW,
+    Permission.PLATFORM_BILLING_READ,
+    Permission.PLATFORM_BILLING_MANAGE,
+    Permission.PLATFORM_COUPON_MANAGE,
+    Permission.PLATFORM_REVENUE_READ,
+    Permission.PLATFORM_AUDIT_READ,
+  ],
+  // Platform Support: read-mostly + support ops + impersonation + feature overrides for triage.
+  PlatformSupport: [
+    Permission.PLATFORM_DASHBOARD_READ,
+    Permission.PLATFORM_SCHOOL_READ,
+    Permission.PLATFORM_SUBSCRIPTION_READ,
+    Permission.PLATFORM_SUPPORT_MANAGE,
+    Permission.PLATFORM_FEATURE_OVERRIDE,
+    Permission.PLATFORM_AUDIT_READ,
+    Permission.PLATFORM_SYSTEM_HEALTH_READ,
+    Permission.SUPPORT_IMPERSONATE,
+  ],
+  // Platform Sales: schools, subscriptions (read), upgrade review, trials, coupons.
+  PlatformSales: [
+    Permission.PLATFORM_DASHBOARD_READ,
+    Permission.PLATFORM_SCHOOL_READ,
+    Permission.PLATFORM_SUBSCRIPTION_READ,
+    Permission.PLATFORM_UPGRADE_REVIEW,
+    Permission.PLATFORM_TRIAL_MANAGE,
+    Permission.PLATFORM_COUPON_MANAGE,
+  ],
+  // Platform Read Only: full visibility, zero mutation.
+  PlatformReadOnly: [
+    Permission.PLATFORM_DASHBOARD_READ,
+    Permission.PLATFORM_SCHOOL_READ,
+    Permission.PLATFORM_SUBSCRIPTION_READ,
+    Permission.PLATFORM_BILLING_READ,
+    Permission.PLATFORM_REVENUE_READ,
+    Permission.PLATFORM_AUDIT_READ,
+    Permission.PLATFORM_SYSTEM_HEALTH_READ,
   ],
   SupportAgent: [Permission.SUPPORT_IMPERSONATE, Permission.AUDIT_READ],
 
@@ -49,6 +123,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.REPORT_EXPORT,
     Permission.AUDIT_READ,
     Permission.FINANCE_READ,
+    Permission.SUBSCRIPTION_READ,
+    Permission.SUBSCRIPTION_UPGRADE_REQUEST,
     Permission.DOCUMENT_READ,
     Permission.RESOURCE_READ,
     Permission.RESOURCE_MANAGE,

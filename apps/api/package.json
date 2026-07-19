@@ -18,7 +18,8 @@
     "promote:tenant": "node scripts/promote-tenant.cjs",
     "prisma:studio": "prisma studio --schema=../../prisma/schema.prisma",
     "db:seed": "prisma db seed --schema=../../prisma/schema.prisma",
-    "db:seed:demo": "tsx scripts/seed-demo.ts"
+    "db:seed:demo": "tsx scripts/seed-demo.ts",
+    "db:seed:platform-owner": "tsx scripts/seed-platform-owner.ts"
   },
   "prisma": {
     "seed": "tsx ../../prisma/seed.ts"

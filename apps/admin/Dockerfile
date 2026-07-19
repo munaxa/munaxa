@@ -25,8 +25,15 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # the API.
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_ENV
+# Optional host-based separation (two custom domains on one service). When set, the app host
+# serves the school portal and the console host serves only the Platform Console. Unset = one
+# shared domain (default). Inlined at build so the client nav mirrors the middleware.
+ARG NEXT_PUBLIC_APP_HOST
+ARG NEXT_PUBLIC_CONSOLE_HOST
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_ENV=$NEXT_PUBLIC_ENV
+    NEXT_PUBLIC_ENV=$NEXT_PUBLIC_ENV \
+    NEXT_PUBLIC_APP_HOST=$NEXT_PUBLIC_APP_HOST \
+    NEXT_PUBLIC_CONSOLE_HOST=$NEXT_PUBLIC_CONSOLE_HOST
 RUN pnpm --filter @munaxa/admin... build
 
 FROM node:${NODE_VERSION} AS runtime

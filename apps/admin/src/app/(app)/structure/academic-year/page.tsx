@@ -1025,12 +1025,13 @@ function Semesters({ academicYearId, readOnly }: { academicYearId: string; readO
   const { t } = useI18n();
   const toast = useToast();
   const [terms, setTerms] = useState<Semester[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', sequence: '', startDate: '', endDate: '' });
 
   const load = useCallback(() => {
     semestersApi
       .list(academicYearId)
-      .then(setTerms)
+      .then((rows) => setTerms([...rows].sort((a, b) => a.sequence - b.sequence)))
       .catch((e) => toast.error(e instanceof Error ? e.message : 'Failed to load terms'));
   }, [academicYearId, toast]);
 
@@ -1058,67 +1059,190 @@ function Semesters({ academicYearId, readOnly }: { academicYearId: string; readO
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {t('structure.terms')}
       </p>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {terms.map((s) => (
-          <Badge key={s.id} tone="muted">
-            {s.sequence}. {s.name}
-            {!readOnly ? (
-              <button
-                type="button"
-                className="ms-1 text-muted-foreground hover:text-destructive"
-                onClick={() =>
-                  void semestersApi
-                    .remove(s.id)
-                    .then(load)
-                    .catch((e) => toast.error(e instanceof Error ? e.message : 'Delete failed'))
-                }
-                aria-label={`Delete term ${s.name}`}
-              >
-                ✕
-              </button>
-            ) : null}
-          </Badge>
-        ))}
+
+      <div className="space-y-1.5">
+        {terms.map((s) =>
+          editingId === s.id ? (
+            <SemesterEditRow
+              key={s.id}
+              term={s}
+              onCancel={() => setEditingId(null)}
+              onSaved={() => {
+                setEditingId(null);
+                load();
+              }}
+            />
+          ) : (
+            <div
+              key={s.id}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card/60 px-3 py-2"
+            >
+              <div className="flex items-center gap-2 text-sm">
+                <Badge tone="muted">{s.sequence}</Badge>
+                <span className="font-medium">{s.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {fmtDate(s.startDate)} → {fmtDate(s.endDate)}
+                </span>
+              </div>
+              {!readOnly ? (
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" onClick={() => setEditingId(s.id)}>
+                    {t('academicYear.edit')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      void semestersApi
+                        .remove(s.id)
+                        .then(load)
+                        .catch((e) => toast.error(e instanceof Error ? e.message : 'Delete failed'))
+                    }
+                  >
+                    {t('common.delete')}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ),
+        )}
         {terms.length === 0 ? (
           <span className="text-xs text-muted-foreground">{t('structure.noTerms')}</span>
         ) : null}
       </div>
+
       {!readOnly ? (
-        <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2">
-          <Input
-            className="h-8 w-16"
-            type="number"
-            placeholder="#"
-            value={form.sequence}
-            onChange={(e) => setForm({ ...form, sequence: e.target.value })}
-            required
-          />
-          <Input
-            className="h-8 w-32"
-            placeholder={t('structure.termName')}
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            required
-          />
-          <Input
-            className="h-8"
-            type="date"
-            value={form.startDate}
-            onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-            required
-          />
-          <Input
-            className="h-8"
-            type="date"
-            value={form.endDate}
-            onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-            required
-          />
+        <form onSubmit={(e) => void create(e)} className="flex flex-wrap items-end gap-2 pt-1">
+          <Field label="#">
+            <Input
+              className="h-8 w-14"
+              type="number"
+              value={form.sequence}
+              onChange={(e) => setForm({ ...form, sequence: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label={t('structure.termName')}>
+            <Input
+              className="h-8 w-32"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label={t('structure.start')}>
+            <Input
+              className="h-8"
+              type="date"
+              value={form.startDate}
+              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label={t('structure.end')}>
+            <Input
+              className="h-8"
+              type="date"
+              value={form.endDate}
+              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+              required
+            />
+          </Field>
           <Button type="submit" size="sm">
             {t('structure.addTerm')}
           </Button>
         </form>
       ) : null}
     </div>
+  );
+}
+
+/** Inline editor for a single term — name, sequence, and start/end dates. */
+function SemesterEditRow({
+  term,
+  onCancel,
+  onSaved,
+}: {
+  term: Semester;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const toast = useToast();
+  const iso = (d: string) => d.slice(0, 10);
+  const [form, setForm] = useState({
+    name: term.name,
+    sequence: String(term.sequence),
+    startDate: iso(term.startDate),
+    endDate: iso(term.endDate),
+  });
+  const [busy, setBusy] = useState(false);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await semestersApi.update(term.id, {
+        name: form.name,
+        sequence: Number(form.sequence) || 1,
+        startDate: form.startDate,
+        endDate: form.endDate,
+      });
+      toast.success(t('academicYear.termSaved'));
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Save failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(e) => void save(e)}
+      className="flex flex-wrap items-end gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2"
+    >
+      <Field label="#">
+        <Input
+          className="h-8 w-14"
+          type="number"
+          value={form.sequence}
+          onChange={(e) => setForm({ ...form, sequence: e.target.value })}
+          required
+        />
+      </Field>
+      <Field label={t('structure.termName')}>
+        <Input
+          className="h-8 w-32"
+          value={form.name}
+          onChange={(e) => setForm({ ...form, name: e.target.value })}
+          required
+        />
+      </Field>
+      <Field label={t('structure.start')}>
+        <Input
+          className="h-8"
+          type="date"
+          value={form.startDate}
+          onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+          required
+        />
+      </Field>
+      <Field label={t('structure.end')}>
+        <Input
+          className="h-8"
+          type="date"
+          value={form.endDate}
+          onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+          required
+        />
+      </Field>
+      <Button type="submit" size="sm" disabled={busy}>
+        {t('common.save')}
+      </Button>
+      <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={busy}>
+        {t('common.cancel')}
+      </Button>
+    </form>
   );
 }

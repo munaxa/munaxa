@@ -165,7 +165,8 @@
       "finance": "Finance",
       "operations": "Operations",
       "reports": "Insights",
-      "settings": "Administration"
+      "settings": "Administration",
+      "platform": "Platform"
     },
     "structure": "School structure",
     "academicStructure": "Academic structure",
@@ -196,7 +197,15 @@
     "presence": "Presence & gate",
     "roles": "Roles & permissions",
     "users": "Users & staff",
-    "academicYearWorkspace": "Academic year"
+    "academicYearWorkspace": "Academic year",
+    "subscription": "Subscription",
+    "platformConsole": "Platform Console",
+    "platformSchools": "Schools",
+    "platformSubscriptions": "Subscriptions",
+    "platformUpgrades": "Upgrade Requests",
+    "platformAudit": "Audit Log",
+    "platformOrganizations": "Organizations",
+    "platformWebhooks": "Webhooks"
   },
   "dashboard": {
     "title": "Overview",
@@ -1536,6 +1545,7 @@
     "registrationNotSet": "Not set",
     "edit": "Edit",
     "editTitle": "Edit academic year",
-    "saved": "Academic year updated"
+    "saved": "Academic year updated",
+    "termSaved": "Term updated"
   }
 }
