@@ -20,7 +20,7 @@ import {
   TR,
 } from '@/components/ui';
 import { platformConsoleApi, type PlanVersion } from '@/lib/platform-console';
-import { subscriptionApi, type PlanView } from '@/lib/subscription';
+import { type PlanView } from '@/lib/subscription';
 import { PlatformNav } from '../platform-nav';
 
 export default function PlanVersionsPage() {
@@ -32,7 +32,7 @@ export default function PlanVersionsPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    subscriptionApi
+    platformConsoleApi
       .plans()
       .then((p) => {
         setPlans(p);
