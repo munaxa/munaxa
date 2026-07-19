@@ -65,7 +65,7 @@ export default function LoginPage() {
       {step === 'auth' ? (
         <div className="w-full max-w-sm space-y-6">
           <div className="space-y-2 text-center">
-            <span className="login-logo-glow mx-auto inline-flex w-fit">
+            <span className="mx-auto inline-flex w-fit">
               <Logo size={72} priority />
             </span>
             <h1 className="font-display text-2xl font-semibold">Live Demo</h1>
@@ -122,7 +122,7 @@ export default function LoginPage() {
       ) : (
         <div className="w-full max-w-3xl space-y-6">
           <div className="space-y-2 text-center">
-            <span className="login-logo-glow mx-auto inline-flex w-fit">
+            <span className="mx-auto inline-flex w-fit">
               <Logo size={56} priority />
             </span>
             <h1 className="font-display text-2xl font-semibold">Choose a role to explore</h1>
