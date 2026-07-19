@@ -34,13 +34,22 @@ export function Header({
           className="flex items-center gap-2 font-display text-xl font-bold tracking-tight"
         >
           <Image
-            src="/logo.png"
+            src="/logo-light.png"
             alt="Munaxa"
             width={54}
             height={36}
             priority
             unoptimized
-            className="h-9 w-auto object-contain"
+            className="h-9 w-auto object-contain dark:hidden"
+          />
+          <Image
+            src="/logo-dark.png"
+            alt="Munaxa"
+            width={54}
+            height={36}
+            priority
+            unoptimized
+            className="hidden h-9 w-auto object-contain dark:block"
           />
         </a>
 

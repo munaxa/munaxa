@@ -78,3 +78,5 @@ flutter:
   generate: true
   assets:
     - assets/munaxa-logo.png
+    - assets/munaxa-logo-light.png
+    - assets/munaxa-logo-dark.png
