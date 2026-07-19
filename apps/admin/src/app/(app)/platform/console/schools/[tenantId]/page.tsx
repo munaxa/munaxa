@@ -19,7 +19,7 @@ import {
   StatCard,
 } from '@/components/ui';
 import { platformConsoleApi, type SchoolDetail } from '@/lib/platform-console';
-import { subscriptionApi, formatLimit, type PlanView } from '@/lib/subscription';
+import { formatLimit, type PlanView } from '@/lib/subscription';
 import { PLAN_FEATURE_KEYS } from '../../feature-keys';
 
 const STATUSES = [
@@ -46,7 +46,7 @@ export default function PlatformSchoolDetailPage() {
     try {
       const [d, p] = await Promise.all([
         platformConsoleApi.school(tenantId),
-        subscriptionApi.plans(),
+        platformConsoleApi.plans(),
       ]);
       setDetail(d);
       setPlans(p);
