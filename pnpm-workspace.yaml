@@ -3,4 +3,5 @@ packages:
   - 'apps/admin'
   - 'munaxademo'
   - 'munaxalanding'
+  - 'landing'
   - 'packages/*'
