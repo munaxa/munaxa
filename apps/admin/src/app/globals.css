@@ -20,6 +20,13 @@
   :root {
     /* --font-display / --font-body / --font-mono are provided by next/font (see layout.tsx). */
     --radius: 0.5rem;
+    /* Tell the browser which palette to render native controls in (select option lists,
+     * scrollbars, date pickers). Without this, dark mode shows washed-out/illegible
+     * <option> text because popups fall back to the light scheme. Follows the `.dark` class. */
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
   }
   * {
     @apply border-border;
