@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import {
   UserPlus,
   Users,
@@ -66,8 +67,15 @@ export function SystemMap() {
 
       {/* Core */}
       <div className="absolute left-1/2 top-1/2 z-10 flex h-[26%] w-[26%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-primary/30 bg-card text-center shadow-[0_20px_60px_-20px_var(--glow)]">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary font-display text-base font-bold text-primary-foreground">
-          M
+        <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl bg-white p-1 shadow-sm ring-1 ring-border">
+          <Image
+            src="/logo-mark.png"
+            alt="Munaxa"
+            width={512}
+            height={512}
+            unoptimized
+            className="h-full w-full object-contain"
+          />
         </span>
         <span className="mt-1.5 px-1 font-display text-[0.7rem] font-semibold leading-tight">
           Munaxa OS
