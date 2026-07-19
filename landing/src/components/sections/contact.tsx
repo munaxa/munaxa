@@ -3,10 +3,19 @@
 import { useState, type FormEvent } from 'react';
 import { Mail, Clock, MapPin, Loader2, CheckCircle2, AlertCircle, Send } from '@munaxa/icons';
 import { Button, Input, Textarea, Label } from '@munaxa/ui';
+import { cn } from '@/lib/cn';
 import { CONTACT_EMAIL } from '@/lib/site';
 import { Reveal } from '@/components/motion/reveal';
 
 type Status = 'idle' | 'submitting' | 'success' | 'error';
+type FieldName = 'name' | 'schoolName' | 'email' | 'phone' | 'message';
+type FieldErrors = Partial<Record<FieldName, string>>;
+
+type ApiResult = {
+  ok: boolean;
+  error?: string;
+  issues?: { fieldErrors?: Partial<Record<FieldName, string[]>> };
+};
 
 function field(formData: FormData, key: string): string {
   const value = formData.get(key);
@@ -16,17 +25,19 @@ function field(formData: FormData, key: string): string {
 /**
  * Contact us. A functional message form posts to /api/contact (zod-validated, rate-limited,
  * honeypot-protected), which sends the designed Munaxa welcome email to the visitor and an
- * internal notification to the sales inbox. To book a demo, visitors use the demo CTA, which
- * opens the standalone demo app.
+ * internal notification to the sales inbox. Validation errors are surfaced per field so the
+ * visitor knows exactly what to fix.
  */
 export function Contact() {
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus('submitting');
     setError(null);
+    setFieldErrors({});
 
     const formEl = event.currentTarget;
     const formData = new FormData(formEl);
@@ -45,18 +56,53 @@ export function Contact() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const result = (await response.json()) as { ok: boolean; error?: string };
+      const result = (await response.json()) as ApiResult;
+
       if (!response.ok || !result.ok) {
         setStatus('error');
-        setError(result.error ?? 'Something went wrong. Please try again.');
+        const raw = result.issues?.fieldErrors;
+        if (raw) {
+          const mapped: FieldErrors = {};
+          (Object.keys(raw) as FieldName[]).forEach((key) => {
+            const msg = raw[key]?.[0];
+            if (msg) mapped[key] = msg;
+          });
+          setFieldErrors(mapped);
+          setError(
+            Object.keys(mapped).length
+              ? 'Please fix the highlighted fields and try again.'
+              : (result.error ?? 'Something went wrong. Please try again.'),
+          );
+        } else {
+          setError(result.error ?? 'Something went wrong. Please try again.');
+        }
         return;
       }
+
       setStatus('success');
       formEl.reset();
     } catch {
       setStatus('error');
       setError('Network error. Please check your connection and try again.');
     }
+  }
+
+  /** Inline error text + a11y wiring for a field. */
+  function fieldProps(name: FieldName) {
+    const err = fieldErrors[name];
+    return {
+      'aria-invalid': err ? true : undefined,
+      'aria-describedby': err ? `${name}-error` : undefined,
+    };
+  }
+  function FieldError({ name }: { name: FieldName }) {
+    const err = fieldErrors[name];
+    if (!err) return null;
+    return (
+      <p id={`${name}-error`} className="mt-1.5 text-xs font-medium text-destructive">
+        {err}
+      </p>
+    );
   }
 
   return (
@@ -116,15 +162,20 @@ export function Contact() {
 
         {/* Right — the form */}
         <Reveal delay={100}>
-          <form
-            onSubmit={(event) => void handleSubmit(event)}
-            className="panel p-6 sm:p-8"
-            noValidate
-          >
+          <form onSubmit={(event) => void handleSubmit(event)} className="panel p-6 sm:p-8">
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <Label htmlFor="name">Your name</Label>
-                <Input id="name" name="name" autoComplete="name" required maxLength={100} />
+                <Input
+                  id="name"
+                  name="name"
+                  autoComplete="name"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  {...fieldProps('name')}
+                />
+                <FieldError name="name" />
               </div>
               <div>
                 <Label htmlFor="schoolName">School / group</Label>
@@ -133,8 +184,11 @@ export function Contact() {
                   name="schoolName"
                   autoComplete="organization"
                   required
+                  minLength={2}
                   maxLength={150}
+                  {...fieldProps('schoolName')}
                 />
+                <FieldError name="schoolName" />
               </div>
               <div>
                 <Label htmlFor="email">Work email</Label>
@@ -145,7 +199,9 @@ export function Contact() {
                   autoComplete="email"
                   required
                   maxLength={254}
+                  {...fieldProps('email')}
                 />
+                <FieldError name="email" />
               </div>
               <div>
                 <Label htmlFor="phone">Phone</Label>
@@ -155,10 +211,13 @@ export function Contact() {
                   type="tel"
                   autoComplete="tel"
                   required
+                  minLength={7}
                   maxLength={20}
                   className="mono"
                   dir="ltr"
+                  {...fieldProps('phone')}
                 />
+                <FieldError name="phone" />
               </div>
               <div className="sm:col-span-2">
                 <Label htmlFor="message">Message</Label>
@@ -170,7 +229,9 @@ export function Contact() {
                   maxLength={2000}
                   rows={4}
                   placeholder="Tell us about your school — campuses, grade levels, and what you're looking for."
+                  {...fieldProps('message')}
                 />
+                <FieldError name="message" />
               </div>
             </div>
 
@@ -200,17 +261,17 @@ export function Contact() {
             </Button>
 
             {status === 'success' && (
-              <p className="mt-4 flex items-center gap-2 text-sm font-medium text-aqua" role="status">
+              <p className={cn('mt-4 flex items-center gap-2 text-sm font-medium text-aqua')} role="status">
                 <CheckCircle2 className="h-4 w-4" aria-hidden />
                 Thank you! We&apos;ve received your message and will be in touch shortly.
               </p>
             )}
-            {status === 'error' && (
+            {status === 'error' && error && (
               <p
                 className="mt-4 flex items-center gap-2 text-sm font-medium text-destructive"
                 role="alert"
               >
-                <AlertCircle className="h-4 w-4" aria-hidden />
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden />
                 {error}
               </p>
             )}

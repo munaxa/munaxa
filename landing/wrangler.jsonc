@@ -17,9 +17,9 @@
   "vars": {
     // Public URL of the standalone Munaxa demo app's "Request a Demo" form (fallback link).
     "NEXT_PUBLIC_DEMO_URL": "https://demo.munaxa.com/request-demo",
-    // Email senders for the Book-a-demo flow. EMAIL_FROM = visitor welcome/acknowledgment sender;
+    // Email senders for the Contact-us flow. EMAIL_FROM = visitor welcome/acknowledgment sender;
     // EMAIL_CONTACT_FROM = internal notification sender (reaches info@munaxa.com). Both addresses
-    // must be on a domain verified in Resend. RESEND_API_KEY stays a secret.
+    // must be on a domain verified in Resend. RESEND_API_KEY must be set via `wrangler secret put`.
     "EMAIL_FROM": "Munaxa <no-reply@mail.munaxa.com>",
     "EMAIL_CONTACT_FROM": "Munaxa Contact <contactus@mail.munaxa.com>",
   },
