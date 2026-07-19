@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Menu, X } from '@munaxa/icons';
 import { buttonVariants } from '@munaxa/ui';
 import { cn } from '@/lib/cn';
-import { NAV, DEMO_URL } from '@/lib/site';
+import { NAV } from '@/lib/site';
 import { Wordmark } from './wordmark';
 import { ThemeToggle } from './theme-toggle';
 
@@ -50,7 +50,7 @@ export function Header() {
           <div className="flex items-center gap-2">
             <ThemeToggle />
             <a
-              href={DEMO_URL}
+              href="#demo"
               className={cn(buttonVariants('default', 'sm', 'group'), 'hidden sm:inline-flex')}
             >
               Book a demo
@@ -86,7 +86,8 @@ export function Header() {
               </a>
             ))}
             <a
-              href={DEMO_URL}
+              href="#demo"
+              onClick={() => setOpen(false)}
               className={cn(buttonVariants('default', 'sm', 'mt-2 justify-center'))}
             >
               Book a demo

@@ -15,6 +15,13 @@ export const DEMO_URL = process.env.NEXT_PUBLIC_DEMO_URL ?? 'https://demo.munaxa
 export const CONTACT_EMAIL = 'info@munaxa.com';
 
 /**
+ * Sender address for the internal inquiry notification delivered to {@link CONTACT_EMAIL}.
+ * The domain must be verified in Resend. Override with EMAIL_CONTACT_FROM.
+ */
+export const CONTACT_FROM_EMAIL =
+  process.env.EMAIL_CONTACT_FROM ?? 'Munaxa Contact <contactus@munaxa.com>';
+
+/**
  * Browser-chrome theme colors for <meta name="theme-color">. Consumed as raw hex by the browser
  * (not Tailwind classes), so the design-token class rule does not apply. Values mirror the
  * design-system light/dark backgrounds (neutral.0 / ink.900).
@@ -31,4 +38,5 @@ export const NAV = [
   { href: '#finance', label: 'Finance' },
   { href: '#intelligence', label: 'Intelligence' },
   { href: '#architecture', label: 'Platform' },
+  { href: '#demo', label: 'Contact' },
 ] as const;

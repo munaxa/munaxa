@@ -1,7 +1,6 @@
 import { ArrowRight, ShieldCheck } from '@munaxa/icons';
 import { buttonVariants } from '@munaxa/ui';
 import { cn } from '@/lib/cn';
-import { DEMO_URL } from '@/lib/site';
 import { AppFrame } from '@/components/product/app-frame';
 import { DashboardPreview } from '@/components/product/dashboard-preview';
 import { Reveal } from '@/components/motion/reveal';
@@ -46,7 +45,7 @@ export function Hero() {
 
         <Reveal delay={180}>
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <a href={DEMO_URL} className={cn(buttonVariants('default', 'lg', 'group'), 'w-full sm:w-auto')}>
+            <a href="#demo" className={cn(buttonVariants('default', 'lg', 'group'), 'w-full sm:w-auto')}>
               Book a demo
               <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden />
             </a>
