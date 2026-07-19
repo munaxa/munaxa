@@ -2,29 +2,19 @@ import Image from 'next/image';
 import { cn } from '@/lib/cn';
 
 /**
- * The official Munaxa logo — the "munaxa." wordmark. Two theme-specific lockups (the brand's
- * official artwork, cropped to transparency): the ink wordmark on light backgrounds and the
- * white wordmark on dark. Swapped via the `dark:` variant so it always reads against the surface.
+ * The official Munaxa logo — the full brand block (the "munaxa." wordmark shown as one unit with
+ * its upper light half and lower dark half). Rendered as a single image, identical in both
+ * themes, since the block carries its own light/dark treatment.
  */
 export function Wordmark({ className }: { className?: string }) {
   return (
-    <>
-      <Image
-        src="/logo-light.png"
-        alt="Munaxa"
-        width={508}
-        height={65}
-        unoptimized
-        className={cn('h-6 w-auto object-contain dark:hidden', className)}
-      />
-      <Image
-        src="/logo-dark.png"
-        alt="Munaxa"
-        width={508}
-        height={65}
-        unoptimized
-        className={cn('hidden h-6 w-auto object-contain dark:block', className)}
-      />
-    </>
+    <Image
+      src="/logo.png"
+      alt="Munaxa"
+      width={640}
+      height={427}
+      unoptimized
+      className={cn('h-10 w-auto object-contain', className)}
+    />
   );
 }
