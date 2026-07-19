@@ -8,7 +8,6 @@ import { buttonVariants } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { DEMO_URL } from '@/lib/constants';
-import { Wordmark } from '@/components/wordmark';
 import type { Locale } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/types';
 import type { Theme } from '@/lib/theme/config';
@@ -37,13 +36,12 @@ export function Header({
           <Image
             src="/logo.png"
             alt="Munaxa"
-            width={44}
+            width={54}
             height={36}
             priority
             unoptimized
             className="h-9 w-auto object-contain"
           />
-          <Wordmark />
         </a>
 
         <nav className="hidden items-center gap-8 md:flex" aria-label={dict.nav.primaryNav}>

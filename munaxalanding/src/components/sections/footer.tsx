@@ -1,7 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { CONTACT_EMAIL } from '@/lib/constants';
-import { Wordmark } from '@/components/wordmark';
 import type { Dictionary } from '@/lib/i18n/types';
 
 export function Footer({ dict }: { dict: Dictionary }) {
@@ -15,12 +14,11 @@ export function Footer({ dict }: { dict: Dictionary }) {
             <Image
               src="/logo.png"
               alt="Munaxa"
-              width={44}
+              width={54}
               height={36}
               unoptimized
               className="h-8 w-auto object-contain"
             />
-            <Wordmark />
           </p>
           <p className="mt-1 text-sm text-muted-foreground">{dict.footer.tagline}</p>
         </div>

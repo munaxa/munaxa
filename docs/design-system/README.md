@@ -33,12 +33,12 @@ layout system with **light + dark** themes.
 
 ![Munaxa logo](./logo.png)
 
-The Munaxa mark is a stylised **open book with a graduation cap** drawn in the brand teal gradient
-(`#00B8DB → #007595 → #005066`) on a **transparent** background. It is the single brand mark across
-every surface.
+The Munaxa logo is the **munaxa wordmark** (lowercase name + the square teal dot). The single
+image carries both theme variants — the light version (dark letters) on top and the dark version
+(white letters) on the bottom — and is used **as-is**, unchanged, on both light and dark themes.
 
-- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 1103×904, transparent) — the landscape wordless
-  mark used in-app (shell rail, login, splash) and for SEO/`Organization` logo.
+- **Source of truth:** [`logo.png`](./logo.png) (RGBA, 1264×843) — used in-app (shell rail, login)
+  and for SEO/`Organization` logo.
 - **App copies (kept in sync with the source):** `apps/admin/public/munaxa-logo.png`,
   `apps/mobile/assets/munaxa-logo.png`.
 - **Reusable components:** `apps/admin/src/components/logo.tsx` (`<Logo size={…} />`) and

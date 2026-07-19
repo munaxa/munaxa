@@ -1,12 +1,13 @@
 import Image from 'next/image';
 import { cn } from '@munaxa/ui';
 
-// Intrinsic aspect ratio of the Munaxa open-book + graduation-cap mark (docs/design-system/logo.png).
-const RATIO = 1103 / 904;
+// Intrinsic aspect ratio of the Munaxa wordmark logo (docs/design-system/logo.png).
+const RATIO = 1264 / 843;
 
 /**
- * The Munaxa brand mark. `size` is the rendered height in px; width is derived from the
- * logo's intrinsic aspect ratio so it never distorts. Served from /munaxa-logo.png.
+ * The Munaxa logo. `size` is the rendered height in px; width is derived from the logo's
+ * intrinsic aspect ratio so it never distorts. Served from /munaxa-logo.png (used as-is,
+ * light-and-dark in one image).
  */
 export function Logo({
   size = 32,
