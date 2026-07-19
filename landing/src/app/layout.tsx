@@ -54,6 +54,7 @@ export const metadata: Metadata = {
     description,
     url: SITE_URL,
     locale: 'en_US',
+    images: [{ url: '/logo.png', width: 640, height: 427, alt: 'Munaxa' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -71,6 +72,7 @@ const orgJsonLd = {
   '@type': 'Organization',
   name: SITE_NAME,
   url: SITE_URL,
+  logo: `${SITE_URL}/logo.png`,
   description,
 };
 const softwareJsonLd = {
