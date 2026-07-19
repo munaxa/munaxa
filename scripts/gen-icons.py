@@ -31,22 +31,29 @@ WHITE_M = (0xFF, 0xFF, 0xFF)  # the "m" on ink-background icons (wordmark's colo
 DOT = (0x00, 0x75, 0x95, 255)  # primary teal #007595 - the square brand dot
 
 
-def monogram(px, fill_frac=0.66, m_color=INK_M, bg=None):
-    """Render the 'm.' monogram on a px x px canvas (4x supersampled). The "m" uses `m_color`
-    (matching the wordmark's letters) and the dot is the fixed teal square. fill_frac is the
-    glyph height as a fraction of the canvas; bg=None -> transparent, else an opaque RGB tuple."""
+def monogram(px, fill=0.92, m_color=INK_M, bg=None):
+    """Render the 'm.' monogram on a px x px canvas (4x supersampled). The 'm.' group is scaled
+    to span `fill` of the canvas width (the wide dimension) so it's as large as possible without
+    clipping. The "m" uses `m_color`; the dot is the fixed teal square. bg=None -> transparent."""
     ss = 4
     s = px * ss
     canvas = Image.new("RGBA", (s, s), bg if bg else (0, 0, 0, 0))
-    fs = int(s * fill_frac)
-    font = ImageFont.truetype(FONT, fs)
-    stroke = int(fs * 0.05)  # faux-bold so the regular weight reads at small sizes
-    probe = ImageDraw.Draw(canvas)
-    tb = probe.textbbox((0, 0), "m", font=font, stroke_width=stroke)
-    mw, mh = tb[2] - tb[0], tb[3] - tb[1]
-    dot = int(mh * 0.5)
-    gap = int(mh * 0.16)
-    total_w = mw + gap + dot
+    d = ImageDraw.Draw(canvas)
+
+    def measure(fs):
+        font = ImageFont.truetype(FONT, fs)
+        stroke = max(1, int(fs * 0.05))
+        tb = d.textbbox((0, 0), "m", font=font, stroke_width=stroke)
+        mw, mh = tb[2] - tb[0], tb[3] - tb[1]
+        dot = int(mh * 0.5)
+        gap = int(mh * 0.16)
+        return font, stroke, tb, mw, mh, dot, gap, mw + gap + dot
+
+    # Size the font so the group width fits `fill` of the canvas.
+    probe = int(s * 0.5)
+    total_probe = measure(probe)[-1]
+    fs = max(4, int(probe * (fill * s) / total_probe))
+    font, stroke, tb, mw, mh, dot, gap, total_w = measure(fs)
     ox = (s - total_w) // 2 - tb[0]
     oy = (s - mh) // 2 - tb[1]
     # the 'm', in the wordmark letter colour
@@ -72,11 +79,13 @@ def write(img, *paths, **kw):
 web = ["apps/admin/src/app", "munaxademo/src/app", "munaxalanding/src/app"]
 # Transparent tab/PWA icons use the ink "m" (light contexts); the opaque ink-background icons
 # use the white "m" so it stays legible - mirroring the theme-aware wordmark.
-write(monogram(512, 0.60), *[f"{d}/icon.png" for d in web])
-write(monogram(180, 0.56, m_color=WHITE_M, bg=INK), *[f"{d}/apple-icon.png" for d in web])
-write(monogram(256, 0.66), *[f"{d}/favicon.ico" for d in web],
+# Transparent tab/PWA icons fill nearly the whole width; the opaque ink-background icons keep a
+# small margin around the mark on the tile.
+write(monogram(512, 0.94), *[f"{d}/icon.png" for d in web])
+write(monogram(180, 0.82, m_color=WHITE_M, bg=INK), *[f"{d}/apple-icon.png" for d in web])
+write(monogram(256, 0.94), *[f"{d}/favicon.ico" for d in web],
       sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
 
-write(monogram(1024, 0.52, m_color=WHITE_M, bg=INK), "apps/mobile/assets/icon/ic_launcher.png")
+write(monogram(1024, 0.78, m_color=WHITE_M, bg=INK), "apps/mobile/assets/icon/ic_launcher.png")
 # Android adaptive foreground is composited on the ink adaptive background -> white "m".
-write(monogram(1024, 0.60, m_color=WHITE_M), "apps/mobile/assets/icon/ic_launcher_foreground.png")
+write(monogram(1024, 0.72, m_color=WHITE_M), "apps/mobile/assets/icon/ic_launcher_foreground.png")

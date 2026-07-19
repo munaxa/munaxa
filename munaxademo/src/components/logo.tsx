@@ -16,9 +16,8 @@ export function Logo({
   className?: string;
   priority?: boolean;
 }) {
-  // Rendered at 2x the requested height — the bordered wordmark lockup needs the extra size
-  // to stay legible in compact chrome (sidebar rail, headers).
-  const height = size * 2;
+  // Rendered at the requested height (1x); callers size each placement directly.
+  const height = size;
   const width = Math.round(height * RATIO);
   return (
     <>
