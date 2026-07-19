@@ -8,7 +8,6 @@ import { buttonVariants } from '@/components/ui/button';
 import { LanguageSwitcher } from '@/components/ui/language-switcher';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { DEMO_URL } from '@/lib/constants';
-import { Wordmark } from '@/components/wordmark';
 import type { Locale } from '@/lib/i18n/config';
 import type { Dictionary } from '@/lib/i18n/types';
 import type { Theme } from '@/lib/theme/config';
@@ -35,15 +34,23 @@ export function Header({
           className="flex items-center gap-2 font-display text-xl font-bold tracking-tight"
         >
           <Image
-            src="/logo.png"
+            src="/logo-light.png"
             alt="Munaxa"
-            width={44}
+            width={54}
             height={36}
             priority
             unoptimized
-            className="h-9 w-auto object-contain"
+            className="h-9 w-auto object-contain dark:hidden"
           />
-          <Wordmark />
+          <Image
+            src="/logo-dark.png"
+            alt="Munaxa"
+            width={54}
+            height={36}
+            priority
+            unoptimized
+            className="hidden h-9 w-auto object-contain dark:block"
+          />
         </a>
 
         <nav className="hidden items-center gap-8 md:flex" aria-label={dict.nav.primaryNav}>

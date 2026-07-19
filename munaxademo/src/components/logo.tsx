@@ -1,11 +1,12 @@
 import Image from 'next/image';
 import { cn } from '@/lib/cn';
 
-// Intrinsic aspect ratio of the Munaxa open-book + graduation-cap mark (the vendored logo.png).
-const RATIO = 1103 / 904;
+// Intrinsic aspect ratio of the Munaxa wordmark logo (the vendored logo-*.png).
+const RATIO = 1264 / 843;
 
-/** The Munaxa brand mark. `size` is the rendered height in px; width is derived from
- *  the logo's intrinsic aspect ratio so it never distorts. */
+/** The Munaxa logo. `size` is the rendered height in px; width is derived from the logo's
+ *  intrinsic aspect ratio so it never distorts. Theme-aware: black-bordered light logo on the
+ *  light theme, white-bordered dark logo on the dark theme. Served as static assets. */
 export function Logo({
   size = 32,
   className,
@@ -15,17 +16,27 @@ export function Logo({
   className?: string;
   priority?: boolean;
 }) {
+  const width = Math.round(size * RATIO);
   return (
-    <Image
-      src="/munaxa-logo.png"
-      alt="Munaxa"
-      width={Math.round(size * RATIO)}
-      height={size}
-      priority={priority}
-      // Serve the mark as a static asset: the Cloudflare/OpenNext image optimizer chokes on
-      // this detailed logo (broken image), and it's already sized for its small display use.
-      unoptimized
-      className={cn('object-contain', className)}
-    />
+    <>
+      <Image
+        src="/munaxa-logo-light.png"
+        alt="Munaxa"
+        width={width}
+        height={size}
+        priority={priority}
+        unoptimized
+        className={cn('object-contain dark:hidden', className)}
+      />
+      <Image
+        src="/munaxa-logo-dark.png"
+        alt="Munaxa"
+        width={width}
+        height={size}
+        priority={priority}
+        unoptimized
+        className={cn('hidden object-contain dark:block', className)}
+      />
+    </>
   );
 }

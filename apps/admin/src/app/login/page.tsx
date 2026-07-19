@@ -157,7 +157,6 @@ export default function LoginPage() {
             <Logo size={40} priority />
           </span>
           <div className="leading-tight">
-            <Wordmark className="font-display text-2xl font-bold tracking-tight" />
             <p className="text-xs text-muted-foreground">School OS</p>
           </div>
         </header>
