@@ -1,60 +1,52 @@
-import { NAV, CONTACT_EMAIL } from '@/lib/site';
+import { FOOTER_GROUPS } from '@/lib/site';
 import { Wordmark } from './wordmark';
 
 const YEAR = new Date().getFullYear();
 
-/** Footer — restrained, editorial. */
+/** Footer — restrained, editorial, multi-column. Minimal but premium; no clutter. */
 export function Footer() {
   return (
-    <footer className="border-t border-border py-14">
+    <footer className="border-t border-border py-16 sm:py-20">
       <div className="shell-wide">
-        <div className="flex flex-col justify-between gap-8 md:flex-row md:items-start">
+        <div className="grid gap-12 lg:grid-cols-[1.4fr_repeat(5,minmax(0,1fr))] lg:gap-8">
+          {/* Brand */}
           <div className="max-w-xs">
             <Wordmark />
-            <p className="mt-4 text-sm text-muted-foreground">
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               The School Operating System for K-12 schools and education groups — Jordan and the
               wider region.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-12">
-            <nav aria-label="Sections">
+          {/* Link groups */}
+          {FOOTER_GROUPS.map((group) => (
+            <nav key={group.title} aria-label={group.title}>
               <p className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Platform
+                {group.title}
               </p>
-              <ul className="mt-3 space-y-2">
-                {NAV.map((item) => (
-                  <li key={item.href}>
-                    <a
-                      href={item.href}
-                      className="text-sm text-muted-foreground transition hover:text-foreground"
-                    >
-                      {item.label}
-                    </a>
-                  </li>
-                ))}
+              <ul className="mt-4 space-y-2.5">
+                {group.links.map((link) => {
+                  const isEmail = link.href.startsWith('mailto:');
+                  return (
+                    <li key={`${group.title}-${link.label}`}>
+                      <a
+                        href={link.href}
+                        className={
+                          'text-sm text-muted-foreground transition hover:text-foreground' +
+                          (isEmail ? ' mono break-all' : '')
+                        }
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  );
+                })}
               </ul>
             </nav>
-
-            <div>
-              <p className="text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Contact
-              </p>
-              <ul className="mt-3 space-y-2">
-                <li>
-                  <a
-                    href={`mailto:${CONTACT_EMAIL}`}
-                    className="mono text-sm text-muted-foreground transition hover:text-foreground"
-                  >
-                    {CONTACT_EMAIL}
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
+          ))}
         </div>
 
-        <div className="rule mt-12" />
+        <div className="rule mt-14" />
         <div className="mt-6 flex flex-col items-center justify-between gap-3 text-xs text-muted-foreground sm:flex-row">
           <p>© {YEAR} Munaxa. All rights reserved.</p>
           <p>Not an LMS · a School Operating System.</p>

@@ -40,3 +40,52 @@ export const NAV = [
   { href: '#architecture', label: 'Platform' },
   { href: '#contact', label: 'Contact' },
 ] as const;
+
+/**
+ * Footer link groups. Every href resolves to a real in-page section, the demo app, a mailto, or a
+ * real legal page — no dead or placeholder links.
+ */
+export const FOOTER_GROUPS: { title: string; links: { href: string; label: string }[] }[] = [
+  {
+    title: 'Platform',
+    links: [
+      { href: '#operating-system', label: 'The operating system' },
+      { href: '#admissions', label: 'Admissions' },
+      { href: '#finance', label: 'Finance' },
+      { href: '#intelligence', label: 'Intelligence' },
+      { href: '#architecture', label: 'Architecture' },
+    ],
+  },
+  {
+    title: 'Solutions',
+    links: [
+      { href: '#operating-system', label: 'K-12 schools' },
+      { href: '#architecture', label: 'Multi-campus groups' },
+      { href: '#finance', label: 'Finance & JoFotara' },
+      { href: '#communication', label: 'Parent engagement' },
+    ],
+  },
+  {
+    title: 'Resources',
+    links: [
+      { href: '#top', label: 'Overview' },
+      { href: '#operating-system', label: 'How it connects' },
+      { href: DEMO_URL, label: 'Book a demo' },
+    ],
+  },
+  {
+    title: 'Contact',
+    links: [
+      { href: `mailto:${CONTACT_EMAIL}`, label: CONTACT_EMAIL },
+      { href: '#contact', label: 'Contact us' },
+      { href: DEMO_URL, label: 'Request a demo' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { href: '/privacy', label: 'Privacy Policy' },
+      { href: '/terms', label: 'Terms of Service' },
+    ],
+  },
+];

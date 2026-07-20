@@ -16,13 +16,13 @@ export function CTA() {
       <Reveal className="shell text-center">
         <p className="eyebrow">Ready when you are</p>
         <h2 className="display mx-auto mt-5 max-w-3xl text-4xl sm:text-6xl">
-          Give your school
+          See your own school
           <br />
-          one system to run on.
+          running on Munaxa.
         </h2>
         <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-          See Munaxa mapped to your school — your grades, your fee structure, your campuses. A
-          working demo, not a slideshow.
+          We map Munaxa to your school — your grades, your fee structure, your campuses — and walk
+          you through it live. A working demo, not a slideshow.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <a href={DEMO_URL} className={cn(buttonVariants('default', 'lg', 'group'), 'w-full sm:w-auto')}>

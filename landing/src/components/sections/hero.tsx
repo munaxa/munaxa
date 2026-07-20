@@ -2,8 +2,8 @@ import { ArrowRight, ShieldCheck } from '@munaxa/icons';
 import { buttonVariants } from '@munaxa/ui';
 import { cn } from '@/lib/cn';
 import { DEMO_URL } from '@/lib/site';
-import { AppFrame } from '@/components/product/app-frame';
-import { DashboardPreview } from '@/components/product/dashboard-preview';
+import { LiveShowcase } from '@/components/product/live-showcase';
+import { CountUp } from '@/components/motion/count-up';
 import { Reveal } from '@/components/motion/reveal';
 
 const TRUST = [
@@ -78,25 +78,23 @@ export function Hero() {
             className="brand-glow absolute -inset-x-10 -top-10 -bottom-16 -z-10"
             aria-hidden
           />
-          <AppFrame
-            label="app.munaxa.com/dashboard"
-            ariaLabel="The Munaxa owner dashboard: live attendance, finance and academic insight across the school"
-            className="mx-auto w-full max-w-6xl"
-          >
-            <DashboardPreview />
-          </AppFrame>
+          <LiveShowcase />
 
-          {/* Floating accent chips — depth, not decoration. */}
+          {/* Floating accent chips — depth, not decoration; numbers count up on view. */}
           <div className="float-soft absolute -left-2 top-16 hidden rounded-xl border border-border bg-card/90 px-3 py-2 shadow-lg backdrop-blur lg:block">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Collected</p>
-            <p className="mono font-display text-sm font-bold text-aqua">JOD 412,750</p>
+            <p className="mono font-display text-sm font-bold text-aqua">
+              <CountUp value={412750} prefix="JOD " />
+            </p>
           </div>
           <div
             className="float-soft absolute -right-2 top-40 hidden rounded-xl border border-border bg-card/90 px-3 py-2 shadow-lg backdrop-blur lg:block"
             style={{ animationDelay: '1.4s' }}
           >
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Attendance</p>
-            <p className="mono font-display text-sm font-bold text-primary">96.4%</p>
+            <p className="mono font-display text-sm font-bold text-primary">
+              <CountUp value={96.4} decimals={1} suffix="%" />
+            </p>
           </div>
         </div>
       </Reveal>

@@ -59,7 +59,7 @@ export function FeatureSection({
 
         <Reveal delay={100} className={cn('relative', flip && 'lg:order-1')}>
           <div className="brand-glow absolute -inset-6 -z-10 opacity-70" aria-hidden />
-          <div className="panel overflow-hidden">{children}</div>
+          <div className="panel rise overflow-hidden">{children}</div>
         </Reveal>
       </div>
     </section>

@@ -1,11 +1,21 @@
-import { CalendarCheck, MessageSquare, Smartphone, GraduationCap, Wallet } from '@munaxa/icons';
-import { type Icon } from '@munaxa/icons';
-import { Reveal } from '@/components/motion/reveal';
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import {
+  CalendarCheck,
+  MessageSquare,
+  GraduationCap,
+  FileText,
+  Wallet,
+  Smartphone,
+  type Icon,
+} from '@munaxa/icons';
 
 /**
- * "A single day, connected" — one event (a student marked present at 08:12) traced as it ripples
- * through the platform. This is how attendance and academics show up on the page: not as a card,
- * but as a chain of consequences no one had to trigger by hand.
+ * "A single day, connected" — one tap on the attendance register, traced as a single chain of
+ * consequences through the platform. Rendered as a connected timeline whose rail draws itself in
+ * and whose steps arrive in sequence, so the visitor reads it as one system reacting, not six
+ * separate features. Fully visible and static under prefers-reduced-motion / no-JS.
  */
 
 type Step = { time: string; module: string; icon: Icon; title: string; body: string };
@@ -15,72 +25,111 @@ const STEPS: Step[] = [
     time: '08:12',
     module: 'Attendance',
     icon: CalendarCheck,
-    title: 'Adam is marked present',
-    body: 'A teacher taps once on the class register. The student record updates instantly.',
+    title: 'A teacher marks attendance',
+    body: 'One tap on the class register. The student record updates the instant it happens.',
   },
   {
     time: '08:12',
     module: 'Communication',
     icon: MessageSquare,
-    title: 'A note goes out — automatically',
-    body: 'No one composes it. Attendance itself triggers the parent update.',
-  },
-  {
-    time: '08:13',
-    module: 'Parent app',
-    icon: Smartphone,
-    title: 'His mother already knows',
-    body: '“Present · 08:12.” She never had to call the front office.',
+    title: 'The parent is notified',
+    body: 'No one composes a message. Attendance itself sends the update — in seconds.',
   },
   {
     time: '13:40',
     module: 'Academics',
     icon: GraduationCap,
-    title: 'A grade is entered',
-    body: 'Term averages recalculate and the report card reflects it — no spreadsheet in sight.',
+    title: 'A teacher enters grades',
+    body: 'Term averages recalculate across the class the moment the marks are saved.',
+  },
+  {
+    time: '13:40',
+    module: 'Reports',
+    icon: FileText,
+    title: 'The report card updates',
+    body: 'It reflects the new grade automatically — nothing exported, nothing re-typed.',
   },
   {
     time: '16:00',
     module: 'Finance',
     icon: Wallet,
-    title: 'The books stay current',
-    body: 'Fees, discounts and balances move with the record, ready for JoFotara.',
+    title: 'The finance balance updates',
+    body: 'Fees, discounts and balances move with the same record, ready for JoFotara.',
+  },
+  {
+    time: '16:01',
+    module: 'Parent app',
+    icon: Smartphone,
+    title: 'The parent app reflects everything',
+    body: 'Attendance, grades and balance — one record, in the family’s hand, already current.',
   },
 ];
 
 export function ConnectedDay() {
+  const ref = useRef<HTMLOListElement | null>(null);
+  const [shown, setShown] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setShown(true);
+            io.disconnect();
+          }
+        }
+      },
+      { rootMargin: '0px 0px -20% 0px', threshold: 0.1 },
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, []);
+
   return (
     <section className="relative overflow-hidden border-y border-border bg-secondary/30 py-24 sm:py-32">
       <div className="shell">
-        <Reveal className="max-w-2xl">
+        <div className="max-w-2xl">
           <p className="eyebrow">03 — How it feels</p>
           <h2 className="display mt-4 text-4xl sm:text-5xl">A single day, connected.</h2>
           <p className="mt-5 text-lg text-muted-foreground">
-            One tap on the attendance register. Watch what happens next — none of it typed twice.
+            One tap on the attendance register. Follow what happens next — a single chain of events,
+            none of it typed twice.
           </p>
-        </Reveal>
+        </div>
 
-        <ol className="relative mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-5 lg:gap-5">
-          {/* connecting rail (desktop) */}
+        <ol ref={ref} className="relative mt-14 max-w-2xl">
+          {/* Rail: a faint static track with a brand line that draws itself in on view. */}
+          <div className="absolute bottom-6 left-[1.35rem] top-6 w-px bg-border" aria-hidden />
           <div
-            className="absolute left-0 right-0 top-6 hidden h-px bg-border lg:block"
+            className="draw-y absolute bottom-6 left-[1.35rem] top-6 w-px bg-primary/50"
+            data-shown={shown ? 'true' : 'false'}
             aria-hidden
           />
+
           {STEPS.map((s, i) => {
             const Icon = s.icon;
             return (
-              <Reveal as="li" key={i} delay={i * 90} className="relative">
-                <div className="relative z-10 grid h-12 w-12 place-items-center rounded-2xl border border-border bg-card text-primary shadow-sm">
+              <li
+                key={i}
+                data-shown={shown ? 'true' : 'false'}
+                style={{ transitionDelay: `${i * 110}ms` }}
+                className="day-step relative flex gap-5 pb-9 last:pb-0"
+              >
+                <div className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-border bg-card text-primary shadow-sm">
                   <Icon className="h-5 w-5" aria-hidden />
                 </div>
-                <p className="mono mt-4 text-[0.72rem] text-muted-foreground">
-                  {s.time} · {s.module}
-                </p>
-                <p className="mt-1 font-display text-[0.95rem] font-semibold leading-snug">
-                  {s.title}
-                </p>
-                <p className="mt-1.5 text-sm text-muted-foreground">{s.body}</p>
-              </Reveal>
+                <div className="pt-1">
+                  <p className="mono text-[0.72rem] text-muted-foreground">
+                    {s.time} · {s.module}
+                  </p>
+                  <p className="mt-1 font-display text-base font-semibold leading-snug">
+                    {s.title}
+                  </p>
+                  <p className="mt-1.5 max-w-md text-sm text-muted-foreground">{s.body}</p>
+                </div>
+              </li>
             );
           })}
         </ol>
