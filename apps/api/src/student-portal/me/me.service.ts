@@ -6,6 +6,7 @@ import {
   GamificationService,
   type GamificationSummary,
 } from '../gamification/gamification.service';
+import { SchedulingService } from '../../scheduling/scheduling.service';
 import { MeRepository, type AttendanceSummary } from './me.repository';
 
 export interface StudentDashboard {
@@ -38,6 +39,7 @@ export class MeService {
     private readonly scope: StudentScopeService,
     private readonly resources: ResourceService,
     private readonly gamification: GamificationService,
+    private readonly scheduling: SchedulingService,
   ) {}
 
   async dashboard(): Promise<StudentDashboard> {
@@ -90,11 +92,17 @@ export class MeService {
     return this.repo.attendanceHistory(studentId);
   }
 
-  // The student's weekly timetable is inherited from their section's PUBLISHED SchedulePlan and is
-  // resolved by the scheduling engine (SCHEDULING_ENGINE_REFACTOR.md, resolver phase). Returns empty
-  // until that resolver ships — no per-student timetable records exist.
-  timetable(): Promise<never[]> {
-    return Promise.resolve([]);
+  // The student's weekly timetable is inherited from their section's PUBLISHED SchedulePlan, resolved
+  // by the platform SchedulingService (no per-student timetable records exist).
+  async timetable() {
+    const student = await this.scope.requireStudent();
+    return this.scheduling.getStudentSchedule(student.sectionId);
+  }
+
+  /** Live "now attending / next class" for the student app dashboard. */
+  async liveClass() {
+    const student = await this.scope.requireStudent();
+    return this.scheduling.getStudentCurrentClass(student.sectionId);
   }
 
   async resourceLibrary(): Promise<ResourceView[]> {

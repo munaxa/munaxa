@@ -39,9 +39,15 @@ export class MeController {
   }
 
   @Get('timetable')
-  @ApiOperation({ summary: "The student's weekly timetable" })
+  @ApiOperation({ summary: "The student's weekly timetable (inherited from their section)" })
   timetable() {
     return this.service.timetable();
+  }
+
+  @Get('timetable/current')
+  @ApiOperation({ summary: "The student's live current/next class" })
+  currentClass() {
+    return this.service.liveClass();
   }
 
   @Get('resources')

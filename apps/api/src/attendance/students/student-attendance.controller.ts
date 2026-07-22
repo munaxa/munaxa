@@ -27,6 +27,14 @@ export class StudentAttendanceController {
     return this.service.markByQr(dto);
   }
 
+  @Get('current-class')
+  @RequirePermissions(Permission.ATTENDANCE_READ)
+  @ApiQuery({ name: 'sectionId', required: true })
+  @ApiOperation({ summary: 'The current class for a section (from the published timetable)' })
+  currentClass(@Query('sectionId') sectionId: string) {
+    return this.service.currentClass(sectionId);
+  }
+
   @Get()
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiQuery({ name: 'sectionId', required: true })

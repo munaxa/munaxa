@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { SchedulingModule } from '../scheduling/scheduling.module';
 import { StudentAttendanceController } from './students/student-attendance.controller';
 import { StudentAttendanceService } from './students/student-attendance.service';
 import { StudentAttendanceRepository } from './students/student-attendance.repository';
@@ -11,6 +12,7 @@ import { TeacherAttendanceRepository } from './teachers/teacher-attendance.repos
  * attendance, the section dashboard summary, and student history (parent/student view).
  */
 @Module({
+  imports: [SchedulingModule],
   controllers: [StudentAttendanceController, TeacherAttendanceController],
   providers: [
     StudentAttendanceService,

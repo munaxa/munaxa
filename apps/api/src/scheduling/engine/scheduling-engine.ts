@@ -82,13 +82,25 @@ export interface ResolvedDay {
 export type LiveState =
   | 'IN_CLASS'
   | 'BEFORE_SCHOOL'
+  | 'MORNING_ASSEMBLY'
   | 'BREAK'
+  | 'LUNCH_BREAK'
   | 'AFTER_SCHOOL'
   | 'HOLIDAY'
   | 'NO_CLASSES';
 
+/** A non-teaching window from the section's bell schedule (assembly / break / lunch). */
+export interface BreakWindow {
+  startTime: string; // "HH:MM"
+  endTime: string; // "HH:MM"
+  kind: 'ASSEMBLY' | 'LUNCH' | 'BREAK';
+  label: string | null;
+}
+
 export interface LiveClassContext {
   state: LiveState;
+  /** Label for a labelled break window (e.g. "Morning Assembly", "Lunch Break"), else null. */
+  stateLabel: string | null;
   current: ResolvedClass | null;
   next: ResolvedClass | null;
   /** Non-cancelled classes that have not yet ended today. */
@@ -180,9 +192,14 @@ export function findCurrentAndNext(
 
 /**
  * Build the full live context for the Parent/Student/Teacher "now" cards. Reusable across every
- * surface — the current class is always calculated, never stored.
+ * surface — the current class is always calculated, never stored. Optional `breaks` (from the
+ * section's bell schedule) refine the between-class state into Morning Assembly / Lunch Break.
  */
-export function buildLiveContext(day: ResolvedDay, nowMinutes: number): LiveClassContext {
+export function buildLiveContext(
+  day: ResolvedDay,
+  nowMinutes: number,
+  breaks: BreakWindow[] = [],
+): LiveClassContext {
   if (day.isHoliday) {
     return emptyContext('HOLIDAY');
   }
@@ -198,13 +215,34 @@ export function buildLiveContext(day: ResolvedDay, nowMinutes: number): LiveClas
   const lastEnd = Math.max(...active.map((c) => timeToMinutes(c.endTime)));
 
   let state: LiveState;
-  if (current) state = 'IN_CLASS';
-  else if (nowMinutes < firstStart) state = 'BEFORE_SCHOOL';
-  else if (nowMinutes >= lastEnd) state = 'AFTER_SCHOOL';
-  else state = 'BREAK'; // between two classes
+  let stateLabel: string | null = null;
+  if (current) {
+    state = 'IN_CLASS';
+  } else {
+    // A labelled break window (assembly/lunch/break) wins over the coarse before/after/between state.
+    const window = breaks.find(
+      (b) => nowMinutes >= timeToMinutes(b.startTime) && nowMinutes < timeToMinutes(b.endTime),
+    );
+    if (window) {
+      state =
+        window.kind === 'ASSEMBLY'
+          ? 'MORNING_ASSEMBLY'
+          : window.kind === 'LUNCH'
+            ? 'LUNCH_BREAK'
+            : 'BREAK';
+      stateLabel = window.label;
+    } else if (nowMinutes < firstStart) {
+      state = 'BEFORE_SCHOOL';
+    } else if (nowMinutes >= lastEnd) {
+      state = 'AFTER_SCHOOL';
+    } else {
+      state = 'BREAK';
+    }
+  }
 
   return {
     state,
+    stateLabel,
     current,
     next,
     remainingClasses,
@@ -218,8 +256,11 @@ export function buildLiveContext(day: ResolvedDay, nowMinutes: number): LiveClas
 export type ConflictType =
   | 'TEACHER_DOUBLE_BOOKING'
   | 'SECTION_OVERLAP'
+  | 'DUPLICATE_CLASS_NUMBER'
+  | 'INVALID_SEQUENCE'
   | 'SUBJECT_DUPLICATION'
   | 'MISSING_TEACHER'
+  | 'MISSING_SUBJECT'
   | 'INVALID_TIME';
 
 export type ConflictSeverity = 'ERROR' | 'WARNING';
@@ -268,6 +309,16 @@ export function detectConflicts(classes: ConflictClassInput[]): Conflict[] {
         classIds: [c.id],
       });
     }
+    if (!c.subjectId) {
+      conflicts.push({
+        type: 'MISSING_SUBJECT',
+        severity: 'ERROR',
+        message: `Class ${c.classNumber} has no subject assigned.`,
+        scheduleType: c.scheduleType,
+        dayOfWeek: c.dayOfWeek,
+        classIds: [c.id],
+      });
+    }
   }
 
   // Pairwise checks within the same (scheduleType, dayOfWeek) bucket only.
@@ -300,6 +351,35 @@ export function detectConflicts(classes: ConflictClassInput[]): Conflict[] {
             type: 'SECTION_OVERLAP',
             severity: 'ERROR',
             message: `Section has two overlapping classes (${a.subjectName} / ${b.subjectName}).`,
+            scheduleType: a.scheduleType,
+            dayOfWeek: a.dayOfWeek,
+            classIds: [a.id, b.id],
+          });
+        }
+
+        if (a.sectionId === b.sectionId && a.classNumber === b.classNumber) {
+          conflicts.push({
+            type: 'DUPLICATE_CLASS_NUMBER',
+            severity: 'ERROR',
+            message: `Section has two classes numbered ${a.classNumber} on the same day.`,
+            scheduleType: a.scheduleType,
+            dayOfWeek: a.dayOfWeek,
+            classIds: [a.id, b.id],
+          });
+        }
+
+        // Invalid sequence: a lower class number must not start later than a higher one.
+        if (
+          a.sectionId === b.sectionId &&
+          a.classNumber !== b.classNumber &&
+          !overlap &&
+          a.classNumber < b.classNumber === timeToMinutes(a.startTime) > timeToMinutes(b.startTime)
+          // ^ ordering by class number disagrees with ordering by start time
+        ) {
+          conflicts.push({
+            type: 'INVALID_SEQUENCE',
+            severity: 'ERROR',
+            message: `Class numbering is out of order with the class times.`,
             scheduleType: a.scheduleType,
             dayOfWeek: a.dayOfWeek,
             classIds: [a.id, b.id],
@@ -341,6 +421,7 @@ function timeOverlaps(a: ScheduledClassInput, b: ScheduledClassInput): boolean {
 function emptyContext(state: LiveState): LiveClassContext {
   return {
     state,
+    stateLabel: null,
     current: null,
     next: null,
     remainingClasses: 0,

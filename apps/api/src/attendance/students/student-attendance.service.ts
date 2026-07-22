@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { AttendanceStatus, StudentAttendance } from '@prisma/client';
 import { StudentAttendanceRepository, type UpsertMark } from './student-attendance.repository';
+import { SchedulingService } from '../../scheduling/scheduling.service';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import type { BulkMarkDto, QrMarkDto } from './student-attendance.dto';
 
@@ -13,7 +14,18 @@ export interface AttendanceSummary {
 
 @Injectable()
 export class StudentAttendanceService {
-  constructor(private readonly repo: StudentAttendanceRepository) {}
+  constructor(
+    private readonly repo: StudentAttendanceRepository,
+    private readonly scheduling: SchedulingService,
+  ) {}
+
+  /**
+   * The class attendance is currently being taken for — resolved from the published timetable, not
+   * asked of the marker. Returns the live current/next class (subject, teacher, class number).
+   */
+  currentClass(sectionId: string) {
+    return this.scheduling.getCurrentSectionClass(sectionId);
+  }
 
   /** Idempotent bulk marking — the target for online marking and offline-queue sync. */
   async bulkMark(dto: BulkMarkDto): Promise<{ marked: number }> {

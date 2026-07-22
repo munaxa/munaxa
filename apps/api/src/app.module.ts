@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { StructureModule } from './structure/structure.module';
 import { PeopleModule } from './people/people.module';
 import { TimetableModule } from './timetable/timetable.module';
+import { SchedulingModule } from './scheduling/scheduling.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AcademicsModule } from './academics/academics.module';
 import { FinanceModule } from './finance/finance.module';
@@ -76,6 +77,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     StructureModule,
     PeopleModule,
     TimetableModule,
+    SchedulingModule,
     AttendanceModule,
     AcademicsModule,
     FinanceModule,
