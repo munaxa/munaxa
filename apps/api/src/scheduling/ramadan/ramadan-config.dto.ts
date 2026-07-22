@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsDateString, IsOptional } from 'class-validator';
 
-export class UpsertTimetableConfigDto {
+export class UpsertRamadanConfigDto {
   @ApiProperty({ description: 'Enable the Ramadan schedule for the campus' })
   @IsBoolean()
   ramadanModeEnabled!: boolean;

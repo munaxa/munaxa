@@ -11,7 +11,7 @@ import {
   type LiveClassContext,
   type Conflict,
   type ScheduledClassInput,
-  type ConflictClassInput,
+  type ExceptionInput,
 } from './engine/scheduling-engine';
 import {
   SchedulingRepository,
@@ -47,60 +47,38 @@ export interface TeacherDay {
 export class SchedulingService {
   constructor(private readonly repo: SchedulingRepository) {}
 
-  private static toInput(c: LoadedClass): ScheduledClassInput {
-    return {
-      sectionId: c.sectionId,
-      scheduleType: c.scheduleType,
-      dayOfWeek: c.dayOfWeek,
-      classNumber: c.classNumber,
-      startTime: c.startTime,
-      endTime: c.endTime,
-      subjectId: c.subjectId,
-      subjectName: c.subjectName,
-      subjectColor: c.subjectColor,
-      teacherId: c.teacherId,
-      teacherName: c.teacherName,
-      locationName: c.locationName,
-    };
-  }
-
-  private static toException(e: LoadedException) {
-    return {
-      classNumber: e.classNumber,
-      type: e.type,
-      subjectName: e.subjectName,
-      teacherId: e.teacherId,
-      teacherName: e.teacherName,
-      substituteTeacherId: e.substituteTeacherId,
-      substituteTeacherName: e.substituteTeacherName,
-      note: e.note,
-    };
-  }
-
   // ----- Section resolution --------------------------------------------------
 
   /** Resolve one section on one date (the core of every downstream read). */
   async getSectionDay(sectionId: string, date: Date): Promise<ResolvedDay> {
     const data = await this.repo.loadSectionDay(sectionId, date);
     if (!data) {
-      return { scheduleType: 'REGULAR', dayOfWeek: dayOfWeekOf(date), isHoliday: false, classes: [] };
+      return {
+        scheduleType: 'REGULAR',
+        dayOfWeek: dayOfWeekOf(date),
+        isHoliday: false,
+        classes: [],
+      };
     }
     const scheduleType = resolveScheduleType(data.ramadan, date);
     return resolveDay({
-      classes: data.classes.map(SchedulingService.toInput),
-      exceptions: data.exceptions.map(SchedulingService.toException),
+      classes: data.classes.map(toInput),
+      exceptions: data.exceptions.map(toException),
       scheduleType,
       dayOfWeek: dayOfWeekOf(date),
     });
   }
 
   /** Live "current class" context for a section (Attendance + dashboards). */
-  async getCurrentSectionClass(sectionId: string, at: Date = new Date()): Promise<LiveClassContext> {
+  async getCurrentSectionClass(
+    sectionId: string,
+    at: Date = new Date(),
+  ): Promise<LiveClassContext> {
     const data = await this.repo.loadSectionDay(sectionId, at);
     const scheduleType = resolveScheduleType(data?.ramadan ?? null, at);
     const day = resolveDay({
-      classes: (data?.classes ?? []).map(SchedulingService.toInput),
-      exceptions: (data?.exceptions ?? []).map(SchedulingService.toException),
+      classes: (data?.classes ?? []).map(toInput),
+      exceptions: (data?.exceptions ?? []).map(toException),
       scheduleType,
       dayOfWeek: dayOfWeekOf(at),
     });
@@ -122,7 +100,11 @@ export class SchedulingService {
   }
 
   async getStudentCurrentClass(sectionId: string | null, at: Date = new Date()) {
-    if (!sectionId) return buildLiveContext({ scheduleType: 'REGULAR', dayOfWeek: dayOfWeekOf(at), isHoliday: false, classes: [] }, minutesOf(at));
+    if (!sectionId)
+      return buildLiveContext(
+        { scheduleType: 'REGULAR', dayOfWeek: dayOfWeekOf(at), isHoliday: false, classes: [] },
+        minutesOf(at),
+      );
     return this.getCurrentSectionClass(sectionId, at);
   }
 
@@ -149,27 +131,32 @@ export class SchedulingService {
     const sectionIds = [...new Set(dayClasses.map((c) => c.sectionId))];
     const campusIds = [...new Set(dayClasses.map((c) => c.campusId))];
 
-    const exceptionsBySection = await this.repo.loadExceptionsForSections(sectionIds, at);
-    const configs = await Promise.all(campusIds.map((id) => this.repo.ramadanConfig(id)));
+    const [exceptionsBySection, configByCampus] = await Promise.all([
+      this.repo.loadExceptionsForSections(sectionIds, at),
+      this.repo.ramadanConfigs(campusIds),
+    ]);
     const scheduleTypeByCampus = new Map(
-      campusIds.map((id, i) => [id, resolveScheduleType(configs[i] ?? null, at)]),
+      campusIds.map((id) => [id, resolveScheduleType(configByCampus.get(id) ?? null, at)]),
     );
 
     // Resolve each section independently (reusing the engine), then merge for the live card.
     const bySection = new Map<string, LoadedTeacherClass[]>();
-    for (const c of dayClasses) bySection.set(c.sectionId, [...(bySection.get(c.sectionId) ?? []), c]);
+    for (const c of dayClasses)
+      bySection.set(c.sectionId, [...(bySection.get(c.sectionId) ?? []), c]);
 
     const merged: TeacherResolvedClass[] = [];
     for (const [sectionId, classes] of bySection) {
       const scheduleType = scheduleTypeByCampus.get(classes[0]!.campusId) ?? 'REGULAR';
       const day = resolveDay({
-        classes: classes.map(SchedulingService.toInput),
-        exceptions: (exceptionsBySection.get(sectionId) ?? []).map(SchedulingService.toException),
+        classes: classes.map(toInput),
+        exceptions: (exceptionsBySection.get(sectionId) ?? []).map(toException),
         scheduleType,
         dayOfWeek: dow,
       });
       for (const rc of day.classes) {
-        const src = classes.find((c) => c.classNumber === rc.classNumber && c.scheduleType === scheduleType)!;
+        const src = classes.find(
+          (c) => c.classNumber === rc.classNumber && c.scheduleType === scheduleType,
+        )!;
         merged.push({
           ...rc,
           sectionId,
@@ -198,7 +185,7 @@ export class SchedulingService {
   /** All conflicts in a plan (across every section). */
   async detectPlanConflicts(planId: string): Promise<Conflict[]> {
     const classes = await this.repo.loadPlanClasses(planId);
-    return detectConflicts(classes as ConflictClassInput[]);
+    return detectConflicts(classes);
   }
 
   /** Validation result for the admin panel: the conflicts + whether the plan can be published. */
@@ -209,6 +196,36 @@ export class SchedulingService {
 }
 
 // ----- helpers ---------------------------------------------------------------
+
+function toInput(c: LoadedClass): ScheduledClassInput {
+  return {
+    sectionId: c.sectionId,
+    scheduleType: c.scheduleType,
+    dayOfWeek: c.dayOfWeek,
+    classNumber: c.classNumber,
+    startTime: c.startTime,
+    endTime: c.endTime,
+    subjectId: c.subjectId,
+    subjectName: c.subjectName,
+    subjectColor: c.subjectColor,
+    teacherId: c.teacherId,
+    teacherName: c.teacherName,
+    locationName: c.locationName,
+  };
+}
+
+function toException(e: LoadedException): ExceptionInput {
+  return {
+    classNumber: e.classNumber,
+    type: e.type,
+    subjectName: e.subjectName,
+    teacherId: e.teacherId,
+    teacherName: e.teacherName,
+    substituteTeacherId: e.substituteTeacherId,
+    substituteTeacherName: e.substituteTeacherName,
+    note: e.note,
+  };
+}
 
 function minutesOf(at: Date): number {
   return at.getUTCHours() * 60 + at.getUTCMinutes();

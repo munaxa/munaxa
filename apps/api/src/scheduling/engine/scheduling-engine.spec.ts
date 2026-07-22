@@ -49,7 +49,10 @@ const exception = (over: Partial<ExceptionInput> = {}): ExceptionInput => ({
 describe('scheduling-engine — resolveDay', () => {
   it('returns matching classes sorted by classNumber', () => {
     const day = resolveDay({
-      classes: [klass({ classNumber: 2, startTime: '08:50', endTime: '09:35' }), klass({ classNumber: 1 })],
+      classes: [
+        klass({ classNumber: 2, startTime: '08:50', endTime: '09:35' }),
+        klass({ classNumber: 1 }),
+      ],
       exceptions: [],
       scheduleType: 'REGULAR',
       dayOfWeek: 'SUN',
@@ -82,11 +85,25 @@ describe('scheduling-engine — resolveDay', () => {
 
   it('applies cancellation / substitution / replacement', () => {
     const day = resolveDay({
-      classes: [klass({ classNumber: 1 }), klass({ classNumber: 2, startTime: '09:00', endTime: '09:45' }), klass({ classNumber: 3, startTime: '10:00', endTime: '10:45' })],
+      classes: [
+        klass({ classNumber: 1 }),
+        klass({ classNumber: 2, startTime: '09:00', endTime: '09:45' }),
+        klass({ classNumber: 3, startTime: '10:00', endTime: '10:45' }),
+      ],
       exceptions: [
         exception({ classNumber: 1, type: 'CANCELLATION' }),
-        exception({ classNumber: 2, type: 'SUBSTITUTION', substituteTeacherId: 't-2', substituteTeacherName: 'Sara' }),
-        exception({ classNumber: 3, type: 'REPLACEMENT', subjectName: 'Exam', teacherName: 'Omar' }),
+        exception({
+          classNumber: 2,
+          type: 'SUBSTITUTION',
+          substituteTeacherId: 't-2',
+          substituteTeacherName: 'Sara',
+        }),
+        exception({
+          classNumber: 3,
+          type: 'REPLACEMENT',
+          subjectName: 'Exam',
+          teacherName: 'Omar',
+        }),
       ],
       scheduleType: 'REGULAR',
       dayOfWeek: 'SUN',
@@ -155,18 +172,53 @@ describe('scheduling-engine — buildLiveContext', () => {
     expect(ctx.remainingClasses).toBe(0);
   });
   it('HOLIDAY / NO_CLASSES', () => {
-    const holiday = resolveDay({ classes: [klass()], exceptions: [exception({ classNumber: null, type: 'HOLIDAY' })], scheduleType: 'REGULAR', dayOfWeek: 'SUN' });
+    const holiday = resolveDay({
+      classes: [klass()],
+      exceptions: [exception({ classNumber: null, type: 'HOLIDAY' })],
+      scheduleType: 'REGULAR',
+      dayOfWeek: 'SUN',
+    });
     expect(buildLiveContext(holiday, 600).state).toBe('HOLIDAY');
-    const empty = resolveDay({ classes: [], exceptions: [], scheduleType: 'REGULAR', dayOfWeek: 'FRI' });
+    const empty = resolveDay({
+      classes: [],
+      exceptions: [],
+      scheduleType: 'REGULAR',
+      dayOfWeek: 'FRI',
+    });
     expect(buildLiveContext(empty, 600).state).toBe('NO_CLASSES');
+  });
+
+  it('MORNING_ASSEMBLY / LUNCH_BREAK from bell-schedule windows', () => {
+    const assembly = buildLiveContext(day, timeToMinutes('07:40'), [
+      { startTime: '07:30', endTime: '08:00', kind: 'ASSEMBLY', label: 'Morning Assembly' },
+    ]);
+    expect(assembly.state).toBe('MORNING_ASSEMBLY');
+    expect(assembly.stateLabel).toBe('Morning Assembly');
+
+    const lunch = buildLiveContext(day, timeToMinutes('08:50'), [
+      { startTime: '08:45', endTime: '09:00', kind: 'LUNCH', label: 'Lunch Break' },
+    ]);
+    expect(lunch.state).toBe('LUNCH_BREAK');
   });
 });
 
 describe('scheduling-engine — detectConflicts', () => {
   it('flags a teacher double-booked across sections', () => {
     const conflicts = detectConflicts([
-      conflictKlass({ id: 'a', sectionId: 'sec-1', teacherId: 't-1', startTime: '08:00', endTime: '08:45' }),
-      conflictKlass({ id: 'b', sectionId: 'sec-2', teacherId: 't-1', startTime: '08:30', endTime: '09:15' }),
+      conflictKlass({
+        id: 'a',
+        sectionId: 'sec-1',
+        teacherId: 't-1',
+        startTime: '08:00',
+        endTime: '08:45',
+      }),
+      conflictKlass({
+        id: 'b',
+        sectionId: 'sec-2',
+        teacherId: 't-1',
+        startTime: '08:30',
+        endTime: '09:15',
+      }),
     ]);
     expect(conflicts.some((c) => c.type === 'TEACHER_DOUBLE_BOOKING')).toBe(true);
     expect(canPublish(conflicts)).toBe(false);
@@ -175,7 +227,13 @@ describe('scheduling-engine — detectConflicts', () => {
   it('flags overlapping classes within a section', () => {
     const conflicts = detectConflicts([
       conflictKlass({ id: 'a', classNumber: 1, startTime: '08:00', endTime: '09:00' }),
-      conflictKlass({ id: 'b', classNumber: 2, startTime: '08:30', endTime: '09:30', teacherId: 't-2' }),
+      conflictKlass({
+        id: 'b',
+        classNumber: 2,
+        startTime: '08:30',
+        endTime: '09:30',
+        teacherId: 't-2',
+      }),
     ]);
     expect(conflicts.some((c) => c.type === 'SECTION_OVERLAP')).toBe(true);
   });
@@ -192,18 +250,71 @@ describe('scheduling-engine — detectConflicts', () => {
 
   it('subject duplication is a non-blocking warning', () => {
     const conflicts = detectConflicts([
-      conflictKlass({ id: 'a', classNumber: 1, subjectId: 'subj-math', startTime: '08:00', endTime: '08:45' }),
-      conflictKlass({ id: 'b', classNumber: 2, subjectId: 'subj-math', startTime: '09:00', endTime: '09:45', teacherId: 't-2' }),
+      conflictKlass({
+        id: 'a',
+        classNumber: 1,
+        subjectId: 'subj-math',
+        startTime: '08:00',
+        endTime: '08:45',
+      }),
+      conflictKlass({
+        id: 'b',
+        classNumber: 2,
+        subjectId: 'subj-math',
+        startTime: '09:00',
+        endTime: '09:45',
+        teacherId: 't-2',
+      }),
     ]);
     const dup = conflicts.find((c) => c.type === 'SUBJECT_DUPLICATION');
     expect(dup?.severity).toBe('WARNING');
     expect(canPublish(conflicts)).toBe(true);
   });
 
+  it('flags a duplicate class number and an out-of-order sequence', () => {
+    const dup = detectConflicts([
+      conflictKlass({ id: 'a', classNumber: 1, startTime: '08:00', endTime: '08:45' }),
+      conflictKlass({
+        id: 'b',
+        classNumber: 1,
+        startTime: '09:00',
+        endTime: '09:45',
+        teacherId: 't-2',
+      }),
+    ]);
+    expect(dup.some((c) => c.type === 'DUPLICATE_CLASS_NUMBER')).toBe(true);
+
+    const seq = detectConflicts([
+      conflictKlass({ id: 'a', classNumber: 1, startTime: '10:00', endTime: '10:45' }),
+      conflictKlass({
+        id: 'b',
+        classNumber: 2,
+        startTime: '08:00',
+        endTime: '08:45',
+        teacherId: 't-2',
+      }),
+    ]);
+    expect(seq.some((c) => c.type === 'INVALID_SEQUENCE')).toBe(true);
+  });
+
+  it('flags a missing subject as an error', () => {
+    const conflicts = detectConflicts([conflictKlass({ id: 'a', subjectId: '' })]);
+    expect(conflicts.some((c) => c.type === 'MISSING_SUBJECT')).toBe(true);
+    expect(canPublish(conflicts)).toBe(false);
+  });
+
   it('a clean plan publishes', () => {
     const conflicts = detectConflicts([
       conflictKlass({ id: 'a', classNumber: 1, startTime: '08:00', endTime: '08:45' }),
-      conflictKlass({ id: 'b', classNumber: 2, subjectId: 'subj-sci', subjectName: 'Science', startTime: '09:00', endTime: '09:45', teacherId: 't-2' }),
+      conflictKlass({
+        id: 'b',
+        classNumber: 2,
+        subjectId: 'subj-sci',
+        subjectName: 'Science',
+        startTime: '09:00',
+        endTime: '09:45',
+        teacherId: 't-2',
+      }),
     ]);
     expect(conflicts).toHaveLength(0);
     expect(canPublish(conflicts)).toBe(true);

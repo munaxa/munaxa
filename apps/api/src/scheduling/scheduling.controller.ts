@@ -1,7 +1,10 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
-import { RequireAnyPermission } from '../auth/decorators/require-permissions.decorator';
+import {
+  RequireAnyPermission,
+  RequirePermissions,
+} from '../auth/decorators/require-permissions.decorator';
 import { SchedulingService } from './scheduling.service';
 
 /**
@@ -21,7 +24,7 @@ export class SchedulingController {
   constructor(private readonly scheduling: SchedulingService) {}
 
   @Get('section')
-  @RequireAnyPermission(Permission.TIMETABLE_MANAGE, Permission.TIMETABLE_READ)
+  @RequirePermissions(Permission.TIMETABLE_MANAGE)
   @ApiQuery({ name: 'sectionId' })
   @ApiQuery({ name: 'date', required: false, description: 'ISO date; defaults to today' })
   @ApiOperation({ summary: "A section's published weekly schedule" })
@@ -30,7 +33,7 @@ export class SchedulingController {
   }
 
   @Get('day')
-  @RequireAnyPermission(Permission.TIMETABLE_MANAGE, Permission.TIMETABLE_READ)
+  @RequirePermissions(Permission.TIMETABLE_MANAGE)
   @ApiQuery({ name: 'sectionId' })
   @ApiQuery({ name: 'date', required: false })
   @ApiOperation({ summary: 'A section resolved for a single date (exceptions applied)' })
@@ -39,7 +42,7 @@ export class SchedulingController {
   }
 
   @Get('current')
-  @RequireAnyPermission(Permission.TIMETABLE_MANAGE, Permission.TIMETABLE_READ)
+  @RequirePermissions(Permission.TIMETABLE_MANAGE)
   @ApiQuery({ name: 'sectionId' })
   @ApiQuery({ name: 'at', required: false, description: 'ISO datetime; defaults to now' })
   @ApiOperation({ summary: "A section's live current/next class" })

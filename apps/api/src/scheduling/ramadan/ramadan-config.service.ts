@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { TimetableConfig } from '@prisma/client';
-import { TimetableConfigRepository } from './config.repository';
-import type { UpsertTimetableConfigDto } from './config.dto';
+import { RamadanConfigRepository } from './ramadan-config.repository';
+import type { UpsertRamadanConfigDto } from './ramadan-config.dto';
 
 @Injectable()
-export class TimetableConfigService {
-  constructor(private readonly repo: TimetableConfigRepository) {}
+export class RamadanConfigService {
+  constructor(private readonly repo: RamadanConfigRepository) {}
 
   async get(campusId: string): Promise<TimetableConfig | null> {
     if (!(await this.repo.campusExists(campusId))) {
@@ -14,7 +14,7 @@ export class TimetableConfigService {
     return this.repo.findByCampus(campusId);
   }
 
-  async upsert(campusId: string, dto: UpsertTimetableConfigDto): Promise<TimetableConfig> {
+  async upsert(campusId: string, dto: UpsertRamadanConfigDto): Promise<TimetableConfig> {
     if (!(await this.repo.campusExists(campusId))) {
       throw new BadRequestException('Campus not found in this tenant');
     }

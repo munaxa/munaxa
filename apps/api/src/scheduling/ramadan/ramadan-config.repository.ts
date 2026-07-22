@@ -2,8 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { TimetableConfig } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 
+/** Per-campus scheduling settings (Ramadan mode + window). Stored in the TimetableConfig table. */
 @Injectable()
-export class TimetableConfigRepository extends TenantRepository {
+export class RamadanConfigRepository extends TenantRepository {
   findByCampus(campusId: string): Promise<TimetableConfig | null> {
     return this.run((tx) => tx.timetableConfig.findFirst({ where: { campusId } }));
   }
@@ -30,16 +31,5 @@ export class TimetableConfigRepository extends TenantRepository {
       async (tx) =>
         (await tx.campus.findFirst({ where: { id: campusId, deletedAt: null } })) !== null,
     );
-  }
-
-  /** The campus a section belongs to (via its grade), or null if the section is absent. */
-  sectionCampusId(sectionId: string): Promise<string | null> {
-    return this.run(async (tx) => {
-      const section = await tx.section.findFirst({
-        where: { id: sectionId },
-        include: { grade: true },
-      });
-      return section?.grade.campusId ?? null;
-    });
   }
 }

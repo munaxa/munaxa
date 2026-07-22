@@ -34,7 +34,7 @@ export class SchedulePlanRepository extends TenantRepository {
     return this.run(async (tx, tenantId) => {
       const ctx = await this.semesterContext(tx, semesterId);
       if (!ctx) return null;
-      return tx.schedulePlan.create({
+      const plan = await tx.schedulePlan.create({
         data: {
           tenantId,
           semesterId,
@@ -45,6 +45,12 @@ export class SchedulePlanRepository extends TenantRepository {
           createdById: TenantContextStore.get()?.actorUserId ?? null,
         },
       });
+      await this.writeAudit(tx, tenantId, {
+        action: 'schedule_plan.create',
+        entityType: 'SchedulePlan',
+        entityId: plan.id,
+      });
+      return plan;
     });
   }
 
@@ -109,12 +115,21 @@ export class SchedulePlanRepository extends TenantRepository {
   }
 
   setStatus(id: string, status: 'DRAFT' | 'ARCHIVED'): Promise<SchedulePlan> {
-    return this.run((tx) =>
-      tx.schedulePlan.update({
+    return this.run(async (tx, tenantId) => {
+      const updated = await tx.schedulePlan.update({
         where: { id },
-        data: { status, ...(status === 'ARCHIVED' ? { archivedAt: new Date() } : { archivedAt: null }) },
-      }),
-    );
+        data: {
+          status,
+          ...(status === 'ARCHIVED' ? { archivedAt: new Date() } : { archivedAt: null }),
+        },
+      });
+      await this.writeAudit(tx, tenantId, {
+        action: status === 'ARCHIVED' ? 'schedule_plan.archive' : 'schedule_plan.restore',
+        entityType: 'SchedulePlan',
+        entityId: id,
+      });
+      return updated;
+    });
   }
 
   softDelete(id: string): Promise<SchedulePlan> {
@@ -260,7 +275,11 @@ export class SchedulePlanRepository extends TenantRepository {
   }
 
   /** Confirm a class belongs to the plan, then update it. */
-  updateClass(planId: string, classId: string, data: Prisma.ScheduledClassUpdateInput): Promise<ScheduledClass | null> {
+  updateClass(
+    planId: string,
+    classId: string,
+    data: Prisma.ScheduledClassUpdateInput,
+  ): Promise<ScheduledClass | null> {
     return this.run(async (tx) => {
       const cls = await tx.scheduledClass.findFirst({
         where: { id: classId, sectionTimetable: { planId } },
@@ -283,7 +302,12 @@ export class SchedulePlanRepository extends TenantRepository {
     });
   }
 
-  clearDay(planId: string, sectionId: string, dayOfWeek: DayOfWeek, scheduleType: ScheduleType): Promise<number> {
+  clearDay(
+    planId: string,
+    sectionId: string,
+    dayOfWeek: DayOfWeek,
+    scheduleType: ScheduleType,
+  ): Promise<number> {
     return this.run(async (tx) => {
       const res = await tx.scheduledClass.deleteMany({
         where: { sectionTimetable: { planId, sectionId }, dayOfWeek, scheduleType },

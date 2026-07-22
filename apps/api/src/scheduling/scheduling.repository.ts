@@ -84,7 +84,6 @@ export class SchedulingRepository extends TenantRepository {
   /** Resolve the PUBLISHED plan that governs a section on `date` (semester containing the date). */
   private async publishedPlanId(
     tx: Prisma.TransactionClient,
-    sectionId: string,
     campusId: string,
     date: Date,
   ): Promise<string | null> {
@@ -147,7 +146,7 @@ export class SchedulingRepository extends TenantRepository {
       if (!section) return null;
       const campusId = section.grade.campusId;
 
-      const planId = await this.publishedPlanId(tx, sectionId, campusId, date);
+      const planId = await this.publishedPlanId(tx, campusId, date);
       const [ramadanRow, bell] = await Promise.all([
         tx.timetableConfig.findFirst({ where: { campusId } }),
         tx.bellSchedule.findFirst({
@@ -222,13 +221,15 @@ export class SchedulingRepository extends TenantRepository {
         select: { grade: { select: { campusId: true } } },
       });
       if (!section) return [];
-      const planId = await this.publishedPlanId(tx, sectionId, section.grade.campusId, date);
+      const planId = await this.publishedPlanId(tx, section.grade.campusId, date);
       if (!planId) return [];
       const st = await tx.sectionTimetable.findFirst({
         where: { planId, sectionId, deletedAt: null },
         include: { classes: { include: classInclude } },
       });
-      return (st?.classes ?? []).map((c) => this.mapClass({ ...c, sectionTimetable: { sectionId } }));
+      return (st?.classes ?? []).map((c) =>
+        this.mapClass({ ...c, sectionTimetable: { sectionId } }),
+      );
     });
   }
 
@@ -273,12 +274,14 @@ export class SchedulingRepository extends TenantRepository {
   ): Promise<Map<string, LoadedException[]>> {
     return this.run(async (tx) => {
       const rows = await tx.scheduleException.findMany({
-        where: { date: atUtcMidnight(date), OR: [{ sectionId: { in: sectionIds } }, { sectionId: null }] },
+        where: {
+          date: atUtcMidnight(date),
+          OR: [{ sectionId: { in: sectionIds } }, { sectionId: null }],
+        },
         include: {
           subject: { select: { nameEn: true } },
           teacher: { select: { firstNameEn: true, lastNameEn: true } },
           substitute: { select: { firstNameEn: true, lastNameEn: true } },
-          section: { select: { id: true } },
         },
       });
       const map = new Map<string, LoadedException[]>();
@@ -314,10 +317,30 @@ export class SchedulingRepository extends TenantRepository {
     });
   }
 
+  /** Ramadan configs for many campuses in one query (used by the multi-section teacher day). */
+  ramadanConfigs(campusIds: string[]): Promise<Map<string, RamadanConfig>> {
+    return this.run(async (tx) => {
+      const rows = await tx.timetableConfig.findMany({ where: { campusId: { in: campusIds } } });
+      return new Map(
+        rows.map((row) => [
+          row.campusId,
+          {
+            ramadanModeEnabled: row.ramadanModeEnabled,
+            ramadanStartDate: row.ramadanStartDate,
+            ramadanEndDate: row.ramadanEndDate,
+          },
+        ]),
+      );
+    });
+  }
+
   /** Resolve the Teacher profile for the acting user (throws-free; null if not a teacher). */
   teacherIdForUser(userId: string): Promise<string | null> {
     return this.run(async (tx) => {
-      const t = await tx.teacher.findFirst({ where: { userId, deletedAt: null }, select: { id: true } });
+      const t = await tx.teacher.findFirst({
+        where: { userId, deletedAt: null },
+        select: { id: true },
+      });
       return t?.id ?? null;
     });
   }
@@ -339,6 +362,8 @@ export class SchedulingRepository extends TenantRepository {
       const rows = await tx.scheduledClass.findMany({
         where: { sectionTimetable: { planId, deletedAt: null } },
         include: { ...classInclude, sectionTimetable: { select: { sectionId: true } } },
+        // Deterministic order so conflict output is stable across runs.
+        orderBy: [{ scheduleType: 'asc' }, { dayOfWeek: 'asc' }, { classNumber: 'asc' }],
       });
       return rows.map((c) => this.mapClass(c));
     });

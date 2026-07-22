@@ -11,6 +11,9 @@ import { LocationRepository } from './locations/location.repository';
 import { SchedulePlanController } from './plans/schedule-plan.controller';
 import { SchedulePlanService } from './plans/schedule-plan.service';
 import { SchedulePlanRepository } from './plans/schedule-plan.repository';
+import { RamadanConfigController } from './ramadan/ramadan-config.controller';
+import { RamadanConfigService } from './ramadan/ramadan-config.service';
+import { RamadanConfigRepository } from './ramadan/ramadan-config.repository';
 
 /**
  * The platform scheduling engine — the single source of truth for schedule resolution and publishing
@@ -20,7 +23,13 @@ import { SchedulePlanRepository } from './plans/schedule-plan.repository';
  * scheduling logic.
  */
 @Module({
-  controllers: [SchedulingController, SubjectController, LocationController, SchedulePlanController],
+  controllers: [
+    SchedulingController,
+    SubjectController,
+    LocationController,
+    SchedulePlanController,
+    RamadanConfigController,
+  ],
   providers: [
     SchedulingRepository,
     SchedulingService,
@@ -30,6 +39,8 @@ import { SchedulePlanRepository } from './plans/schedule-plan.repository';
     LocationService,
     SchedulePlanRepository,
     SchedulePlanService,
+    RamadanConfigRepository,
+    RamadanConfigService,
   ],
   exports: [SchedulingService],
 })
