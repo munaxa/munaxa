@@ -59,6 +59,7 @@ export interface LoadedTeacherClass extends LoadedClass {
   gradeNameEn: string;
   gradeNameAr: string;
   campusId: string;
+  schoolTimezone: string;
 }
 
 const fullName = (p: { firstNameEn: string; lastNameEn: string } | null): string | null =>
@@ -73,6 +74,32 @@ const classInclude = {
   teacher: { select: { firstNameEn: true, lastNameEn: true } },
   location: { select: { nameEn: true } },
 } satisfies Prisma.ScheduledClassInclude;
+
+const DEFAULT_TIMEZONE = 'Asia/Amman';
+
+/**
+ * Small tenant-scoped TTL cache for IMMUTABLE, settings-level scheduling data that is safe to reuse
+ * (school timezone, bell schedule). Live state (current class, exceptions, published-plan contents)
+ * is never cached — it is always resolved fresh. Keys embed the tenantId, so there is no cross-tenant
+ * reuse; a short TTL bounds staleness after a settings change.
+ */
+class TtlCache<T> {
+  private readonly store = new Map<string, { value: T; expires: number }>();
+  constructor(private readonly ttlMs: number) {}
+  get(key: string): T | undefined {
+    const hit = this.store.get(key);
+    if (hit && hit.expires > Date.now()) return hit.value;
+    if (hit) this.store.delete(key);
+    return undefined;
+  }
+  set(key: string, value: T): void {
+    this.store.set(key, { value, expires: Date.now() + this.ttlMs });
+  }
+}
+
+const SETTINGS_TTL_MS = 5 * 60 * 1000;
+const timezoneCache = new TtlCache<string>(SETTINGS_TTL_MS);
+const bellCache = new TtlCache<LoadedBreak[]>(SETTINGS_TTL_MS);
 
 /**
  * Canonical scheduling data access. Everything that resolves a schedule reads through here so the
@@ -136,9 +163,36 @@ export class SchedulingRepository extends TenantRepository {
     };
   }
 
+  /** Bell-schedule break windows for a campus. Immutable settings data — cached (tenant-scoped). */
+  private async bellBreaks(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    campusId: string,
+  ): Promise<LoadedBreak[]> {
+    const key = `${tenantId}:${campusId}`;
+    const cached = bellCache.get(key);
+    if (cached) return cached;
+    const bell = await tx.bellSchedule.findFirst({
+      where: { campusId, deletedAt: null },
+      include: { periods: { where: { isBreak: true } } },
+    });
+    const breaks: LoadedBreak[] = (bell?.periods ?? []).map((p) => ({
+      startTime: p.startTime,
+      endTime: p.endTime,
+      kind: /assembl/i.test(p.labelEn ?? '')
+        ? 'ASSEMBLY'
+        : /lunch/i.test(p.labelEn ?? '')
+          ? 'LUNCH'
+          : 'BREAK',
+      label: p.labelEn,
+    }));
+    bellCache.set(key, breaks);
+    return breaks;
+  }
+
   /** Load one section on one date (the core resolver input). */
   loadSectionDay(sectionId: string, date: Date): Promise<SectionDayData | null> {
-    return this.run(async (tx) => {
+    return this.run(async (tx, tenantId) => {
       const section = await tx.section.findFirst({
         where: { id: sectionId },
         select: { grade: { select: { campusId: true } } },
@@ -147,12 +201,9 @@ export class SchedulingRepository extends TenantRepository {
       const campusId = section.grade.campusId;
 
       const planId = await this.publishedPlanId(tx, campusId, date);
-      const [ramadanRow, bell] = await Promise.all([
+      const [ramadanRow, breaks] = await Promise.all([
         tx.timetableConfig.findFirst({ where: { campusId } }),
-        tx.bellSchedule.findFirst({
-          where: { campusId, deletedAt: null },
-          include: { periods: { where: { isBreak: true } } },
-        }),
+        this.bellBreaks(tx, tenantId, campusId),
       ]);
 
       let classes: LoadedClass[] = [];
@@ -199,17 +250,54 @@ export class SchedulingRepository extends TenantRepository {
           substituteTeacherName: fullName(e.substitute),
           note: e.note,
         })),
-        breaks: (bell?.periods ?? []).map((p) => ({
-          startTime: p.startTime,
-          endTime: p.endTime,
-          kind: /assembl/i.test(p.labelEn ?? '')
-            ? ('ASSEMBLY' as const)
-            : /lunch/i.test(p.labelEn ?? '')
-              ? ('LUNCH' as const)
-              : ('BREAK' as const),
-          label: p.labelEn,
-        })),
+        breaks,
       };
+    });
+  }
+
+  /** The school's IANA timezone for a section. Immutable settings data — cached (tenant-scoped). */
+  schoolTimezoneForSection(sectionId: string): Promise<string> {
+    return this.run(async (tx, tenantId) => {
+      const key = `${tenantId}:${sectionId}`;
+      const cached = timezoneCache.get(key);
+      if (cached) return cached;
+      const section = await tx.section.findFirst({
+        where: { id: sectionId },
+        select: {
+          grade: { select: { campus: { select: { school: { select: { timezone: true } } } } } },
+        },
+      });
+      const tz = section?.grade.campus.school.timezone ?? DEFAULT_TIMEZONE;
+      timezoneCache.set(key, tz);
+      return tz;
+    });
+  }
+
+  /** The IANA timezone of a teacher's school (from any published class). Cached (tenant-scoped). */
+  teacherTimezone(teacherId: string): Promise<string> {
+    return this.run(async (tx, tenantId) => {
+      const key = `${tenantId}:teacher:${teacherId}`;
+      const cached = timezoneCache.get(key);
+      if (cached) return cached;
+      const cls = await tx.scheduledClass.findFirst({
+        where: { teacherId, sectionTimetable: { plan: { status: 'PUBLISHED', deletedAt: null } } },
+        select: {
+          sectionTimetable: {
+            select: {
+              section: {
+                select: {
+                  grade: {
+                    select: { campus: { select: { school: { select: { timezone: true } } } } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      const tz = cls?.sectionTimetable.section.grade.campus.school.timezone ?? DEFAULT_TIMEZONE;
+      timezoneCache.set(key, tz);
+      return tz;
     });
   }
 
@@ -250,7 +338,14 @@ export class SchedulingRepository extends TenantRepository {
               section: {
                 select: {
                   name: true,
-                  grade: { select: { campusId: true, nameEn: true, nameAr: true } },
+                  grade: {
+                    select: {
+                      campusId: true,
+                      nameEn: true,
+                      nameAr: true,
+                      campus: { select: { school: { select: { timezone: true } } } },
+                    },
+                  },
                 },
               },
             },
@@ -263,6 +358,7 @@ export class SchedulingRepository extends TenantRepository {
         gradeNameEn: c.sectionTimetable.section.grade.nameEn,
         gradeNameAr: c.sectionTimetable.section.grade.nameAr,
         campusId: c.sectionTimetable.section.grade.campusId,
+        schoolTimezone: c.sectionTimetable.section.grade.campus.school.timezone,
       }));
     });
   }

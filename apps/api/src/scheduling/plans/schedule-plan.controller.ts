@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Permission } from '@munaxa/domain';
 import {
@@ -69,18 +69,21 @@ export class SchedulePlanController {
   }
 
   @Post(':id/publish')
+  @HttpCode(200)
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
   publish(@Param('id') id: string) {
     return this.service.publish(id);
   }
 
   @Post(':id/archive')
+  @HttpCode(200)
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
   archive(@Param('id') id: string) {
     return this.service.archive(id);
   }
 
   @Post(':id/restore')
+  @HttpCode(200)
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
   restore(@Param('id') id: string) {
     return this.service.restore(id);
@@ -108,7 +111,11 @@ export class SchedulePlanController {
 
   @Patch(':id/classes/:classId')
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
-  updateClass(@Param('id') id: string, @Param('classId') classId: string, @Body() dto: UpdateClassDto) {
+  updateClass(
+    @Param('id') id: string,
+    @Param('classId') classId: string,
+    @Body() dto: UpdateClassDto,
+  ) {
     return this.service.updateClass(id, classId, dto);
   }
 
@@ -119,24 +126,28 @@ export class SchedulePlanController {
   }
 
   @Post(':id/clear-day')
+  @HttpCode(200)
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
   clearDay(@Param('id') id: string, @Body() dto: ClearDayDto) {
     return this.service.clearDay(id, dto);
   }
 
   @Post(':id/clear-section')
+  @HttpCode(200)
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
   clearSection(@Param('id') id: string, @Body() dto: ClearSectionDto) {
     return this.service.clearSection(id, dto);
   }
 
   @Post(':id/bulk/replace-teacher')
+  @HttpCode(200)
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
   bulkReplaceTeacher(@Param('id') id: string, @Body() dto: BulkReplaceTeacherDto) {
     return this.service.bulkReplaceTeacher(id, dto);
   }
 
   @Post(':id/bulk/replace-subject')
+  @HttpCode(200)
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
   bulkReplaceSubject(@Param('id') id: string, @Body() dto: BulkReplaceSubjectDto) {
     return this.service.bulkReplaceSubject(id, dto);

@@ -103,6 +103,22 @@ empty-array gaps):
 Deferred by explicit agreement: drag-and-drop, PDF/Excel export, AI generation, advanced reporting,
 and the Subject-as-SSoT rollout to Homework/Gradebook/exams.
 
+## Phase 3 — timezone correctness, exceptions API, E2E (delivered)
+
+- **School-level IANA timezone** (`School.timezone`, default `Asia/Amman`, managed via
+  `PATCH /schools/:id`, validated against the runtime tz database). The live engine resolves the
+  current class, breaks, holidays and exceptions in the **school's** timezone via the pure, DST-safe
+  `zonedNow(instant, timeZone)` — never server/UTC time. All live paths (student/parent/teacher/
+  attendance/admin) use it; unit tests cover UTC-offset, day-boundary rollover, and DST.
+- **Schedule Exception API** re-added under the scheduling module
+  (`/schedule/exceptions`, create/list/delete) — the resolver already overlays them.
+- **Comprehensive E2E** (`apps/api/test/scheduling.e2e-spec.ts`): plan → classes → validate →
+  publish → student/parent/teacher inheritance → timezone-correct current class → attendance current
+  class → holiday + cancellation exceptions → teacher double-booking + section overlap (publish 409)
+  → archive/restore/delete → RBAC + section scoping → timezone settings.
+- **Caching:** a tenant-scoped TTL cache for the *immutable* settings reads (school timezone, bell
+  schedule) on the hot live path; live state is never cached.
+
 ## Earlier notes (superseded where Phase 2 covers them)
 
 Each NestJS resource follows the existing `{controller, service, repository, dto}` pattern

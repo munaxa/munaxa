@@ -6,6 +6,7 @@ import {
   detectConflicts,
   canPublish,
   timeToMinutes,
+  zonedNow,
   type ScheduledClassInput,
   type ConflictClassInput,
   type ExceptionInput,
@@ -131,6 +132,28 @@ describe('scheduling-engine — Ramadan', () => {
     expect(resolveScheduleType(cfg, new Date('2026-03-10'))).toBe('RAMADAN');
     expect(resolveScheduleType(cfg, new Date('2026-04-10'))).toBe('REGULAR');
     expect(resolveScheduleType(null, new Date('2026-03-10'))).toBe('REGULAR');
+  });
+});
+
+describe('scheduling-engine — zonedNow (timezone resolution)', () => {
+  it('resolves the school wall-clock, not UTC (Asia/Amman is UTC+3)', () => {
+    const z = zonedNow(new Date('2026-06-01T05:30:00Z'), 'Asia/Amman');
+    expect(z.minutes).toBe(timeToMinutes('08:30')); // 05:30 UTC → 08:30 local
+    expect(z.dayOfWeek).toBe('MON');
+    expect(z.date.toISOString().slice(0, 10)).toBe('2026-06-01');
+  });
+
+  it('rolls the local calendar day/weekday across the UTC midnight boundary', () => {
+    // 21:30 UTC Monday → 00:30 Tuesday in Amman: day, weekday and date all advance.
+    const z = zonedNow(new Date('2026-06-01T21:30:00Z'), 'Asia/Amman');
+    expect(z.minutes).toBe(30);
+    expect(z.dayOfWeek).toBe('TUE');
+    expect(z.date.toISOString().slice(0, 10)).toBe('2026-06-02');
+  });
+
+  it('applies DST for a zone that observes it (Europe/London, BST=+1 in July)', () => {
+    const z = zonedNow(new Date('2026-07-01T10:00:00Z'), 'Europe/London');
+    expect(z.minutes).toBe(timeToMinutes('11:00'));
   });
 });
 

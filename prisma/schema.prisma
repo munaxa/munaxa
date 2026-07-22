@@ -578,6 +578,9 @@ model School {
   nameEn        String
   nameAr        String
   moeSchoolCode String?
+  // IANA timezone (e.g. "Asia/Amman"). The scheduling engine resolves all live time-based state
+  // (current class, breaks, holidays) in this zone — never in server/UTC time. Managed in Settings.
+  timezone      String    @default("Asia/Amman")
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @db.Timestamptz(6)

@@ -6,6 +6,7 @@ import {
   detectConflicts,
   canPublish,
   dayOfWeekOf,
+  zonedNow,
   type ResolvedDay,
   type ResolvedClass,
   type LiveClassContext,
@@ -69,20 +70,25 @@ export class SchedulingService {
     });
   }
 
-  /** Live "current class" context for a section (Attendance + dashboards). */
+  /**
+   * Live "current class" context for a section (Attendance + dashboards). All time-based state is
+   * resolved in the school's IANA timezone from the absolute instant `at` — never server/UTC time.
+   */
   async getCurrentSectionClass(
     sectionId: string,
     at: Date = new Date(),
   ): Promise<LiveClassContext> {
-    const data = await this.repo.loadSectionDay(sectionId, at);
-    const scheduleType = resolveScheduleType(data?.ramadan ?? null, at);
+    const timeZone = await this.repo.schoolTimezoneForSection(sectionId);
+    const { date, minutes, dayOfWeek } = zonedNow(at, timeZone);
+    const data = await this.repo.loadSectionDay(sectionId, date);
+    const scheduleType = resolveScheduleType(data?.ramadan ?? null, date);
     const day = resolveDay({
       classes: (data?.classes ?? []).map(toInput),
       exceptions: (data?.exceptions ?? []).map(toException),
       scheduleType,
-      dayOfWeek: dayOfWeekOf(at),
+      dayOfWeek,
     });
-    return buildLiveContext(day, minutesOf(at), data?.breaks ?? []);
+    return buildLiveContext(day, minutes, data?.breaks ?? []);
   }
 
   /** The section's published weekly grid, grouped by weekday (admin/portal week view). */
@@ -124,19 +130,23 @@ export class SchedulingService {
     return teacherId;
   }
 
-  /** A teacher's resolved day across all their sections (exceptions applied per section). */
+  /**
+   * A teacher's resolved day across all their sections (exceptions applied per section), resolved in
+   * the teacher's school timezone from the absolute instant `at`.
+   */
   async getTeacherDay(teacherId: string, at: Date = new Date()): Promise<TeacherDay> {
-    const dow = dayOfWeekOf(at);
+    const timeZone = await this.repo.teacherTimezone(teacherId);
+    const { date, minutes, dayOfWeek: dow } = zonedNow(at, timeZone);
     const dayClasses = await this.repo.loadTeacherDayClasses(teacherId, dow);
     const sectionIds = [...new Set(dayClasses.map((c) => c.sectionId))];
     const campusIds = [...new Set(dayClasses.map((c) => c.campusId))];
 
     const [exceptionsBySection, configByCampus] = await Promise.all([
-      this.repo.loadExceptionsForSections(sectionIds, at),
+      this.repo.loadExceptionsForSections(sectionIds, date),
       this.repo.ramadanConfigs(campusIds),
     ]);
     const scheduleTypeByCampus = new Map(
-      campusIds.map((id) => [id, resolveScheduleType(configByCampus.get(id) ?? null, at)]),
+      campusIds.map((id) => [id, resolveScheduleType(configByCampus.get(id) ?? null, date)]),
     );
 
     // Resolve each section independently (reusing the engine), then merge for the live card.
@@ -170,9 +180,9 @@ export class SchedulingService {
 
     const live = buildLiveContext(
       { scheduleType: 'REGULAR', dayOfWeek: dow, isHoliday: false, classes: merged },
-      minutesOf(at),
+      minutes,
     );
-    return { date: isoDate(at), live, classes: merged };
+    return { date: isoDate(date), live, classes: merged };
   }
 
   async getCurrentTeacherClass(teacherId: string, at: Date = new Date()) {

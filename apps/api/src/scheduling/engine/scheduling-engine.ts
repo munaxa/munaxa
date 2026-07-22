@@ -112,10 +112,55 @@ export interface LiveClassContext {
 }
 
 const DAY_INDEX: DayOfWeek[] = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const WEEKDAY_MAP: Record<string, DayOfWeek> = {
+  Sun: 'SUN',
+  Mon: 'MON',
+  Tue: 'TUE',
+  Wed: 'WED',
+  Thu: 'THU',
+  Fri: 'FRI',
+  Sat: 'SAT',
+};
 
 /** Map a JS Date (interpreted in UTC) to the day-of-week enum. */
 export function dayOfWeekOf(date: Date): DayOfWeek {
   return DAY_INDEX[date.getUTCDay()]!;
+}
+
+/**
+ * Resolve an absolute instant into the wall-clock the SCHOOL sees, in its IANA timezone. Returns the
+ * local day-of-week, minutes-since-local-midnight, and the local calendar date (as a UTC-midnight
+ * Date, so it lines up with @db.Date columns). DST-correct and deterministic (driven by the ICU tz
+ * database) — the scheduling engine never assumes UTC or server-local time.
+ */
+export function zonedNow(
+  instant: Date,
+  timeZone: string,
+): { dayOfWeek: DayOfWeek; minutes: number; date: Date } {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(instant);
+  const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
+
+  let hour = Number(get('hour'));
+  if (hour === 24) hour = 0; // some ICU builds render midnight as "24"
+  const minute = Number(get('minute'));
+  const year = Number(get('year'));
+  const month = Number(get('month'));
+  const day = Number(get('day'));
+
+  return {
+    dayOfWeek: WEEKDAY_MAP[get('weekday')] ?? dayOfWeekOf(instant),
+    minutes: hour * 60 + minute,
+    date: new Date(Date.UTC(year, month - 1, day)),
+  };
 }
 
 /** Parse "HH:MM" into minutes-since-midnight. Throws on malformed input. */
@@ -135,7 +180,9 @@ export function isRamadanActive(config: RamadanConfig | null, date: Date): boole
     return false;
   }
   const day = atUtcMidnight(date);
-  return day >= atUtcMidnight(config.ramadanStartDate) && day <= atUtcMidnight(config.ramadanEndDate);
+  return (
+    day >= atUtcMidnight(config.ramadanStartDate) && day <= atUtcMidnight(config.ramadanEndDate)
+  );
 }
 
 export function resolveScheduleType(config: RamadanConfig | null, date: Date): ScheduleType {
@@ -430,7 +477,10 @@ function emptyContext(state: LiveState): LiveClassContext {
   };
 }
 
-function applyException(c: ScheduledClassInput, exception: ExceptionInput | undefined): ResolvedClass {
+function applyException(
+  c: ScheduledClassInput,
+  exception: ExceptionInput | undefined,
+): ResolvedClass {
   const base: ResolvedClass = {
     classNumber: c.classNumber,
     startTime: c.startTime,
