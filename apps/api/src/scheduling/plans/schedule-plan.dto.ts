@@ -90,7 +90,10 @@ export class CreateClassDto {
   @IsUUID()
   teacherId?: string;
 
-  @ApiPropertyOptional({ format: 'uuid', description: 'Optional special location; omit for the classroom' })
+  @ApiPropertyOptional({
+    format: 'uuid',
+    description: 'Optional special location; omit for the classroom',
+  })
   @IsOptional()
   @IsUUID()
   locationId?: string;

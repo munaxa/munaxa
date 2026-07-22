@@ -140,23 +140,28 @@ export const plansApi = {
     authFetch(`/schedule/plans/${id}/sections/${sectionId}/classes`).then((r) =>
       json<EditableClass[]>(r),
     ),
-  create: (data: { semesterId: string; name: string }) => post<SchedulePlan>('/schedule/plans', data),
-  duplicate: (id: string, name: string) => post<SchedulePlan>(`/schedule/plans/${id}/duplicate`, { name }),
+  create: (data: { semesterId: string; name: string }) =>
+    post<SchedulePlan>('/schedule/plans', data),
+  duplicate: (id: string, name: string) =>
+    post<SchedulePlan>(`/schedule/plans/${id}/duplicate`, { name }),
   copySemester: (data: { sourceSemesterId: string; targetSemesterId: string; name: string }) =>
     post<SchedulePlan>('/schedule/plans/copy-semester', data),
   publish: (id: string) => post<SchedulePlan>(`/schedule/plans/${id}/publish`),
   archive: (id: string) => post<SchedulePlan>(`/schedule/plans/${id}/archive`),
   restore: (id: string) => post<SchedulePlan>(`/schedule/plans/${id}/restore`),
   remove: (id: string) => del(`/schedule/plans/${id}`),
-  addClass: (id: string, data: ClassInput) => post<EditableClass>(`/schedule/plans/${id}/classes`, data),
+  addClass: (id: string, data: ClassInput) =>
+    post<EditableClass>(`/schedule/plans/${id}/classes`, data),
   updateClass: (id: string, classId: string, data: Partial<ClassInput>) =>
     authFetch(`/schedule/plans/${id}/classes/${classId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     }).then((r) => json<EditableClass>(r)),
   deleteClass: (id: string, classId: string) => del(`/schedule/plans/${id}/classes/${classId}`),
-  clearDay: (id: string, data: { sectionId: string; dayOfWeek: DayOfWeek; scheduleType?: ScheduleType }) =>
-    post<{ removed: number }>(`/schedule/plans/${id}/clear-day`, data),
+  clearDay: (
+    id: string,
+    data: { sectionId: string; dayOfWeek: DayOfWeek; scheduleType?: ScheduleType },
+  ) => post<{ removed: number }>(`/schedule/plans/${id}/clear-day`, data),
   clearSection: (id: string, sectionId: string) =>
     post<{ removed: number }>(`/schedule/plans/${id}/clear-section`, { sectionId }),
 };

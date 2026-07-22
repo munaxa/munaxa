@@ -27,7 +27,17 @@ import {
   type SchedulePlan,
   type Subject,
 } from '@/lib/scheduling';
-import { Badge, Button, Card, CardContent, Dialog, Field, Input, Select, type Tone } from '@/components/ui';
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  Field,
+  Input,
+  Select,
+  type Tone,
+} from '@/components/ui';
 
 // Jordan working week.
 const DAYS: DayOfWeek[] = ['SUN', 'MON', 'TUE', 'WED', 'THU'];
@@ -99,25 +109,46 @@ export default function TimetableWorkspace() {
 
   // ── Load cascade ────────────────────────────────────────────────────────────
   useEffect(() => {
-    void schoolsApi.list().then(setSchools).catch(() => setSchools([]));
-    void subjectsApi.list().then(setSubjects).catch(() => setSubjects([]));
-    void teachersApi.list().then(setTeachers).catch(() => setTeachers([]));
-    void sectionsApi.list().then(setSections).catch(() => setSections([]));
+    void schoolsApi
+      .list()
+      .then(setSchools)
+      .catch(() => setSchools([]));
+    void subjectsApi
+      .list()
+      .then(setSubjects)
+      .catch(() => setSubjects([]));
+    void teachersApi
+      .list()
+      .then(setTeachers)
+      .catch(() => setTeachers([]));
+    void sectionsApi
+      .list()
+      .then(setSections)
+      .catch(() => setSections([]));
   }, []);
 
   useEffect(() => {
     if (!schoolId) return setCampuses([]);
-    void campusesApi.list(schoolId).then(setCampuses).catch(() => setCampuses([]));
+    void campusesApi
+      .list(schoolId)
+      .then(setCampuses)
+      .catch(() => setCampuses([]));
   }, [schoolId]);
 
   useEffect(() => {
     if (!campusId) return setYears([]);
-    void academicYearsApi.list(campusId).then(setYears).catch(() => setYears([]));
+    void academicYearsApi
+      .list(campusId)
+      .then(setYears)
+      .catch(() => setYears([]));
   }, [campusId]);
 
   useEffect(() => {
     if (!yearId) return setSemesters([]);
-    void semestersApi.list(yearId).then(setSemesters).catch(() => setSemesters([]));
+    void semestersApi
+      .list(yearId)
+      .then(setSemesters)
+      .catch(() => setSemesters([]));
   }, [yearId]);
 
   const reloadPlans = useCallback(async () => {
@@ -211,7 +242,9 @@ export default function TimetableWorkspace() {
   }, [classes, scheduleType]);
 
   const cell = (day: DayOfWeek, n: number) =>
-    classes.find((c) => c.scheduleType === scheduleType && c.dayOfWeek === day && c.classNumber === n);
+    classes.find(
+      (c) => c.scheduleType === scheduleType && c.dayOfWeek === day && c.classNumber === n,
+    );
 
   function openAdd(day: DayOfWeek, n: number) {
     if (!isDraft) return;
@@ -319,7 +352,11 @@ export default function TimetableWorkspace() {
               </Select>
             </Field>
             <Field label="Schedule Plan">
-              <Select value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={!semesterId}>
+              <Select
+                value={planId}
+                onChange={(e) => setPlanId(e.target.value)}
+                disabled={!semesterId}
+              >
                 <option value="">—</option>
                 {plans.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -337,12 +374,22 @@ export default function TimetableWorkspace() {
             <Button size="sm" onClick={() => void newPlan()} disabled={busy}>
               New Plan
             </Button>
-            <Button size="sm" variant="outline" onClick={() => void copyPreviousSemester()} disabled={busy}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void copyPreviousSemester()}
+              disabled={busy}
+            >
               Copy Previous Semester
             </Button>
             {plan ? (
               <>
-                <Button size="sm" variant="outline" onClick={() => void duplicate()} disabled={busy}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void duplicate()}
+                  disabled={busy}
+                >
                   Duplicate
                 </Button>
                 <Button
@@ -422,7 +469,10 @@ export default function TimetableWorkspace() {
                       variant="ghost"
                       onClick={() => {
                         if (window.confirm('Clear this section in the current schedule?'))
-                          void run(() => plansApi.clearSection(plan.id, sectionId), 'Section cleared');
+                          void run(
+                            () => plansApi.clearSection(plan.id, sectionId),
+                            'Section cleared',
+                          );
                       }}
                       disabled={busy}
                     >
@@ -464,7 +514,10 @@ export default function TimetableWorkspace() {
                                       type="button"
                                       onClick={() => openEdit(c)}
                                       className="w-full rounded-md p-1.5 text-start text-xs"
-                                      style={{ background: `${c.subjectColor}22`, borderInlineStart: `3px solid ${c.subjectColor}` }}
+                                      style={{
+                                        background: `${c.subjectColor}22`,
+                                        borderInlineStart: `3px solid ${c.subjectColor}`,
+                                      }}
                                     >
                                       <span className="block font-medium">{c.subjectName}</span>
                                       <span className="block text-[10px] text-muted-foreground">
@@ -472,7 +525,9 @@ export default function TimetableWorkspace() {
                                         {c.teacherName ? ` · ${c.teacherName}` : ' · no teacher'}
                                       </span>
                                       {c.locationName ? (
-                                        <span className="block text-[10px] text-aqua">{c.locationName}</span>
+                                        <span className="block text-[10px] text-aqua">
+                                          {c.locationName}
+                                        </span>
                                       ) : null}
                                     </button>
                                   ) : isDraft ? (
@@ -484,7 +539,9 @@ export default function TimetableWorkspace() {
                                       +
                                     </button>
                                   ) : (
-                                    <span className="block p-1.5 text-center text-xs text-muted-foreground">·</span>
+                                    <span className="block p-1.5 text-center text-xs text-muted-foreground">
+                                      ·
+                                    </span>
                                   )}
                                 </td>
                               );
@@ -495,7 +552,9 @@ export default function TimetableWorkspace() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Select a section to view or edit its timetable.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Select a section to view or edit its timetable.
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -516,7 +575,9 @@ export default function TimetableWorkspace() {
                     <ul className="space-y-1">
                       {conflicts.map((c, i) => (
                         <li key={i} className="text-xs">
-                          <Badge tone={c.severity === 'ERROR' ? 'danger' : 'warning'}>{c.type}</Badge>
+                          <Badge tone={c.severity === 'ERROR' ? 'danger' : 'warning'}>
+                            {c.type}
+                          </Badge>
                           <span className="ml-1 text-muted-foreground">{c.message}</span>
                         </li>
                       ))}
@@ -545,7 +606,9 @@ export default function TimetableWorkspace() {
             </div>
           </div>
         ) : semesterId ? (
-          <p className="text-sm text-muted-foreground">Select or create a schedule plan to begin.</p>
+          <p className="text-sm text-muted-foreground">
+            Select or create a schedule plan to begin.
+          </p>
         ) : (
           <p className="text-sm text-muted-foreground">
             Choose a school, campus, academic year and semester to load its schedule plans.
@@ -624,7 +687,10 @@ export default function TimetableWorkspace() {
               />
             </Field>
             <Field label="Subject" className="col-span-2">
-              <Select value={editing.form.subjectId} onChange={(e) => setForm({ subjectId: e.target.value })}>
+              <Select
+                value={editing.form.subjectId}
+                onChange={(e) => setForm({ subjectId: e.target.value })}
+              >
                 <option value="">—</option>
                 {subjects.map((s) => (
                   <option key={s.id} value={s.id}>
@@ -634,7 +700,10 @@ export default function TimetableWorkspace() {
               </Select>
             </Field>
             <Field label="Teacher" className="col-span-2">
-              <Select value={editing.form.teacherId} onChange={(e) => setForm({ teacherId: e.target.value })}>
+              <Select
+                value={editing.form.teacherId}
+                onChange={(e) => setForm({ teacherId: e.target.value })}
+              >
                 <option value="">— unassigned —</option>
                 {teachers.map((t) => (
                   <option key={t.id} value={t.id}>

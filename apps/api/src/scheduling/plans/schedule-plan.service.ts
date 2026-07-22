@@ -131,7 +131,8 @@ export class SchedulePlanService {
 
   async copySemester(dto: CopySemesterDto): Promise<SchedulePlan> {
     const sourcePlanId = await this.repo.sourcePlanForSemester(dto.sourceSemesterId);
-    if (!sourcePlanId) throw new BadRequestException('Source semester has no schedule plan to copy');
+    if (!sourcePlanId)
+      throw new BadRequestException('Source semester has no schedule plan to copy');
     const target = await this.repo.targetContext(dto.targetSemesterId);
     if (!target) throw new BadRequestException('Target semester not found in this tenant');
     const copy = await this.repo.duplicate(sourcePlanId, dto.name, {
@@ -204,14 +205,24 @@ export class SchedulePlanService {
     return { removed: await this.repo.clearSection(planId, dto.sectionId) };
   }
 
-  async bulkReplaceTeacher(planId: string, dto: BulkReplaceTeacherDto): Promise<{ updated: number }> {
+  async bulkReplaceTeacher(
+    planId: string,
+    dto: BulkReplaceTeacherDto,
+  ): Promise<{ updated: number }> {
     await this.assertDraft(planId);
-    return { updated: await this.repo.bulkReplaceTeacher(planId, dto.fromTeacherId, dto.toTeacherId) };
+    return {
+      updated: await this.repo.bulkReplaceTeacher(planId, dto.fromTeacherId, dto.toTeacherId),
+    };
   }
 
-  async bulkReplaceSubject(planId: string, dto: BulkReplaceSubjectDto): Promise<{ updated: number }> {
+  async bulkReplaceSubject(
+    planId: string,
+    dto: BulkReplaceSubjectDto,
+  ): Promise<{ updated: number }> {
     await this.assertDraft(planId);
-    return { updated: await this.repo.bulkReplaceSubject(planId, dto.fromSubjectId, dto.toSubjectId) };
+    return {
+      updated: await this.repo.bulkReplaceSubject(planId, dto.fromSubjectId, dto.toSubjectId),
+    };
   }
 
   // ----- guards -------------------------------------------------------------
@@ -219,7 +230,9 @@ export class SchedulePlanService {
   private async assertDraft(id: string): Promise<SchedulePlan> {
     const plan = await this.get(id);
     if (plan.status !== 'DRAFT') {
-      throw new BadRequestException('Only draft plans can be edited; published plans are read-only');
+      throw new BadRequestException(
+        'Only draft plans can be edited; published plans are read-only',
+      );
     }
     return plan;
   }

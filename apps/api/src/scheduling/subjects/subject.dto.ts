@@ -18,7 +18,10 @@ export class CreateSubjectDto {
   @MaxLength(16)
   code?: string;
 
-  @ApiPropertyOptional({ example: '#2563eb', description: 'Display colour used across the timetable' })
+  @ApiPropertyOptional({
+    example: '#2563eb',
+    description: 'Display colour used across the timetable',
+  })
   @IsOptional()
   @IsHexColor()
   colorHex?: string;

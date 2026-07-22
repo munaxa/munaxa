@@ -4,7 +4,9 @@ import { TenantRepository } from '../../common/tenant.repository';
 
 @Injectable()
 export class LocationRepository extends TenantRepository {
-  create(data: Omit<Prisma.SpecialLocationUncheckedCreateInput, 'tenantId'>): Promise<SpecialLocation> {
+  create(
+    data: Omit<Prisma.SpecialLocationUncheckedCreateInput, 'tenantId'>,
+  ): Promise<SpecialLocation> {
     return this.run((tx, tenantId) => tx.specialLocation.create({ data: { ...data, tenantId } }));
   }
 

@@ -273,7 +273,9 @@ export class AcademicYearRepository extends TenantRepository {
           ? tx.gradeRecord.count({ where: { semesterId: { in: semesterIds } } })
           : Promise.resolve(0),
         sectionIds.length > 0
-          ? tx.scheduledClass.count({ where: { sectionTimetable: { sectionId: { in: sectionIds } } } })
+          ? tx.scheduledClass.count({
+              where: { sectionTimetable: { sectionId: { in: sectionIds } } },
+            })
           : Promise.resolve(0),
         tx.auditLog.count({ where: { entityType: 'AcademicYear', entityId: year.id } }),
       ]);

@@ -123,7 +123,6 @@ describe('Student App (e2e)', () => {
           dueDate: new Date('2026-12-01'),
         },
       });
-
     });
 
     adminToken = await login('admin@sa.example');
