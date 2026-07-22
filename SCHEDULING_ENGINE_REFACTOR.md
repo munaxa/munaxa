@@ -72,7 +72,38 @@ where recoverable, and the `tenant_isolation` RLS policy.
 
 ---
 
-## Remaining build-out (the gated next phase)
+## Phase 2 — the unified SchedulingService (delivered)
+
+One `SchedulingService` (`apps/api/src/scheduling/scheduling.service.ts`) is now the single authority
+for all schedule resolution and publishing rules; **every** surface calls it (no parallel logic, no
+empty-array gaps):
+
+- **Engine module** `apps/api/src/scheduling/` — `SchedulingService` + `SchedulingRepository` (the one
+  place the canonical pipeline **Published Plan → Section Timetable → Scheduled Class → Exception →
+  Special Location** is read), the pure engine, and CRUD/lifecycle resources.
+- **Subjects / Special Locations** — full CRUD (`/subjects`, `/special-locations`).
+- **Schedule Plans** — `/schedule/plans/*`: create, duplicate, copy-previous-semester, publish
+  (blocks on any ERROR conflict; supersedes the prior published plan), archive, restore, delete
+  (guards: published cannot be deleted; audited), inline class CRUD, clear day/section, bulk replace
+  teacher/subject, `validate`.
+- **Live current-class resolver** — server-time states `IN_CLASS / BEFORE_SCHOOL / MORNING_ASSEMBLY /
+  BREAK / LUNCH_BREAK / AFTER_SCHOOL / HOLIDAY / NO_CLASSES` (assembly/lunch from the bell schedule),
+  never stored.
+- **Unified read API** — `GET /schedule/{section,day,current,student,teacher,teacher/current}`.
+- **Consumers wired to the one service:** Student portal (`/me/timetable`, `/me/timetable/current`),
+  Parent portal (`/parent/timetable`, `/parent/timetable/current` — "Now Attending"), Attendance
+  (`/attendance/students/current-class` derives the class from the published timetable), and the
+  **Admin scheduling workspace** (`apps/admin/src/app/(app)/timetable/page.tsx` + `lib/scheduling.ts`)
+  — Year/Semester/Plan selectors, weekly grid with subject colours, conflict/validation panel,
+  publish/archive/restore/duplicate/delete/copy-previous-semester, inline class editing. All business
+  rules live in the service; the UI only orchestrates.
+- **Mobile** migrated to the new endpoints/shape (`/me/timetable` grouped, `/schedule/current|day`,
+  `classNumber`).
+
+Deferred by explicit agreement: drag-and-drop, PDF/Excel export, AI generation, advanced reporting,
+and the Subject-as-SSoT rollout to Homework/Gradebook/exams.
+
+## Earlier notes (superseded where Phase 2 covers them)
 
 Each NestJS resource follows the existing `{controller, service, repository, dto}` pattern
 (`apps/api/src/structure/semesters/*` is the template).
@@ -109,9 +140,9 @@ non-class states.
 services**, per domain: `Homework`, `GradeRecord` (+ its unique index), `TeacherSection` (workload),
 `Resource`, and exams/report-cards/curriculum when those modules land.
 
-> **Known transitional gaps (next phase):** the admin page and mobile still call the removed
-> `/timetable/sections/:id/day|current` and slot/exception endpoints — they are rebuilt against the
-> resolver in the UI/resolver phase. `me/timetable` returns `[]` until then.
+> **Transitional gaps: closed.** The admin page and mobile now call the unified `/schedule/*` and
+> `/me/timetable` endpoints; `me/timetable` resolves the inherited published plan (no empty-array
+> placeholder). There is one scheduling implementation.
 
 ---
 

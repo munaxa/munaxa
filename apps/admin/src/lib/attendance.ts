@@ -9,7 +9,7 @@ export interface AttendanceRecord {
 
 export interface AttendanceSummary {
   date: string;
-  periodIndex: number;
+  classNumber: number;
   counts: { PRESENT: number; ABSENT: number; LATE: number; EXCUSED: number };
   total: number;
 }
@@ -29,17 +29,17 @@ export interface AttendanceMark {
 }
 
 export const attendanceApi = {
-  list: (sectionId: string, date: string, periodIndex: number) =>
+  list: (sectionId: string, date: string, classNumber: number) =>
     authFetch(
-      `/attendance/students?sectionId=${sectionId}&date=${date}&periodIndex=${periodIndex}`,
+      `/attendance/students?sectionId=${sectionId}&date=${date}&classNumber=${classNumber}`,
     ).then((r) => json<AttendanceMark[]>(r)),
-  mark: (sectionId: string, date: string, periodIndex: number, records: AttendanceRecord[]) =>
+  mark: (sectionId: string, date: string, classNumber: number, records: AttendanceRecord[]) =>
     authFetch('/attendance/students/bulk', {
       method: 'POST',
-      body: JSON.stringify({ sectionId, date, periodIndex, records }),
+      body: JSON.stringify({ sectionId, date, classNumber, records }),
     }).then((r) => json<{ marked: number }>(r)),
-  summary: (sectionId: string, date: string, periodIndex = 0) =>
+  summary: (sectionId: string, date: string, classNumber = 0) =>
     authFetch(
-      `/attendance/students/summary?sectionId=${sectionId}&date=${date}&periodIndex=${periodIndex}`,
+      `/attendance/students/summary?sectionId=${sectionId}&date=${date}&classNumber=${classNumber}`,
     ).then((r) => json<AttendanceSummary>(r)),
 };

@@ -203,6 +203,21 @@ export class SchedulePlanRepository extends TenantRepository {
     return this.run((tx) => this.semesterContext(tx, semesterId));
   }
 
+  /** All classes for one section within a plan (any status) — the editable grid. */
+  sectionClasses(planId: string, sectionId: string) {
+    return this.run((tx) =>
+      tx.scheduledClass.findMany({
+        where: { sectionTimetable: { planId, sectionId } },
+        include: {
+          subject: { select: { nameEn: true, colorHex: true } },
+          teacher: { select: { firstNameEn: true, lastNameEn: true } },
+          location: { select: { nameEn: true } },
+        },
+        orderBy: [{ scheduleType: 'asc' }, { dayOfWeek: 'asc' }, { classNumber: 'asc' }],
+      }),
+    );
+  }
+
   // ----- Class management (DRAFT plans) -------------------------------------
 
   /** Get-or-create the SectionTimetable for a (plan, section). */

@@ -57,6 +57,27 @@ export class SchedulePlanService {
     return this.scheduling.validatePlan(id);
   }
 
+  /** The editable class rows for one section of a plan. */
+  async sectionClasses(id: string, sectionId: string) {
+    await this.get(id);
+    const rows = await this.repo.sectionClasses(id, sectionId);
+    return rows.map((c) => ({
+      id: c.id,
+      scheduleType: c.scheduleType,
+      dayOfWeek: c.dayOfWeek,
+      classNumber: c.classNumber,
+      startTime: c.startTime,
+      endTime: c.endTime,
+      subjectId: c.subjectId,
+      subjectName: c.subject.nameEn,
+      subjectColor: c.subject.colorHex,
+      teacherId: c.teacherId,
+      teacherName: c.teacher ? `${c.teacher.firstNameEn} ${c.teacher.lastNameEn}`.trim() : null,
+      locationId: c.locationId,
+      locationName: c.location?.nameEn ?? null,
+    }));
+  }
+
   async update(id: string, dto: UpdatePlanDto): Promise<SchedulePlan> {
     const plan = await this.assertDraft(id);
     if (dto.name === undefined) return plan;

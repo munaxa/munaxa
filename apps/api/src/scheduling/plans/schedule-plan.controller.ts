@@ -56,6 +56,12 @@ export class SchedulePlanController {
     return this.service.validate(id);
   }
 
+  @Get(':id/sections/:sectionId/classes')
+  @RequireAnyPermission(Permission.TIMETABLE_MANAGE, Permission.TIMETABLE_READ)
+  sectionClasses(@Param('id') id: string, @Param('sectionId') sectionId: string) {
+    return this.service.sectionClasses(id, sectionId);
+  }
+
   @Patch(':id')
   @RequirePermissions(Permission.TIMETABLE_MANAGE)
   update(@Param('id') id: string, @Body() dto: UpdatePlanDto) {
