@@ -7,4 +7,6 @@ coverage
 pnpm-lock.yaml
 apps/mobile
 munaxadesignsystem
+landing
+munaxalanding.bak
 *.md

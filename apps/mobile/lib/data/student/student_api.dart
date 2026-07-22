@@ -94,6 +94,7 @@ class TimetableEntry {
     required this.startTime,
     required this.endTime,
     required this.subject,
+    this.teacherName,
   });
 
   final String id;
