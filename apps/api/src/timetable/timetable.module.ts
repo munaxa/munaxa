@@ -1,31 +1,19 @@
 import { Module } from '@nestjs/common';
-import { SlotController } from './slots/slot.controller';
-import { SlotService } from './slots/slot.service';
-import { SlotRepository } from './slots/slot.repository';
-import { ExceptionController } from './exceptions/exception.controller';
-import { ExceptionService } from './exceptions/exception.service';
-import { ExceptionRepository } from './exceptions/exception.repository';
 import { TimetableConfigController } from './config/config.controller';
 import { TimetableConfigService } from './config/config.service';
 import { TimetableConfigRepository } from './config/config.repository';
-import { ResolverController } from './resolver/resolver.controller';
-import { ResolverService } from './resolver/resolver.service';
 
 /**
- * Timetable engine: master timetable slots (REGULAR + RAMADAN), date-specific schedule
- * exceptions (cancellation / substitution / replacement / holiday), per-campus Ramadan
- * config, and the resolver that computes the current/next class.
+ * Timetable module.
+ *
+ * The enterprise scheduling engine (Subject, SchedulePlan, SectionTimetable, ScheduledClass,
+ * conflict detection + publish, and the section-inherited resolver used by the Parent/Student/
+ * Teacher portals and Attendance) is built on the pure engine in `engine/scheduling-engine.ts`.
+ * Those resources — subjects/, plans/, section-timetables/, resolver/, exceptions/ — are added in the
+ * next phase (see SCHEDULING_ENGINE_REFACTOR.md). For now only the per-campus Ramadan config ships.
  */
 @Module({
-  controllers: [SlotController, ExceptionController, TimetableConfigController, ResolverController],
-  providers: [
-    SlotService,
-    SlotRepository,
-    ExceptionService,
-    ExceptionRepository,
-    TimetableConfigService,
-    TimetableConfigRepository,
-    ResolverService,
-  ],
+  controllers: [TimetableConfigController],
+  providers: [TimetableConfigService, TimetableConfigRepository],
 })
 export class TimetableModule {}

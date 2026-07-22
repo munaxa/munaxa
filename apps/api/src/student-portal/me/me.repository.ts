@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { GradeRecord, Homework, StudentAttendance, TimetableSlot } from '@prisma/client';
+import type { GradeRecord, Homework, StudentAttendance } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 import { TenantContextStore } from '../../prisma/tenant-context';
 
@@ -32,7 +32,7 @@ export class MeRepository extends TenantRepository {
     return this.run((tx) =>
       tx.studentAttendance.findMany({
         where: { studentId },
-        orderBy: [{ date: 'desc' }, { periodIndex: 'asc' }],
+        orderBy: [{ date: 'desc' }, { classNumber: 'asc' }],
         take: 200,
       }),
     );
@@ -49,15 +49,6 @@ export class MeRepository extends TenantRepository {
     const summary: AttendanceSummary = { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 };
     for (const row of rows) summary[row.status] = row._count._all;
     return summary;
-  }
-
-  timetableForSection(sectionId: string): Promise<TimetableSlot[]> {
-    return this.run((tx) =>
-      tx.timetableSlot.findMany({
-        where: { sectionId },
-        orderBy: [{ dayOfWeek: 'asc' }, { periodIndex: 'asc' }],
-      }),
-    );
   }
 
   recentGrades(studentId: string): Promise<GradeRecord[]> {

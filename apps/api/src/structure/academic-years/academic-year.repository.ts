@@ -206,15 +206,15 @@ export class AcademicYearRepository extends TenantRepository {
         );
       }
 
-      // Timetable progress: share of the year's sections that have >=1 slot.
+      // Timetable progress: share of the year's sections whose section timetable has >=1 class.
       let timetableCompletionPct: number | null = null;
       if (sectionIds.length > 0) {
-        const withSlots = await tx.timetableSlot.findMany({
-          where: { sectionId: { in: sectionIds } },
+        const scheduled = await tx.sectionTimetable.findMany({
+          where: { sectionId: { in: sectionIds }, classes: { some: {} } },
           distinct: ['sectionId'],
           select: { sectionId: true },
         });
-        timetableCompletionPct = Math.round((withSlots.length / sectionIds.length) * 100);
+        timetableCompletionPct = Math.round((scheduled.length / sectionIds.length) * 100);
       }
 
       return {
@@ -273,7 +273,7 @@ export class AcademicYearRepository extends TenantRepository {
           ? tx.gradeRecord.count({ where: { semesterId: { in: semesterIds } } })
           : Promise.resolve(0),
         sectionIds.length > 0
-          ? tx.timetableSlot.count({ where: { sectionId: { in: sectionIds } } })
+          ? tx.scheduledClass.count({ where: { sectionTimetable: { sectionId: { in: sectionIds } } } })
           : Promise.resolve(0),
         tx.auditLog.count({ where: { entityType: 'AcademicYear', entityId: year.id } }),
       ]);

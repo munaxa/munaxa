@@ -202,7 +202,7 @@ describe('Campus Presence + Transportation (e2e)', () => {
     );
     await withTenant(prisma, TENANT, (tx) =>
       tx.studentAttendance.create({
-        data: { tenantId: TENANT, studentId, sectionId, date, periodIndex: 0, status: 'ABSENT' },
+        data: { tenantId: TENANT, studentId, sectionId, date, classNumber: 0, status: 'ABSENT' },
       }),
     );
     await http()

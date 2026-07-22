@@ -1,13 +1,12 @@
 -- ============================================================================
--- Enterprise scheduling engine.
+-- Enterprise scheduling engine — clean replacement of the flat timetable.
 --
--- Additive refactor of the timetable into a versioned, publishable plan hierarchy:
 --   AcademicYear → Semester → SchedulePlan → SectionTimetable → ScheduledClass
 --
--- The legacy TimetableSlot / ScheduleException / TimetableConfig tables are LEFT IN PLACE for the
--- transition. Section 3 below backfills existing TimetableSlot rows into a default PUBLISHED plan so
--- nothing is lost. Downstream readers switch to the published plan; the legacy resolver still works
--- against TimetableSlot until fully retired.
+-- The previous timetable data was development/test only, so this is a hard cut-over with NO
+-- compatibility layer: the legacy TimetableSlot table is dropped, ScheduleException is modernised to
+-- reference Subject + SpecialLocation (instead of free-text + Classroom), and StudentAttendance's
+-- `periodIndex` is renamed to `classNumber` ("Class", not "Period", everywhere).
 -- ============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -19,7 +18,7 @@ CREATE TYPE "SpecialLocationKind" AS ENUM (
 );
 
 -- ---------------------------------------------------------------------------
--- 2. Tables
+-- 2. New tables
 -- ---------------------------------------------------------------------------
 CREATE TABLE "Subject" (
     "id"        UUID NOT NULL,
@@ -122,12 +121,9 @@ CREATE TABLE "ScheduledClass" (
     CONSTRAINT "ScheduledClass_pkey" PRIMARY KEY ("id")
 );
 
--- ---------------------------------------------------------------------------
 -- Indexes
--- ---------------------------------------------------------------------------
 CREATE INDEX "Subject_tenantId_idx" ON "Subject"("tenantId");
 CREATE INDEX "Subject_tenantId_isActive_idx" ON "Subject"("tenantId", "isActive");
--- Tenant-scoped code uniqueness that ignores nulls and soft-deletes.
 CREATE UNIQUE INDEX "Subject_tenantId_code_key" ON "Subject"("tenantId", "code")
   WHERE "code" IS NOT NULL AND "deletedAt" IS NULL;
 
@@ -153,9 +149,7 @@ CREATE INDEX "ScheduledClass_tenantId_sectionTimetableId_idx" ON "ScheduledClass
 CREATE INDEX "ScheduledClass_tenantId_teacherId_idx" ON "ScheduledClass"("tenantId", "teacherId");
 CREATE INDEX "ScheduledClass_tenantId_subjectId_idx" ON "ScheduledClass"("tenantId", "subjectId");
 
--- ---------------------------------------------------------------------------
 -- Foreign keys
--- ---------------------------------------------------------------------------
 ALTER TABLE "Subject" ADD CONSTRAINT "Subject_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "SpecialLocation" ADD CONSTRAINT "SpecialLocation_tenantId_fkey" FOREIGN KEY ("tenantId") REFERENCES "Tenant"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -183,77 +177,31 @@ ALTER TABLE "ScheduledClass" ADD CONSTRAINT "ScheduledClass_teacherId_fkey" FORE
 ALTER TABLE "ScheduledClass" ADD CONSTRAINT "ScheduledClass_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "SpecialLocation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- ---------------------------------------------------------------------------
--- 3. Best-effort backfill of legacy TimetableSlot rows.
---
--- Legacy slots are not tied to a semester. For each campus that has an ACTIVE academic year with at
--- least one semester, we wrap that campus's existing slots into ONE published "Migrated Plan" on the
--- lowest-sequence semester. Campuses without an active year/semester are left untouched (admins build
--- fresh plans). Everything is guarded and idempotent-ish (guarded by NOT EXISTS on the plan name).
--- Legacy classroomId is intentionally dropped: normal lessons no longer display a room.
+-- 3. Drop the legacy flat timetable (dev/test data only — no backfill).
 -- ---------------------------------------------------------------------------
-
--- 3a. One Subject per distinct legacy subject string (per tenant).
-INSERT INTO "Subject" ("id", "tenantId", "nameEn", "nameAr", "updatedAt")
-SELECT gen_random_uuid(), s."tenantId", s."subject", s."subject", CURRENT_TIMESTAMP
-FROM (SELECT DISTINCT "tenantId", "subject" FROM "TimetableSlot") s
-WHERE NOT EXISTS (
-  SELECT 1 FROM "Subject" x WHERE x."tenantId" = s."tenantId" AND x."nameEn" = s."subject"
-);
-
--- 3b. One PUBLISHED SchedulePlan per (campus with slots + active year + a semester).
---     The chosen semester is the lowest sequence of the campus's ACTIVE academic year.
-WITH campus_target AS (
-  SELECT DISTINCT
-    g."campusId"                                             AS "campusId",
-    sl."tenantId"                                            AS "tenantId",
-    ay."id"                                                  AS "academicYearId",
-    (SELECT sm."id" FROM "Semester" sm
-       WHERE sm."academicYearId" = ay."id"
-       ORDER BY sm."sequence" ASC LIMIT 1)                   AS "semesterId"
-  FROM "TimetableSlot" sl
-  JOIN "Section" sec ON sec."id" = sl."sectionId"
-  JOIN "Grade" g     ON g."id" = sec."gradeId"
-  JOIN "AcademicYear" ay ON ay."campusId" = g."campusId" AND ay."status" = 'ACTIVE'
-)
-INSERT INTO "SchedulePlan" ("id", "tenantId", "semesterId", "academicYearId", "campusId", "name", "status", "publishedAt", "updatedAt")
-SELECT gen_random_uuid(), ct."tenantId", ct."semesterId", ct."academicYearId", ct."campusId",
-       'Migrated Plan', 'PUBLISHED', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-FROM campus_target ct
-WHERE ct."semesterId" IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM "SchedulePlan" p
-    WHERE p."semesterId" = ct."semesterId" AND p."status" = 'PUBLISHED' AND p."deletedAt" IS NULL
-  );
-
--- 3c. One SectionTimetable per section that has slots, under its campus's migrated plan.
-INSERT INTO "SectionTimetable" ("id", "tenantId", "planId", "sectionId", "updatedAt")
-SELECT gen_random_uuid(), sl."tenantId", p."id", sl."sectionId", CURRENT_TIMESTAMP
-FROM (SELECT DISTINCT "tenantId", "sectionId" FROM "TimetableSlot") sl
-JOIN "Section" sec ON sec."id" = sl."sectionId"
-JOIN "Grade" g     ON g."id" = sec."gradeId"
-JOIN "SchedulePlan" p ON p."campusId" = g."campusId" AND p."name" = 'Migrated Plan' AND p."status" = 'PUBLISHED'
-WHERE NOT EXISTS (
-  SELECT 1 FROM "SectionTimetable" st WHERE st."planId" = p."id" AND st."sectionId" = sl."sectionId"
-);
-
--- 3d. Copy each legacy slot into a ScheduledClass (periodIndex → classNumber, subject string → Subject).
-INSERT INTO "ScheduledClass" ("id", "tenantId", "sectionTimetableId", "scheduleType", "dayOfWeek", "classNumber", "startTime", "endTime", "subjectId", "teacherId", "updatedAt")
-SELECT gen_random_uuid(), sl."tenantId", st."id", sl."scheduleType", sl."dayOfWeek", sl."periodIndex",
-       sl."startTime", sl."endTime", subj."id", sl."teacherId", CURRENT_TIMESTAMP
-FROM "TimetableSlot" sl
-JOIN "Section" sec ON sec."id" = sl."sectionId"
-JOIN "Grade" g     ON g."id" = sec."gradeId"
-JOIN "SchedulePlan" p ON p."campusId" = g."campusId" AND p."name" = 'Migrated Plan' AND p."status" = 'PUBLISHED'
-JOIN "SectionTimetable" st ON st."planId" = p."id" AND st."sectionId" = sl."sectionId"
-JOIN "Subject" subj ON subj."tenantId" = sl."tenantId" AND subj."nameEn" = sl."subject"
-WHERE NOT EXISTS (
-  SELECT 1 FROM "ScheduledClass" sc
-  WHERE sc."sectionTimetableId" = st."id" AND sc."scheduleType" = sl."scheduleType"
-    AND sc."dayOfWeek" = sl."dayOfWeek" AND sc."classNumber" = sl."periodIndex"
-);
+DROP TABLE "TimetableSlot";
 
 -- ---------------------------------------------------------------------------
--- 4. Tenant isolation (RLS) for the new tables — same pattern as the timetable migration.
+-- 4. Modernise ScheduleException: reference Subject + SpecialLocation; rename period → class.
+-- ---------------------------------------------------------------------------
+ALTER TABLE "ScheduleException" DROP CONSTRAINT IF EXISTS "ScheduleException_classroomId_fkey";
+ALTER TABLE "ScheduleException" RENAME COLUMN "periodIndex" TO "classNumber";
+ALTER TABLE "ScheduleException" DROP COLUMN "subject";
+ALTER TABLE "ScheduleException" DROP COLUMN "classroomId";
+ALTER TABLE "ScheduleException" ADD COLUMN "subjectId" UUID;
+ALTER TABLE "ScheduleException" ADD COLUMN "locationId" UUID;
+ALTER TABLE "ScheduleException" ADD CONSTRAINT "ScheduleException_subjectId_fkey" FOREIGN KEY ("subjectId") REFERENCES "Subject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ScheduleException" ADD CONSTRAINT "ScheduleException_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "SpecialLocation"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- ---------------------------------------------------------------------------
+-- 5. Rename StudentAttendance.periodIndex → classNumber (Class, not Period).
+-- ---------------------------------------------------------------------------
+ALTER TABLE "StudentAttendance" RENAME COLUMN "periodIndex" TO "classNumber";
+ALTER INDEX "StudentAttendance_tenantId_studentId_date_periodIndex_key"
+  RENAME TO "StudentAttendance_tenantId_studentId_date_classNumber_key";
+
+-- ---------------------------------------------------------------------------
+-- 6. Tenant isolation (RLS) for the new tables — same pattern as the timetable migration.
 -- ---------------------------------------------------------------------------
 DO $$
 DECLARE

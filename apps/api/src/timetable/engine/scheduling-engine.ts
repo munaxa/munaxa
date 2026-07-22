@@ -37,7 +37,7 @@ export interface ScheduledClassInput {
   locationName: string | null;
 }
 
-/** A date-specific override (unchanged ScheduleException model; `classNumber` == legacy periodIndex). */
+/** A date-specific override (ScheduleException model), keyed by `classNumber`. */
 export interface ExceptionInput {
   classNumber: number | null; // null + HOLIDAY ⇒ whole-day
   type: ExceptionType;

@@ -31,16 +31,16 @@ export class StudentAttendanceController {
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiQuery({ name: 'sectionId', required: true })
   @ApiQuery({ name: 'date', required: true })
-  @ApiQuery({ name: 'periodIndex', required: false })
+  @ApiQuery({ name: 'classNumber', required: false })
   list(
     @Query('sectionId') sectionId: string,
     @Query('date') date: string,
-    @Query('periodIndex') periodIndex?: string,
+    @Query('classNumber') classNumber?: string,
   ) {
     return this.service.listForSection(
       sectionId,
       date,
-      periodIndex !== undefined ? Number(periodIndex) : undefined,
+      classNumber !== undefined ? Number(classNumber) : undefined,
     );
   }
 
@@ -48,17 +48,17 @@ export class StudentAttendanceController {
   @RequirePermissions(Permission.ATTENDANCE_READ)
   @ApiQuery({ name: 'sectionId', required: true })
   @ApiQuery({ name: 'date', required: true })
-  @ApiQuery({ name: 'periodIndex', required: false })
+  @ApiQuery({ name: 'classNumber', required: false })
   @ApiOperation({ summary: 'Attendance dashboard summary for a section/date' })
   summary(
     @Query('sectionId') sectionId: string,
     @Query('date') date: string,
-    @Query('periodIndex') periodIndex?: string,
+    @Query('classNumber') classNumber?: string,
   ) {
     return this.service.summary(
       sectionId,
       date,
-      periodIndex !== undefined ? Number(periodIndex) : 0,
+      classNumber !== undefined ? Number(classNumber) : 0,
     );
   }
 

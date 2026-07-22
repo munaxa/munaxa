@@ -107,7 +107,7 @@ describe('Student App (e2e)', () => {
             studentId: student.id,
             sectionId: section.id,
             date: new Date(Date.now() - d * 86_400_000),
-            periodIndex: 0,
+            classNumber: 0,
             status: 'PRESENT',
           },
         });
@@ -124,18 +124,6 @@ describe('Student App (e2e)', () => {
         },
       });
 
-      // A timetable slot for the section.
-      await tx.timetableSlot.create({
-        data: {
-          tenantId: TENANT,
-          sectionId: section.id,
-          dayOfWeek: 'SUN',
-          periodIndex: 1,
-          startTime: '08:00',
-          endTime: '08:45',
-          subject: 'Math',
-        },
-      });
     });
 
     adminToken = await login('admin@sa.example');
@@ -164,17 +152,19 @@ describe('Student App (e2e)', () => {
     expect(res.body.gamification).toBeDefined();
   });
 
-  it('lists the student homework, attendance history, and timetable', async () => {
+  it('lists the student homework and attendance history', async () => {
     const hw = await http().get('/api/v1/me/homework').set(auth(studentToken)).expect(200);
     expect(hw.body).toHaveLength(1);
     expect(hw.body[0].title).toBe('Worksheet 1');
 
     const att = await http().get('/api/v1/me/attendance').set(auth(studentToken)).expect(200);
     expect(att.body).toHaveLength(5);
+  });
 
+  it('returns an empty timetable until the plan-based resolver ships', async () => {
+    // Timetables are inherited from the section's PUBLISHED SchedulePlan (SCHEDULING_ENGINE_REFACTOR.md).
     const tt = await http().get('/api/v1/me/timetable').set(auth(studentToken)).expect(200);
-    expect(tt.body).toHaveLength(1);
-    expect(tt.body[0].subject).toBe('Math');
+    expect(tt.body).toEqual([]);
   });
 
   it('rejects /me for a non-student principal (403)', async () => {

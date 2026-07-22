@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { GradeRecord, Homework, StudentAttendance, TimetableSlot } from '@prisma/client';
+import type { GradeRecord, Homework, StudentAttendance } from '@prisma/client';
 import { StudentScopeService } from '../common/student-scope.service';
 import { ResourceService, type ResourceView } from '../resources/resource.service';
 import {
@@ -90,10 +90,11 @@ export class MeService {
     return this.repo.attendanceHistory(studentId);
   }
 
-  async timetable(): Promise<TimetableSlot[]> {
-    const student = await this.scope.requireStudent();
-    if (!student.sectionId) return [];
-    return this.repo.timetableForSection(student.sectionId);
+  // The student's weekly timetable is inherited from their section's PUBLISHED SchedulePlan and is
+  // resolved by the scheduling engine (SCHEDULING_ENGINE_REFACTOR.md, resolver phase). Returns empty
+  // until that resolver ships — no per-student timetable records exist.
+  timetable(): Promise<never[]> {
+    return Promise.resolve([]);
   }
 
   async resourceLibrary(): Promise<ResourceView[]> {

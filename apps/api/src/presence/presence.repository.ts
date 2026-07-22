@@ -153,7 +153,7 @@ export class PresenceRepository extends TenantRepository {
       );
       const existing = await tx.studentAttendance.findUnique({
         where: {
-          tenantId_studentId_date_periodIndex: { tenantId, studentId, date, periodIndex: 0 },
+          tenantId_studentId_date_classNumber: { tenantId, studentId, date, classNumber: 0 },
         },
         select: { id: true },
       });
@@ -164,7 +164,7 @@ export class PresenceRepository extends TenantRepository {
           studentId,
           sectionId: student.sectionId,
           date,
-          periodIndex: 0,
+          classNumber: 0,
           status: 'PRESENT',
           method: 'MANUAL', // AttendanceMethod is unchanged (MANUAL/QR); arrival-derived = MANUAL
           markedById: TenantContextStore.get()?.actorUserId ?? null,
