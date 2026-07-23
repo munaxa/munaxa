@@ -174,6 +174,7 @@
     },
     "myHr": "My HR",
     "myTeam": "My Team",
+    "hrDashboard": "HR dashboard",
     "structure": "School structure",
     "academicStructure": "Academic structure",
     "people": "Students",
@@ -1955,6 +1956,26 @@
     "myTeam": "My Team",
     "noProfile": "No employee profile is linked to your account.",
     "directReports": "Direct reports",
-    "noReports": "You have no direct reports."
+    "noReports": "You have no direct reports.",
+    "dashboard": "HR dashboard",
+    "openPostings": "Open postings",
+    "reviewsAwaitingAck": "Reviews to acknowledge",
+    "assetsAssigned": "Assets assigned",
+    "assetsAvailable": "Assets available",
+    "activeApplicants": "Active applicants",
+    "activeCycles": "Active cycles",
+    "headcountByStatus": "Headcount by status",
+    "headcountByDepartment": "Headcount by department",
+    "alerts": "Alerts",
+    "noAlerts": "No alerts.",
+    "overdue": "overdue",
+    "daysLeft": "days left",
+    "alertType": {
+      "document": "Document",
+      "contract": "Contract",
+      "certificate": "Certificate",
+      "training": "Training",
+      "probation": "Probation"
+    }
   }
 }

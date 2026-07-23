@@ -65,6 +65,8 @@ export const Permission = {
   ESS_REQUEST: 'ess:request',
   TEAM_READ: 'team:read',
   TEAM_APPROVE: 'team:approve',
+  // HR Phase 10 — HR analytics dashboard, alerts & reporting.
+  HR_DASHBOARD_READ: 'hr:dashboard:read',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -241,6 +243,7 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.ESS_REQUEST]: 'Submit and cancel your own leave requests.',
   [Permission.TEAM_READ]: 'View your direct reports and their pending requests.',
   [Permission.TEAM_APPROVE]: 'Approve or reject leave requests from your direct reports.',
+  [Permission.HR_DASHBOARD_READ]: 'View the HR analytics dashboard, alerts and headcount reports.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

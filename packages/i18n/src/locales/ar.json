@@ -174,6 +174,7 @@
     },
     "myHr": "شؤوني",
     "myTeam": "فريقي",
+    "hrDashboard": "لوحة الموارد البشرية",
     "structure": "هيكل المدرسة",
     "academicStructure": "الهيكل الأكاديمي",
     "people": "الطلاب",
@@ -1955,6 +1956,26 @@
     "myTeam": "فريقي",
     "noProfile": "لا يوجد ملف موظف مرتبط بحسابك.",
     "directReports": "المرؤوسون المباشرون",
-    "noReports": "لا يوجد لديك مرؤوسون مباشرون."
+    "noReports": "لا يوجد لديك مرؤوسون مباشرون.",
+    "dashboard": "لوحة الموارد البشرية",
+    "openPostings": "الشواغر المفتوحة",
+    "reviewsAwaitingAck": "تقييمات بانتظار الإقرار",
+    "assetsAssigned": "عُهد مُسندة",
+    "assetsAvailable": "عُهد متاحة",
+    "activeApplicants": "متقدمون نشطون",
+    "activeCycles": "دورات نشطة",
+    "headcountByStatus": "التعداد حسب الحالة",
+    "headcountByDepartment": "التعداد حسب القسم",
+    "alerts": "التنبيهات",
+    "noAlerts": "لا توجد تنبيهات.",
+    "overdue": "متأخر",
+    "daysLeft": "يوم متبقٍ",
+    "alertType": {
+      "document": "مستند",
+      "contract": "عقد",
+      "certificate": "شهادة",
+      "training": "تدريب",
+      "probation": "فترة تجربة"
+    }
   }
 }

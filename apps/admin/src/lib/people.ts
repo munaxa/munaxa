@@ -1770,3 +1770,61 @@ export const teamApi = {
       json<LeaveRequest>(r),
     ),
 };
+
+// --- HR Phase 10: HR dashboard, alerts & reporting ---------------------------
+export interface HrDashboard {
+  generatedAt: string;
+  windowDays: number;
+  headcount: {
+    total: number;
+    byStatus: Array<{ status: EmploymentStatus; count: number }>;
+    byDepartment: Array<{ departmentId: string | null; name: string; count: number }>;
+  };
+  leave: { pendingApprovals: number };
+  recruitment: { openPostings: number; activeApplicants: number };
+  assets: { total: number; assigned: number; available: number };
+  performance: { activeCycles: number; reviewsAwaitingAck: number };
+  expiring: {
+    documents: number;
+    contracts: number;
+    certificates: number;
+    training: number;
+    probation: number;
+  };
+}
+
+export type HrAlertType = 'document' | 'contract' | 'certificate' | 'training' | 'probation';
+export interface HrAlert {
+  type: HrAlertType;
+  entityId: string;
+  employeeId: string;
+  employeeName: string;
+  label: string;
+  dueDate: string;
+  daysRemaining: number;
+  severity: 'overdue' | 'due_soon';
+}
+
+export const hrDashboardApi = {
+  dashboard: () => authFetch('/hr/dashboard').then((r) => json<HrDashboard>(r)),
+  alerts: (within = 60) =>
+    authFetch(`/hr/dashboard/alerts?within=${within}`).then((r) => json<HrAlert[]>(r)),
+  async exportRoster(format: 'csv' | 'xlsx' | 'pdf'): Promise<void> {
+    const res = await fetch(`${API_URL}/hr/dashboard/roster/export?format=${format}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Export failed (${res.status})`);
+    const blob = await res.blob();
+    const disposition = res.headers.get('content-disposition') ?? '';
+    const match = /filename="([^"]+)"/.exec(disposition);
+    const filename = match?.[1] ?? `hr-roster.${format}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+};
