@@ -23,6 +23,14 @@ export interface BusStop {
   pickupTime: string | null;
 }
 
+/** The driver assigned to a bus — a canonical Employee (HR Phase 3). */
+export interface BusDriver {
+  id: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  personalPhone: string | null;
+}
+
 export interface Bus {
   id: string;
   plateNumber: string;
@@ -31,10 +39,15 @@ export interface Bus {
   capacity: number | null;
   /** Which trip of the route this bus serves: 1 (1st) or 2 (2nd). */
   tripRound: number | null;
-  driverName: string | null;
-  driverPhone: string | null;
+  driverId: string | null;
+  driver: BusDriver | null;
   lastLat?: number | null;
   lastLng?: number | null;
+}
+
+/** Full name of a bus driver, or null when unassigned. */
+export function busDriverName(bus: Pick<Bus, 'driver'>): string | null {
+  return bus.driver ? `${bus.driver.firstNameEn} ${bus.driver.lastNameEn}`.trim() : null;
 }
 
 export interface StudentBusAssignment {
@@ -116,8 +129,7 @@ export const busApi = {
     label?: string;
     capacity?: number;
     tripRound?: number;
-    driverName?: string;
-    driverPhone?: string;
+    driverId?: string;
   }) =>
     authFetch('/bus/vehicles', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<Bus>(r),
@@ -130,8 +142,7 @@ export const busApi = {
       label: string;
       capacity: number;
       tripRound: number | null;
-      driverName: string;
-      driverPhone: string;
+      driverId: string | null;
     }>,
   ) =>
     authFetch(`/bus/vehicles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
@@ -150,4 +161,29 @@ export const busApi = {
     authFetch(`/bus/assignments/${id}`, { method: 'DELETE' }).then(() => undefined),
   studentTransport: (studentId: string) =>
     authFetch(`/bus/students/${studentId}/transport`).then((r) => json<StudentTransport | null>(r)),
+};
+
+// ---------------------------------------------------------------------------
+// Drivers (HR Phase 3) — drivers are Employees with a driver profile.
+// ---------------------------------------------------------------------------
+
+export interface DriverListRow {
+  id: string; // driver profile id
+  employeeId: string;
+  licenseNumber: string | null;
+  licenseExpiry: string | null;
+  medicalCertExpiry: string | null;
+  performanceRating: number | null;
+  employee: {
+    id: string;
+    firstNameEn: string;
+    lastNameEn: string;
+    personalPhone: string | null;
+    status: string;
+  };
+  buses: Array<{ id: string; plateNumber: string; label: string | null }>;
+}
+
+export const driversApi = {
+  list: () => authFetch('/drivers').then((r) => json<DriverListRow[]>(r)),
 };

@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useToast } from '@/components/toast';
 import { useI18n } from '@/components/i18n-provider';
-import { employeesApi, type Employee } from '@/lib/people';
-import { busApi, type Bus, type BusRoute } from '@/lib/bus';
+import { busApi, driversApi, type Bus, type BusRoute, type DriverListRow } from '@/lib/bus';
 import { areasApi, type Area } from '@/lib/areas';
 import { type AcademicYear } from '@/lib/structure';
 import {
@@ -497,8 +496,6 @@ function RoutesCard({
   );
 }
 
-const MANUAL_DRIVER = '__manual__';
-
 function BusesCard({
   buses,
   routes,
@@ -522,31 +519,24 @@ function BusesCard({
     routeId: '',
     tripRound: '',
     capacity: '',
-    driverName: '',
-    driverPhone: '',
+    driverId: '',
   };
   const [form, setForm] = useState(EMPTY);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [manualDriver, setManualDriver] = useState(false);
+  const [drivers, setDrivers] = useState<DriverListRow[]>([]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    employeesApi
+    driversApi
       .list()
-      .then(setEmployees)
-      .catch(() => setEmployees([]));
+      .then(setDrivers)
+      .catch(() => setDrivers([]));
   }, []);
 
-  const driverNames = useMemo(
-    () =>
-      employees
-        .filter((e) => e.status === 'ACTIVE')
-        .map((e) => `${e.firstNameEn} ${e.lastNameEn}`.trim())
-        .filter(Boolean),
-    [employees],
+  const selectedDriver = useMemo(
+    () => drivers.find((d) => d.employeeId === form.driverId) ?? null,
+    [drivers, form.driverId],
   );
-  const hrAvailable = driverNames.length > 0;
 
   const routeOptions = useMemo(
     () =>
@@ -559,7 +549,6 @@ function BusesCard({
   function reset() {
     setEditingId(null);
     setForm(EMPTY);
-    setManualDriver(false);
   }
   function startEdit(b: Bus) {
     setEditingId(b.id);
@@ -569,18 +558,14 @@ function BusesCard({
       routeId: b.routeId ?? '',
       tripRound: b.tripRound != null ? String(b.tripRound) : '',
       capacity: b.capacity != null ? String(b.capacity) : '',
-      driverName: b.driverName ?? '',
-      driverPhone: b.driverPhone ?? '',
+      driverId: b.driverId ?? '',
     });
-    setManualDriver(Boolean(b.driverName) && !driverNames.includes(b.driverName ?? ''));
   }
 
   async function save() {
     if (!form.plateNumber.trim()) return;
     setBusy(true);
     try {
-      const driverName = form.driverName.trim();
-      const driverPhone = form.driverPhone.trim();
       const busNumber = form.busNumber.trim();
       const payload = {
         plateNumber: form.plateNumber.trim(),
@@ -593,16 +578,14 @@ function BusesCard({
             routeId: form.routeId || null,
             tripRound,
             label: busNumber,
-            driverName,
-            driverPhone,
+            driverId: form.driverId || null,
           })
         : await busApi.createBus({
             ...payload,
             ...(form.routeId ? { routeId: form.routeId } : {}),
             ...(tripRound ? { tripRound } : {}),
             ...(busNumber ? { label: busNumber } : {}),
-            ...(driverName ? { driverName } : {}),
-            ...(driverPhone ? { driverPhone } : {}),
+            ...(form.driverId ? { driverId: form.driverId } : {}),
           });
       onSaved(b);
       reset();
@@ -674,40 +657,26 @@ function BusesCard({
               />
             </Field>
             <Field label={t('fleet.driver')}>
-              {hrAvailable && !manualDriver ? (
-                <Select
-                  value={form.driverName}
-                  onChange={(e) => {
-                    if (e.target.value === MANUAL_DRIVER) {
-                      setManualDriver(true);
-                      setForm({ ...form, driverName: '' });
-                    } else {
-                      setForm({ ...form, driverName: e.target.value });
-                    }
-                  }}
-                >
-                  <option value="">{t('fleet.unassigned')}</option>
-                  {driverNames.map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                  <option value={MANUAL_DRIVER}>＋ Enter manually…</option>
-                </Select>
-              ) : (
-                <Input
-                  value={form.driverName}
-                  onChange={(e) => setForm({ ...form, driverName: e.target.value })}
-                  placeholder="Driver name"
-                />
-              )}
+              <Select
+                value={form.driverId}
+                onChange={(e) => setForm({ ...form, driverId: e.target.value })}
+              >
+                <option value="">{t('fleet.unassigned')}</option>
+                {drivers.map((d) => (
+                  <option key={d.employeeId} value={d.employeeId}>
+                    {d.employee.firstNameEn} {d.employee.lastNameEn}
+                    {d.employee.personalPhone ? ` · ${d.employee.personalPhone}` : ''}
+                  </option>
+                ))}
+              </Select>
             </Field>
             <Field label={t('fleet.driverMobile')}>
               <Input
-                value={form.driverPhone}
-                onChange={(e) => setForm({ ...form, driverPhone: e.target.value })}
-                placeholder="07XXXXXXXX"
+                value={selectedDriver?.employee.personalPhone ?? ''}
+                placeholder="—"
                 dir="ltr"
+                readOnly
+                disabled
               />
             </Field>
             <div className="col-span-2 flex justify-end gap-2">
@@ -745,10 +714,10 @@ function BusesCard({
                   <TD>{b.label || <span className="text-muted-foreground">—</span>}</TD>
                   <TD>
                     {b.plateNumber}
-                    {b.driverName ? (
+                    {b.driver ? (
                       <span className="block text-xs text-muted-foreground">
-                        {b.driverName}
-                        {b.driverPhone ? ` · ${b.driverPhone}` : ''}
+                        {b.driver.firstNameEn} {b.driver.lastNameEn}
+                        {b.driver.personalPhone ? ` · ${b.driver.personalPhone}` : ''}
                       </span>
                     ) : null}
                   </TD>
