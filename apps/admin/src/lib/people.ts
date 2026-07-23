@@ -1223,3 +1223,228 @@ export const attendanceApi = {
     URL.revokeObjectURL(url);
   },
 };
+
+// --- HR Phase 6: performance management --------------------------------------
+export type PerformanceCycleStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED';
+export const PERFORMANCE_CYCLE_STATUSES: PerformanceCycleStatus[] = ['DRAFT', 'ACTIVE', 'CLOSED'];
+export type PerformanceReviewStatus = 'DRAFT' | 'SUBMITTED' | 'ACKNOWLEDGED';
+export type PerformanceGoalStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export const PERFORMANCE_GOAL_STATUSES: PerformanceGoalStatus[] = [
+  'NOT_STARTED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+];
+
+export interface PerformanceCycle {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  status: PerformanceCycleStatus;
+}
+
+export interface PerformanceGoal {
+  id: string;
+  reviewId: string;
+  title: string;
+  description: string | null;
+  weight: number;
+  progress: number;
+  status: PerformanceGoalStatus;
+  rating: number | null;
+  dueDate: string | null;
+}
+
+export interface PerformanceReview {
+  id: string;
+  cycleId: string;
+  employeeId: string;
+  status: PerformanceReviewStatus;
+  overallRating: number | null;
+  summary: string | null;
+  strengths: string | null;
+  improvements: string | null;
+  submittedAt: string | null;
+  acknowledgedAt: string | null;
+  cycle: { id: string; name: string; status: PerformanceCycleStatus };
+  employee: { id: string; firstNameEn: string; lastNameEn: string };
+  goals: PerformanceGoal[];
+}
+
+export const performanceApi = {
+  listCycles: () => authFetch('/hr/performance-cycles').then((r) => json<PerformanceCycle[]>(r)),
+  createCycle: (data: {
+    name: string;
+    startDate: string;
+    endDate: string;
+    status?: PerformanceCycleStatus;
+  }) =>
+    authFetch('/hr/performance-cycles', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<PerformanceCycle>(r),
+    ),
+  updateCycle: (id: string, data: Partial<{ name: string; status: PerformanceCycleStatus }>) =>
+    authFetch(`/hr/performance-cycles/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<PerformanceCycle>(r)),
+  removeCycle: (id: string) => del(`/hr/performance-cycles/${id}`),
+
+  listReviews: (employeeId: string) =>
+    authFetch(`/employees/${employeeId}/performance-reviews`).then((r) =>
+      json<PerformanceReview[]>(r),
+    ),
+  createReview: (employeeId: string, cycleId: string) =>
+    authFetch(`/employees/${employeeId}/performance-reviews`, {
+      method: 'POST',
+      body: JSON.stringify({ cycleId }),
+    }).then((r) => json<PerformanceReview>(r)),
+  updateReview: (
+    id: string,
+    data: Partial<{
+      overallRating: number;
+      summary: string;
+      strengths: string;
+      improvements: string;
+    }>,
+  ) =>
+    authFetch(`/hr/performance-reviews/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<PerformanceReview>(r)),
+  submitReview: (id: string) =>
+    authFetch(`/hr/performance-reviews/${id}/submit`, { method: 'POST', body: '{}' }).then((r) =>
+      json<PerformanceReview>(r),
+    ),
+  acknowledgeReview: (id: string) =>
+    authFetch(`/hr/performance-reviews/${id}/acknowledge`, { method: 'POST', body: '{}' }).then(
+      (r) => json<PerformanceReview>(r),
+    ),
+
+  addGoal: (
+    reviewId: string,
+    data: { title: string; description?: string; weight?: number; dueDate?: string },
+  ) =>
+    authFetch(`/hr/performance-reviews/${reviewId}/goals`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<PerformanceGoal>(r)),
+  updateGoal: (
+    id: string,
+    data: Partial<{
+      title: string;
+      description: string;
+      weight: number;
+      progress: number;
+      status: PerformanceGoalStatus;
+      rating: number;
+      dueDate: string;
+    }>,
+  ) =>
+    authFetch(`/hr/performance-goals/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<PerformanceGoal>(r)),
+  removeGoal: (id: string) => del(`/hr/performance-goals/${id}`),
+};
+
+// --- HR Phase 6: training ----------------------------------------------------
+export type TrainingRecordStatus =
+  | 'ENROLLED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'FAILED'
+  | 'CANCELLED';
+export const TRAINING_RECORD_STATUSES: TrainingRecordStatus[] = [
+  'ENROLLED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'FAILED',
+  'CANCELLED',
+];
+
+export interface TrainingCourse {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  provider: string | null;
+  hours: string | number | null;
+  mandatory: boolean;
+  isActive: boolean;
+}
+
+export interface TrainingRecord {
+  id: string;
+  courseId: string;
+  employeeId: string;
+  status: TrainingRecordStatus;
+  enrolledAt: string;
+  completedAt: string | null;
+  score: string | number | null;
+  expiresAt: string | null;
+  note: string | null;
+  course: { id: string; title: string; mandatory: boolean };
+  employee: { id: string; firstNameEn: string; lastNameEn: string };
+}
+
+export const trainingApi = {
+  listCourses: () => authFetch('/hr/training-courses').then((r) => json<TrainingCourse[]>(r)),
+  createCourse: (data: {
+    title: string;
+    description?: string;
+    category?: string;
+    provider?: string;
+    hours?: number;
+    mandatory?: boolean;
+    isActive?: boolean;
+  }) =>
+    authFetch('/hr/training-courses', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<TrainingCourse>(r),
+    ),
+  updateCourse: (
+    id: string,
+    data: Partial<{
+      title: string;
+      description: string;
+      category: string;
+      provider: string;
+      hours: number;
+      mandatory: boolean;
+      isActive: boolean;
+    }>,
+  ) =>
+    authFetch(`/hr/training-courses/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<TrainingCourse>(r)),
+  removeCourse: (id: string) => del(`/hr/training-courses/${id}`),
+
+  listForEmployee: (employeeId: string) =>
+    authFetch(`/employees/${employeeId}/training-records`).then((r) => json<TrainingRecord[]>(r)),
+  enroll: (employeeId: string, courseId: string) =>
+    authFetch(`/employees/${employeeId}/training-records`, {
+      method: 'POST',
+      body: JSON.stringify({ courseId }),
+    }).then((r) => json<TrainingRecord>(r)),
+  updateRecord: (
+    id: string,
+    data: Partial<{
+      status: TrainingRecordStatus;
+      completedAt: string;
+      score: number;
+      expiresAt: string;
+      certificateId: string;
+      note: string;
+    }>,
+  ) =>
+    authFetch(`/hr/training-records/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<TrainingRecord>(r)),
+  removeRecord: (id: string) => del(`/hr/training-records/${id}`),
+  expiring: (within = 90) =>
+    authFetch(`/hr/training-records/expiring?within=${within}`).then((r) =>
+      json<TrainingRecord[]>(r),
+    ),
+};

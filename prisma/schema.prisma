@@ -195,6 +195,34 @@ enum StaffAttendanceSource {
   MOBILE
 }
 
+// HR Phase 6 — performance management & training.
+enum PerformanceCycleStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum PerformanceReviewStatus {
+  DRAFT
+  SUBMITTED
+  ACKNOWLEDGED
+}
+
+enum PerformanceGoalStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TrainingRecordStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
 enum ParentRelation {
   FATHER
   MOTHER
@@ -679,6 +707,11 @@ model Tenant {
   staffLeaveRequests       StaffLeaveRequest[]
   staffLeaveApprovals      StaffLeaveApproval[]
   staffAttendance          StaffAttendance[]
+  performanceCycles        PerformanceCycle[]
+  performanceReviews       PerformanceReview[]
+  performanceGoals         PerformanceGoal[]
+  trainingCourses          TrainingCourse[]
+  trainingRecords          TrainingRecord[]
 
   // SaaS subscription plane
   subscription       TenantSubscription?
@@ -1113,30 +1146,33 @@ model Employee {
   updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt   DateTime? @db.Timestamptz(6)
 
-  tenant            Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user              User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  campus            Campus?                 @relation(fields: [campusId], references: [id], onDelete: SetNull)
-  department        Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  position          Position?               @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  manager           Employee?               @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
-  reports           Employee[]              @relation("EmployeeManager")
-  createdBy         User?                   @relation("EmployeeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy         User?                   @relation("EmployeeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  teacher           Teacher?
-  statusHistory     EmployeeStatusHistory[]
-  headOf            Department[]            @relation("DepartmentHead")
-  contracts         EmploymentContract[]
-  documents         EmployeeDocument[]
-  emergencyContacts EmergencyContact[]
-  dependents        Dependent[]
-  education         EmployeeEducation[]
-  certificates      Certificate[]
-  bankAccounts      EmployeeBankAccount[]
-  driverProfile     DriverProfile?
-  busesDriven       Bus[]                   @relation("BusDriver")
-  leaveBalances     StaffLeaveBalance[]
-  leaveRequests     StaffLeaveRequest[]
-  attendance        StaffAttendance[]
+  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user               User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  campus             Campus?                 @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  department         Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position           Position?               @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  manager            Employee?               @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports            Employee[]              @relation("EmployeeManager")
+  createdBy          User?                   @relation("EmployeeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy          User?                   @relation("EmployeeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  teacher            Teacher?
+  statusHistory      EmployeeStatusHistory[]
+  headOf             Department[]            @relation("DepartmentHead")
+  contracts          EmploymentContract[]
+  documents          EmployeeDocument[]
+  emergencyContacts  EmergencyContact[]
+  dependents         Dependent[]
+  education          EmployeeEducation[]
+  certificates       Certificate[]
+  bankAccounts       EmployeeBankAccount[]
+  driverProfile      DriverProfile?
+  busesDriven        Bus[]                   @relation("BusDriver")
+  leaveBalances      StaffLeaveBalance[]
+  leaveRequests      StaffLeaveRequest[]
+  attendance         StaffAttendance[]
+  performanceReviews PerformanceReview[]
+  performanceGoals   PerformanceGoal[]
+  trainingRecords    TrainingRecord[]
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -1301,6 +1337,7 @@ model EmployeeDocument {
   uploadedBy       User?                @relation("EmployeeDocumentUploadedBy", fields: [uploadedById], references: [id], onDelete: SetNull)
   contractsSigned  EmploymentContract[] @relation("ContractSignedDocument")
   certificateLinks Certificate[]        @relation("CertificateDocument")
+  trainingRecords  TrainingRecord[]     @relation("TrainingCertificate")
 
   @@index([tenantId])
   @@index([tenantId, employeeId])
@@ -1589,6 +1626,131 @@ model StaffAttendance {
   @@index([tenantId, employeeId])
 }
 
+// HR Phase 6 — a named appraisal period (e.g. "2026 Annual"). Reviews attach to a cycle.
+model PerformanceCycle {
+  id        String                 @id @default(uuid()) @db.Uuid
+  tenantId  String                 @db.Uuid
+  name      String
+  startDate DateTime               @db.Date
+  endDate   DateTime               @db.Date
+  status    PerformanceCycleStatus @default(DRAFT)
+  createdAt DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime               @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime?              @db.Timestamptz(6)
+
+  tenant  Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reviews PerformanceReview[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+}
+
+// One employee's appraisal within a cycle. Rating 1–5; the review is drafted, submitted by the
+// reviewer, and acknowledged by the employee. Goals hang off the review.
+model PerformanceReview {
+  id             String                  @id @default(uuid()) @db.Uuid
+  tenantId       String                  @db.Uuid
+  cycleId        String                  @db.Uuid
+  employeeId     String                  @db.Uuid
+  reviewerId     String?                 @db.Uuid
+  status         PerformanceReviewStatus @default(DRAFT)
+  overallRating  Int? // 1–5
+  summary        String?
+  strengths      String?
+  improvements   String?
+  submittedAt    DateTime?               @db.Timestamptz(6)
+  acknowledgedAt DateTime?               @db.Timestamptz(6)
+  createdAt      DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cycle    PerformanceCycle  @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer User?             @relation("PerformanceReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  goals    PerformanceGoal[]
+
+  @@unique([tenantId, cycleId, employeeId])
+  @@index([tenantId])
+  @@index([tenantId, cycleId])
+  @@index([tenantId, employeeId])
+}
+
+// A SMART goal within a review. `weight` lets ratings be weighted; `progress` is 0–100.
+model PerformanceGoal {
+  id          String                @id @default(uuid()) @db.Uuid
+  tenantId    String                @db.Uuid
+  reviewId    String                @db.Uuid
+  employeeId  String                @db.Uuid
+  title       String
+  description String?
+  weight      Int                   @default(1)
+  progress    Int                   @default(0) // 0–100
+  status      PerformanceGoalStatus @default(NOT_STARTED)
+  rating      Int? // 1–5
+  dueDate     DateTime?             @db.Date
+  createdAt   DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime              @updatedAt @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  review   PerformanceReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, reviewId])
+  @@index([tenantId, employeeId])
+}
+
+// HR Phase 6 — training catalog. A course an employee can be enrolled in / complete.
+model TrainingCourse {
+  id          String    @id @default(uuid()) @db.Uuid
+  tenantId    String    @db.Uuid
+  title       String
+  description String?
+  category    String?
+  provider    String?
+  hours       Decimal?  @db.Decimal(5, 2)
+  mandatory   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  records TrainingRecord[]
+
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+// An employee's participation in a course. `expiresAt` supports renewable certifications;
+// `certificateId` links the earned certificate to the existing EmployeeDocument store (reuse).
+model TrainingRecord {
+  id            String               @id @default(uuid()) @db.Uuid
+  tenantId      String               @db.Uuid
+  courseId      String               @db.Uuid
+  employeeId    String               @db.Uuid
+  status        TrainingRecordStatus @default(ENROLLED)
+  enrolledAt    DateTime             @default(now()) @db.Timestamptz(6)
+  completedAt   DateTime?            @db.Timestamptz(6)
+  score         Decimal?             @db.Decimal(5, 2)
+  expiresAt     DateTime?            @db.Date
+  certificateId String?              @db.Uuid
+  note          String?
+  createdAt     DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  course      TrainingCourse    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  certificate EmployeeDocument? @relation("TrainingCertificate", fields: [certificateId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, courseId, employeeId])
+  @@index([tenantId])
+  @@index([tenantId, employeeId])
+  @@index([tenantId, status])
+  @@index([tenantId, expiresAt])
+}
+
 model ParentStudent {
   id        String         @id @default(uuid()) @db.Uuid
   tenantId  String         @db.Uuid
@@ -1677,6 +1839,7 @@ model User {
   staffLeaveApproved       StaffLeaveApproval[]    @relation("StaffLeaveApprover")
   staffAttendanceMarked    StaffAttendance[]       @relation("StaffAttendanceMarkedBy")
   staffAttendanceCorrected StaffAttendance[]       @relation("StaffAttendanceCorrectedBy")
+  performanceReviewsGiven  PerformanceReview[]     @relation("PerformanceReviewer")
   studentAttendanceMarks   StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
   teacherAttendanceMarks   TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
   notifications            Notification[]

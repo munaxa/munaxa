@@ -39,6 +39,8 @@ import { DocumentsTab } from './tabs/documents-tab';
 import { DriverTab } from './tabs/driver-tab';
 import { LeaveTab } from './tabs/leave-tab';
 import { AttendanceTab } from './tabs/attendance-tab';
+import { PerformanceTab } from './tabs/performance-tab';
+import { TrainingTab } from './tabs/training-tab';
 import {
   BankAccountsCard,
   CertificatesCard,
@@ -93,6 +95,10 @@ export function EmployeeProfile() {
   const canLeaveApprove = can('staff-leave:approve');
   const canAttendanceRead = can('staff-attendance:read');
   const canAttendanceManage = can('staff-attendance:manage');
+  const canPerformanceRead = can('performance:read');
+  const canPerformanceManage = can('performance:manage');
+  const canTrainingRead = can('training:read');
+  const canTrainingManage = can('training:manage');
 
   const load = useCallback(async () => {
     try {
@@ -186,6 +192,12 @@ export function EmployeeProfile() {
           {canLeaveRead ? <TabsTrigger value="leave">{t('hr.tabLeave')}</TabsTrigger> : null}
           {canAttendanceRead ? (
             <TabsTrigger value="attendance">{t('hr.tabAttendance')}</TabsTrigger>
+          ) : null}
+          {canPerformanceRead ? (
+            <TabsTrigger value="performance">{t('hr.tabPerformance')}</TabsTrigger>
+          ) : null}
+          {canTrainingRead ? (
+            <TabsTrigger value="training">{t('hr.tabTraining')}</TabsTrigger>
           ) : null}
           <TabsTrigger value="history">{t('hr.tabHistory')}</TabsTrigger>
         </TabsList>
@@ -312,6 +324,18 @@ export function EmployeeProfile() {
         {canAttendanceRead ? (
           <TabsContent value="attendance">
             <AttendanceTab employeeId={e.id} canManage={canAttendanceManage} />
+          </TabsContent>
+        ) : null}
+
+        {canPerformanceRead ? (
+          <TabsContent value="performance">
+            <PerformanceTab employeeId={e.id} canManage={canPerformanceManage} />
+          </TabsContent>
+        ) : null}
+
+        {canTrainingRead ? (
+          <TabsContent value="training">
+            <TrainingTab employeeId={e.id} canManage={canTrainingManage} />
           </TabsContent>
         ) : null}
 

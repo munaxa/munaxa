@@ -49,6 +49,11 @@ export const Permission = {
   STAFF_ATTENDANCE_READ: 'staff-attendance:read',
   STAFF_ATTENDANCE_MANAGE: 'staff-attendance:manage',
   PAYROLL_PREPARE: 'payroll:prepare',
+  // HR Phase 6 — performance management & training.
+  PERFORMANCE_READ: 'performance:read',
+  PERFORMANCE_MANAGE: 'performance:manage',
+  TRAINING_READ: 'training:read',
+  TRAINING_MANAGE: 'training:manage',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -211,6 +216,11 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
     'Record, bulk-mark and correct staff daily attendance (check-in/out, overtime).',
   [Permission.PAYROLL_PREPARE]:
     'Generate payroll-preparation summaries from staff attendance and approved leave.',
+  [Permission.PERFORMANCE_READ]: 'View performance cycles, appraisals and goals.',
+  [Permission.PERFORMANCE_MANAGE]:
+    'Manage performance cycles, write appraisals, and set employee goals.',
+  [Permission.TRAINING_READ]: 'View the training catalog and employee training records.',
+  [Permission.TRAINING_MANAGE]: 'Manage training courses and employee enrolments/completions.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

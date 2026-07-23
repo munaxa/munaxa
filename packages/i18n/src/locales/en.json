@@ -5,6 +5,7 @@
     "loading": "Loading…",
     "save": "Save",
     "note": "Note",
+    "title": "Title",
     "saveChanges": "Save changes",
     "optional": "optional",
     "saving": "Saving…",
@@ -208,7 +209,9 @@
     "platformOrganizations": "Organizations",
     "platformWebhooks": "Webhooks",
     "leave": "Leave",
-    "payroll": "Payroll"
+    "payroll": "Payroll",
+    "performance": "Performance",
+    "training": "Training"
   },
   "dashboard": {
     "title": "Overview",
@@ -1806,6 +1809,62 @@
       "ON_LEAVE": "On leave",
       "HOLIDAY": "Holiday",
       "REMOTE": "Remote"
+    },
+    "tabPerformance": "Performance",
+    "tabTraining": "Training",
+    "newReview": "New review",
+    "cycle": "Cycle",
+    "noReviews": "No reviews yet.",
+    "overallRating": "Overall rating",
+    "reviewSummary": "Summary",
+    "strengths": "Strengths",
+    "improvements": "Areas to improve",
+    "submitReview": "Submit",
+    "acknowledge": "Acknowledge",
+    "goals": "Goals",
+    "noGoals": "No goals yet.",
+    "weight": "Weight",
+    "goalTitle": "Goal",
+    "performanceCycles": "Performance cycles",
+    "cycles": "Cycles",
+    "noCycles": "No cycles yet.",
+    "enrollTraining": "Enrol in training",
+    "course": "Course",
+    "enroll": "Enrol",
+    "trainingRecords": "Training records",
+    "noTraining": "No training records.",
+    "score": "Score",
+    "expires": "Expires",
+    "mandatory": "Mandatory",
+    "training": "Training",
+    "expiringCertifications": "Expiring certifications (90 days)",
+    "courseCatalog": "Course catalog",
+    "category": "Category",
+    "hours": "Hours",
+    "noCourses": "No courses yet.",
+    "inactive": "Inactive",
+    "reviewStatus": {
+      "DRAFT": "Draft",
+      "SUBMITTED": "Submitted",
+      "ACKNOWLEDGED": "Acknowledged"
+    },
+    "cycleStatus": {
+      "DRAFT": "Draft",
+      "ACTIVE": "Active",
+      "CLOSED": "Closed"
+    },
+    "goalStatus": {
+      "NOT_STARTED": "Not started",
+      "IN_PROGRESS": "In progress",
+      "COMPLETED": "Completed",
+      "CANCELLED": "Cancelled"
+    },
+    "trainingStatus": {
+      "ENROLLED": "Enrolled",
+      "IN_PROGRESS": "In progress",
+      "COMPLETED": "Completed",
+      "FAILED": "Failed",
+      "CANCELLED": "Cancelled"
     }
   }
 }

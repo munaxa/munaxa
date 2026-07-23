@@ -5,6 +5,7 @@
     "loading": "جارٍ التحميل…",
     "save": "حفظ",
     "note": "ملاحظة",
+    "title": "العنوان",
     "saveChanges": "حفظ التغييرات",
     "optional": "اختياري",
     "saving": "جارٍ الحفظ…",
@@ -208,7 +209,9 @@
     "platformOrganizations": "المنظمات",
     "platformWebhooks": "الويب هوك",
     "leave": "الإجازات",
-    "payroll": "الرواتب"
+    "payroll": "الرواتب",
+    "performance": "الأداء",
+    "training": "التدريب"
   },
   "dashboard": {
     "title": "نظرة عامة",
@@ -1806,6 +1809,62 @@
       "ON_LEAVE": "في إجازة",
       "HOLIDAY": "عطلة",
       "REMOTE": "عن بُعد"
+    },
+    "tabPerformance": "الأداء",
+    "tabTraining": "التدريب",
+    "newReview": "تقييم جديد",
+    "cycle": "الدورة",
+    "noReviews": "لا توجد تقييمات بعد.",
+    "overallRating": "التقييم العام",
+    "reviewSummary": "الملخّص",
+    "strengths": "نقاط القوة",
+    "improvements": "مجالات التحسين",
+    "submitReview": "إرسال",
+    "acknowledge": "إقرار",
+    "goals": "الأهداف",
+    "noGoals": "لا توجد أهداف بعد.",
+    "weight": "الوزن",
+    "goalTitle": "الهدف",
+    "performanceCycles": "دورات الأداء",
+    "cycles": "الدورات",
+    "noCycles": "لا توجد دورات بعد.",
+    "enrollTraining": "التسجيل في تدريب",
+    "course": "الدورة التدريبية",
+    "enroll": "تسجيل",
+    "trainingRecords": "سجلات التدريب",
+    "noTraining": "لا توجد سجلات تدريب.",
+    "score": "الدرجة",
+    "expires": "تنتهي",
+    "mandatory": "إلزامي",
+    "training": "التدريب",
+    "expiringCertifications": "شهادات على وشك الانتهاء (٩٠ يومًا)",
+    "courseCatalog": "دليل الدورات",
+    "category": "الفئة",
+    "hours": "الساعات",
+    "noCourses": "لا توجد دورات بعد.",
+    "inactive": "غير نشط",
+    "reviewStatus": {
+      "DRAFT": "مسودة",
+      "SUBMITTED": "مُرسل",
+      "ACKNOWLEDGED": "مُقَر"
+    },
+    "cycleStatus": {
+      "DRAFT": "مسودة",
+      "ACTIVE": "نشط",
+      "CLOSED": "مغلق"
+    },
+    "goalStatus": {
+      "NOT_STARTED": "لم يبدأ",
+      "IN_PROGRESS": "قيد التنفيذ",
+      "COMPLETED": "مكتمل",
+      "CANCELLED": "ملغى"
+    },
+    "trainingStatus": {
+      "ENROLLED": "مُسجّل",
+      "IN_PROGRESS": "قيد التنفيذ",
+      "COMPLETED": "مكتمل",
+      "FAILED": "راسب",
+      "CANCELLED": "ملغى"
     }
   }
 }

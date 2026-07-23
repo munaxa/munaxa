@@ -74,6 +74,18 @@ const NAV_GROUPS: NavGroup[] = [
         icon: 'employees',
         perm: 'payroll:prepare',
       },
+      {
+        href: '/people/performance',
+        labelKey: 'nav.performance',
+        icon: 'employees',
+        perm: 'performance:read',
+      },
+      {
+        href: '/people/training',
+        labelKey: 'nav.training',
+        icon: 'employees',
+        perm: 'training:read',
+      },
       { href: '/people/cards', labelKey: 'nav.cards', icon: 'cards', perm: 'card:read' },
     ],
   },
