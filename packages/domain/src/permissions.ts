@@ -57,6 +57,9 @@ export const Permission = {
   // HR Phase 7 — asset management (custody-tracked staff assets).
   ASSET_READ: 'asset:read',
   ASSET_MANAGE: 'asset:manage',
+  // HR Phase 8 — recruitment (vacancies, applicants, interviews, hire).
+  RECRUITMENT_READ: 'recruitment:read',
+  RECRUITMENT_MANAGE: 'recruitment:manage',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -226,6 +229,9 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.TRAINING_MANAGE]: 'Manage training courses and employee enrolments/completions.',
   [Permission.ASSET_READ]: 'View the asset register and staff asset assignments.',
   [Permission.ASSET_MANAGE]: 'Manage assets and assign/return them to staff (custody tracking).',
+  [Permission.RECRUITMENT_READ]: 'View job postings, applicants and interviews.',
+  [Permission.RECRUITMENT_MANAGE]:
+    'Manage job postings, applicants and interviews, and hire an applicant into an employee.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

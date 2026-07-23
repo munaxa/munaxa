@@ -6,6 +6,7 @@
     "save": "حفظ",
     "note": "ملاحظة",
     "title": "العنوان",
+    "arabic": "العربية",
     "saveChanges": "حفظ التغييرات",
     "optional": "اختياري",
     "saving": "جارٍ الحفظ…",
@@ -212,7 +213,8 @@
     "payroll": "الرواتب",
     "performance": "الأداء",
     "training": "التدريب",
-    "assets": "العُهد"
+    "assets": "العُهد",
+    "recruitment": "التوظيف"
   },
   "dashboard": {
     "title": "نظرة عامة",
@@ -1901,6 +1903,50 @@
       "IN_REPAIR": "قيد الإصلاح",
       "RETIRED": "خارج الخدمة",
       "LOST": "مفقود"
+    },
+    "recruitment": "التوظيف",
+    "newPosting": "شاغر جديد",
+    "jobTitle": "المسمى الوظيفي",
+    "jobPostings": "الشواغر الوظيفية",
+    "noPostings": "لا توجد شواغر بعد.",
+    "applicants": "متقدمين",
+    "addApplicant": "إضافة متقدم",
+    "firstName": "الاسم الأول",
+    "lastName": "اسم العائلة",
+    "noApplicants": "لا يوجد متقدمون بعد.",
+    "hire": "توظيف",
+    "confirmHire": "تأكيد التوظيف",
+    "interviews": "المقابلات",
+    "noInterviews": "لا توجد مقابلات مجدولة.",
+    "interviewTime": "موعد المقابلة",
+    "mode": "النوع",
+    "schedule": "جدولة",
+    "pass": "ناجح",
+    "fail": "راسب",
+    "postingStatus": {
+      "DRAFT": "مسودة",
+      "OPEN": "مفتوح",
+      "CLOSED": "مغلق",
+      "FILLED": "مشغول"
+    },
+    "applicantStatus": {
+      "APPLIED": "تقدّم",
+      "SCREENING": "فرز",
+      "INTERVIEW": "مقابلة",
+      "OFFER": "عرض",
+      "HIRED": "موظّف",
+      "REJECTED": "مرفوض",
+      "WITHDRAWN": "منسحب"
+    },
+    "interviewMode": {
+      "ONSITE": "حضوري",
+      "PHONE": "هاتف",
+      "VIDEO": "فيديو"
+    },
+    "interviewOutcome": {
+      "PENDING": "معلّق",
+      "PASSED": "ناجح",
+      "FAILED": "راسب"
     }
   }
 }

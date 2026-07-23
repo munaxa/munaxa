@@ -253,6 +253,36 @@ enum AssetCondition {
   DAMAGED
 }
 
+// HR Phase 8 — recruitment (vacancies → applicants → interviews → offer → hire).
+enum JobPostingStatus {
+  DRAFT
+  OPEN
+  CLOSED
+  FILLED
+}
+
+enum ApplicantStatus {
+  APPLIED
+  SCREENING
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum InterviewMode {
+  ONSITE
+  PHONE
+  VIDEO
+}
+
+enum InterviewOutcome {
+  PENDING
+  PASSED
+  FAILED
+}
+
 enum ParentRelation {
   FATHER
   MOTHER
@@ -744,6 +774,9 @@ model Tenant {
   trainingRecords          TrainingRecord[]
   assets                   Asset[]
   assetAssignments         AssetAssignment[]
+  jobPostings              JobPosting[]
+  jobApplicants            JobApplicant[]
+  interviews               Interview[]
 
   // SaaS subscription plane
   subscription       TenantSubscription?
@@ -1207,6 +1240,7 @@ model Employee {
   trainingRecords    TrainingRecord[]
   assetAssignments   AssetAssignment[]
   assets             Asset[]
+  hiredFromApplicant JobApplicant?           @relation("ApplicantHire")
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -1257,13 +1291,14 @@ model Department {
   updatedAt DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt DateTime? @db.Timestamptz(6)
 
-  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campus    Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
-  parent    Department?  @relation("DepartmentTree", fields: [parentId], references: [id], onDelete: SetNull)
-  children  Department[] @relation("DepartmentTree")
-  head      Employee?    @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
-  employees Employee[]
-  positions Position[]
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus      Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  parent      Department?  @relation("DepartmentTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Department[] @relation("DepartmentTree")
+  head        Employee?    @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+  employees   Employee[]
+  positions   Position[]
+  jobPostings JobPosting[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -1288,9 +1323,10 @@ model Position {
   updatedAt DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt DateTime? @db.Timestamptz(6)
 
-  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  employees  Employee[]
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department  Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employees   Employee[]
+  jobPostings JobPosting[]
 
   @@unique([tenantId, title])
   @@index([tenantId])
@@ -1845,6 +1881,87 @@ model AssetAssignment {
   @@index([tenantId, returnedAt])
 }
 
+// HR Phase 8 — a job vacancy. Optionally tied to a Department/Position (org engine, Phase 1); a
+// hired applicant becomes a real Employee (lifecycle Phase 1), closing the recruitment loop.
+model JobPosting {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @db.Uuid
+  departmentId   String?          @db.Uuid
+  positionId     String?          @db.Uuid
+  title          String
+  description    String?
+  employmentType EmploymentType?
+  location       String?
+  headcount      Int              @default(1)
+  status         JobPostingStatus @default(DRAFT)
+  openedAt       DateTime?        @db.Timestamptz(6)
+  closedAt       DateTime?        @db.Timestamptz(6)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime?        @db.Timestamptz(6)
+
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position   Position?      @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  applicants JobApplicant[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, departmentId])
+}
+
+// A candidate for a posting. On HIRED, `hiredEmployeeId` links the created Employee row (1:1).
+model JobApplicant {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @db.Uuid
+  postingId       String          @db.Uuid
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  source          String?
+  resumeUrl       String?
+  status          ApplicantStatus @default(APPLIED)
+  rating          Int? // 1–5
+  notes           String?
+  hiredEmployeeId String?         @unique @db.Uuid
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  posting       JobPosting  @relation(fields: [postingId], references: [id], onDelete: Cascade)
+  hiredEmployee Employee?   @relation("ApplicantHire", fields: [hiredEmployeeId], references: [id], onDelete: SetNull)
+  interviews    Interview[]
+
+  @@index([tenantId])
+  @@index([tenantId, postingId])
+  @@index([tenantId, status])
+}
+
+// A scheduled interview for an applicant, with an interviewer and an outcome.
+model Interview {
+  id            String           @id @default(uuid()) @db.Uuid
+  tenantId      String           @db.Uuid
+  applicantId   String           @db.Uuid
+  interviewerId String?          @db.Uuid
+  scheduledAt   DateTime         @db.Timestamptz(6)
+  mode          InterviewMode    @default(ONSITE)
+  stage         String?
+  outcome       InterviewOutcome @default(PENDING)
+  rating        Int? // 1–5
+  feedback      String?
+  createdAt     DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime         @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  applicant   JobApplicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  interviewer User?        @relation("Interviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, applicantId])
+  @@index([tenantId, scheduledAt])
+}
+
 model ParentStudent {
   id        String         @id @default(uuid()) @db.Uuid
   tenantId  String         @db.Uuid
@@ -1935,6 +2052,7 @@ model User {
   staffAttendanceCorrected StaffAttendance[]       @relation("StaffAttendanceCorrectedBy")
   performanceReviewsGiven  PerformanceReview[]     @relation("PerformanceReviewer")
   assetsAssigned           AssetAssignment[]       @relation("AssetAssignedBy")
+  interviewsConducted      Interview[]             @relation("Interviewer")
   studentAttendanceMarks   StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
   teacherAttendanceMarks   TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
   notifications            Notification[]

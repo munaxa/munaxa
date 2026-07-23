@@ -51,6 +51,7 @@ import { EnrollmentLifecycleRepository } from './enrollment-lifecycle/enrollment
     EnrollmentLifecycleService,
     EnrollmentLifecycleRepository,
   ],
-  exports: [EnrollmentLifecycleService],
+  // EmployeeService is reused by the recruitment module to hire an applicant into an Employee.
+  exports: [EnrollmentLifecycleService, EmployeeService],
 })
 export class PeopleModule {}

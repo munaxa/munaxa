@@ -6,6 +6,7 @@
     "save": "Save",
     "note": "Note",
     "title": "Title",
+    "arabic": "Arabic",
     "saveChanges": "Save changes",
     "optional": "optional",
     "saving": "Saving…",
@@ -212,7 +213,8 @@
     "payroll": "Payroll",
     "performance": "Performance",
     "training": "Training",
-    "assets": "Assets"
+    "assets": "Assets",
+    "recruitment": "Recruitment"
   },
   "dashboard": {
     "title": "Overview",
@@ -1901,6 +1903,50 @@
       "IN_REPAIR": "In repair",
       "RETIRED": "Retired",
       "LOST": "Lost"
+    },
+    "recruitment": "Recruitment",
+    "newPosting": "New posting",
+    "jobTitle": "Job title",
+    "jobPostings": "Job postings",
+    "noPostings": "No job postings yet.",
+    "applicants": "applicants",
+    "addApplicant": "Add applicant",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "noApplicants": "No applicants yet.",
+    "hire": "Hire",
+    "confirmHire": "Confirm hire",
+    "interviews": "Interviews",
+    "noInterviews": "No interviews scheduled.",
+    "interviewTime": "Interview time",
+    "mode": "Mode",
+    "schedule": "Schedule",
+    "pass": "Pass",
+    "fail": "Fail",
+    "postingStatus": {
+      "DRAFT": "Draft",
+      "OPEN": "Open",
+      "CLOSED": "Closed",
+      "FILLED": "Filled"
+    },
+    "applicantStatus": {
+      "APPLIED": "Applied",
+      "SCREENING": "Screening",
+      "INTERVIEW": "Interview",
+      "OFFER": "Offer",
+      "HIRED": "Hired",
+      "REJECTED": "Rejected",
+      "WITHDRAWN": "Withdrawn"
+    },
+    "interviewMode": {
+      "ONSITE": "On-site",
+      "PHONE": "Phone",
+      "VIDEO": "Video"
+    },
+    "interviewOutcome": {
+      "PENDING": "Pending",
+      "PASSED": "Passed",
+      "FAILED": "Failed"
     }
   }
 }

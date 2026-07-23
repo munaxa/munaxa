@@ -1565,3 +1565,145 @@ export const assetsApi = {
   forEmployee: (employeeId: string) =>
     authFetch(`/employees/${employeeId}/assets`).then((r) => json<AssetAssignment[]>(r)),
 };
+
+// --- HR Phase 8: recruitment -------------------------------------------------
+export type JobPostingStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'FILLED';
+export const JOB_POSTING_STATUSES: JobPostingStatus[] = ['DRAFT', 'OPEN', 'CLOSED', 'FILLED'];
+export type ApplicantStatus =
+  | 'APPLIED'
+  | 'SCREENING'
+  | 'INTERVIEW'
+  | 'OFFER'
+  | 'HIRED'
+  | 'REJECTED'
+  | 'WITHDRAWN';
+export const APPLICANT_STATUSES: ApplicantStatus[] = [
+  'APPLIED',
+  'SCREENING',
+  'INTERVIEW',
+  'OFFER',
+  'HIRED',
+  'REJECTED',
+  'WITHDRAWN',
+];
+export type InterviewMode = 'ONSITE' | 'PHONE' | 'VIDEO';
+export const INTERVIEW_MODES: InterviewMode[] = ['ONSITE', 'PHONE', 'VIDEO'];
+export type InterviewOutcome = 'PENDING' | 'PASSED' | 'FAILED';
+export const INTERVIEW_OUTCOMES: InterviewOutcome[] = ['PENDING', 'PASSED', 'FAILED'];
+
+export interface JobPosting {
+  id: string;
+  title: string;
+  description: string | null;
+  employmentType: EmploymentType | null;
+  location: string | null;
+  headcount: number;
+  status: JobPostingStatus;
+  openedAt: string | null;
+  closedAt: string | null;
+  department: { id: string; name: string } | null;
+  position: { id: string; title: string } | null;
+  _count: { applicants: number };
+}
+
+export interface Interview {
+  id: string;
+  applicantId: string;
+  scheduledAt: string;
+  mode: InterviewMode;
+  stage: string | null;
+  outcome: InterviewOutcome;
+  rating: number | null;
+  feedback: string | null;
+}
+
+export interface JobApplicant {
+  id: string;
+  postingId: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  source: string | null;
+  status: ApplicantStatus;
+  rating: number | null;
+  notes: string | null;
+  hiredEmployeeId: string | null;
+  posting: { id: string; title: string };
+  interviews: Interview[];
+}
+
+export const recruitmentApi = {
+  listPostings: (status?: JobPostingStatus) =>
+    authFetch(`/hr/job-postings${status ? `?status=${status}` : ''}`).then((r) =>
+      json<JobPosting[]>(r),
+    ),
+  createPosting: (data: {
+    title: string;
+    description?: string;
+    departmentId?: string;
+    positionId?: string;
+    employmentType?: EmploymentType;
+    location?: string;
+    headcount?: number;
+    status?: JobPostingStatus;
+  }) =>
+    authFetch('/hr/job-postings', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<JobPosting>(r),
+    ),
+  updatePosting: (id: string, data: Partial<{ title: string; status: JobPostingStatus }>) =>
+    authFetch(`/hr/job-postings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<JobPosting>(r),
+    ),
+  removePosting: (id: string) => del(`/hr/job-postings/${id}`),
+
+  listApplicants: (postingId: string) =>
+    authFetch(`/hr/job-postings/${postingId}/applicants`).then((r) => json<JobApplicant[]>(r)),
+  createApplicant: (
+    postingId: string,
+    data: { firstName: string; lastName: string; email?: string; phone?: string; source?: string },
+  ) =>
+    authFetch(`/hr/job-postings/${postingId}/applicants`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<JobApplicant>(r)),
+  updateApplicant: (
+    id: string,
+    data: Partial<{ status: ApplicantStatus; rating: number; notes: string }>,
+  ) =>
+    authFetch(`/hr/applicants/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<JobApplicant>(r),
+    ),
+  hire: (
+    id: string,
+    data: {
+      firstNameAr: string;
+      lastNameAr: string;
+      jobTitle?: string;
+      departmentId?: string;
+      positionId?: string;
+      employmentType?: EmploymentType;
+      hireDate?: string;
+    },
+  ) =>
+    authFetch(`/hr/applicants/${id}/hire`, { method: 'POST', body: JSON.stringify(data) }).then(
+      (r) => json<JobApplicant>(r),
+    ),
+
+  createInterview: (
+    applicantId: string,
+    data: { scheduledAt: string; mode?: InterviewMode; interviewerId?: string; stage?: string },
+  ) =>
+    authFetch(`/hr/applicants/${applicantId}/interviews`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<Interview>(r)),
+  updateInterview: (
+    id: string,
+    data: Partial<{ outcome: InterviewOutcome; rating: number; feedback: string }>,
+  ) =>
+    authFetch(`/hr/interviews/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<Interview>(r),
+    ),
+  removeInterview: (id: string) => del(`/hr/interviews/${id}`),
+};
