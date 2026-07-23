@@ -38,6 +38,13 @@ interface NavGroup {
 const NAV_GROUPS: NavGroup[] = [
   { items: [{ href: '/', labelKey: 'nav.dashboard', icon: 'dashboard' }] },
   {
+    titleKey: 'nav.section.me',
+    items: [
+      { href: '/me/hr', labelKey: 'nav.myHr', icon: 'employees', perm: 'ess:read' },
+      { href: '/me/team', labelKey: 'nav.myTeam', icon: 'employees', perm: 'team:read' },
+    ],
+  },
+  {
     titleKey: 'nav.section.people',
     items: [
       {

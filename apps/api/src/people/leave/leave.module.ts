@@ -10,5 +10,6 @@ import { LeaveRepository } from './leave.repository';
 @Module({
   controllers: [LeaveController, EmployeeLeaveController],
   providers: [LeaveService, LeaveRepository],
+  exports: [LeaveService], // reused by the self-service / manager portals (Phase 9)
 })
 export class LeaveModule {}

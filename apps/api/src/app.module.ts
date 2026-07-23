@@ -16,6 +16,7 @@ import { PerformanceModule } from './people/performance/performance.module';
 import { TrainingModule } from './people/training/training.module';
 import { AssetModule } from './people/assets/asset.module';
 import { RecruitmentModule } from './people/recruitment/recruitment.module';
+import { SelfServiceModule } from './people/self-service/self-service.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AcademicsModule } from './academics/academics.module';
@@ -89,6 +90,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     TrainingModule,
     AssetModule,
     RecruitmentModule,
+    SelfServiceModule,
     SchedulingModule,
     AttendanceModule,
     AcademicsModule,

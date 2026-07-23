@@ -60,6 +60,11 @@ export const Permission = {
   // HR Phase 8 — recruitment (vacancies, applicants, interviews, hire).
   RECRUITMENT_READ: 'recruitment:read',
   RECRUITMENT_MANAGE: 'recruitment:manage',
+  // HR Phase 9 — employee self-service (own HR data) & manager portal (direct reports).
+  ESS_READ: 'ess:read',
+  ESS_REQUEST: 'ess:request',
+  TEAM_READ: 'team:read',
+  TEAM_APPROVE: 'team:approve',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -232,6 +237,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.RECRUITMENT_READ]: 'View job postings, applicants and interviews.',
   [Permission.RECRUITMENT_MANAGE]:
     'Manage job postings, applicants and interviews, and hire an applicant into an employee.',
+  [Permission.ESS_READ]: 'View your own HR data (profile, leave, attendance, assets, training).',
+  [Permission.ESS_REQUEST]: 'Submit and cancel your own leave requests.',
+  [Permission.TEAM_READ]: 'View your direct reports and their pending requests.',
+  [Permission.TEAM_APPROVE]: 'Approve or reject leave requests from your direct reports.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

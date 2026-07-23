@@ -14,5 +14,6 @@ import { AttendanceRepository } from './attendance.repository';
   imports: [ReportingModule],
   controllers: [AttendanceController, EmployeeAttendanceController],
   providers: [AttendanceService, AttendanceRepository],
+  exports: [AttendanceService], // reused by the self-service portal (Phase 9)
 })
 export class StaffAttendanceModule {}

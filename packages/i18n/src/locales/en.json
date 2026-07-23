@@ -163,6 +163,7 @@
     "feeCatalog": "Fee catalog",
     "enrollment": "New enrollment",
     "section": {
+      "me": "My workspace",
       "people": "People",
       "academics": "Academics",
       "finance": "Finance",
@@ -171,6 +172,8 @@
       "settings": "Administration",
       "platform": "Platform"
     },
+    "myHr": "My HR",
+    "myTeam": "My Team",
     "structure": "School structure",
     "academicStructure": "Academic structure",
     "people": "Students",
@@ -1947,6 +1950,11 @@
       "PENDING": "Pending",
       "PASSED": "Passed",
       "FAILED": "Failed"
-    }
+    },
+    "myHr": "My HR",
+    "myTeam": "My Team",
+    "noProfile": "No employee profile is linked to your account.",
+    "directReports": "Direct reports",
+    "noReports": "You have no direct reports."
   }
 }

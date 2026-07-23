@@ -11,5 +11,6 @@ import { TrainingRepository } from './training.repository';
 @Module({
   controllers: [TrainingController, EmployeeTrainingController],
   providers: [TrainingService, TrainingRepository],
+  exports: [TrainingService], // reused by the self-service portal (Phase 9)
 })
 export class TrainingModule {}

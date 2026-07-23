@@ -1707,3 +1707,66 @@ export const recruitmentApi = {
     ),
   removeInterview: (id: string) => del(`/hr/interviews/${id}`),
 };
+
+// --- HR Phase 9: self-service (ESS) & manager portal -------------------------
+export interface MyProfile {
+  id: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  firstNameAr: string;
+  lastNameAr: string;
+  employeeNumber: string | null;
+  jobTitle: string;
+  employmentType: EmploymentType | null;
+  status: EmploymentStatus;
+  hireDate: string | null;
+  personalEmail: string | null;
+  personalPhone: string | null;
+  department: { id: string; name: string } | null;
+  position: { id: string; title: string } | null;
+  manager: { id: string; firstNameEn: string; lastNameEn: string } | null;
+}
+
+export interface TeamMember {
+  id: string;
+  firstNameEn: string;
+  lastNameEn: string;
+  jobTitle: string;
+  status: EmploymentStatus;
+  department: { id: string; name: string } | null;
+}
+
+export const essApi = {
+  profile: () => authFetch('/me/hr/profile').then((r) => json<MyProfile>(r)),
+  leaveBalances: () => authFetch('/me/hr/leave-balances').then((r) => json<LeaveBalance[]>(r)),
+  leaveRequests: () => authFetch('/me/hr/leave-requests').then((r) => json<LeaveRequest[]>(r)),
+  submitLeave: (data: CreateLeaveRequestInput) =>
+    authFetch('/me/hr/leave-requests', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<LeaveRequest>(r),
+    ),
+  cancelLeave: (id: string) =>
+    authFetch(`/me/hr/leave-requests/${id}/cancel`, { method: 'POST', body: '{}' }).then((r) =>
+      json<LeaveRequest>(r),
+    ),
+  attendance: () => authFetch('/me/hr/attendance').then((r) => json<StaffAttendance[]>(r)),
+  assets: () => authFetch('/me/hr/assets').then((r) => json<AssetAssignment[]>(r)),
+  training: () => authFetch('/me/hr/training').then((r) => json<TrainingRecord[]>(r)),
+  reviews: () => authFetch('/me/hr/reviews').then((r) => json<PerformanceReview[]>(r)),
+  acknowledgeReview: (id: string) =>
+    authFetch(`/me/hr/reviews/${id}/acknowledge`, { method: 'POST', body: '{}' }).then((r) =>
+      json<PerformanceReview>(r),
+    ),
+};
+
+export const teamApi = {
+  members: () => authFetch('/me/team/members').then((r) => json<TeamMember[]>(r)),
+  pendingLeave: () => authFetch('/me/team/leave-requests').then((r) => json<LeaveRequest[]>(r)),
+  approve: (id: string) =>
+    authFetch(`/me/team/leave-requests/${id}/approve`, { method: 'POST', body: '{}' }).then((r) =>
+      json<LeaveRequest>(r),
+    ),
+  reject: (id: string) =>
+    authFetch(`/me/team/leave-requests/${id}/reject`, { method: 'POST', body: '{}' }).then((r) =>
+      json<LeaveRequest>(r),
+    ),
+};

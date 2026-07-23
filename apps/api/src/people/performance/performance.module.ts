@@ -10,5 +10,6 @@ import { PerformanceRepository } from './performance.repository';
 @Module({
   controllers: [PerformanceController, EmployeePerformanceController],
   providers: [PerformanceService, PerformanceRepository],
+  exports: [PerformanceService], // reused by the self-service portal (Phase 9)
 })
 export class PerformanceModule {}

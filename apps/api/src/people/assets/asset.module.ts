@@ -11,5 +11,6 @@ import { AssetRepository } from './asset.repository';
 @Module({
   controllers: [AssetController, EmployeeAssetController],
   providers: [AssetService, AssetRepository],
+  exports: [AssetService], // reused by the self-service portal (Phase 9)
 })
 export class AssetModule {}
