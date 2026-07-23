@@ -211,7 +211,8 @@
     "leave": "الإجازات",
     "payroll": "الرواتب",
     "performance": "الأداء",
-    "training": "التدريب"
+    "training": "التدريب",
+    "assets": "العُهد"
   },
   "dashboard": {
     "title": "نظرة عامة",
@@ -1865,6 +1866,41 @@
       "COMPLETED": "مكتمل",
       "FAILED": "راسب",
       "CANCELLED": "ملغى"
+    },
+    "tabAssets": "العُهد",
+    "assignedAssets": "العُهد المُسندة",
+    "noAssets": "لا توجد عُهد مُسندة.",
+    "assetTag": "رقم العُهدة",
+    "assignedAt": "تاريخ الإسناد",
+    "returnedAt": "تاريخ الإرجاع",
+    "inCustody": "في العهدة",
+    "return": "إرجاع",
+    "assetRegister": "سجل العُهد",
+    "addAsset": "إضافة عُهدة",
+    "assetCategory": "الفئة",
+    "assets": "العُهد",
+    "allStatuses": "كل الحالات",
+    "noAssetsRegistered": "لا توجد عُهد مُسجّلة.",
+    "assignee": "المُسند إليه",
+    "assign": "إسناد",
+    "assetCat": {
+      "LAPTOP": "حاسوب محمول",
+      "DESKTOP": "حاسوب مكتبي",
+      "PHONE": "هاتف",
+      "TABLET": "جهاز لوحي",
+      "VEHICLE": "مركبة",
+      "KEY": "مفتاح",
+      "UNIFORM": "زي",
+      "FURNITURE": "أثاث",
+      "EQUIPMENT": "معدات",
+      "OTHER": "أخرى"
+    },
+    "assetStatus": {
+      "AVAILABLE": "متاح",
+      "ASSIGNED": "مُسند",
+      "IN_REPAIR": "قيد الإصلاح",
+      "RETIRED": "خارج الخدمة",
+      "LOST": "مفقود"
     }
   }
 }

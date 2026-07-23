@@ -223,6 +223,36 @@ enum TrainingRecordStatus {
   CANCELLED
 }
 
+// HR Phase 7 — asset management (discrete, custody-tracked assets issued to staff).
+enum AssetCategory {
+  LAPTOP
+  DESKTOP
+  PHONE
+  TABLET
+  VEHICLE
+  KEY
+  UNIFORM
+  FURNITURE
+  EQUIPMENT
+  OTHER
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_REPAIR
+  RETIRED
+  LOST
+}
+
+enum AssetCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
 enum ParentRelation {
   FATHER
   MOTHER
@@ -712,6 +742,8 @@ model Tenant {
   performanceGoals         PerformanceGoal[]
   trainingCourses          TrainingCourse[]
   trainingRecords          TrainingRecord[]
+  assets                   Asset[]
+  assetAssignments         AssetAssignment[]
 
   // SaaS subscription plane
   subscription       TenantSubscription?
@@ -1173,6 +1205,8 @@ model Employee {
   performanceReviews PerformanceReview[]
   performanceGoals   PerformanceGoal[]
   trainingRecords    TrainingRecord[]
+  assetAssignments   AssetAssignment[]
+  assets             Asset[]
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -1751,6 +1785,66 @@ model TrainingRecord {
   @@index([tenantId, expiresAt])
 }
 
+// HR Phase 7 — a discrete, custody-tracked asset (laptop, key, uniform, vehicle…). Distinct from the
+// fungible-stock InventoryItem: each Asset is an individual unit with a lifecycle and an assignment
+// (custody) history. `currentAssignee` denormalises the active holder for fast directory listing.
+model Asset {
+  id                String         @id @default(uuid()) @db.Uuid
+  tenantId          String         @db.Uuid
+  assetTag          String
+  name              String
+  category          AssetCategory  @default(OTHER)
+  serialNumber      String?
+  status            AssetStatus    @default(AVAILABLE)
+  condition         AssetCondition @default(GOOD)
+  purchaseDate      DateTime?      @db.Date
+  purchaseCost      Decimal?       @db.Decimal(12, 2)
+  warrantyExpiry    DateTime?      @db.Date
+  location          String?
+  notes             String?
+  currentAssigneeId String?        @db.Uuid
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(6)
+  deletedAt         DateTime?      @db.Timestamptz(6)
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currentAssignee Employee?         @relation(fields: [currentAssigneeId], references: [id], onDelete: SetNull)
+  assignments     AssetAssignment[]
+
+  @@unique([tenantId, assetTag])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+  @@index([tenantId, currentAssigneeId])
+}
+
+// One custody record: an asset issued to an employee, later returned. An asset has at most one open
+// (unreturned) assignment at a time; the return records the condition it came back in.
+model AssetAssignment {
+  id              String          @id @default(uuid()) @db.Uuid
+  tenantId        String          @db.Uuid
+  assetId         String          @db.Uuid
+  employeeId      String          @db.Uuid
+  assignedAt      DateTime        @default(now()) @db.Timestamptz(6)
+  dueDate         DateTime?       @db.Date
+  returnedAt      DateTime?       @db.Timestamptz(6)
+  returnCondition AssetCondition?
+  assignedById    String?         @db.Uuid
+  note            String?
+  createdAt       DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(6)
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedBy User?    @relation("AssetAssignedBy", fields: [assignedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, assetId])
+  @@index([tenantId, employeeId])
+  @@index([tenantId, returnedAt])
+}
+
 model ParentStudent {
   id        String         @id @default(uuid()) @db.Uuid
   tenantId  String         @db.Uuid
@@ -1840,6 +1934,7 @@ model User {
   staffAttendanceMarked    StaffAttendance[]       @relation("StaffAttendanceMarkedBy")
   staffAttendanceCorrected StaffAttendance[]       @relation("StaffAttendanceCorrectedBy")
   performanceReviewsGiven  PerformanceReview[]     @relation("PerformanceReviewer")
+  assetsAssigned           AssetAssignment[]       @relation("AssetAssignedBy")
   studentAttendanceMarks   StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
   teacherAttendanceMarks   TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
   notifications            Notification[]

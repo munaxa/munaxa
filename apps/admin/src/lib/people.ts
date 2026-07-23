@@ -1448,3 +1448,120 @@ export const trainingApi = {
       json<TrainingRecord[]>(r),
     ),
 };
+
+// --- HR Phase 7: asset management --------------------------------------------
+export type AssetCategory =
+  | 'LAPTOP'
+  | 'DESKTOP'
+  | 'PHONE'
+  | 'TABLET'
+  | 'VEHICLE'
+  | 'KEY'
+  | 'UNIFORM'
+  | 'FURNITURE'
+  | 'EQUIPMENT'
+  | 'OTHER';
+export const ASSET_CATEGORIES: AssetCategory[] = [
+  'LAPTOP',
+  'DESKTOP',
+  'PHONE',
+  'TABLET',
+  'VEHICLE',
+  'KEY',
+  'UNIFORM',
+  'FURNITURE',
+  'EQUIPMENT',
+  'OTHER',
+];
+export type AssetStatus = 'AVAILABLE' | 'ASSIGNED' | 'IN_REPAIR' | 'RETIRED' | 'LOST';
+export const ASSET_STATUSES: AssetStatus[] = [
+  'AVAILABLE',
+  'ASSIGNED',
+  'IN_REPAIR',
+  'RETIRED',
+  'LOST',
+];
+export type AssetCondition = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DAMAGED';
+export const ASSET_CONDITIONS: AssetCondition[] = ['NEW', 'GOOD', 'FAIR', 'POOR', 'DAMAGED'];
+
+export interface Asset {
+  id: string;
+  assetTag: string;
+  name: string;
+  category: AssetCategory;
+  serialNumber: string | null;
+  status: AssetStatus;
+  condition: AssetCondition;
+  purchaseCost: string | number | null;
+  location: string | null;
+  currentAssignee: { id: string; firstNameEn: string; lastNameEn: string } | null;
+}
+
+export interface AssetAssignment {
+  id: string;
+  assetId: string;
+  employeeId: string;
+  assignedAt: string;
+  dueDate: string | null;
+  returnedAt: string | null;
+  returnCondition: AssetCondition | null;
+  note: string | null;
+  asset: { id: string; assetTag: string; name: string; category: AssetCategory };
+  employee: { id: string; firstNameEn: string; lastNameEn: string };
+}
+
+export interface AssetDetail extends Asset {
+  assignments: AssetAssignment[];
+}
+
+export const assetsApi = {
+  list: (filters?: { status?: AssetStatus; category?: AssetCategory }) => {
+    const p = new URLSearchParams();
+    if (filters?.status) p.set('status', filters.status);
+    if (filters?.category) p.set('category', filters.category);
+    const qs = p.toString();
+    return authFetch(`/hr/assets${qs ? `?${qs}` : ''}`).then((r) => json<Asset[]>(r));
+  },
+  get: (id: string) => authFetch(`/hr/assets/${id}`).then((r) => json<AssetDetail>(r)),
+  create: (data: {
+    assetTag: string;
+    name: string;
+    category?: AssetCategory;
+    serialNumber?: string;
+    condition?: AssetCondition;
+    purchaseCost?: number;
+    location?: string;
+  }) =>
+    authFetch('/hr/assets', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Asset>(r),
+    ),
+  update: (
+    id: string,
+    data: Partial<{
+      assetTag: string;
+      name: string;
+      category: AssetCategory;
+      serialNumber: string;
+      condition: AssetCondition;
+      status: AssetStatus;
+      location: string;
+    }>,
+  ) =>
+    authFetch(`/hr/assets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<Asset>(r),
+    ),
+  remove: (id: string) => del(`/hr/assets/${id}`),
+  assign: (id: string, data: { employeeId: string; dueDate?: string; note?: string }) =>
+    authFetch(`/hr/assets/${id}/assign`, { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<AssetAssignment>(r),
+    ),
+  return: (
+    id: string,
+    data: { returnCondition?: AssetCondition; status?: AssetStatus; note?: string },
+  ) =>
+    authFetch(`/hr/assets/${id}/return`, { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<AssetAssignment>(r),
+    ),
+  forEmployee: (employeeId: string) =>
+    authFetch(`/employees/${employeeId}/assets`).then((r) => json<AssetAssignment[]>(r)),
+};

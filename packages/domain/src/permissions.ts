@@ -54,6 +54,9 @@ export const Permission = {
   PERFORMANCE_MANAGE: 'performance:manage',
   TRAINING_READ: 'training:read',
   TRAINING_MANAGE: 'training:manage',
+  // HR Phase 7 — asset management (custody-tracked staff assets).
+  ASSET_READ: 'asset:read',
+  ASSET_MANAGE: 'asset:manage',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -221,6 +224,8 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
     'Manage performance cycles, write appraisals, and set employee goals.',
   [Permission.TRAINING_READ]: 'View the training catalog and employee training records.',
   [Permission.TRAINING_MANAGE]: 'Manage training courses and employee enrolments/completions.',
+  [Permission.ASSET_READ]: 'View the asset register and staff asset assignments.',
+  [Permission.ASSET_MANAGE]: 'Manage assets and assign/return them to staff (custody tracking).',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

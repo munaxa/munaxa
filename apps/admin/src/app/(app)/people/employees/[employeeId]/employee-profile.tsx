@@ -41,6 +41,7 @@ import { LeaveTab } from './tabs/leave-tab';
 import { AttendanceTab } from './tabs/attendance-tab';
 import { PerformanceTab } from './tabs/performance-tab';
 import { TrainingTab } from './tabs/training-tab';
+import { AssetsTab } from './tabs/assets-tab';
 import {
   BankAccountsCard,
   CertificatesCard,
@@ -99,6 +100,8 @@ export function EmployeeProfile() {
   const canPerformanceManage = can('performance:manage');
   const canTrainingRead = can('training:read');
   const canTrainingManage = can('training:manage');
+  const canAssetRead = can('asset:read');
+  const canAssetManage = can('asset:manage');
 
   const load = useCallback(async () => {
     try {
@@ -199,6 +202,7 @@ export function EmployeeProfile() {
           {canTrainingRead ? (
             <TabsTrigger value="training">{t('hr.tabTraining')}</TabsTrigger>
           ) : null}
+          {canAssetRead ? <TabsTrigger value="assets">{t('hr.tabAssets')}</TabsTrigger> : null}
           <TabsTrigger value="history">{t('hr.tabHistory')}</TabsTrigger>
         </TabsList>
 
@@ -336,6 +340,12 @@ export function EmployeeProfile() {
         {canTrainingRead ? (
           <TabsContent value="training">
             <TrainingTab employeeId={e.id} canManage={canTrainingManage} />
+          </TabsContent>
+        ) : null}
+
+        {canAssetRead ? (
+          <TabsContent value="assets">
+            <AssetsTab employeeId={e.id} canManage={canAssetManage} />
           </TabsContent>
         ) : null}
 

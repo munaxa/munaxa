@@ -211,7 +211,8 @@
     "leave": "Leave",
     "payroll": "Payroll",
     "performance": "Performance",
-    "training": "Training"
+    "training": "Training",
+    "assets": "Assets"
   },
   "dashboard": {
     "title": "Overview",
@@ -1865,6 +1866,41 @@
       "COMPLETED": "Completed",
       "FAILED": "Failed",
       "CANCELLED": "Cancelled"
+    },
+    "tabAssets": "Assets",
+    "assignedAssets": "Assigned assets",
+    "noAssets": "No assets assigned.",
+    "assetTag": "Asset tag",
+    "assignedAt": "Assigned",
+    "returnedAt": "Returned",
+    "inCustody": "In custody",
+    "return": "Return",
+    "assetRegister": "Asset register",
+    "addAsset": "Add asset",
+    "assetCategory": "Category",
+    "assets": "Assets",
+    "allStatuses": "All statuses",
+    "noAssetsRegistered": "No assets registered.",
+    "assignee": "Assignee",
+    "assign": "Assign",
+    "assetCat": {
+      "LAPTOP": "Laptop",
+      "DESKTOP": "Desktop",
+      "PHONE": "Phone",
+      "TABLET": "Tablet",
+      "VEHICLE": "Vehicle",
+      "KEY": "Key",
+      "UNIFORM": "Uniform",
+      "FURNITURE": "Furniture",
+      "EQUIPMENT": "Equipment",
+      "OTHER": "Other"
+    },
+    "assetStatus": {
+      "AVAILABLE": "Available",
+      "ASSIGNED": "Assigned",
+      "IN_REPAIR": "In repair",
+      "RETIRED": "Retired",
+      "LOST": "Lost"
     }
   }
 }
