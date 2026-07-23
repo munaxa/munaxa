@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "munaxa-admin",
+  "name": "munaxa",
   "main": ".open-next/worker.js",
   // Keep in sync with the date this config was last reviewed.
   "compatibility_date": "2026-06-11",
