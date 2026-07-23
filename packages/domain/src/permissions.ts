@@ -36,6 +36,9 @@ export const Permission = {
   HR_CONTRACT_MANAGE: 'hr:contract:manage',
   HR_DOCUMENT_READ: 'hr:document:read',
   HR_DOCUMENT_MANAGE: 'hr:document:manage',
+  // HR Phase 3 — driver profiles (licence, medical, infractions). Drivers are Employees.
+  DRIVER_READ: 'driver:read',
+  DRIVER_MANAGE: 'driver:manage',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -187,6 +190,8 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.HR_CONTRACT_MANAGE]: 'Create, edit, renew and terminate employment contracts.',
   [Permission.HR_DOCUMENT_READ]: 'View and download employee documents.',
   [Permission.HR_DOCUMENT_MANAGE]: 'Upload, version and delete employee documents.',
+  [Permission.DRIVER_READ]: 'View driver profiles (licence, medical, infractions, assigned buses).',
+  [Permission.DRIVER_MANAGE]: 'Create and edit driver profiles and record infractions.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

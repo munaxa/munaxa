@@ -155,6 +155,13 @@ enum DependentRelation {
   OTHER
 }
 
+// HR Phase 3 — driver refactor.
+enum InfractionSeverity {
+  MINOR
+  MAJOR
+  SEVERE
+}
+
 enum ParentRelation {
   FATHER
   MOTHER
@@ -632,6 +639,8 @@ model Tenant {
   employeeEducation        EmployeeEducation[]
   certificates             Certificate[]
   employeeBankAccounts     EmployeeBankAccount[]
+  driverProfiles           DriverProfile[]
+  driverInfractions        DriverInfraction[]
 
   // SaaS subscription plane
   subscription       TenantSubscription?
@@ -1085,6 +1094,8 @@ model Employee {
   education         EmployeeEducation[]
   certificates      Certificate[]
   bankAccounts      EmployeeBankAccount[]
+  driverProfile     DriverProfile?
+  busesDriven       Bus[]                   @relation("BusDriver")
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -1360,6 +1371,52 @@ model EmployeeBankAccount {
 
   @@index([tenantId])
   @@index([tenantId, employeeId])
+}
+
+// The driving facet of an Employee (HR Phase 3). An employee becomes an assignable bus driver by
+// gaining a DriverProfile. Holds licence + medical compliance (expiry-indexed for reminders) and a
+// driving-performance rating; infractions are tracked in DriverInfraction. Buses reference the
+// Employee directly (Bus.driverId), so route/assignment history comes from the Bus relation.
+model DriverProfile {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @db.Uuid
+  employeeId        String    @unique @db.Uuid
+  licenseNumber     String?
+  licenseClass      String?
+  licenseExpiry     DateTime? @db.Date
+  medicalCertExpiry DateTime? @db.Date
+  medicalNotes      String?
+  performanceRating Int? // 1–5 driving-performance rating
+  notes             String?
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt         DateTime? @db.Timestamptz(6)
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee    Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  infractions DriverInfraction[]
+
+  @@index([tenantId])
+  @@index([tenantId, licenseExpiry])
+  @@index([tenantId, medicalCertExpiry])
+}
+
+model DriverInfraction {
+  id              String             @id @default(uuid()) @db.Uuid
+  tenantId        String             @db.Uuid
+  driverProfileId String             @db.Uuid
+  date            DateTime           @db.Date
+  type            String
+  description     String?
+  severity        InfractionSeverity @default(MINOR)
+  points          Int?
+  createdAt       DateTime           @default(now()) @db.Timestamptz(6)
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  profile DriverProfile @relation(fields: [driverProfileId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, driverProfileId])
 }
 
 model ParentStudent {
@@ -2896,8 +2953,9 @@ model Bus {
   label       String?
   capacity    Int?
   tripRound   Int? // which trip of the route this bus serves: 1 (1st) or 2 (2nd)
-  driverName  String?
-  driverPhone String?
+  // HR Phase 3: the driver is now a canonical Employee (with a DriverProfile), not a free-text
+  // name/phone. The old driverName/driverPhone strings were migrated into Employee records.
+  driverId    String?   @db.Uuid
   lastLat     Float?
   lastLng     Float?
   lastSeenAt  DateTime? @db.Timestamptz(6)
@@ -2907,10 +2965,12 @@ model Bus {
 
   tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   route            BusRoute?            @relation(fields: [routeId], references: [id], onDelete: SetNull)
+  driver           Employee?            @relation("BusDriver", fields: [driverId], references: [id], onDelete: SetNull)
   attendanceEvents BusAttendanceEvent[]
 
   @@unique([tenantId, plateNumber])
   @@index([tenantId])
+  @@index([driverId])
 }
 
 model BusStop {

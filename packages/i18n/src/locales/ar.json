@@ -1723,6 +1723,27 @@
       "SIBLING": "أخ/أخت",
       "OTHER": "أخرى"
     },
-    "contractTypeLabel": "نوع العقد"
+    "contractTypeLabel": "نوع العقد",
+    "tabDriver": "السائق",
+    "driverProfile": "ملف السائق",
+    "notADriver": "هذا الموظف غير مسجّل كسائق.",
+    "makeDriver": "تسجيل كسائق",
+    "driverCreated": "تم إنشاء ملف السائق",
+    "licenseNumber": "رقم الرخصة",
+    "licenseClass": "فئة الرخصة",
+    "licenseExpiry": "انتهاء الرخصة",
+    "medicalCertExpiry": "انتهاء الشهادة الطبية",
+    "performanceRating": "الأداء (1–5)",
+    "infractions": "المخالفات",
+    "date": "التاريخ",
+    "infractionType": "النوع",
+    "severity": "الخطورة",
+    "points": "النقاط",
+    "noInfractions": "لا توجد مخالفات مسجّلة.",
+    "severityLevel": {
+      "MINOR": "بسيطة",
+      "MAJOR": "كبيرة",
+      "SEVERE": "جسيمة"
+    }
   }
 }

@@ -1723,6 +1723,27 @@
       "SIBLING": "Sibling",
       "OTHER": "Other"
     },
-    "contractTypeLabel": "Contract type"
+    "contractTypeLabel": "Contract type",
+    "tabDriver": "Driver",
+    "driverProfile": "Driver profile",
+    "notADriver": "This employee is not registered as a driver.",
+    "makeDriver": "Register as driver",
+    "driverCreated": "Driver profile created",
+    "licenseNumber": "Licence number",
+    "licenseClass": "Licence class",
+    "licenseExpiry": "Licence expiry",
+    "medicalCertExpiry": "Medical certificate expiry",
+    "performanceRating": "Performance (1–5)",
+    "infractions": "Infractions",
+    "date": "Date",
+    "infractionType": "Type",
+    "severity": "Severity",
+    "points": "Points",
+    "noInfractions": "No infractions recorded.",
+    "severityLevel": {
+      "MINOR": "Minor",
+      "MAJOR": "Major",
+      "SEVERE": "Severe"
+    }
   }
 }

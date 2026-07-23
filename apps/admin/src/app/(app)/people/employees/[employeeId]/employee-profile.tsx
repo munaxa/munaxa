@@ -36,6 +36,7 @@ import {
 import { EmployeeEditor } from '../employee-editor';
 import { ContractsTab } from './tabs/contracts-tab';
 import { DocumentsTab } from './tabs/documents-tab';
+import { DriverTab } from './tabs/driver-tab';
 import {
   BankAccountsCard,
   CertificatesCard,
@@ -83,6 +84,8 @@ export function EmployeeProfile() {
   const canContractManage = can('hr:contract:manage');
   const canDocumentRead = can('hr:document:read');
   const canDocumentManage = can('hr:document:manage');
+  const canDriverRead = can('driver:read');
+  const canDriverManage = can('driver:manage');
 
   const load = useCallback(async () => {
     try {
@@ -172,6 +175,7 @@ export function EmployeeProfile() {
           <TabsTrigger value="family">{t('hr.tabFamily')}</TabsTrigger>
           <TabsTrigger value="qualifications">{t('hr.tabQualifications')}</TabsTrigger>
           {canSensitive ? <TabsTrigger value="bank">{t('hr.tabBank')}</TabsTrigger> : null}
+          {canDriverRead ? <TabsTrigger value="driver">{t('hr.tabDriver')}</TabsTrigger> : null}
           <TabsTrigger value="history">{t('hr.tabHistory')}</TabsTrigger>
         </TabsList>
 
@@ -279,6 +283,12 @@ export function EmployeeProfile() {
         {canSensitive ? (
           <TabsContent value="bank">
             <BankAccountsCard employeeId={e.id} canManage={canManage} />
+          </TabsContent>
+        ) : null}
+
+        {canDriverRead ? (
+          <TabsContent value="driver">
+            <DriverTab employeeId={e.id} canManage={canDriverManage} />
           </TabsContent>
         ) : null}
 

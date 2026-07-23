@@ -15,6 +15,9 @@ import {
   EducationController,
   EmergencyContactController,
 } from './personal-records.controller';
+import { DriverController, DriverProfileController } from './driver.controller';
+import { DriverService } from './driver.service';
+import { DriverRepository } from './driver.repository';
 
 /**
  * HR Phase 2 — employment contracts, employee documents (S3-backed, versioned), and the personal
@@ -30,6 +33,8 @@ import {
     EducationController,
     CertificateController,
     BankAccountController,
+    DriverController,
+    DriverProfileController,
   ],
   providers: [
     ContractService,
@@ -38,6 +43,8 @@ import {
     EmployeeDocumentRepository,
     PersonalRecordsService,
     PersonalRecordsRepository,
+    DriverService,
+    DriverRepository,
     StorageService,
   ],
 })

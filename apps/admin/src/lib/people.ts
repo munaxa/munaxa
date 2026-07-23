@@ -901,3 +901,73 @@ export const dependentsApi = subResource<Dependent, Record<string, unknown>>('de
 export const educationApi = subResource<EmployeeEducation, Record<string, unknown>>('education');
 export const certificatesApi = subResource<Certificate, Record<string, unknown>>('certificates');
 export const bankAccountsApi = subResource<BankAccount, Record<string, unknown>>('bank-accounts');
+
+// ---------------------------------------------------------------------------
+// HR Phase 3 — driver profile (employee-scoped): licence, medical, infractions
+// ---------------------------------------------------------------------------
+
+export type InfractionSeverity = 'MINOR' | 'MAJOR' | 'SEVERE';
+export const INFRACTION_SEVERITIES: InfractionSeverity[] = ['MINOR', 'MAJOR', 'SEVERE'];
+
+export interface DriverInfraction {
+  id: string;
+  date: string;
+  type: string;
+  description?: string | null;
+  severity: InfractionSeverity;
+  points?: number | null;
+}
+
+export interface DriverProfile {
+  id: string;
+  employeeId: string;
+  licenseNumber?: string | null;
+  licenseClass?: string | null;
+  licenseExpiry?: string | null;
+  medicalCertExpiry?: string | null;
+  medicalNotes?: string | null;
+  performanceRating?: number | null;
+  notes?: string | null;
+  infractions: DriverInfraction[];
+}
+
+export interface UpsertDriverProfileInput {
+  licenseNumber?: string;
+  licenseClass?: string;
+  licenseExpiry?: string;
+  medicalCertExpiry?: string;
+  medicalNotes?: string;
+  performanceRating?: number;
+  notes?: string;
+}
+
+export interface CreateInfractionInput {
+  date: string;
+  type: string;
+  description?: string;
+  severity?: InfractionSeverity;
+  points?: number;
+}
+
+export const driverProfileApi = {
+  get: (employeeId: string) =>
+    authFetch(`/employees/${employeeId}/driver-profile`).then((r) => json<DriverProfile>(r)),
+  upsert: (employeeId: string, data: UpsertDriverProfileInput) =>
+    authFetch(`/employees/${employeeId}/driver-profile`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }).then((r) => json<DriverProfile>(r)),
+  remove: (employeeId: string) => del(`/employees/${employeeId}/driver-profile`),
+  addInfraction: (employeeId: string, data: CreateInfractionInput) =>
+    authFetch(`/employees/${employeeId}/driver-profile/infractions`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<DriverInfraction>(r)),
+  updateInfraction: (employeeId: string, id: string, data: Partial<CreateInfractionInput>) =>
+    authFetch(`/employees/${employeeId}/driver-profile/infractions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<DriverInfraction>(r)),
+  removeInfraction: (employeeId: string, id: string) =>
+    del(`/employees/${employeeId}/driver-profile/infractions/${id}`),
+};

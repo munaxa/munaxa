@@ -116,6 +116,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.HR_ORG_READ,
     Permission.HR_CONTRACT_READ,
     Permission.HR_DOCUMENT_READ,
+    Permission.DRIVER_READ,
     Permission.TIMETABLE_READ,
     Permission.ATTENDANCE_READ,
     Permission.HOMEWORK_READ,
@@ -290,6 +291,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.HR_CONTRACT_MANAGE,
     Permission.HR_DOCUMENT_READ,
     Permission.HR_DOCUMENT_MANAGE,
+    Permission.DRIVER_READ,
+    Permission.DRIVER_MANAGE,
     Permission.TEACHER_MANAGE,
     Permission.LEAVE_APPROVE,
   ],
@@ -306,6 +309,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.BUS_READ,
     Permission.TRANSPORT_READ,
     Permission.CARD_READ,
+    Permission.EMPLOYEE_READ,
+    Permission.DRIVER_READ,
+    Permission.DRIVER_MANAGE,
   ],
   // BusSupervisor: on-board boarding/alighting scans.
   BusSupervisor: [
@@ -314,6 +320,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CARD_READ,
     Permission.BUS_READ,
     Permission.PRESENCE_READ,
+    Permission.DRIVER_READ,
   ],
   Parent: [
     Permission.PRESENCE_READ,
