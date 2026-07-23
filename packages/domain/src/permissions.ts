@@ -44,6 +44,11 @@ export const Permission = {
   STAFF_LEAVE_REQUEST: 'staff-leave:request',
   STAFF_LEAVE_APPROVE: 'staff-leave:approve',
   STAFF_LEAVE_MANAGE: 'staff-leave:manage',
+  // HR Phase 5 — staff (payroll) attendance & payroll preparation. Distinct from the academic
+  // `attendance:*` (student/teaching presence); this feeds HR payroll runs.
+  STAFF_ATTENDANCE_READ: 'staff-attendance:read',
+  STAFF_ATTENDANCE_MANAGE: 'staff-attendance:manage',
+  PAYROLL_PREPARE: 'payroll:prepare',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -201,6 +206,11 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.STAFF_LEAVE_REQUEST]: 'Submit staff leave requests.',
   [Permission.STAFF_LEAVE_APPROVE]: 'Approve or reject staff leave requests.',
   [Permission.STAFF_LEAVE_MANAGE]: 'Manage staff leave types and balances.',
+  [Permission.STAFF_ATTENDANCE_READ]: 'View staff daily attendance records for payroll.',
+  [Permission.STAFF_ATTENDANCE_MANAGE]:
+    'Record, bulk-mark and correct staff daily attendance (check-in/out, overtime).',
+  [Permission.PAYROLL_PREPARE]:
+    'Generate payroll-preparation summaries from staff attendance and approved leave.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

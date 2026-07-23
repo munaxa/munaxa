@@ -175,6 +175,26 @@ enum LeaveApprovalDecision {
   REJECTED
 }
 
+// HR Phase 5 — staff (payroll) attendance. Distinct from the academic TeacherAttendance and the
+// student StudentAttendance: this is per-employee daily attendance feeding payroll preparation.
+enum StaffAttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EARLY_DEPARTURE
+  ON_LEAVE
+  HOLIDAY
+  REMOTE
+}
+
+enum StaffAttendanceSource {
+  MANUAL
+  QR
+  BIOMETRIC
+  GPS
+  MOBILE
+}
+
 enum ParentRelation {
   FATHER
   MOTHER
@@ -658,6 +678,7 @@ model Tenant {
   staffLeaveBalances       StaffLeaveBalance[]
   staffLeaveRequests       StaffLeaveRequest[]
   staffLeaveApprovals      StaffLeaveApproval[]
+  staffAttendance          StaffAttendance[]
 
   // SaaS subscription plane
   subscription       TenantSubscription?
@@ -1115,6 +1136,7 @@ model Employee {
   busesDriven       Bus[]                   @relation("BusDriver")
   leaveBalances     StaffLeaveBalance[]
   leaveRequests     StaffLeaveRequest[]
+  attendance        StaffAttendance[]
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -1535,6 +1557,38 @@ model StaffLeaveApproval {
   @@index([tenantId, requestId])
 }
 
+// Per-employee daily attendance for HR/payroll (HR Phase 5). Overtime + late minutes feed payroll
+// preparation; a correction records the prior status + who changed it (audited trail).
+model StaffAttendance {
+  id                  String                 @id @default(uuid()) @db.Uuid
+  tenantId            String                 @db.Uuid
+  employeeId          String                 @db.Uuid
+  date                DateTime               @db.Date
+  status              StaffAttendanceStatus
+  source              StaffAttendanceSource  @default(MANUAL)
+  checkInAt           DateTime?              @db.Timestamptz(6)
+  checkOutAt          DateTime?              @db.Timestamptz(6)
+  lateMinutes         Int?
+  overtimeHours       Decimal?               @db.Decimal(5, 2)
+  note                String?
+  correctedFromStatus StaffAttendanceStatus?
+  correctedById       String?                @db.Uuid
+  correctedAt         DateTime?              @db.Timestamptz(6)
+  markedById          String?                @db.Uuid
+  createdAt           DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime               @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  markedBy    User?    @relation("StaffAttendanceMarkedBy", fields: [markedById], references: [id], onDelete: SetNull)
+  correctedBy User?    @relation("StaffAttendanceCorrectedBy", fields: [correctedById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, employeeId, date])
+  @@index([tenantId])
+  @@index([tenantId, date])
+  @@index([tenantId, employeeId])
+}
+
 model ParentStudent {
   id        String         @id @default(uuid()) @db.Uuid
   tenantId  String         @db.Uuid
@@ -1604,36 +1658,38 @@ model User {
   updatedAt              DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt              DateTime?  @db.Timestamptz(6)
 
-  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles              UserRole[]
-  refreshTokens          RefreshToken[]
-  passwordResets         PasswordResetToken[]
-  passwordResetAudits    PasswordResetAudit[]
-  studentProfile         Student?
-  parentProfile          Parent?
-  teacherProfile         Teacher?
-  employeeProfile        Employee?
-  employeesCreated       Employee[]              @relation("EmployeeCreatedBy")
-  employeesUpdated       Employee[]              @relation("EmployeeUpdatedBy")
-  employeeStatusChanges  EmployeeStatusHistory[] @relation("EmployeeStatusActor")
-  contractsCreated       EmploymentContract[]    @relation("ContractCreatedBy")
-  contractsUpdated       EmploymentContract[]    @relation("ContractUpdatedBy")
-  employeeDocsUploaded   EmployeeDocument[]      @relation("EmployeeDocumentUploadedBy")
-  staffLeaveRequested    StaffLeaveRequest[]     @relation("StaffLeaveRequestedBy")
-  staffLeaveApproved     StaffLeaveApproval[]    @relation("StaffLeaveApprover")
-  studentAttendanceMarks StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
-  teacherAttendanceMarks TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
-  notifications          Notification[]
-  notificationPreference NotificationPreference?
-  deviceTokens           DeviceToken[]
-  auditLogs              AuditLog[]              @relation("AuditActor")
-  leaveRequestsMade      LeaveRequest[]          @relation("LeaveRequestedBy")
-  leaveRequestsReviewed  LeaveRequest[]          @relation("LeaveReviewedBy")
-  ptmSlotsCreated        PtmSlot[]               @relation("PtmSlotCreatedBy")
-  ptmBookingsMade        PtmBooking[]            @relation("PtmBookedBy")
-  documentsUploaded      Document[]              @relation("DocumentUploadedBy")
-  resourcesUploaded      Resource[]              @relation("ResourceUploadedBy")
-  achievementsAwarded    StudentAchievement[]    @relation("AchievementAwardedBy")
+  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles                UserRole[]
+  refreshTokens            RefreshToken[]
+  passwordResets           PasswordResetToken[]
+  passwordResetAudits      PasswordResetAudit[]
+  studentProfile           Student?
+  parentProfile            Parent?
+  teacherProfile           Teacher?
+  employeeProfile          Employee?
+  employeesCreated         Employee[]              @relation("EmployeeCreatedBy")
+  employeesUpdated         Employee[]              @relation("EmployeeUpdatedBy")
+  employeeStatusChanges    EmployeeStatusHistory[] @relation("EmployeeStatusActor")
+  contractsCreated         EmploymentContract[]    @relation("ContractCreatedBy")
+  contractsUpdated         EmploymentContract[]    @relation("ContractUpdatedBy")
+  employeeDocsUploaded     EmployeeDocument[]      @relation("EmployeeDocumentUploadedBy")
+  staffLeaveRequested      StaffLeaveRequest[]     @relation("StaffLeaveRequestedBy")
+  staffLeaveApproved       StaffLeaveApproval[]    @relation("StaffLeaveApprover")
+  staffAttendanceMarked    StaffAttendance[]       @relation("StaffAttendanceMarkedBy")
+  staffAttendanceCorrected StaffAttendance[]       @relation("StaffAttendanceCorrectedBy")
+  studentAttendanceMarks   StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
+  teacherAttendanceMarks   TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
+  notifications            Notification[]
+  notificationPreference   NotificationPreference?
+  deviceTokens             DeviceToken[]
+  auditLogs                AuditLog[]              @relation("AuditActor")
+  leaveRequestsMade        LeaveRequest[]          @relation("LeaveRequestedBy")
+  leaveRequestsReviewed    LeaveRequest[]          @relation("LeaveReviewedBy")
+  ptmSlotsCreated          PtmSlot[]               @relation("PtmSlotCreatedBy")
+  ptmBookingsMade          PtmBooking[]            @relation("PtmBookedBy")
+  documentsUploaded        Document[]              @relation("DocumentUploadedBy")
+  resourcesUploaded        Resource[]              @relation("ResourceUploadedBy")
+  achievementsAwarded      StudentAchievement[]    @relation("AchievementAwardedBy")
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])

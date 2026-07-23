@@ -12,5 +12,7 @@ import { ExportService } from './export/export.service';
 @Module({
   controllers: [ReportingController],
   providers: [ReportingService, ReportingRepository, ExportService],
+  // ExportService is a self-contained tabular renderer (csv/xlsx/pdf) reused by HR payroll-prep.
+  exports: [ExportService],
 })
 export class ReportingModule {}

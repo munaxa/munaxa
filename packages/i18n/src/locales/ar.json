@@ -4,6 +4,7 @@
     "tagline": "نظام تشغيل المدارس",
     "loading": "جارٍ التحميل…",
     "save": "حفظ",
+    "note": "ملاحظة",
     "saveChanges": "حفظ التغييرات",
     "optional": "اختياري",
     "saving": "جارٍ الحفظ…",
@@ -206,7 +207,8 @@
     "platformAudit": "سجل التدقيق",
     "platformOrganizations": "المنظمات",
     "platformWebhooks": "الويب هوك",
-    "leave": "الإجازات"
+    "leave": "الإجازات",
+    "payroll": "الرواتب"
   },
   "dashboard": {
     "title": "نظرة عامة",
@@ -1776,6 +1778,34 @@
       "APPROVED": "موافق",
       "REJECTED": "مرفوض",
       "CANCELLED": "ملغى"
+    },
+    "tabAttendance": "الحضور",
+    "recordAttendance": "تسجيل الحضور",
+    "attendanceHistory": "سجل الحضور",
+    "noAttendance": "لا يوجد حضور مسجّل.",
+    "date": "التاريخ",
+    "lateMinutes": "التأخير (دقيقة)",
+    "overtimeHours": "العمل الإضافي (ساعة)",
+    "correctedFrom": "صُحِّح من",
+    "payrollPrep": "تحضير الرواتب",
+    "payrollPeriod": "فترة الرواتب",
+    "generate": "إنشاء",
+    "workingDays": "أيام عمل",
+    "noEmployees": "لا يوجد موظفون.",
+    "present": "حاضر",
+    "absent": "غائب",
+    "late": "متأخر",
+    "paidLeave": "إجازة مدفوعة",
+    "unpaidLeave": "إجازة غير مدفوعة",
+    "payableDays": "أيام مستحقة الدفع",
+    "attendanceStatus": {
+      "PRESENT": "حاضر",
+      "ABSENT": "غائب",
+      "LATE": "متأخر",
+      "EARLY_DEPARTURE": "مغادرة مبكرة",
+      "ON_LEAVE": "في إجازة",
+      "HOLIDAY": "عطلة",
+      "REMOTE": "عن بُعد"
     }
   }
 }

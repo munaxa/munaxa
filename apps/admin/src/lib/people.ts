@@ -1,6 +1,6 @@
 'use client';
 
-import { authFetch } from './auth';
+import { API_URL, authFetch } from './auth';
 
 export interface Student {
   id: string;
@@ -1093,4 +1093,133 @@ export const leaveApi = {
       method: 'POST',
       body: JSON.stringify(data),
     }).then((r) => json<LeaveRequest>(r)),
+};
+
+// --- HR Phase 5: staff attendance & payroll preparation ----------------------
+export type StaffAttendanceStatus =
+  | 'PRESENT'
+  | 'ABSENT'
+  | 'LATE'
+  | 'EARLY_DEPARTURE'
+  | 'ON_LEAVE'
+  | 'HOLIDAY'
+  | 'REMOTE';
+export const STAFF_ATTENDANCE_STATUSES: StaffAttendanceStatus[] = [
+  'PRESENT',
+  'ABSENT',
+  'LATE',
+  'EARLY_DEPARTURE',
+  'ON_LEAVE',
+  'HOLIDAY',
+  'REMOTE',
+];
+
+export type StaffAttendanceSource = 'MANUAL' | 'QR' | 'BIOMETRIC' | 'GPS' | 'MOBILE';
+
+export interface StaffAttendance {
+  id: string;
+  employeeId: string;
+  date: string;
+  status: StaffAttendanceStatus;
+  source: StaffAttendanceSource;
+  checkInAt: string | null;
+  checkOutAt: string | null;
+  lateMinutes: number | null;
+  overtimeHours: string | number | null;
+  note: string | null;
+  correctedFromStatus: StaffAttendanceStatus | null;
+  correctedAt: string | null;
+  employee: { id: string; firstNameEn: string; lastNameEn: string; employeeNumber: string | null };
+}
+
+export interface RecordAttendanceInput {
+  date: string;
+  status: StaffAttendanceStatus;
+  source?: StaffAttendanceSource;
+  checkInAt?: string;
+  checkOutAt?: string;
+  lateMinutes?: number;
+  overtimeHours?: number;
+  note?: string;
+}
+
+export interface PayrollPrepRow {
+  employeeId: string;
+  employeeName: string;
+  employeeNumber: string | null;
+  workingDays: number;
+  presentDays: number;
+  remoteDays: number;
+  absentDays: number;
+  lateDays: number;
+  lateMinutes: number;
+  overtimeHours: number;
+  paidLeaveDays: number;
+  unpaidLeaveDays: number;
+  payableDays: number;
+}
+
+export interface PayrollPrepResult {
+  from: string;
+  to: string;
+  workingDays: number;
+  rows: PayrollPrepRow[];
+}
+
+export const attendanceApi = {
+  listForEmployee: (employeeId: string, range?: { from?: string; to?: string }) => {
+    const p = new URLSearchParams();
+    if (range?.from) p.set('from', range.from);
+    if (range?.to) p.set('to', range.to);
+    const qs = p.toString();
+    return authFetch(`/employees/${employeeId}/attendance${qs ? `?${qs}` : ''}`).then((r) =>
+      json<StaffAttendance[]>(r),
+    );
+  },
+  record: (employeeId: string, data: RecordAttendanceInput) =>
+    authFetch(`/employees/${employeeId}/attendance`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<StaffAttendance>(r)),
+
+  daily: (date: string) =>
+    authFetch(`/hr/attendance?date=${encodeURIComponent(date)}`).then((r) =>
+      json<StaffAttendance[]>(r),
+    ),
+  bulk: (
+    date: string,
+    entries: Array<{ employeeId: string; status: StaffAttendanceStatus }>,
+    source?: StaffAttendanceSource,
+  ) =>
+    authFetch('/hr/attendance/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ date, ...(source ? { source } : {}), entries }),
+    }).then((r) => json<{ count: number }>(r)),
+
+  payrollPrep: (from: string, to: string) =>
+    authFetch(`/hr/payroll-prep?from=${from}&to=${to}`).then((r) => json<PayrollPrepResult>(r)),
+
+  /** Trigger a browser download of the payroll-prep export (cookie session). */
+  async downloadPayrollPrep(
+    from: string,
+    to: string,
+    format: 'csv' | 'xlsx' | 'pdf',
+  ): Promise<void> {
+    const res = await fetch(`${API_URL}/hr/payroll-prep?from=${from}&to=${to}&format=${format}`, {
+      credentials: 'include',
+    });
+    if (!res.ok) throw new Error(`Export failed (${res.status})`);
+    const blob = await res.blob();
+    const disposition = res.headers.get('content-disposition') ?? '';
+    const match = /filename="([^"]+)"/.exec(disposition);
+    const filename = match?.[1] ?? `payroll-prep.${format}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

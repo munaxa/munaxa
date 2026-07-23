@@ -119,6 +119,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.DRIVER_READ,
     Permission.STAFF_LEAVE_READ,
     Permission.STAFF_LEAVE_APPROVE,
+    Permission.STAFF_ATTENDANCE_READ,
     Permission.TIMETABLE_READ,
     Permission.ATTENDANCE_READ,
     Permission.HOMEWORK_READ,
@@ -152,6 +153,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.HR_ORG_READ,
     Permission.STAFF_LEAVE_READ,
     Permission.STAFF_LEAVE_APPROVE,
+    Permission.STAFF_ATTENDANCE_READ,
     Permission.ATTENDANCE_CONFIGURE,
     Permission.TIMETABLE_MANAGE,
     Permission.ATTENDANCE_CREATE,
@@ -174,6 +176,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.FINANCE_READ,
     Permission.FINANCE_EXPORT,
     Permission.FINANCE_TRANSFER_BILLING, // manager-level: change the legal payer
+    // Payroll preparation consumes staff attendance + approved leave (read-only source).
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.PAYROLL_PREPARE,
 
     Permission.TRANSACTION_CREATE,
     Permission.RECEIPT_UPLOAD,
@@ -301,6 +306,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.STAFF_LEAVE_REQUEST,
     Permission.STAFF_LEAVE_APPROVE,
     Permission.STAFF_LEAVE_MANAGE,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MANAGE,
+    Permission.PAYROLL_PREPARE,
     Permission.TEACHER_MANAGE,
     Permission.LEAVE_APPROVE,
   ],

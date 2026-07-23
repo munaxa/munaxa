@@ -4,6 +4,7 @@
     "tagline": "School Operating System",
     "loading": "Loading…",
     "save": "Save",
+    "note": "Note",
     "saveChanges": "Save changes",
     "optional": "optional",
     "saving": "Saving…",
@@ -206,7 +207,8 @@
     "platformAudit": "Audit Log",
     "platformOrganizations": "Organizations",
     "platformWebhooks": "Webhooks",
-    "leave": "Leave"
+    "leave": "Leave",
+    "payroll": "Payroll"
   },
   "dashboard": {
     "title": "Overview",
@@ -1776,6 +1778,34 @@
       "APPROVED": "Approved",
       "REJECTED": "Rejected",
       "CANCELLED": "Cancelled"
+    },
+    "tabAttendance": "Attendance",
+    "recordAttendance": "Record attendance",
+    "attendanceHistory": "Attendance history",
+    "noAttendance": "No attendance recorded.",
+    "date": "Date",
+    "lateMinutes": "Late (min)",
+    "overtimeHours": "Overtime (hrs)",
+    "correctedFrom": "corrected from",
+    "payrollPrep": "Payroll preparation",
+    "payrollPeriod": "Payroll period",
+    "generate": "Generate",
+    "workingDays": "working days",
+    "noEmployees": "No employees.",
+    "present": "Present",
+    "absent": "Absent",
+    "late": "Late",
+    "paidLeave": "Paid leave",
+    "unpaidLeave": "Unpaid leave",
+    "payableDays": "Payable days",
+    "attendanceStatus": {
+      "PRESENT": "Present",
+      "ABSENT": "Absent",
+      "LATE": "Late",
+      "EARLY_DEPARTURE": "Early departure",
+      "ON_LEAVE": "On leave",
+      "HOLIDAY": "Holiday",
+      "REMOTE": "Remote"
     }
   }
 }

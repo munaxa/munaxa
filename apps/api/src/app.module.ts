@@ -11,6 +11,7 @@ import { StructureModule } from './structure/structure.module';
 import { PeopleModule } from './people/people.module';
 import { EmployeeRecordsModule } from './people/employee-records/employee-records.module';
 import { LeaveModule } from './people/leave/leave.module';
+import { StaffAttendanceModule } from './people/attendance/attendance.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AcademicsModule } from './academics/academics.module';
@@ -79,6 +80,7 @@ import { LoggingInterceptor } from './observability/logging.interceptor';
     PeopleModule,
     EmployeeRecordsModule,
     LeaveModule,
+    StaffAttendanceModule,
     SchedulingModule,
     AttendanceModule,
     AcademicsModule,
