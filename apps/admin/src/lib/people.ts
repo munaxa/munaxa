@@ -644,3 +644,260 @@ export const positionsApi = {
     ),
   remove: (id: string) => del(`/hr/positions/${id}`),
 };
+
+// ---------------------------------------------------------------------------
+// HR Phase 2 — contracts, documents & personal sub-records (employee-scoped)
+// ---------------------------------------------------------------------------
+
+export type ContractType =
+  | 'PERMANENT'
+  | 'TEMPORARY'
+  | 'PART_TIME'
+  | 'HOURLY'
+  | 'SEASONAL'
+  | 'CONSULTANT'
+  | 'SUBSTITUTE_TEACHER';
+export const CONTRACT_TYPES: ContractType[] = [
+  'PERMANENT',
+  'TEMPORARY',
+  'PART_TIME',
+  'HOURLY',
+  'SEASONAL',
+  'CONSULTANT',
+  'SUBSTITUTE_TEACHER',
+];
+
+export type ContractStatus = 'DRAFT' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED' | 'RENEWED';
+export const CONTRACT_STATUSES: ContractStatus[] = [
+  'DRAFT',
+  'ACTIVE',
+  'EXPIRED',
+  'TERMINATED',
+  'RENEWED',
+];
+
+export interface ContractAllowance {
+  name: string;
+  amount: number;
+}
+
+export interface Contract {
+  id: string;
+  employeeId: string;
+  contractType: ContractType;
+  status: ContractStatus;
+  title?: string | null;
+  startDate: string;
+  endDate?: string | null;
+  baseSalary?: string | number | null;
+  currency?: string | null;
+  allowances?: ContractAllowance[] | null;
+  benefits?: string | null;
+  workingHours?: string | number | null;
+  vacationDays?: number | null;
+  signedDocumentId?: string | null;
+  renewedFromId?: string | null;
+  notes?: string | null;
+}
+
+export interface ContractInput {
+  contractType: ContractType;
+  title?: string;
+  startDate: string;
+  endDate?: string;
+  baseSalary?: number;
+  currency?: string;
+  allowances?: ContractAllowance[];
+  benefits?: string;
+  workingHours?: number;
+  vacationDays?: number;
+  signedDocumentId?: string;
+  notes?: string;
+}
+
+export const contractsApi = {
+  list: (employeeId: string) =>
+    authFetch(`/employees/${employeeId}/contracts`).then((r) => json<Contract[]>(r)),
+  create: (employeeId: string, data: ContractInput) =>
+    authFetch(`/employees/${employeeId}/contracts`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<Contract>(r)),
+  update: (
+    employeeId: string,
+    id: string,
+    data: Partial<ContractInput> & { status?: ContractStatus },
+  ) =>
+    authFetch(`/employees/${employeeId}/contracts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }).then((r) => json<Contract>(r)),
+  renew: (employeeId: string, id: string, data: ContractInput) =>
+    authFetch(`/employees/${employeeId}/contracts/${id}/renew`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<Contract>(r)),
+  remove: (employeeId: string, id: string) => del(`/employees/${employeeId}/contracts/${id}`),
+};
+
+export type EmployeeDocumentType =
+  | 'CONTRACT'
+  | 'NATIONAL_ID'
+  | 'PASSPORT'
+  | 'CERTIFICATE'
+  | 'MEDICAL_REPORT'
+  | 'POLICE_CLEARANCE'
+  | 'DRIVING_LICENSE'
+  | 'INSURANCE'
+  | 'TRAINING_CERTIFICATE'
+  | 'OTHER';
+export const EMPLOYEE_DOCUMENT_TYPES: EmployeeDocumentType[] = [
+  'CONTRACT',
+  'NATIONAL_ID',
+  'PASSPORT',
+  'CERTIFICATE',
+  'MEDICAL_REPORT',
+  'POLICE_CLEARANCE',
+  'DRIVING_LICENSE',
+  'INSURANCE',
+  'TRAINING_CERTIFICATE',
+  'OTHER',
+];
+
+export interface EmployeeDocument {
+  id: string;
+  employeeId: string;
+  type: EmployeeDocumentType;
+  title: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  version: number;
+  supersedesId?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  downloadUrl: string;
+  createdAt: string;
+}
+
+export interface PresignedUpload {
+  uploadUrl: string;
+  fileKey: string;
+}
+
+export const employeeDocumentsApi = {
+  list: (employeeId: string) =>
+    authFetch(`/employees/${employeeId}/documents`).then((r) => json<EmployeeDocument[]>(r)),
+  presign: (employeeId: string, data: { fileName: string; contentType: string; size: number }) =>
+    authFetch(`/employees/${employeeId}/documents/presign`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<PresignedUpload>(r)),
+  create: (
+    employeeId: string,
+    data: {
+      type: EmployeeDocumentType;
+      title: string;
+      fileKey: string;
+      fileName: string;
+      contentType: string;
+      size: number;
+      issueDate?: string;
+      expiryDate?: string;
+      supersedesId?: string;
+    },
+  ) =>
+    authFetch(`/employees/${employeeId}/documents`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<EmployeeDocument>(r)),
+  downloadUrl: (employeeId: string, id: string) =>
+    authFetch(`/employees/${employeeId}/documents/${id}/download`).then((r) =>
+      json<{ url: string }>(r),
+    ),
+  remove: (employeeId: string, id: string) => del(`/employees/${employeeId}/documents/${id}`),
+};
+
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  relation: string;
+  phone: string;
+  phoneAlt?: string | null;
+  email?: string | null;
+  address?: string | null;
+  isPrimary: boolean;
+}
+export type DependentRelation = 'SPOUSE' | 'CHILD' | 'PARENT' | 'SIBLING' | 'OTHER';
+export const DEPENDENT_RELATIONS: DependentRelation[] = [
+  'SPOUSE',
+  'CHILD',
+  'PARENT',
+  'SIBLING',
+  'OTHER',
+];
+export interface Dependent {
+  id: string;
+  name: string;
+  relation: DependentRelation;
+  dateOfBirth?: string | null;
+  gender?: Gender | null;
+  nationalId?: string | null;
+  notes?: string | null;
+}
+export interface EmployeeEducation {
+  id: string;
+  institution: string;
+  degree: string;
+  fieldOfStudy?: string | null;
+  startYear?: number | null;
+  endYear?: number | null;
+  grade?: string | null;
+  notes?: string | null;
+}
+export interface Certificate {
+  id: string;
+  name: string;
+  issuingBody?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  credentialId?: string | null;
+  documentId?: string | null;
+}
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountName?: string | null;
+  accountNumber?: string | null;
+  iban?: string | null;
+  swift?: string | null;
+  currency?: string | null;
+  isPrimary: boolean;
+}
+
+/** Generic employee-scoped sub-resource CRUD client factory (one source of truth). */
+function subResource<T, C extends Record<string, unknown>>(resource: string) {
+  return {
+    list: (employeeId: string) =>
+      authFetch(`/employees/${employeeId}/${resource}`).then((r) => json<T[]>(r)),
+    create: (employeeId: string, data: C) =>
+      authFetch(`/employees/${employeeId}/${resource}`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }).then((r) => json<T>(r)),
+    update: (employeeId: string, id: string, data: Partial<C>) =>
+      authFetch(`/employees/${employeeId}/${resource}/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }).then((r) => json<T>(r)),
+    remove: (employeeId: string, id: string) => del(`/employees/${employeeId}/${resource}/${id}`),
+  };
+}
+
+export const emergencyContactsApi = subResource<EmergencyContact, Record<string, unknown>>(
+  'emergency-contacts',
+);
+export const dependentsApi = subResource<Dependent, Record<string, unknown>>('dependents');
+export const educationApi = subResource<EmployeeEducation, Record<string, unknown>>('education');
+export const certificatesApi = subResource<Certificate, Record<string, unknown>>('certificates');
+export const bankAccountsApi = subResource<BankAccount, Record<string, unknown>>('bank-accounts');

@@ -31,6 +31,11 @@ export const Permission = {
   HR_LIFECYCLE_MANAGE: 'hr:lifecycle:manage',
   HR_ORG_READ: 'hr:org:read',
   HR_ORG_MANAGE: 'hr:org:manage',
+  // HR Phase 2 — contracts & documents (independently authorised profile tabs).
+  HR_CONTRACT_READ: 'hr:contract:read',
+  HR_CONTRACT_MANAGE: 'hr:contract:manage',
+  HR_DOCUMENT_READ: 'hr:document:read',
+  HR_DOCUMENT_MANAGE: 'hr:document:manage',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -178,6 +183,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
     'Change an employee’s employment status (hire, probation, leave, suspend, terminate, archive).',
   [Permission.HR_ORG_READ]: 'View the organisation structure (departments, positions, org chart).',
   [Permission.HR_ORG_MANAGE]: 'Create and edit departments and positions.',
+  [Permission.HR_CONTRACT_READ]: 'View employment contracts and their terms.',
+  [Permission.HR_CONTRACT_MANAGE]: 'Create, edit, renew and terminate employment contracts.',
+  [Permission.HR_DOCUMENT_READ]: 'View and download employee documents.',
+  [Permission.HR_DOCUMENT_MANAGE]: 'Upload, version and delete employee documents.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

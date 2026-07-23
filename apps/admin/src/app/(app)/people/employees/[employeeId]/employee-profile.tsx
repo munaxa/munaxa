@@ -34,6 +34,15 @@ import {
   TabsTrigger,
 } from '@/components/ui';
 import { EmployeeEditor } from '../employee-editor';
+import { ContractsTab } from './tabs/contracts-tab';
+import { DocumentsTab } from './tabs/documents-tab';
+import {
+  BankAccountsCard,
+  CertificatesCard,
+  DependentsCard,
+  EducationCard,
+  EmergencyContactsCard,
+} from './tabs/personal-records-tabs';
 
 const STATUS_TONE = {
   ACTIVE: 'success',
@@ -70,6 +79,10 @@ export function EmployeeProfile() {
   const canLifecycle = can('hr:lifecycle:manage');
   const canSensitive = can('hr:sensitive:read');
   const canOrg = can('hr:org:read');
+  const canContractRead = can('hr:contract:read');
+  const canContractManage = can('hr:contract:manage');
+  const canDocumentRead = can('hr:document:read');
+  const canDocumentManage = can('hr:document:manage');
 
   const load = useCallback(async () => {
     try {
@@ -150,6 +163,15 @@ export function EmployeeProfile() {
           <TabsTrigger value="personal">{t('hr.tabPersonal')}</TabsTrigger>
           <TabsTrigger value="employment">{t('hr.tabEmployment')}</TabsTrigger>
           <TabsTrigger value="org">{t('hr.tabOrg')}</TabsTrigger>
+          {canContractRead ? (
+            <TabsTrigger value="contracts">{t('hr.contracts')}</TabsTrigger>
+          ) : null}
+          {canDocumentRead ? (
+            <TabsTrigger value="documents">{t('hr.documents')}</TabsTrigger>
+          ) : null}
+          <TabsTrigger value="family">{t('hr.tabFamily')}</TabsTrigger>
+          <TabsTrigger value="qualifications">{t('hr.tabQualifications')}</TabsTrigger>
+          {canSensitive ? <TabsTrigger value="bank">{t('hr.tabBank')}</TabsTrigger> : null}
           <TabsTrigger value="history">{t('hr.tabHistory')}</TabsTrigger>
         </TabsList>
 
@@ -227,6 +249,38 @@ export function EmployeeProfile() {
             <Detail label={t('hr.campus')} value={e.campus ? e.campus.nameEn : null} />
           </DetailCard>
         </TabsContent>
+
+        {canContractRead ? (
+          <TabsContent value="contracts">
+            <ContractsTab employeeId={e.id} canManage={canContractManage} />
+          </TabsContent>
+        ) : null}
+
+        {canDocumentRead ? (
+          <TabsContent value="documents">
+            <DocumentsTab employeeId={e.id} canManage={canDocumentManage} />
+          </TabsContent>
+        ) : null}
+
+        <TabsContent value="family">
+          <div className="space-y-4">
+            <EmergencyContactsCard employeeId={e.id} canManage={canManage} />
+            <DependentsCard employeeId={e.id} canManage={canManage} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="qualifications">
+          <div className="space-y-4">
+            <EducationCard employeeId={e.id} canManage={canManage} />
+            <CertificatesCard employeeId={e.id} canManage={canManage} />
+          </div>
+        </TabsContent>
+
+        {canSensitive ? (
+          <TabsContent value="bank">
+            <BankAccountsCard employeeId={e.id} canManage={canManage} />
+          </TabsContent>
+        ) : null}
 
         <TabsContent value="history">
           <StatusHistory employee={e} />

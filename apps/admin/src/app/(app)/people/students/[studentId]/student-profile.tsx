@@ -104,7 +104,7 @@ export function StudentProfile() {
       // Template-literal path isn't statically a typed Route; cast as elsewhere in the app.
       // Required for `next build` (typedRoutes); local type-aware lint lacks .next/types and
       // sees it as redundant — disable that rule here.
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+
       router.push(`${pathname}?${qs.toString()}` as never);
     },
     [router, pathname, searchParams],
