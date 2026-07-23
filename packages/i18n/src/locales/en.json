@@ -205,7 +205,8 @@
     "platformUpgrades": "Upgrade Requests",
     "platformAudit": "Audit Log",
     "platformOrganizations": "Organizations",
-    "platformWebhooks": "Webhooks"
+    "platformWebhooks": "Webhooks",
+    "leave": "Leave"
   },
   "dashboard": {
     "title": "Overview",
@@ -1744,6 +1745,37 @@
       "MINOR": "Minor",
       "MAJOR": "Major",
       "SEVERE": "Severe"
+    },
+    "tabLeave": "Leave",
+    "leaveBalances": "Leave balances",
+    "noBalances": "No balances set.",
+    "leaveType": "Leave type",
+    "year": "Year",
+    "entitled": "Entitled",
+    "used": "Used",
+    "remaining": "Remaining",
+    "requestLeave": "Request leave",
+    "submitRequest": "Submit request",
+    "leaveRequests": "Leave requests",
+    "noLeaveRequests": "No leave requests.",
+    "days": "days",
+    "level": "Level",
+    "approve": "Approve",
+    "reject": "Reject",
+    "leaveManagement": "Leave management",
+    "pendingApprovals": "Pending approvals",
+    "noPendingLeave": "No pending requests.",
+    "leaveTypes": "Leave types",
+    "noLeaveTypes": "No leave types yet.",
+    "defaultDays": "Default days",
+    "approvalLevels": "approval levels",
+    "paid": "Paid",
+    "unpaid": "Unpaid",
+    "leaveStatus": {
+      "PENDING": "Pending",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Cancelled"
     }
   }
 }

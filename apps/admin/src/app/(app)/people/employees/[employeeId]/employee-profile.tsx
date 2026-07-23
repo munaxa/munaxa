@@ -37,6 +37,7 @@ import { EmployeeEditor } from '../employee-editor';
 import { ContractsTab } from './tabs/contracts-tab';
 import { DocumentsTab } from './tabs/documents-tab';
 import { DriverTab } from './tabs/driver-tab';
+import { LeaveTab } from './tabs/leave-tab';
 import {
   BankAccountsCard,
   CertificatesCard,
@@ -86,6 +87,9 @@ export function EmployeeProfile() {
   const canDocumentManage = can('hr:document:manage');
   const canDriverRead = can('driver:read');
   const canDriverManage = can('driver:manage');
+  const canLeaveRead = can('staff-leave:read');
+  const canLeaveRequest = can('staff-leave:request');
+  const canLeaveApprove = can('staff-leave:approve');
 
   const load = useCallback(async () => {
     try {
@@ -176,6 +180,7 @@ export function EmployeeProfile() {
           <TabsTrigger value="qualifications">{t('hr.tabQualifications')}</TabsTrigger>
           {canSensitive ? <TabsTrigger value="bank">{t('hr.tabBank')}</TabsTrigger> : null}
           {canDriverRead ? <TabsTrigger value="driver">{t('hr.tabDriver')}</TabsTrigger> : null}
+          {canLeaveRead ? <TabsTrigger value="leave">{t('hr.tabLeave')}</TabsTrigger> : null}
           <TabsTrigger value="history">{t('hr.tabHistory')}</TabsTrigger>
         </TabsList>
 
@@ -289,6 +294,12 @@ export function EmployeeProfile() {
         {canDriverRead ? (
           <TabsContent value="driver">
             <DriverTab employeeId={e.id} canManage={canDriverManage} />
+          </TabsContent>
+        ) : null}
+
+        {canLeaveRead ? (
+          <TabsContent value="leave">
+            <LeaveTab employeeId={e.id} canRequest={canLeaveRequest} canApprove={canLeaveApprove} />
           </TabsContent>
         ) : null}
 

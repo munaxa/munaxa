@@ -162,6 +162,19 @@ enum InfractionSeverity {
   SEVERE
 }
 
+// HR Phase 4 — staff leave (distinct from the student LeaveRequest in the parent portal).
+enum StaffLeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum LeaveApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
 enum ParentRelation {
   FATHER
   MOTHER
@@ -641,6 +654,10 @@ model Tenant {
   employeeBankAccounts     EmployeeBankAccount[]
   driverProfiles           DriverProfile[]
   driverInfractions        DriverInfraction[]
+  staffLeaveTypes          StaffLeaveType[]
+  staffLeaveBalances       StaffLeaveBalance[]
+  staffLeaveRequests       StaffLeaveRequest[]
+  staffLeaveApprovals      StaffLeaveApproval[]
 
   // SaaS subscription plane
   subscription       TenantSubscription?
@@ -1096,6 +1113,8 @@ model Employee {
   bankAccounts      EmployeeBankAccount[]
   driverProfile     DriverProfile?
   busesDriven       Bus[]                   @relation("BusDriver")
+  leaveBalances     StaffLeaveBalance[]
+  leaveRequests     StaffLeaveRequest[]
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -1419,6 +1438,103 @@ model DriverInfraction {
   @@index([tenantId, driverProfileId])
 }
 
+// ----------------------------------------------------------------------------
+// HR Phase 4 — staff leave management
+// ----------------------------------------------------------------------------
+
+// A configurable staff leave category (Annual, Sick, Unpaid, Maternity, Hajj…). `paid` feeds
+// payroll preparation; `approvalLevels` drives the multi-level approval chain.
+model StaffLeaveType {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @db.Uuid
+  name              String
+  code              String?
+  paid              Boolean   @default(true)
+  defaultAnnualDays Int? // default entitlement seeded into balances
+  approvalLevels    Int       @default(1)
+  colorHex          String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt         DateTime? @db.Timestamptz(6)
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  balances StaffLeaveBalance[]
+  requests StaffLeaveRequest[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+// An employee's leave entitlement + consumption for one type in one year.
+model StaffLeaveBalance {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @db.Uuid
+  employeeId   String   @db.Uuid
+  leaveTypeId  String   @db.Uuid
+  year         Int
+  entitledDays Decimal  @default(0) @db.Decimal(6, 2)
+  usedDays     Decimal  @default(0) @db.Decimal(6, 2)
+  createdAt    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee  Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType StaffLeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@index([tenantId])
+  @@index([tenantId, employeeId])
+}
+
+// A staff leave request with a multi-level approval chain (StaffLeaveApproval). `workingDays`
+// excludes the Fri/Sat weekend; deducted from the matching balance on final approval.
+model StaffLeaveRequest {
+  id             String           @id @default(uuid()) @db.Uuid
+  tenantId       String           @db.Uuid
+  employeeId     String           @db.Uuid
+  leaveTypeId    String           @db.Uuid
+  startDate      DateTime         @db.Date
+  endDate        DateTime         @db.Date
+  workingDays    Decimal          @db.Decimal(6, 2)
+  reason         String?
+  status         StaffLeaveStatus @default(PENDING)
+  currentLevel   Int              @default(1)
+  requiredLevels Int              @default(1)
+  requestedById  String?          @db.Uuid
+  decidedAt      DateTime?        @db.Timestamptz(6)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee    Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType   StaffLeaveType       @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  requestedBy User?                @relation("StaffLeaveRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  approvals   StaffLeaveApproval[]
+
+  @@index([tenantId])
+  @@index([tenantId, employeeId])
+  @@index([tenantId, status])
+}
+
+model StaffLeaveApproval {
+  id         String                @id @default(uuid()) @db.Uuid
+  tenantId   String                @db.Uuid
+  requestId  String                @db.Uuid
+  level      Int
+  decision   LeaveApprovalDecision
+  note       String?
+  approverId String?               @db.Uuid
+  decidedAt  DateTime              @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  request  StaffLeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  approver User?             @relation("StaffLeaveApprover", fields: [approverId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, requestId])
+}
+
 model ParentStudent {
   id        String         @id @default(uuid()) @db.Uuid
   tenantId  String         @db.Uuid
@@ -1503,6 +1619,8 @@ model User {
   contractsCreated       EmploymentContract[]    @relation("ContractCreatedBy")
   contractsUpdated       EmploymentContract[]    @relation("ContractUpdatedBy")
   employeeDocsUploaded   EmployeeDocument[]      @relation("EmployeeDocumentUploadedBy")
+  staffLeaveRequested    StaffLeaveRequest[]     @relation("StaffLeaveRequestedBy")
+  staffLeaveApproved     StaffLeaveApproval[]    @relation("StaffLeaveApprover")
   studentAttendanceMarks StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
   teacherAttendanceMarks TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
   notifications          Notification[]

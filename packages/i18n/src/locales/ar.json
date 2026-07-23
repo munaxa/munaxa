@@ -205,7 +205,8 @@
     "platformUpgrades": "طلبات الترقية",
     "platformAudit": "سجل التدقيق",
     "platformOrganizations": "المنظمات",
-    "platformWebhooks": "الويب هوك"
+    "platformWebhooks": "الويب هوك",
+    "leave": "الإجازات"
   },
   "dashboard": {
     "title": "نظرة عامة",
@@ -1744,6 +1745,37 @@
       "MINOR": "بسيطة",
       "MAJOR": "كبيرة",
       "SEVERE": "جسيمة"
+    },
+    "tabLeave": "الإجازات",
+    "leaveBalances": "أرصدة الإجازات",
+    "noBalances": "لا توجد أرصدة.",
+    "leaveType": "نوع الإجازة",
+    "year": "السنة",
+    "entitled": "المستحق",
+    "used": "المستخدم",
+    "remaining": "المتبقي",
+    "requestLeave": "طلب إجازة",
+    "submitRequest": "إرسال الطلب",
+    "leaveRequests": "طلبات الإجازة",
+    "noLeaveRequests": "لا توجد طلبات إجازة.",
+    "days": "أيام",
+    "level": "المستوى",
+    "approve": "موافقة",
+    "reject": "رفض",
+    "leaveManagement": "إدارة الإجازات",
+    "pendingApprovals": "الموافقات المعلّقة",
+    "noPendingLeave": "لا توجد طلبات معلّقة.",
+    "leaveTypes": "أنواع الإجازات",
+    "noLeaveTypes": "لا توجد أنواع إجازات بعد.",
+    "defaultDays": "الأيام الافتراضية",
+    "approvalLevels": "مستويات الموافقة",
+    "paid": "مدفوعة",
+    "unpaid": "غير مدفوعة",
+    "leaveStatus": {
+      "PENDING": "معلّق",
+      "APPROVED": "موافق",
+      "REJECTED": "مرفوض",
+      "CANCELLED": "ملغى"
     }
   }
 }

@@ -971,3 +971,126 @@ export const driverProfileApi = {
   removeInfraction: (employeeId: string, id: string) =>
     del(`/employees/${employeeId}/driver-profile/infractions/${id}`),
 };
+
+// ---------------------------------------------------------------------------
+// HR Phase 4 — staff leave (types, balances, requests, approvals)
+// ---------------------------------------------------------------------------
+
+export type StaffLeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export const STAFF_LEAVE_STATUSES: StaffLeaveStatus[] = [
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+  'CANCELLED',
+];
+
+export interface LeaveType {
+  id: string;
+  name: string;
+  code?: string | null;
+  paid: boolean;
+  defaultAnnualDays?: number | null;
+  approvalLevels: number;
+  colorHex?: string | null;
+  isActive: boolean;
+}
+export interface CreateLeaveTypeInput {
+  name: string;
+  code?: string;
+  paid?: boolean;
+  defaultAnnualDays?: number;
+  approvalLevels?: number;
+  colorHex?: string;
+  isActive?: boolean;
+}
+
+export interface LeaveBalance {
+  id: string;
+  leaveTypeId: string;
+  year: number;
+  entitledDays: string | number;
+  usedDays: string | number;
+  leaveType: LeaveType;
+}
+
+export interface LeaveApproval {
+  id: string;
+  level: number;
+  decision: 'APPROVED' | 'REJECTED';
+  note?: string | null;
+  decidedAt: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  workingDays: string | number;
+  reason?: string | null;
+  status: StaffLeaveStatus;
+  currentLevel: number;
+  requiredLevels: number;
+  leaveType: { id: string; name: string; paid: boolean };
+  employee: { id: string; firstNameEn: string; lastNameEn: string };
+  approvals: LeaveApproval[];
+}
+
+export interface CreateLeaveRequestInput {
+  leaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
+export const leaveApi = {
+  listTypes: () => authFetch('/hr/leave-types').then((r) => json<LeaveType[]>(r)),
+  createType: (data: CreateLeaveTypeInput) =>
+    authFetch('/hr/leave-types', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<LeaveType>(r),
+    ),
+  updateType: (id: string, data: Partial<CreateLeaveTypeInput>) =>
+    authFetch(`/hr/leave-types/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<LeaveType>(r),
+    ),
+  removeType: (id: string) => del(`/hr/leave-types/${id}`),
+
+  listRequests: (params?: { status?: StaffLeaveStatus }) =>
+    authFetch(`/hr/leave-requests${params?.status ? `?status=${params.status}` : ''}`).then((r) =>
+      json<LeaveRequest[]>(r),
+    ),
+  approve: (id: string, note?: string) =>
+    authFetch(`/hr/leave-requests/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(note ? { note } : {}),
+    }).then((r) => json<LeaveRequest>(r)),
+  reject: (id: string, note?: string) =>
+    authFetch(`/hr/leave-requests/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify(note ? { note } : {}),
+    }).then((r) => json<LeaveRequest>(r)),
+  cancel: (id: string) =>
+    authFetch(`/hr/leave-requests/${id}/cancel`, { method: 'POST', body: '{}' }).then((r) =>
+      json<LeaveRequest>(r),
+    ),
+
+  // Employee-scoped
+  balances: (employeeId: string) =>
+    authFetch(`/employees/${employeeId}/leave-balances`).then((r) => json<LeaveBalance[]>(r)),
+  setBalance: (
+    employeeId: string,
+    data: { leaveTypeId: string; year: number; entitledDays: number },
+  ) =>
+    authFetch(`/employees/${employeeId}/leave-balances`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<LeaveBalance>(r)),
+  employeeRequests: (employeeId: string) =>
+    authFetch(`/employees/${employeeId}/leave-requests`).then((r) => json<LeaveRequest[]>(r)),
+  createRequest: (employeeId: string, data: CreateLeaveRequestInput) =>
+    authFetch(`/employees/${employeeId}/leave-requests`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }).then((r) => json<LeaveRequest>(r)),
+};

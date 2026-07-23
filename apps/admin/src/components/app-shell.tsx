@@ -67,6 +67,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/people/parents', labelKey: 'nav.parents', icon: 'parents', perm: 'parent:manage' },
       { href: '/people/employees', labelKey: 'nav.hr', icon: 'employees', perm: 'employee:read' },
       { href: '/people/org', labelKey: 'nav.organization', icon: 'employees', perm: 'hr:org:read' },
+      { href: '/people/leave', labelKey: 'nav.leave', icon: 'employees', perm: 'staff-leave:read' },
       { href: '/people/cards', labelKey: 'nav.cards', icon: 'cards', perm: 'card:read' },
     ],
   },

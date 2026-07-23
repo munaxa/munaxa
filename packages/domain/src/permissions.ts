@@ -39,6 +39,11 @@ export const Permission = {
   // HR Phase 3 — driver profiles (licence, medical, infractions). Drivers are Employees.
   DRIVER_READ: 'driver:read',
   DRIVER_MANAGE: 'driver:manage',
+  // HR Phase 4 — staff leave (distinct from the student `leave:*` in the parent portal).
+  STAFF_LEAVE_READ: 'staff-leave:read',
+  STAFF_LEAVE_REQUEST: 'staff-leave:request',
+  STAFF_LEAVE_APPROVE: 'staff-leave:approve',
+  STAFF_LEAVE_MANAGE: 'staff-leave:manage',
 
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
@@ -192,6 +197,10 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.HR_DOCUMENT_MANAGE]: 'Upload, version and delete employee documents.',
   [Permission.DRIVER_READ]: 'View driver profiles (licence, medical, infractions, assigned buses).',
   [Permission.DRIVER_MANAGE]: 'Create and edit driver profiles and record infractions.',
+  [Permission.STAFF_LEAVE_READ]: 'View staff leave types, balances and requests.',
+  [Permission.STAFF_LEAVE_REQUEST]: 'Submit staff leave requests.',
+  [Permission.STAFF_LEAVE_APPROVE]: 'Approve or reject staff leave requests.',
+  [Permission.STAFF_LEAVE_MANAGE]: 'Manage staff leave types and balances.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',
