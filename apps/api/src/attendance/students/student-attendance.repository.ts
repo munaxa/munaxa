@@ -6,7 +6,7 @@ export interface UpsertMark {
   studentId: string;
   sectionId: string;
   date: Date;
-  periodIndex: number;
+  classNumber: number;
   status: AttendanceStatus;
   method: 'MANUAL' | 'QR';
   note: string | null;
@@ -16,16 +16,16 @@ export interface UpsertMark {
 
 @Injectable()
 export class StudentAttendanceRepository extends TenantRepository {
-  /** Idempotent upsert on (tenantId, studentId, date, periodIndex). */
+  /** Idempotent upsert on (tenantId, studentId, date, classNumber). */
   upsert(mark: UpsertMark): Promise<StudentAttendance> {
     return this.run((tx, tenantId) =>
       tx.studentAttendance.upsert({
         where: {
-          tenantId_studentId_date_periodIndex: {
+          tenantId_studentId_date_classNumber: {
             tenantId,
             studentId: mark.studentId,
             date: mark.date,
-            periodIndex: mark.periodIndex,
+            classNumber: mark.classNumber,
           },
         },
         update: {
@@ -47,11 +47,11 @@ export class StudentAttendanceRepository extends TenantRepository {
         marks.map((mark) =>
           tx.studentAttendance.upsert({
             where: {
-              tenantId_studentId_date_periodIndex: {
+              tenantId_studentId_date_classNumber: {
                 tenantId,
                 studentId: mark.studentId,
                 date: mark.date,
-                periodIndex: mark.periodIndex,
+                classNumber: mark.classNumber,
               },
             },
             update: {
@@ -71,11 +71,11 @@ export class StudentAttendanceRepository extends TenantRepository {
   findForSectionDate(
     sectionId: string,
     date: Date,
-    periodIndex?: number,
+    classNumber?: number,
   ): Promise<StudentAttendance[]> {
     return this.run((tx) =>
       tx.studentAttendance.findMany({
-        where: { sectionId, date, ...(periodIndex !== undefined ? { periodIndex } : {}) },
+        where: { sectionId, date, ...(classNumber !== undefined ? { classNumber } : {}) },
         orderBy: { recordedAt: 'asc' },
       }),
     );

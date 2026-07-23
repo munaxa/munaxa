@@ -24,6 +24,13 @@ export class CreateSchoolDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  // IANA timezone the scheduling engine resolves live time in (e.g. "Asia/Amman", "Europe/London").
+  @ApiPropertyOptional({ example: 'Asia/Amman', description: 'IANA timezone name' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  timezone?: string;
 }
 
 export class UpdateSchoolDto extends PartialType(CreateSchoolDto) {}

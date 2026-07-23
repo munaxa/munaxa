@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { SchedulingModule } from '../scheduling/scheduling.module';
 import { StorageService } from '../common/storage.service';
 import { ParentScopeService } from './common/parent-scope.service';
 import { LeaveRequestController } from './leave-requests/leave-request.controller';
@@ -20,6 +21,7 @@ import { DashboardRepository } from './dashboard/dashboard.repository';
  * their own linked children (ParentStudent), while staff act tenant-wide.
  */
 @Module({
+  imports: [SchedulingModule],
   controllers: [LeaveRequestController, PtmController, DocumentController, DashboardController],
   providers: [
     ParentScopeService,

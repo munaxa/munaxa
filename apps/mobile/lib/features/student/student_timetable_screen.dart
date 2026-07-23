@@ -54,11 +54,11 @@ class StudentTimetableTab extends ConsumerWidget {
                   child: Text(_titleCase(day), style: Theme.of(context).textTheme.titleMedium),
                 ),
                 for (final e in (byDay[day]!
-                  ..sort((a, b) => a.periodIndex.compareTo(b.periodIndex))))
+                  ..sort((a, b) => a.classNumber.compareTo(b.classNumber))))
                   Card(
                     child: ListTile(
                       dense: true,
-                      leading: CircleAvatar(child: Text('${e.periodIndex}')),
+                      leading: CircleAvatar(child: Text('${e.classNumber}')),
                       title: Text(e.subject),
                       subtitle: Text('${e.startTime} – ${e.endTime}'),
                     ),

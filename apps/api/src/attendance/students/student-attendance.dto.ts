@@ -44,7 +44,7 @@ export class AttendanceRecordDto {
 }
 
 /**
- * Idempotent bulk marking. Re-sending the same (sectionId, date, periodIndex, studentId)
+ * Idempotent bulk marking. Re-sending the same (sectionId, date, classNumber, studentId)
  * updates the existing record rather than duplicating — this is the offline-sync target.
  */
 export class BulkMarkDto {
@@ -61,7 +61,7 @@ export class BulkMarkDto {
   @IsInt()
   @Min(0)
   @Max(20)
-  periodIndex?: number;
+  classNumber?: number;
 
   @ApiProperty({ type: [AttendanceRecordDto] })
   @IsArray()
@@ -92,5 +92,5 @@ export class QrMarkDto {
   @IsInt()
   @Min(0)
   @Max(20)
-  periodIndex?: number;
+  classNumber?: number;
 }

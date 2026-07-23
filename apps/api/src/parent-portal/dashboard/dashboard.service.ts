@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { GradeRecord } from '@prisma/client';
 import { ParentScopeService } from '../common/parent-scope.service';
+import { SchedulingService } from '../../scheduling/scheduling.service';
 import { DashboardRepository, type AttendanceSummary } from './dashboard.repository';
 
 export interface ChildDashboard {
@@ -28,11 +29,28 @@ export class DashboardService {
   constructor(
     private readonly repo: DashboardRepository,
     private readonly scope: ParentScopeService,
+    private readonly scheduling: SchedulingService,
   ) {}
 
   /** Multi-child switcher: the children linked to the acting parent. */
   children() {
     return this.scope.children();
+  }
+
+  /** A child's inherited weekly timetable (via the section's published plan). */
+  async childTimetable(studentId: string) {
+    await this.scope.assertChildAccess(studentId);
+    const student = await this.repo.student(studentId);
+    if (!student) throw new NotFoundException('Student not found');
+    return this.scheduling.getStudentSchedule(student.sectionId);
+  }
+
+  /** "Now Attending" live card for a child (current/next class, remaining time, state). */
+  async childCurrentClass(studentId: string) {
+    await this.scope.assertChildAccess(studentId);
+    const student = await this.repo.student(studentId);
+    if (!student) throw new NotFoundException('Student not found');
+    return this.scheduling.getStudentCurrentClass(student.sectionId);
   }
 
   /**

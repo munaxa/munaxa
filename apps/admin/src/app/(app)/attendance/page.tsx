@@ -39,7 +39,7 @@ export default function AttendancePage() {
   const { t } = useI18n();
   const [sectionId, setSectionId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [periodIndex, setPeriodIndex] = useState(1);
+  const [classNumber, setPeriodIndex] = useState(1);
   const [roster, setRoster] = useState<Student[]>([]);
   const [marks, setMarks] = useState<Record<string, Status>>({});
   const [loading, setLoading] = useState(false);
@@ -51,7 +51,7 @@ export default function AttendancePage() {
     try {
       const [students, existing] = await Promise.all([
         studentsApi.bySection(sectionId),
-        attendanceApi.list(sectionId, date, periodIndex),
+        attendanceApi.list(sectionId, date, classNumber),
       ]);
       setRoster(students);
       const m: Record<string, Status> = {};
@@ -62,7 +62,7 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [sectionId, date, periodIndex, toast]);
+  }, [sectionId, date, classNumber, toast]);
 
   const counts = useMemo(() => {
     const c: Record<Status, number> = { PRESENT: 0, LATE: 0, ABSENT: 0, EXCUSED: 0 };
@@ -88,7 +88,7 @@ export default function AttendancePage() {
     }
     setSaving(true);
     try {
-      const res = await attendanceApi.mark(sectionId, date, periodIndex, records);
+      const res = await attendanceApi.mark(sectionId, date, classNumber, records);
       toast.success(`Saved ${res.marked} mark(s)`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to save');
@@ -116,7 +116,7 @@ export default function AttendancePage() {
           </Field>
           <Field label={t('attendance.period')}>
             <Select
-              value={String(periodIndex)}
+              value={String(classNumber)}
               onChange={(e) => setPeriodIndex(Number(e.target.value))}
             >
               {PERIODS.map((p) => (

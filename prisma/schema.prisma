@@ -105,6 +105,29 @@ enum ExceptionType {
   HOLIDAY
 }
 
+// Lifecycle of a SchedulePlan (enterprise scheduling engine). A semester may hold many DRAFT plans
+// but at most one PUBLISHED plan at a time; ARCHIVED plans are historical/read-only. Students,
+// parents, teachers, attendance, reports and APIs always resolve against the PUBLISHED plan.
+enum SchedulePlanStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// Classification of an optional special lesson location. Normal lessons happen in the section's
+// assigned classroom (Section.classroomId) and are never shown as a room number; only exceptional
+// lessons (lab/gym/etc.) carry a SpecialLocation.
+enum SpecialLocationKind {
+  SCIENCE_LAB
+  COMPUTER_LAB
+  ART_ROOM
+  MUSIC_ROOM
+  SPORTS_HALL
+  LIBRARY
+  AUDITORIUM
+  OTHER
+}
+
 enum AttendanceStatus {
   PRESENT
   ABSENT
@@ -426,9 +449,15 @@ model Tenant {
   employees                Employee[]
   parentStudents           ParentStudent[]
   teacherSections          TeacherSection[]
-  timetableSlots           TimetableSlot[]
   scheduleExceptions       ScheduleException[]
   timetableConfigs         TimetableConfig[]
+  subjects                 Subject[]
+  specialLocations         SpecialLocation[]
+  bellSchedules            BellSchedule[]
+  bellSchedulePeriods      BellSchedulePeriod[]
+  schedulePlans            SchedulePlan[]
+  sectionTimetables        SectionTimetable[]
+  scheduledClasses         ScheduledClass[]
   studentAttendance        StudentAttendance[]
   teacherAttendance        TeacherAttendance[]
   homework                 Homework[]
@@ -549,6 +578,9 @@ model School {
   nameEn        String
   nameAr        String
   moeSchoolCode String?
+  // IANA timezone (e.g. "Asia/Amman"). The scheduling engine resolves all live time-based state
+  // (current class, breaks, holidays) in this zone — never in server/UTC time. Managed in Settings.
+  timezone      String    @default("Asia/Amman")
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now()) @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @db.Timestamptz(6)
@@ -575,13 +607,16 @@ model Campus {
   updatedAt DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt DateTime? @db.Timestamptz(6)
 
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  school          School           @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  academicYears   AcademicYear[]
-  grades          Grade[]
-  classrooms      Classroom[]
-  enrollments     Enrollment[]
-  timetableConfig TimetableConfig?
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  school           School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYears    AcademicYear[]
+  grades           Grade[]
+  classrooms       Classroom[]
+  enrollments      Enrollment[]
+  timetableConfig  TimetableConfig?
+  specialLocations SpecialLocation[]
+  bellSchedules    BellSchedule[]
+  schedulePlans    SchedulePlan[]
 
   @@index([tenantId])
   @@index([tenantId, schoolId])
@@ -633,6 +668,7 @@ model AcademicYear {
   registrationAgreements RegistrationAgreement[]
   busRoutes              BusRoute[]
   serviceAreas           Area[]
+  schedulePlans          SchedulePlan[]
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
@@ -651,9 +687,10 @@ model Semester {
   createdAt      DateTime @default(now()) @db.Timestamptz(6)
   updatedAt      DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  academicYear AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  gradeRecords GradeRecord[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  academicYear  AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  gradeRecords  GradeRecord[]
+  schedulePlans SchedulePlan[]
 
   @@unique([tenantId, academicYearId, sequence])
   @@index([tenantId, academicYearId])
@@ -694,12 +731,10 @@ model Classroom {
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
-  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  campus             Campus              @relation(fields: [campusId], references: [id], onDelete: Cascade)
-  sections           Section[]
-  enrollments        Enrollment[]
-  timetableSlots     TimetableSlot[]
-  scheduleExceptions ScheduleException[]
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus      Campus       @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  sections    Section[]
+  enrollments Enrollment[]
 
   @@unique([tenantId, campusId, name])
   @@index([tenantId, campusId])
@@ -721,7 +756,6 @@ model Section {
   students           Student[]
   enrollments        Enrollment[]
   teacherSections    TeacherSection[]
-  timetableSlots     TimetableSlot[]
   scheduleExceptions ScheduleException[]
   attendance         StudentAttendance[]
   homework           Homework[]
@@ -729,6 +763,7 @@ model Section {
   announcements      Announcement[]
   ptmSlots           PtmSlot[]
   resources          Resource[]
+  sectionTimetables  SectionTimetable[]
 
   @@unique([tenantId, gradeId, name])
   @@index([tenantId, gradeId])
@@ -874,7 +909,7 @@ model Teacher {
   tenant                 Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                   User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   sections               TeacherSection[]
-  timetableSlots         TimetableSlot[]
+  scheduledClasses       ScheduledClass[]
   exceptionReplacements  ScheduleException[] @relation("ExceptionTeacher")
   exceptionSubstitutions ScheduleException[] @relation("ExceptionSubstitute")
   attendance             TeacherAttendance[]
@@ -1165,58 +1200,36 @@ model AuditLog {
 }
 
 // ----------------------------------------------------------------------------
-// Timetable engine
+// Timetable — schedule exceptions & Ramadan config
+// (The weekly schedule itself lives in the enterprise scheduling engine below.)
 // ----------------------------------------------------------------------------
 
-// A recurring weekly class slot for a section. The REGULAR set is the master timetable;
-// the RAMADAN set is used when Ramadan mode is active (see TimetableConfig). Times are
-// "HH:MM" (24h) local school time.
-model TimetableSlot {
-  id           String       @id @default(uuid()) @db.Uuid
-  tenantId     String       @db.Uuid
-  sectionId    String       @db.Uuid
-  scheduleType ScheduleType @default(REGULAR)
-  dayOfWeek    DayOfWeek
-  periodIndex  Int
-  startTime    String // "HH:MM"
-  endTime      String // "HH:MM"
-  subject      String
-  teacherId    String?      @db.Uuid
-  classroomId  String?      @db.Uuid
-  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
-
-  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  section   Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  teacher   Teacher?   @relation(fields: [teacherId], references: [id], onDelete: SetNull)
-  classroom Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
-
-  @@unique([tenantId, sectionId, scheduleType, dayOfWeek, periodIndex])
-  @@index([tenantId, sectionId])
-}
-
-// A date-specific override of the master timetable: a cancelled period, a substitute teacher,
-// a replaced subject, or a whole-day holiday (periodIndex null + sectionId null => school-wide).
+// A date-specific override of the published schedule: a cancelled class, a substitute teacher, a
+// replaced subject, or a whole-day holiday (classNumber null + sectionId null => school-wide).
+// Exceptions never edit the master plan — they overlay it for a single date.
 model ScheduleException {
   id                  String        @id @default(uuid()) @db.Uuid
   tenantId            String        @db.Uuid
   date                DateTime      @db.Date
   sectionId           String?       @db.Uuid
-  periodIndex         Int?
+  classNumber         Int?
   type                ExceptionType
-  subject             String?
+  // For REPLACEMENT: the subject the class is replaced with (Subject is the single source of truth).
+  subjectId           String?       @db.Uuid
   teacherId           String?       @db.Uuid // replacement teacher
   substituteTeacherId String?       @db.Uuid
-  classroomId         String?       @db.Uuid
+  // Optional special location for the overridden lesson (lab/gym/etc.); null ⇒ section's classroom.
+  locationId          String?       @db.Uuid
   note                String?
   createdAt           DateTime      @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime      @updatedAt @db.Timestamptz(6)
 
-  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  section    Section?   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  teacher    Teacher?   @relation("ExceptionTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
-  substitute Teacher?   @relation("ExceptionSubstitute", fields: [substituteTeacherId], references: [id], onDelete: SetNull)
-  classroom  Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  section    Section?         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  subject    Subject?         @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  teacher    Teacher?         @relation("ExceptionTeacher", fields: [teacherId], references: [id], onDelete: SetNull)
+  substitute Teacher?         @relation("ExceptionSubstitute", fields: [substituteTeacherId], references: [id], onDelete: SetNull)
+  location   SpecialLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, date])
   @@index([tenantId, sectionId, date])
@@ -1240,18 +1253,201 @@ model TimetableConfig {
 }
 
 // ----------------------------------------------------------------------------
+// Enterprise scheduling engine
+//
+// Hierarchy:  AcademicYear → Semester → SchedulePlan → SectionTimetable → ScheduledClass
+//
+// A timetable belongs to a SECTION (never a student). Students, parents and teachers inherit the
+// schedule of their section's PUBLISHED plan through their active Enrollment / TeacherSection; no
+// per-person timetable rows exist. The pure resolution engine lives in
+// apps/api/src/timetable/engine/scheduling-engine.ts.
+//
+// This REPLACES the legacy flat TimetableSlot model (dropped in the 20260720120000_scheduling_engine
+// migration — the previous timetable data was development/test only, so no compatibility layer is
+// kept). ScheduleException + TimetableConfig above are retained and modernised to reference these.
+// ----------------------------------------------------------------------------
+
+// A managed, tenant-scoped subject with a stable display colour (used everywhere the timetable is
+// drawn) and an optional short code. Replaces free-text subject strings on ScheduledClass.
+model Subject {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  nameEn    String
+  nameAr    String
+  code      String? // short code, e.g. "MATH"
+  colorHex  String    @default("#64748b") // consistent subject colour for the grid
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scheduledClasses   ScheduledClass[]
+  scheduleExceptions ScheduleException[]
+
+  // (tenantId, code) uniqueness is enforced by a PARTIAL unique index (WHERE code IS NOT NULL AND
+  // deletedAt IS NULL) in the migration, so nulls / soft-deletes don't reserve a code.
+  @@index([tenantId])
+  @@index([tenantId, isActive])
+}
+
+// An optional special lesson location (lab / gym / library …). Normal lessons occur in the section's
+// assigned classroom and never display a room number; only exceptional lessons reference one of these.
+model SpecialLocation {
+  id        String              @id @default(uuid()) @db.Uuid
+  tenantId  String              @db.Uuid
+  campusId  String              @db.Uuid
+  nameEn    String
+  nameAr    String
+  kind      SpecialLocationKind @default(OTHER)
+  capacity  Int?
+  createdAt DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime            @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime?           @db.Timestamptz(6)
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus             Campus              @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  scheduledClasses   ScheduledClass[]
+  scheduleExceptions ScheduleException[]
+
+  @@index([tenantId, campusId])
+}
+
+// A reusable "school class times" definition (bell schedule) for a campus — the class numbers and
+// their start/end times, optionally per ScheduleType (REGULAR vs RAMADAN). Used to pre-fill the grid;
+// ScheduledClass still stores its own times so a plan is self-contained once built.
+model BellSchedule {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @db.Uuid
+  campusId     String       @db.Uuid
+  name         String
+  scheduleType ScheduleType @default(REGULAR)
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+  deletedAt    DateTime?    @db.Timestamptz(6)
+
+  tenant  Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus  Campus               @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  periods BellSchedulePeriod[]
+
+  @@index([tenantId, campusId])
+}
+
+// A single class-time row within a BellSchedule. `isBreak` rows (assembly / break / lunch) carry no
+// subject and are rendered as gaps.
+model BellSchedulePeriod {
+  id             String   @id @default(uuid()) @db.Uuid
+  tenantId       String   @db.Uuid
+  bellScheduleId String   @db.Uuid
+  classNumber    Int
+  startTime      String // "HH:MM"
+  endTime        String // "HH:MM"
+  isBreak        Boolean  @default(false)
+  labelEn        String?
+  labelAr        String?
+  createdAt      DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bellSchedule BellSchedule @relation(fields: [bellScheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([bellScheduleId, classNumber])
+  @@index([tenantId, bellScheduleId])
+}
+
+// A versioned scheduling plan for a semester. Only one PUBLISHED plan per semester (enforced by a
+// partial unique index in the migration). DRAFT is editable; PUBLISHED is read-only and is the single
+// source of truth for every downstream reader; ARCHIVED is historical.
+model SchedulePlan {
+  id             String             @id @default(uuid()) @db.Uuid
+  tenantId       String             @db.Uuid
+  semesterId     String             @db.Uuid
+  // Denormalised for cheap scoping / filtering (kept consistent with the semester's year).
+  academicYearId String             @db.Uuid
+  campusId       String             @db.Uuid
+  name           String
+  status         SchedulePlanStatus @default(DRAFT)
+  publishedAt    DateTime?          @db.Timestamptz(6)
+  publishedById  String?            @db.Uuid
+  archivedAt     DateTime?          @db.Timestamptz(6)
+  createdById    String?            @db.Uuid
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
+  deletedAt      DateTime?          @db.Timestamptz(6)
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  semester          Semester           @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  academicYear      AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  campus            Campus             @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  sectionTimetables SectionTimetable[]
+
+  @@index([tenantId, semesterId])
+  @@index([tenantId, semesterId, status])
+}
+
+// The weekly timetable a plan holds for one section. Exactly one per (plan, section).
+model SectionTimetable {
+  id        String    @id @default(uuid()) @db.Uuid
+  tenantId  String    @db.Uuid
+  planId    String    @db.Uuid
+  sectionId String    @db.Uuid
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  tenant  Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan    SchedulePlan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  section Section          @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  classes ScheduledClass[]
+
+  @@unique([planId, sectionId])
+  @@index([tenantId, planId])
+  @@index([tenantId, sectionId])
+}
+
+// A single scheduled "Class" (formerly Period) within a section's weekly timetable. Keyed by
+// (sectionTimetable, scheduleType, dayOfWeek, classNumber). Location is optional: null ⇒ the lesson
+// occurs in the section's assigned classroom (not displayed as a room number).
+model ScheduledClass {
+  id                 String       @id @default(uuid()) @db.Uuid
+  tenantId           String       @db.Uuid
+  sectionTimetableId String       @db.Uuid
+  scheduleType       ScheduleType @default(REGULAR)
+  dayOfWeek          DayOfWeek
+  classNumber        Int
+  startTime          String // "HH:MM"
+  endTime            String // "HH:MM"
+  subjectId          String       @db.Uuid
+  teacherId          String?      @db.Uuid
+  locationId         String?      @db.Uuid // optional SpecialLocation; null ⇒ section's classroom
+  createdAt          DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(6)
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sectionTimetable SectionTimetable @relation(fields: [sectionTimetableId], references: [id], onDelete: Cascade)
+  subject          Subject          @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  teacher          Teacher?         @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+  location         SpecialLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@unique([sectionTimetableId, scheduleType, dayOfWeek, classNumber])
+  @@index([tenantId, sectionTimetableId])
+  @@index([tenantId, teacherId])
+  @@index([tenantId, subjectId])
+}
+
+// ----------------------------------------------------------------------------
 // Attendance
 // ----------------------------------------------------------------------------
 
-// Student attendance. periodIndex 0 = daily/homeroom; >0 = per-period. Unique per
-// (student, date, period) so offline re-sync is idempotent (upsert on that key).
+// Student attendance. classNumber 0 = daily/homeroom; >0 = per-class. Unique per
+// (student, date, class) so offline re-sync is idempotent (upsert on that key).
 model StudentAttendance {
   id          String           @id @default(uuid()) @db.Uuid
   tenantId    String           @db.Uuid
   studentId   String           @db.Uuid
   sectionId   String           @db.Uuid
   date        DateTime         @db.Date
-  periodIndex Int              @default(0)
+  classNumber Int              @default(0)
   status      AttendanceStatus
   method      AttendanceMethod @default(MANUAL)
   note        String?
@@ -1266,7 +1462,7 @@ model StudentAttendance {
   section  Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   markedBy User?   @relation("StudentAttendanceMarkedBy", fields: [markedById], references: [id], onDelete: SetNull)
 
-  @@unique([tenantId, studentId, date, periodIndex])
+  @@unique([tenantId, studentId, date, classNumber])
   @@index([tenantId, sectionId, date])
   @@index([tenantId, studentId, date])
 }

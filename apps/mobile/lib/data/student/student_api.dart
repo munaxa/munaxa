@@ -70,19 +70,19 @@ class AttendanceEntry {
     required this.id,
     required this.date,
     required this.status,
-    required this.periodIndex,
+    required this.classNumber,
   });
 
   final String id;
   final String date;
   final String status;
-  final int periodIndex;
+  final int classNumber;
 
   factory AttendanceEntry.fromJson(Map<String, dynamic> json) => AttendanceEntry(
         id: json['id'] as String,
         date: json['date'] as String,
         status: json['status'] as String,
-        periodIndex: json['periodIndex'] as int,
+        classNumber: json['classNumber'] as int,
       );
 }
 
@@ -90,26 +90,30 @@ class TimetableEntry {
   const TimetableEntry({
     required this.id,
     required this.dayOfWeek,
-    required this.periodIndex,
+    required this.classNumber,
     required this.startTime,
     required this.endTime,
     required this.subject,
+    this.teacherName,
   });
 
   final String id;
   final String dayOfWeek;
-  final int periodIndex;
+  final int classNumber;
   final String startTime;
   final String endTime;
   final String subject;
+  final String? teacherName;
 
   factory TimetableEntry.fromJson(Map<String, dynamic> json) => TimetableEntry(
-        id: json['id'] as String,
+        id: json['id'] as String? ?? '',
         dayOfWeek: json['dayOfWeek'] as String,
-        periodIndex: json['periodIndex'] as int,
+        classNumber: (json['classNumber'] as num).toInt(),
         startTime: json['startTime'] as String,
         endTime: json['endTime'] as String,
-        subject: json['subject'] as String,
+        // The scheduling engine names the field `subjectName`.
+        subject: (json['subjectName'] ?? json['subject']) as String,
+        teacherName: json['teacherName'] as String?,
       );
 }
 
@@ -229,11 +233,18 @@ class StudentApi {
         .toList();
   }
 
+  /// The inherited weekly timetable, returned grouped by day `[{dayOfWeek, classes:[...]}]`
+  /// by the scheduling engine; flattened here into per-class entries.
   Future<List<TimetableEntry>> timetable() async {
     final res = await _dio.get<List<dynamic>>('/me/timetable');
-    return (res.data ?? [])
-        .map((e) => TimetableEntry.fromJson(e as Map<String, dynamic>))
-        .toList();
+    final entries = <TimetableEntry>[];
+    for (final group in res.data ?? []) {
+      final classes = (group as Map<String, dynamic>)['classes'] as List<dynamic>? ?? [];
+      for (final c in classes) {
+        entries.add(TimetableEntry.fromJson(c as Map<String, dynamic>));
+      }
+    }
+    return entries;
   }
 
   Future<List<LearningResource>> resources() async {

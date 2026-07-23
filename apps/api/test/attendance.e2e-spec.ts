@@ -132,7 +132,7 @@ describe('Attendance (e2e)', () => {
     http()
       .post('/api/v1/attendance/students/bulk')
       .set(auth(adminToken))
-      .send({ sectionId, date: DATE, periodIndex: 1, records });
+      .send({ sectionId, date: DATE, classNumber: 1, records });
 
   it('marks attendance in bulk', async () => {
     const res = await bulk([
@@ -150,7 +150,7 @@ describe('Attendance (e2e)', () => {
     ]).expect(200);
 
     const list = await http()
-      .get(`/api/v1/attendance/students?sectionId=${sectionId}&date=${DATE}&periodIndex=1`)
+      .get(`/api/v1/attendance/students?sectionId=${sectionId}&date=${DATE}&classNumber=1`)
       .set(auth(adminToken))
       .expect(200);
     expect(list.body).toHaveLength(2); // still 2 rows, not 4
@@ -162,7 +162,7 @@ describe('Attendance (e2e)', () => {
     const res = await http()
       .post('/api/v1/attendance/students/qr')
       .set(auth(adminToken))
-      .send({ qrCode: studentA.qrCode, date: DATE, periodIndex: 2 })
+      .send({ qrCode: studentA.qrCode, date: DATE, classNumber: 2 })
       .expect(200);
     expect(res.body.method).toBe('QR');
     expect(res.body.status).toBe('PRESENT');
@@ -170,7 +170,7 @@ describe('Attendance (e2e)', () => {
 
   it('produces a dashboard summary', async () => {
     const res = await http()
-      .get(`/api/v1/attendance/students/summary?sectionId=${sectionId}&date=${DATE}&periodIndex=1`)
+      .get(`/api/v1/attendance/students/summary?sectionId=${sectionId}&date=${DATE}&classNumber=1`)
       .set(auth(adminToken))
       .expect(200);
     expect(res.body.total).toBe(2);
@@ -213,7 +213,7 @@ describe('Attendance (e2e)', () => {
       .send({
         sectionId,
         date: DATE,
-        periodIndex: 1,
+        classNumber: 1,
         records: [{ studentId: studentA.id, status: 'PRESENT' }],
       })
       .expect(403);
