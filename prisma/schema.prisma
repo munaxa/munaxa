@@ -70,10 +70,49 @@ enum StudentStatus {
   WITHDRAWN
 }
 
+// Full employee lifecycle (HR transformation, Phase 1). Ordered roughly candidate → hired →
+// active → exit. Pre-hire states (CANDIDATE…OFFER_ACCEPTED) are used by the recruitment module;
+// an applicant becomes a real Employee row on HIRED. Every transition is recorded in
+// EmployeeStatusHistory and the generic AuditLog. The three original values (ACTIVE, ON_LEAVE,
+// TERMINATED) are preserved so existing rows and code keep working.
 enum EmploymentStatus {
+  CANDIDATE
+  INTERVIEW
+  OFFER_SENT
+  BACKGROUND_CHECK
+  OFFER_ACCEPTED
+  HIRED
+  PROBATION
   ACTIVE
+  TRANSFERRED
+  PROMOTION
   ON_LEAVE
+  SUSPENDED
+  RETIRED
+  RESIGNED
   TERMINATED
+  ARCHIVED
+}
+
+// Contractual working arrangement, distinct from the granular contract types added in Phase 2.
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  HOURLY
+  SEASONAL
+  CONSULTANT
+  SUBSTITUTE
+  INTERN
+  VOLUNTEER
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  OTHER
 }
 
 enum ParentRelation {
@@ -543,6 +582,9 @@ model Tenant {
   documentEmailLogs        DocumentEmailLog[]
   yearEndProcesses         YearEndProcess[]
   yearEndDecisions         YearEndDecision[]
+  departments              Department[]
+  positions                Position[]
+  employeeStatusHistory    EmployeeStatusHistory[]
 
   // SaaS subscription plane
   subscription       TenantSubscription?
@@ -617,6 +659,8 @@ model Campus {
   specialLocations SpecialLocation[]
   bellSchedules    BellSchedule[]
   schedulePlans    SchedulePlan[]
+  departments      Department[]
+  employees        Employee[]
 
   @@index([tenantId])
   @@index([tenantId, schoolId])
@@ -895,6 +939,10 @@ model Teacher {
   id             String           @id @default(uuid()) @db.Uuid
   tenantId       String           @db.Uuid
   userId         String?          @unique @db.Uuid
+  // Academic facet of an HR Employee (HR transformation, Phase 1). Optional 1:1: a Teacher can be
+  // linked to their canonical Employee record so HR data (contracts, leave, documents) lives in one
+  // place, while section/schedule relations stay here. Nullable during onboarding and for legacy rows.
+  employeeId     String?          @unique @db.Uuid
   employeeNumber String?
   firstNameEn    String
   lastNameEn     String
@@ -908,6 +956,7 @@ model Teacher {
 
   tenant                 Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user                   User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  employee               Employee?           @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   sections               TeacherSection[]
   scheduledClasses       ScheduledClass[]
   exceptionReplacements  ScheduleException[] @relation("ExceptionTeacher")
@@ -919,25 +968,157 @@ model Teacher {
   @@index([tenantId])
 }
 
+// The canonical HR "staff person" (HR transformation, Phase 1). Every non-student, non-parent
+// human the school employs — teaching or not — is an Employee. `Teacher` is an optional academic
+// facet linked 1:1 via Teacher.employeeId; a bus driver (Phase 3) is an Employee with a
+// DriverProfile. Identity, employment, org placement and lifecycle live here; richer sub-records
+// (contracts, documents, dependents, education, certificates, bank) arrive in Phase 2.
 model Employee {
-  id          String           @id @default(uuid()) @db.Uuid
-  tenantId    String           @db.Uuid
-  userId      String?          @unique @db.Uuid
-  firstNameEn String
-  lastNameEn  String
-  firstNameAr String
-  lastNameAr  String
-  jobTitle    String
-  department  String?
-  status      EmploymentStatus @default(ACTIVE)
-  createdAt   DateTime         @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime         @updatedAt @db.Timestamptz(6)
-  deletedAt   DateTime?        @db.Timestamptz(6)
+  id       String  @id @default(uuid()) @db.Uuid
+  tenantId String  @db.Uuid
+  userId   String? @unique @db.Uuid
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // --- Identity ---
+  employeeNumber String? // human-facing staff number, unique per tenant among live rows
+  firstNameEn    String
+  lastNameEn     String
+  firstNameAr    String
+  lastNameAr     String
+  nationalId     String?
+  passportNumber String?
+  nationality    String?
+  visaNumber     String?
+  visaExpiry     DateTime?      @db.Date
+  gender         Gender?
+  dateOfBirth    DateTime?      @db.Date
+  maritalStatus  MaritalStatus?
+  religion       String?
+  personalEmail  String?
+  personalPhone  String?
+  photoUrl       String?
+
+  // --- Employment ---
+  jobTitle            String // always-present human-readable title; mirrors positionId when set
+  employmentType      EmploymentType?
+  status              EmploymentStatus @default(ACTIVE)
+  hireDate            DateTime?        @db.Date
+  probationEndDate    DateTime?        @db.Date
+  terminationDate     DateTime?        @db.Date
+  workingHoursPerWeek Decimal?         @db.Decimal(5, 2)
+
+  // --- Org placement ---
+  campusId     String? @db.Uuid
+  departmentId String? @db.Uuid
+  positionId   String? @db.Uuid
+  managerId    String? @db.Uuid // reporting manager (self-reference → org chart)
+
+  // --- Audit denormalisation (full trail lives in AuditLog) ---
+  createdById String?   @db.Uuid
+  updatedById String?   @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt   DateTime? @db.Timestamptz(6)
+
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  campus        Campus?                 @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  department    Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position      Position?               @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  manager       Employee?               @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports       Employee[]              @relation("EmployeeManager")
+  createdBy     User?                   @relation("EmployeeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?                   @relation("EmployeeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  teacher       Teacher?
+  statusHistory EmployeeStatusHistory[]
+  headOf        Department[]            @relation("DepartmentHead")
+
+  @@unique([tenantId, employeeNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, departmentId])
+  @@index([tenantId, campusId])
+  @@index([managerId])
+}
+
+// An immutable, timestamped record of one employee lifecycle transition (HR transformation,
+// Phase 1). Written in the same transaction as the status change; mirrored to AuditLog. Never
+// updated or deleted — it is the employee's authoritative status timeline.
+model EmployeeStatusHistory {
+  id            String            @id @default(uuid()) @db.Uuid
+  tenantId      String            @db.Uuid
+  employeeId    String            @db.Uuid
+  fromStatus    EmploymentStatus? // null for the very first (creation) record
+  toStatus      EmploymentStatus
+  reason        String?
+  effectiveDate DateTime?         @db.Date
+  actorUserId   String?           @db.Uuid
+  metadata      Json?
+  createdAt     DateTime          @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  actor    User?    @relation("EmployeeStatusActor", fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId])
+  @@index([tenantId, employeeId, createdAt])
+}
+
+// Organisational unit within a school (HR transformation, Phase 1). Supports a self-referential
+// hierarchy (division → department → team) and an optional campus scoping. `headEmployeeId` names
+// the department manager. Reuses the existing Campus model — no duplicate campus concept.
+model Department {
+  id             String  @id @default(uuid()) @db.Uuid
+  tenantId       String  @db.Uuid
+  campusId       String? @db.Uuid
+  parentId       String? @db.Uuid
+  headEmployeeId String? @db.Uuid
+  name           String
+  code           String?
+  description    String?
+  isActive       Boolean @default(true)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus    Campus?      @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  parent    Department?  @relation("DepartmentTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Department[] @relation("DepartmentTree")
+  head      Employee?    @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+  employees Employee[]
+  positions Position[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, parentId])
+  @@index([tenantId, campusId])
+}
+
+// A budgeted job position/title definition (HR transformation, Phase 1). Employees optionally
+// occupy a Position; `budgetedHeadcount` minus filled positions yields vacancies for the org chart
+// and drives the recruitment module (Phase 8).
+model Position {
+  id                String  @id @default(uuid()) @db.Uuid
+  tenantId          String  @db.Uuid
+  departmentId      String? @db.Uuid
+  title             String
+  code              String?
+  description       String?
+  budgetedHeadcount Int?
+  isActive          Boolean @default(true)
+
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt DateTime? @db.Timestamptz(6)
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employees  Employee[]
+
+  @@unique([tenantId, title])
+  @@index([tenantId])
+  @@index([tenantId, departmentId])
 }
 
 model ParentStudent {
@@ -1018,6 +1199,9 @@ model User {
   parentProfile          Parent?
   teacherProfile         Teacher?
   employeeProfile        Employee?
+  employeesCreated       Employee[]              @relation("EmployeeCreatedBy")
+  employeesUpdated       Employee[]              @relation("EmployeeUpdatedBy")
+  employeeStatusChanges  EmployeeStatusHistory[] @relation("EmployeeStatusActor")
   studentAttendanceMarks StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
   teacherAttendanceMarks TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
   notifications          Notification[]

@@ -109,6 +109,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.SECTION_MANAGE,
     Permission.CLASSROOM_MANAGE,
     Permission.ORGANIZATION_READ,
+    // HR oversight: read staff + org, and drive employee lifecycle (but not day-to-day HR editing).
+    Permission.EMPLOYEE_READ,
+    Permission.HR_SENSITIVE_READ,
+    Permission.HR_LIFECYCLE_MANAGE,
+    Permission.HR_ORG_READ,
     Permission.TIMETABLE_READ,
     Permission.ATTENDANCE_READ,
     Permission.HOMEWORK_READ,
@@ -138,6 +143,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CARD_READ,
     Permission.PRESENCE_READ,
     Permission.TRANSPORT_READ,
+    Permission.EMPLOYEE_READ,
+    Permission.HR_ORG_READ,
     Permission.ATTENDANCE_CONFIGURE,
     Permission.TIMETABLE_MANAGE,
     Permission.ATTENDANCE_CREATE,
@@ -269,8 +276,17 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.ATTENDANCE_READ,
     Permission.ACHIEVEMENT_MANAGE,
   ],
-  // HR: staff records & leave approvals.
-  HR: [Permission.EMPLOYEE_MANAGE, Permission.TEACHER_MANAGE, Permission.LEAVE_APPROVE],
+  // HR: full staff records, lifecycle, org structure & leave approvals.
+  HR: [
+    Permission.EMPLOYEE_READ,
+    Permission.EMPLOYEE_MANAGE,
+    Permission.HR_SENSITIVE_READ,
+    Permission.HR_LIFECYCLE_MANAGE,
+    Permission.HR_ORG_READ,
+    Permission.HR_ORG_MANAGE,
+    Permission.TEACHER_MANAGE,
+    Permission.LEAVE_APPROVE,
+  ],
   // Nurse: clinic module + attendance visibility.
   Nurse: [Permission.CLINIC_MANAGE, Permission.CLINIC_READ, Permission.ATTENDANCE_READ],
   // Librarian: library module.

@@ -23,6 +23,15 @@ export const Permission = {
   TEACHER_MANAGE: 'teacher:manage',
   EMPLOYEE_MANAGE: 'employee:manage',
 
+  // Human Resources (HR transformation). `employee:manage` remains the write capability for the
+  // employee record itself; these add read separation, sensitive-data gating, lifecycle control,
+  // and org-structure management so profile tabs can be authorised independently.
+  EMPLOYEE_READ: 'employee:read',
+  HR_SENSITIVE_READ: 'hr:sensitive:read',
+  HR_LIFECYCLE_MANAGE: 'hr:lifecycle:manage',
+  HR_ORG_READ: 'hr:org:read',
+  HR_ORG_MANAGE: 'hr:org:manage',
+
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
   TIMETABLE_READ: 'timetable:read',
@@ -162,6 +171,13 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.PARENT_MANAGE]: 'Create and edit parent/guardian profiles.',
   [Permission.TEACHER_MANAGE]: 'Create and edit teacher profiles.',
   [Permission.EMPLOYEE_MANAGE]: 'Create and edit staff/employee profiles.',
+  [Permission.EMPLOYEE_READ]: 'View the staff directory and non-sensitive employee profiles.',
+  [Permission.HR_SENSITIVE_READ]:
+    'View sensitive employee data (national ID, passport, visa, date of birth, bank details).',
+  [Permission.HR_LIFECYCLE_MANAGE]:
+    'Change an employee’s employment status (hire, probation, leave, suspend, terminate, archive).',
+  [Permission.HR_ORG_READ]: 'View the organisation structure (departments, positions, org chart).',
+  [Permission.HR_ORG_MANAGE]: 'Create and edit departments and positions.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',

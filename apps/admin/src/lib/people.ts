@@ -190,9 +190,121 @@ export const studentsApi = {
 // Staff & guardians (teachers / parents / employees)
 // ---------------------------------------------------------------------------
 
-export type EmploymentStatus = 'ACTIVE' | 'ON_LEAVE' | 'TERMINATED';
+/** Full employee lifecycle (mirrors the Prisma EmploymentStatus enum). */
+export type EmploymentStatus =
+  | 'CANDIDATE'
+  | 'INTERVIEW'
+  | 'OFFER_SENT'
+  | 'BACKGROUND_CHECK'
+  | 'OFFER_ACCEPTED'
+  | 'HIRED'
+  | 'PROBATION'
+  | 'ACTIVE'
+  | 'TRANSFERRED'
+  | 'PROMOTION'
+  | 'ON_LEAVE'
+  | 'SUSPENDED'
+  | 'RETIRED'
+  | 'RESIGNED'
+  | 'TERMINATED'
+  | 'ARCHIVED';
 
+/** The three basic statuses used by Teacher records and simple pickers. */
 export const EMPLOYMENT_STATUSES: EmploymentStatus[] = ['ACTIVE', 'ON_LEAVE', 'TERMINATED'];
+
+/** Every lifecycle status, in canonical order (badges, filters, timelines). */
+export const EMPLOYEE_STATUSES: EmploymentStatus[] = [
+  'CANDIDATE',
+  'INTERVIEW',
+  'OFFER_SENT',
+  'BACKGROUND_CHECK',
+  'OFFER_ACCEPTED',
+  'HIRED',
+  'PROBATION',
+  'ACTIVE',
+  'TRANSFERRED',
+  'PROMOTION',
+  'ON_LEAVE',
+  'SUSPENDED',
+  'RETIRED',
+  'RESIGNED',
+  'TERMINATED',
+  'ARCHIVED',
+];
+
+/** Statuses an employee may be created at directly (mirrors the server state machine). */
+export const EMPLOYEE_ENTRY_STATUSES: EmploymentStatus[] = [
+  'CANDIDATE',
+  'HIRED',
+  'PROBATION',
+  'ACTIVE',
+];
+
+/**
+ * Allowed single-step transitions per status — a client mirror of the server state machine
+ * (apps/api/.../employee-lifecycle.logic.ts) used only to constrain the status picker. The server
+ * remains the source of truth and re-validates every transition.
+ */
+export const EMPLOYEE_STATUS_TRANSITIONS: Record<EmploymentStatus, EmploymentStatus[]> = {
+  CANDIDATE: ['INTERVIEW', 'ARCHIVED'],
+  INTERVIEW: ['OFFER_SENT', 'ARCHIVED'],
+  OFFER_SENT: ['OFFER_ACCEPTED', 'BACKGROUND_CHECK', 'ARCHIVED'],
+  OFFER_ACCEPTED: ['BACKGROUND_CHECK', 'HIRED', 'ARCHIVED'],
+  BACKGROUND_CHECK: ['HIRED', 'ARCHIVED'],
+  HIRED: ['PROBATION', 'ACTIVE'],
+  PROBATION: ['ACTIVE', 'TERMINATED', 'RESIGNED'],
+  ACTIVE: [
+    'ON_LEAVE',
+    'SUSPENDED',
+    'TRANSFERRED',
+    'PROMOTION',
+    'RESIGNED',
+    'RETIRED',
+    'TERMINATED',
+  ],
+  TRANSFERRED: ['ACTIVE', 'ON_LEAVE', 'RESIGNED', 'TERMINATED'],
+  PROMOTION: ['ACTIVE', 'ON_LEAVE', 'RESIGNED', 'TERMINATED'],
+  ON_LEAVE: ['ACTIVE', 'SUSPENDED', 'RESIGNED', 'RETIRED', 'TERMINATED'],
+  SUSPENDED: ['ACTIVE', 'TERMINATED', 'RESIGNED'],
+  RETIRED: ['ARCHIVED'],
+  RESIGNED: ['ARCHIVED'],
+  TERMINATED: ['ARCHIVED'],
+  ARCHIVED: [],
+};
+
+export type EmploymentType =
+  | 'FULL_TIME'
+  | 'PART_TIME'
+  | 'CONTRACT'
+  | 'HOURLY'
+  | 'SEASONAL'
+  | 'CONSULTANT'
+  | 'SUBSTITUTE'
+  | 'INTERN'
+  | 'VOLUNTEER';
+
+export const EMPLOYMENT_TYPES: EmploymentType[] = [
+  'FULL_TIME',
+  'PART_TIME',
+  'CONTRACT',
+  'HOURLY',
+  'SEASONAL',
+  'CONSULTANT',
+  'SUBSTITUTE',
+  'INTERN',
+  'VOLUNTEER',
+];
+
+export type MaritalStatus = 'SINGLE' | 'MARRIED' | 'DIVORCED' | 'WIDOWED' | 'OTHER';
+export const MARITAL_STATUSES: MaritalStatus[] = [
+  'SINGLE',
+  'MARRIED',
+  'DIVORCED',
+  'WIDOWED',
+  'OTHER',
+];
+
+export type Gender = 'MALE' | 'FEMALE';
 
 /** DELETE helper — endpoints reply 204 No Content, so there is no body to parse. */
 async function del(path: string): Promise<void> {
@@ -295,6 +407,45 @@ export const parentsApi = {
   remove: (id: string) => del(`/parents/${id}`),
 };
 
+export interface DepartmentRef {
+  id: string;
+  name: string;
+}
+export interface PositionRef {
+  id: string;
+  title: string;
+}
+export interface CampusRef {
+  id: string;
+  nameEn: string;
+  nameAr: string;
+}
+export interface EmployeeManagerRef {
+  id: string;
+  firstNameEn: string;
+  lastNameEn: string;
+}
+export interface EmployeeTeacherRef {
+  id: string;
+  specialization?: string | null;
+}
+
+/** One lifecycle transition in an employee's status timeline. */
+export interface EmployeeStatusRow {
+  id: string;
+  fromStatus: EmploymentStatus | null;
+  toStatus: EmploymentStatus;
+  reason?: string | null;
+  effectiveDate?: string | null;
+  createdAt: string;
+  actor?: {
+    id: string;
+    firstNameEn?: string | null;
+    lastNameEn?: string | null;
+    email?: string | null;
+  } | null;
+}
+
 export interface Employee {
   id: string;
   firstNameEn: string;
@@ -302,9 +453,37 @@ export interface Employee {
   firstNameAr: string;
   lastNameAr: string;
   jobTitle: string;
-  department?: string | null;
+  employeeNumber?: string | null;
+  nationalId?: string | null;
+  passportNumber?: string | null;
+  nationality?: string | null;
+  visaNumber?: string | null;
+  visaExpiry?: string | null;
+  gender?: Gender | null;
+  dateOfBirth?: string | null;
+  maritalStatus?: MaritalStatus | null;
+  religion?: string | null;
+  personalEmail?: string | null;
+  personalPhone?: string | null;
+  photoUrl?: string | null;
+  employmentType?: EmploymentType | null;
   status: EmploymentStatus;
+  hireDate?: string | null;
+  probationEndDate?: string | null;
+  terminationDate?: string | null;
+  workingHoursPerWeek?: string | number | null;
+  campusId?: string | null;
+  departmentId?: string | null;
+  positionId?: string | null;
+  managerId?: string | null;
+  department?: DepartmentRef | null;
+  position?: PositionRef | null;
+  campus?: CampusRef | null;
+  manager?: EmployeeManagerRef | null;
+  teacher?: EmployeeTeacherRef | null;
+  statusHistory?: EmployeeStatusRow[];
   createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface CreateEmployeeInput {
@@ -313,22 +492,63 @@ export interface CreateEmployeeInput {
   firstNameAr: string;
   lastNameAr: string;
   jobTitle: string;
-  department?: string;
+  employeeNumber?: string;
+  nationalId?: string;
+  passportNumber?: string;
+  nationality?: string;
+  visaNumber?: string;
+  visaExpiry?: string;
+  gender?: Gender;
+  dateOfBirth?: string;
+  maritalStatus?: MaritalStatus;
+  religion?: string;
+  personalEmail?: string;
+  personalPhone?: string;
+  employmentType?: EmploymentType;
   status?: EmploymentStatus;
+  hireDate?: string;
+  probationEndDate?: string;
+  workingHoursPerWeek?: number;
+  campusId?: string;
+  departmentId?: string;
+  positionId?: string;
+  managerId?: string;
 }
 
-export interface UpdateEmployeeInput {
-  firstNameEn?: string;
-  lastNameEn?: string;
-  firstNameAr?: string;
-  lastNameAr?: string;
-  jobTitle?: string;
-  department?: string;
+export type UpdateEmployeeInput = Partial<Omit<CreateEmployeeInput, 'status'>>;
+
+export interface EmployeeListFilters {
+  q?: string;
   status?: EmploymentStatus;
+  departmentId?: string;
+  campusId?: string;
+  positionId?: string;
+  includeInactive?: boolean;
+}
+
+export interface TransitionStatusInput {
+  toStatus: EmploymentStatus;
+  reason?: string;
+  effectiveDate?: string;
+}
+
+function employeeQuery(filters?: EmployeeListFilters): string {
+  if (!filters) return '';
+  const p = new URLSearchParams();
+  if (filters.q) p.set('q', filters.q);
+  if (filters.status) p.set('status', filters.status);
+  if (filters.departmentId) p.set('departmentId', filters.departmentId);
+  if (filters.campusId) p.set('campusId', filters.campusId);
+  if (filters.positionId) p.set('positionId', filters.positionId);
+  if (filters.includeInactive) p.set('includeInactive', 'true');
+  const qs = p.toString();
+  return qs ? `?${qs}` : '';
 }
 
 export const employeesApi = {
-  list: () => authFetch('/employees').then((r) => json<Employee[]>(r)),
+  list: (filters?: EmployeeListFilters) =>
+    authFetch(`/employees${employeeQuery(filters)}`).then((r) => json<Employee[]>(r)),
+  get: (id: string) => authFetch(`/employees/${id}`).then((r) => json<Employee>(r)),
   create: (data: CreateEmployeeInput) =>
     authFetch('/employees', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
       json<Employee>(r),
@@ -337,5 +557,90 @@ export const employeesApi = {
     authFetch(`/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
       json<Employee>(r),
     ),
+  transitionStatus: (id: string, data: TransitionStatusInput) =>
+    authFetch(`/employees/${id}/status`, { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Employee>(r),
+    ),
+  statusHistory: (id: string) =>
+    authFetch(`/employees/${id}/status-history`).then((r) => json<EmployeeStatusRow[]>(r)),
   remove: (id: string) => del(`/employees/${id}`),
+};
+
+// ---------------------------------------------------------------------------
+// Organisation engine (departments & positions)
+// ---------------------------------------------------------------------------
+
+export interface Department {
+  id: string;
+  name: string;
+  code?: string | null;
+  description?: string | null;
+  campusId?: string | null;
+  parentId?: string | null;
+  headEmployeeId?: string | null;
+  isActive: boolean;
+  headcount?: number;
+  campus?: CampusRef | null;
+  parent?: DepartmentRef | null;
+  head?: EmployeeManagerRef | null;
+}
+
+export interface CreateDepartmentInput {
+  name: string;
+  code?: string;
+  description?: string;
+  campusId?: string;
+  parentId?: string;
+  headEmployeeId?: string;
+  isActive?: boolean;
+}
+export type UpdateDepartmentInput = Partial<CreateDepartmentInput>;
+
+export interface Position {
+  id: string;
+  title: string;
+  code?: string | null;
+  description?: string | null;
+  departmentId?: string | null;
+  budgetedHeadcount?: number | null;
+  isActive: boolean;
+  filled?: number;
+  vacancies?: number | null;
+  department?: DepartmentRef | null;
+}
+
+export interface CreatePositionInput {
+  title: string;
+  code?: string;
+  description?: string;
+  departmentId?: string;
+  budgetedHeadcount?: number;
+  isActive?: boolean;
+}
+export type UpdatePositionInput = Partial<CreatePositionInput>;
+
+export const departmentsApi = {
+  list: () => authFetch('/hr/departments').then((r) => json<Department[]>(r)),
+  create: (data: CreateDepartmentInput) =>
+    authFetch('/hr/departments', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Department>(r),
+    ),
+  update: (id: string, data: UpdateDepartmentInput) =>
+    authFetch(`/hr/departments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<Department>(r),
+    ),
+  remove: (id: string) => del(`/hr/departments/${id}`),
+};
+
+export const positionsApi = {
+  list: () => authFetch('/hr/positions').then((r) => json<Position[]>(r)),
+  create: (data: CreatePositionInput) =>
+    authFetch('/hr/positions', { method: 'POST', body: JSON.stringify(data) }).then((r) =>
+      json<Position>(r),
+    ),
+  update: (id: string, data: UpdatePositionInput) =>
+    authFetch(`/hr/positions/${id}`, { method: 'PATCH', body: JSON.stringify(data) }).then((r) =>
+      json<Position>(r),
+    ),
+  remove: (id: string) => del(`/hr/positions/${id}`),
 };
