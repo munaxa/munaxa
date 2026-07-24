@@ -10,6 +10,7 @@ import {
   MessageSquare,
   BarChart3,
 } from '@munaxa/icons';
+import Image from 'next/image';
 import { cn } from '@/lib/cn';
 
 /**
@@ -72,9 +73,14 @@ export function DashboardPreview() {
     <div className="@container flex min-h-[360px] bg-background text-foreground">
       <aside className="hidden w-48 shrink-0 flex-col border-e border-border bg-card/60 p-3 @2xl:flex @5xl:w-52">
         <div className="flex items-center gap-2 px-2 py-2">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-[11px] font-bold text-primary-foreground">
-            M
-          </span>
+          <Image
+            src="/app-icon.png"
+            alt="Munaxa"
+            width={28}
+            height={28}
+            unoptimized
+            className="h-7 w-7 rounded-lg"
+          />
           <span className="font-display text-sm font-semibold">Munaxa Academy</span>
         </div>
         <nav className="mt-3 flex flex-col gap-0.5">
