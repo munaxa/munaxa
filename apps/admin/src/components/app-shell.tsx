@@ -10,7 +10,6 @@ import { advancedApi } from '@/lib/advanced';
 import { academicYearsApi, type AcademicYear } from '@/lib/structure';
 import { Badge, Button } from '@munaxa/ui';
 import { Logo } from './logo';
-import { Monogram } from './monogram';
 import { ThemeLocaleToggle } from './theme-locale-toggle';
 import { GlobalSearch } from './global-search';
 import { useI18n } from './i18n-provider';
@@ -502,7 +501,11 @@ export function AppShell({
               collapsed ? 'justify-center px-0' : 'px-2',
             )}
           >
-            {collapsed ? <Monogram className="text-2xl" /> : <Logo size={32} priority />}
+            {collapsed ? (
+              <Logo variant="symbol" size={30} priority />
+            ) : (
+              <Logo variant="horizontal" size={26} priority />
+            )}
           </div>
 
           {/* Collapse / expand toggle on the rail edge */}
@@ -535,7 +538,7 @@ export function AppShell({
           <aside className="scrollbar-none absolute inset-y-0 start-0 flex w-72 max-w-[85%] flex-col overflow-y-auto border-e border-border bg-card p-4 shadow-xl">
             <div className="flex items-center justify-between px-2 py-3">
               <div className="flex items-center gap-2">
-                <Logo size={32} priority />
+                <Logo variant="horizontal" size={26} priority />
               </div>
               <Button
                 variant="ghost"

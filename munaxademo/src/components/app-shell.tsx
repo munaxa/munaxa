@@ -98,7 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-e border-border bg-card/40 p-4 md:flex">
         <Link href="/dashboard" className="flex items-center gap-2 px-2 py-3">
-          <Logo size={32} priority />
+          <Logo variant="horizontal" size={24} priority />
           <span className="font-display text-lg font-semibold">{data.school.nameEn}</span>
         </Link>
         {navLinks}
@@ -116,7 +116,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <aside className="absolute inset-y-0 start-0 flex w-72 max-w-[82%] flex-col border-e border-border bg-card p-4 shadow-card">
             <div className="flex items-center justify-between">
               <Link href="/dashboard" className="flex items-center gap-2 px-1 py-1">
-                <Logo size={28} priority />
+                <Logo variant="horizontal" size={22} priority />
                 <span className="font-display text-base font-semibold">{data.school.nameEn}</span>
               </Link>
               <button

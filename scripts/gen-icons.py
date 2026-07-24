@@ -1,71 +1,50 @@
 #!/usr/bin/env python3
-"""Generate the Munaxa *minimized* logo — lowercase "m" + the square teal brand dot — as the
-square app icons and favicons.
+"""Generate the Munaxa favicons and app icons from the brand-system source art.
 
-The full open-book + graduation-cap mark (docs/design-system/logo.png) is used inline where
-there's room (headers, login). Tab/app icons are small, so they use the minimized "m." monogram
-instead: the "m" in the wordmark's letter colour (ink on light, white on the ink-background
-icons) followed by the square teal dot, matching the on-page munaxa wordmark exactly.
+Per the brand system:
+  - Favicon (browser tab, tiny UI) -> the M symbol mark (docs/design-system/favicon.png),
+    transparent, padded onto a square.
+  - App Icon (mobile / desktop / PWA) -> the teal app-icon tile (docs/design-system/app-icon.png),
+    made opaque (teal bleeds to the corners; the platform applies its own rounding/mask).
 
-Writes (transparent unless noted):
-  Web — each Next app's src/app/ (admin, demo, landing):
-    favicon.ico   (16/32/48/64, ink "m")
-    icon.png      (512, ink "m")
-    apple-icon.png (180, opaque on brand ink #090B0C, white "m" — iOS ignores transparency)
-  Mobile launcher sources (apps/mobile/assets/icon/):
-    ic_launcher.png            (1024, opaque on ink, white "m") — iOS + legacy Android
-    ic_launcher_foreground.png (1024, transparent, white "m")   — Android adaptive foreground
+Writes:
+  Web -- each Next app's src/app/ (admin, demo, landing):
+    favicon.ico   (16/32/48/64) + icon.png (512)  = M symbol, transparent
+    apple-icon.png (180)                           = app-icon tile, opaque
+  Mobile launcher (apps/mobile/assets/icon/):
+    ic_launcher.png (1024, opaque tile) ; ic_launcher_foreground.png (1024, M symbol, transparent)
 
-Usage:  python3 scripts/gen-icons.py   (requires Pillow; reads the vendored woff2 directly)
-Then wire mobile icons with:  cd apps/mobile && dart run flutter_launcher_icons
+Usage:  python3 scripts/gen-icons.py   (requires Pillow)
 """
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FONT = os.path.join(ROOT, "apps/admin/src/fonts/IBMPlexSans-latin.woff2")
-
-INK = (9, 11, 12, 255)        # brand ink-900 #090B0C - opaque icon background
-INK_M = (0x11, 0x18, 0x1C)    # wordmark letter colour (near-black) - the "m" on light surfaces
-WHITE_M = (0xFF, 0xFF, 0xFF)  # the "m" on ink-background icons (wordmark's colour on dark)
-DOT = (0x00, 0x75, 0x95, 255)  # primary teal #007595 - the square brand dot
+SYMBOL = Image.open(os.path.join(ROOT, "docs/design-system/favicon.png")).convert("RGBA")
+TILE = Image.open(os.path.join(ROOT, "docs/design-system/app-icon.png")).convert("RGBA")
 
 
-def monogram(px, fill=0.92, m_color=INK_M, bg=None):
-    """Render the 'm.' monogram on a px x px canvas (4x supersampled). The 'm.' group is scaled
-    to span `fill` of the canvas width (the wide dimension) so it's as large as possible without
-    clipping. The "m" uses `m_color`; the dot is the fixed teal square. bg=None -> transparent."""
+def _dominant_teal(img):
+    """Average the opaque pixels -> the tile's teal, used to bleed the icon background."""
+    small = img.resize((48, 48))
+    px = [p for p in small.getdata() if p[3] > 200]
+    n = max(1, len(px))
+    return (sum(p[0] for p in px) // n, sum(p[1] for p in px) // n, sum(p[2] for p in px) // n, 255)
+
+
+def pad(mark, size, frac, bg=None):
+    """Center `mark` on a size×size canvas, scaled so its longest side is `frac` of the canvas."""
     ss = 4
-    s = px * ss
+    s = size * ss
     canvas = Image.new("RGBA", (s, s), bg if bg else (0, 0, 0, 0))
-    d = ImageDraw.Draw(canvas)
-
-    def measure(fs):
-        font = ImageFont.truetype(FONT, fs)
-        stroke = max(1, int(fs * 0.05))
-        tb = d.textbbox((0, 0), "m", font=font, stroke_width=stroke)
-        mw, mh = tb[2] - tb[0], tb[3] - tb[1]
-        dot = int(mh * 0.5)
-        gap = int(mh * 0.16)
-        return font, stroke, tb, mw, mh, dot, gap, mw + gap + dot
-
-    # Size the font so the group width fits `fill` of the canvas.
-    probe = int(s * 0.5)
-    total_probe = measure(probe)[-1]
-    fs = max(4, int(probe * (fill * s) / total_probe))
-    font, stroke, tb, mw, mh, dot, gap, total_w = measure(fs)
-    ox = (s - total_w) // 2 - tb[0]
-    oy = (s - mh) // 2 - tb[1]
-    # the 'm', in the wordmark letter colour
-    mask = Image.new("L", (s, s), 0)
-    ImageDraw.Draw(mask).text((ox, oy), "m", font=font, fill=255,
-                              stroke_width=stroke, stroke_fill=255)
-    canvas.paste(Image.new("RGBA", (s, s), m_color + (255,)), (0, 0), mask)
-    # the square teal dot, sitting on the glyph's baseline (bottom-aligned)
-    dx, dby = ox + tb[2] + gap, oy + tb[3]
-    ImageDraw.Draw(canvas).rectangle([dx, dby - dot, dx + dot, dby], fill=DOT)
-    out = canvas.resize((px, px), Image.LANCZOS)
+    scale = (frac * s) / max(mark.size)
+    m = mark.resize((max(1, int(mark.width * scale)), max(1, int(mark.height * scale))), Image.LANCZOS)
+    canvas.alpha_composite(m, ((s - m.width) // 2, (s - m.height) // 2))
+    out = canvas.resize((size, size), Image.LANCZOS)
     return out.convert("RGB") if bg else out
+
+
+TEAL = _dominant_teal(TILE)
 
 
 def write(img, *paths, **kw):
@@ -76,16 +55,14 @@ def write(img, *paths, **kw):
         print("wrote", p)
 
 
-web = ["apps/admin/src/app", "munaxademo/src/app", "munaxalanding/src/app"]
-# Transparent tab/PWA icons use the ink "m" (light contexts); the opaque ink-background icons
-# use the white "m" so it stays legible - mirroring the theme-aware wordmark.
-# Transparent tab/PWA icons fill nearly the whole width; the opaque ink-background icons keep a
-# small margin around the mark on the tile.
-write(monogram(512, 0.94), *[f"{d}/icon.png" for d in web])
-write(monogram(180, 0.82, m_color=WHITE_M, bg=INK), *[f"{d}/apple-icon.png" for d in web])
-write(monogram(256, 0.94), *[f"{d}/favicon.ico" for d in web],
+web = ["apps/admin/src/app", "munaxademo/src/app", "landing/src/app"]
+# Favicon + PWA icon = the M symbol, transparent.
+write(pad(SYMBOL, 512, 0.86), *[f"{d}/icon.png" for d in web])
+write(pad(SYMBOL, 256, 0.90), *[f"{d}/favicon.ico" for d in web],
       sizes=[(16, 16), (32, 32), (48, 48), (64, 64)])
+# apple-touch icon = the app-icon tile, opaque (teal bleeds to the corners).
+write(pad(TILE, 180, 0.98, bg=TEAL), *[f"{d}/apple-icon.png" for d in web])
 
-write(monogram(1024, 0.78, m_color=WHITE_M, bg=INK), "apps/mobile/assets/icon/ic_launcher.png")
-# Android adaptive foreground is composited on the ink adaptive background -> white "m".
-write(monogram(1024, 0.72, m_color=WHITE_M), "apps/mobile/assets/icon/ic_launcher_foreground.png")
+# Mobile launcher: opaque tile + a transparent M-symbol adaptive foreground.
+write(pad(TILE, 1024, 0.98, bg=TEAL), "apps/mobile/assets/icon/ic_launcher.png")
+write(pad(SYMBOL, 1024, 0.60), "apps/mobile/assets/icon/ic_launcher_foreground.png")
