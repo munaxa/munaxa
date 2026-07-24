@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { StaffAttendanceSource } from '@prisma/client';
+import { StaffAttendanceSource, type StaffAttendanceStatus } from '@prisma/client';
 import { AttendanceRepository, type StaffAttendanceView } from './attendance.repository';
+import { DomainEvents } from '../../events/domain-events';
+import { TenantContextStore } from '../../prisma/tenant-context';
+import { staffAttendanceRecordedEvent } from './staff-attendance-events';
 import { workingDaysBetween } from '../leave/leave-days.logic';
 import {
   overlapWorkingDays,
@@ -36,25 +39,32 @@ function parseDate(value: string): Date {
 
 @Injectable()
 export class AttendanceService {
-  constructor(private readonly repo: AttendanceRepository) {}
+  constructor(
+    private readonly repo: AttendanceRepository,
+    private readonly events: DomainEvents,
+  ) {}
 
   async record(employeeId: string, dto: RecordAttendanceDto): Promise<StaffAttendanceView> {
     await this.assertEmployee(employeeId);
-    return this.repo.record(employeeId, parseDate(dto.date), {
+    const date = parseDate(dto.date);
+    const source = dto.source ?? StaffAttendanceSource.MANUAL;
+    const { view, previousStatus } = await this.repo.record(employeeId, date, {
       status: dto.status,
-      ...(dto.source !== undefined ? { source: dto.source } : {}),
+      source,
       ...(dto.checkInAt !== undefined ? { checkInAt: new Date(dto.checkInAt) } : {}),
       ...(dto.checkOutAt !== undefined ? { checkOutAt: new Date(dto.checkOutAt) } : {}),
       ...(dto.lateMinutes !== undefined ? { lateMinutes: dto.lateMinutes } : {}),
       ...(dto.overtimeHours !== undefined ? { overtimeHours: dto.overtimeHours } : {}),
       ...(dto.note !== undefined ? { note: dto.note } : {}),
     });
+    this.publishRecorded(employeeId, dto.date, dto.status, source, previousStatus);
+    return view;
   }
 
   async bulk(dto: BulkAttendanceDto): Promise<{ count: number }> {
     const date = parseDate(dto.date);
     const source = dto.source ?? StaffAttendanceSource.MANUAL;
-    const count = await this.repo.bulkRecord(
+    const results = await this.repo.bulkRecord(
       date,
       source,
       dto.entries.map((e) => ({
@@ -65,7 +75,29 @@ export class AttendanceService {
         ...(e.note !== undefined ? { note: e.note } : {}),
       })),
     );
-    return { count };
+    for (const r of results) {
+      this.publishRecorded(r.employeeId, dto.date, r.status, r.source, r.previousStatus);
+    }
+    return { count: results.length };
+  }
+
+  /**
+   * Publish the `StaffAttendanceRecorded` integration fact post-commit. Fire-and-forget: the bus
+   * isolates handlers, so a downstream consumer never affects the write. No-op when there is no
+   * tenant context (defensive; the write path always runs inside one).
+   */
+  private publishRecorded(
+    employeeId: string,
+    date: string,
+    status: StaffAttendanceStatus,
+    source: StaffAttendanceSource,
+    previousStatus: StaffAttendanceStatus | null,
+  ): void {
+    const tenantId = TenantContextStore.getTenantId();
+    if (!tenantId) return;
+    this.events.emit(
+      staffAttendanceRecordedEvent({ tenantId, employeeId, date, status, source, previousStatus }),
+    );
   }
 
   async listForEmployee(
