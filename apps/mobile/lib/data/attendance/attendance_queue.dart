@@ -8,7 +8,7 @@ class PendingMark {
     required this.clientRef,
     required this.sectionId,
     required this.date, // YYYY-MM-DD
-    required this.periodIndex,
+    required this.classNumber,
     required this.studentId,
     required this.status,
     this.method = 'MANUAL',
@@ -17,7 +17,7 @@ class PendingMark {
   final String clientRef;
   final String sectionId;
   final String date;
-  final int periodIndex;
+  final int classNumber;
   final String studentId;
   final String status;
   final String method;
@@ -26,7 +26,7 @@ class PendingMark {
         'clientRef': clientRef,
         'sectionId': sectionId,
         'date': date,
-        'periodIndex': periodIndex,
+        'classNumber': classNumber,
         'studentId': studentId,
         'status': status,
         'method': method,
@@ -36,7 +36,7 @@ class PendingMark {
         clientRef: json['clientRef'] as String,
         sectionId: json['sectionId'] as String,
         date: json['date'] as String,
-        periodIndex: (json['periodIndex'] as num).toInt(),
+        classNumber: (json['classNumber'] as num).toInt(),
         studentId: json['studentId'] as String,
         status: json['status'] as String,
         method: json['method'] as String? ?? 'MANUAL',
@@ -66,7 +66,7 @@ class AttendanceQueue {
     marks.removeWhere((m) =>
         m.sectionId == mark.sectionId &&
         m.date == mark.date &&
-        m.periodIndex == mark.periodIndex &&
+        m.classNumber == mark.classNumber &&
         m.studentId == mark.studentId);
     marks.add(mark);
     await _write(marks);

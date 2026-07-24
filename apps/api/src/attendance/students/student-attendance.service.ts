@@ -1,19 +1,31 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { AttendanceStatus, StudentAttendance } from '@prisma/client';
 import { StudentAttendanceRepository, type UpsertMark } from './student-attendance.repository';
+import { SchedulingService } from '../../scheduling/scheduling.service';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import type { BulkMarkDto, QrMarkDto } from './student-attendance.dto';
 
 export interface AttendanceSummary {
   date: string;
-  periodIndex: number;
+  classNumber: number;
   counts: Record<AttendanceStatus, number>;
   total: number;
 }
 
 @Injectable()
 export class StudentAttendanceService {
-  constructor(private readonly repo: StudentAttendanceRepository) {}
+  constructor(
+    private readonly repo: StudentAttendanceRepository,
+    private readonly scheduling: SchedulingService,
+  ) {}
+
+  /**
+   * The class attendance is currently being taken for — resolved from the published timetable, not
+   * asked of the marker. Returns the live current/next class (subject, teacher, class number).
+   */
+  currentClass(sectionId: string) {
+    return this.scheduling.getCurrentSectionClass(sectionId);
+  }
 
   /** Idempotent bulk marking — the target for online marking and offline-queue sync. */
   async bulkMark(dto: BulkMarkDto): Promise<{ marked: number }> {
@@ -21,14 +33,14 @@ export class StudentAttendanceService {
       throw new BadRequestException('Section not found in this tenant');
     }
     const date = toDate(dto.date);
-    const periodIndex = dto.periodIndex ?? 0;
+    const classNumber = dto.classNumber ?? 0;
     const markedById = TenantContextStore.get()?.actorUserId ?? null;
 
     const marks: UpsertMark[] = dto.records.map((record) => ({
       studentId: record.studentId,
       sectionId: dto.sectionId,
       date,
-      periodIndex,
+      classNumber,
       status: record.status,
       method: record.method ?? 'MANUAL',
       note: record.note ?? null,
@@ -50,7 +62,7 @@ export class StudentAttendanceService {
       studentId: student.id,
       sectionId: student.sectionId,
       date: dto.date ? toDate(dto.date) : toDate(new Date().toISOString()),
-      periodIndex: dto.periodIndex ?? 0,
+      classNumber: dto.classNumber ?? 0,
       status: dto.status ?? 'PRESENT',
       method: 'QR',
       note: null,
@@ -62,9 +74,9 @@ export class StudentAttendanceService {
   listForSection(
     sectionId: string,
     date: string,
-    periodIndex?: number,
+    classNumber?: number,
   ): Promise<StudentAttendance[]> {
-    return this.repo.findForSectionDate(sectionId, toDate(date), periodIndex);
+    return this.repo.findForSectionDate(sectionId, toDate(date), classNumber);
   }
 
   async studentHistory(
@@ -81,13 +93,13 @@ export class StudentAttendanceService {
     );
   }
 
-  async summary(sectionId: string, date: string, periodIndex = 0): Promise<AttendanceSummary> {
-    const rows = await this.repo.findForSectionDate(sectionId, toDate(date), periodIndex);
+  async summary(sectionId: string, date: string, classNumber = 0): Promise<AttendanceSummary> {
+    const rows = await this.repo.findForSectionDate(sectionId, toDate(date), classNumber);
     const counts: Record<AttendanceStatus, number> = { PRESENT: 0, ABSENT: 0, LATE: 0, EXCUSED: 0 };
     for (const row of rows) {
       counts[row.status] += 1;
     }
-    return { date, periodIndex, counts, total: rows.length };
+    return { date, classNumber, counts, total: rows.length };
   }
 }
 

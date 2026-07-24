@@ -22,6 +22,13 @@ const PLATFORM_CONSOLE_PERMISSIONS: Permission[] = [
   Permission.FEATUREFLAG_MANAGE,
 ];
 
+/**
+ * Employee self-service (Phase 9): every staff member with a login can view their own HR data and
+ * submit their own leave. Spread into each school-staff role so ESS is universally available;
+ * row-level scoping (own record only) is enforced in the service layer via the actor→employee link.
+ */
+const ESS_PERMISSIONS: Permission[] = [Permission.ESS_READ, Permission.ESS_REQUEST];
+
 export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   // Platform plane — console-only (no school-operational permissions; see above).
   PlatformOwner: PLATFORM_CONSOLE_PERMISSIONS,
@@ -97,6 +104,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   // School plane
   SchoolAdmin: '*',
   Principal: [
+    ...ESS_PERMISSIONS,
+    Permission.TEAM_READ,
+    Permission.TEAM_APPROVE,
     Permission.CARD_MANAGE,
     Permission.CARD_READ,
     Permission.PRESENCE_READ,
@@ -109,6 +119,23 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.SECTION_MANAGE,
     Permission.CLASSROOM_MANAGE,
     Permission.ORGANIZATION_READ,
+    // HR oversight: read staff + org, and drive employee lifecycle (but not day-to-day HR editing).
+    Permission.EMPLOYEE_READ,
+    Permission.HR_SENSITIVE_READ,
+    Permission.HR_LIFECYCLE_MANAGE,
+    Permission.HR_ORG_READ,
+    Permission.HR_CONTRACT_READ,
+    Permission.HR_DOCUMENT_READ,
+    Permission.DRIVER_READ,
+    Permission.STAFF_LEAVE_READ,
+    Permission.STAFF_LEAVE_APPROVE,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.PERFORMANCE_READ,
+    Permission.PERFORMANCE_MANAGE,
+    Permission.TRAINING_READ,
+    Permission.ASSET_READ,
+    Permission.RECRUITMENT_READ,
+    Permission.HR_DASHBOARD_READ,
     Permission.TIMETABLE_READ,
     Permission.ATTENDANCE_READ,
     Permission.HOMEWORK_READ,
@@ -135,9 +162,21 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.CLINIC_READ,
   ],
   VicePrincipal: [
+    ...ESS_PERMISSIONS,
+    Permission.TEAM_READ,
+    Permission.TEAM_APPROVE,
     Permission.CARD_READ,
     Permission.PRESENCE_READ,
     Permission.TRANSPORT_READ,
+    Permission.EMPLOYEE_READ,
+    Permission.HR_ORG_READ,
+    Permission.STAFF_LEAVE_READ,
+    Permission.STAFF_LEAVE_APPROVE,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.PERFORMANCE_READ,
+    Permission.PERFORMANCE_MANAGE,
+    Permission.TRAINING_READ,
+    Permission.HR_DASHBOARD_READ,
     Permission.ATTENDANCE_CONFIGURE,
     Permission.TIMETABLE_MANAGE,
     Permission.ATTENDANCE_CREATE,
@@ -156,10 +195,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.ACHIEVEMENT_MANAGE,
   ],
   FinanceOfficer: [
+    ...ESS_PERMISSIONS,
     Permission.FINANCE_MANAGE,
     Permission.FINANCE_READ,
     Permission.FINANCE_EXPORT,
     Permission.FINANCE_TRANSFER_BILLING, // manager-level: change the legal payer
+    // Payroll preparation consumes staff attendance + approved leave (read-only source).
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.PAYROLL_PREPARE,
 
     Permission.TRANSACTION_CREATE,
     Permission.RECEIPT_UPLOAD,
@@ -177,6 +220,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   ],
   // Accountant: finance operations + can register students (per product requirement).
   Accountant: [
+    ...ESS_PERMISSIONS,
     Permission.FINANCE_MANAGE,
     Permission.FINANCE_READ,
     Permission.FINANCE_EXPORT,
@@ -193,6 +237,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.REPORT_EXPORT,
   ],
   Teacher: [
+    ...ESS_PERMISSIONS,
     Permission.CARD_READ,
     Permission.PRESENCE_CREATE,
     Permission.PRESENCE_READ,
@@ -215,6 +260,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
     Permission.ACHIEVEMENT_MANAGE,
   ],
   Secretary: [
+    ...ESS_PERMISSIONS,
     Permission.CARD_MANAGE,
     Permission.CARD_READ,
     Permission.PRESENCE_CREATE,
@@ -239,6 +285,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   ],
   // Receptionist: front-desk — sends announcements/notifications, reads attendance, manages docs.
   Receptionist: [
+    ...ESS_PERMISSIONS,
     Permission.PRESENCE_CREATE,
     Permission.PRESENCE_READ,
     Permission.ANNOUNCEMENT_MANAGE,
@@ -249,6 +296,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   ],
   // Registrar: student/parent records, admissions, quotations and fee overrides.
   Registrar: [
+    ...ESS_PERMISSIONS,
     Permission.STUDENT_MANAGE,
     Permission.PARENT_MANAGE,
     Permission.DOCUMENT_MANAGE,
@@ -264,34 +312,80 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleKey, Permission[] | '*'> = {
   ],
   // Counselor: behaviour & achievements, reads attendance.
   Counselor: [
+    ...ESS_PERMISSIONS,
     Permission.BEHAVIOR_MANAGE,
     Permission.BEHAVIOR_READ,
     Permission.ATTENDANCE_READ,
     Permission.ACHIEVEMENT_MANAGE,
   ],
-  // HR: staff records & leave approvals.
-  HR: [Permission.EMPLOYEE_MANAGE, Permission.TEACHER_MANAGE, Permission.LEAVE_APPROVE],
+  // HR: full staff records, lifecycle, org structure & leave approvals.
+  HR: [
+    ...ESS_PERMISSIONS,
+    Permission.TEAM_READ,
+    Permission.TEAM_APPROVE,
+    Permission.EMPLOYEE_READ,
+    Permission.EMPLOYEE_MANAGE,
+    Permission.HR_SENSITIVE_READ,
+    Permission.HR_LIFECYCLE_MANAGE,
+    Permission.HR_ORG_READ,
+    Permission.HR_ORG_MANAGE,
+    Permission.HR_CONTRACT_READ,
+    Permission.HR_CONTRACT_MANAGE,
+    Permission.HR_DOCUMENT_READ,
+    Permission.HR_DOCUMENT_MANAGE,
+    Permission.DRIVER_READ,
+    Permission.DRIVER_MANAGE,
+    Permission.STAFF_LEAVE_READ,
+    Permission.STAFF_LEAVE_REQUEST,
+    Permission.STAFF_LEAVE_APPROVE,
+    Permission.STAFF_LEAVE_MANAGE,
+    Permission.STAFF_ATTENDANCE_READ,
+    Permission.STAFF_ATTENDANCE_MANAGE,
+    Permission.PAYROLL_PREPARE,
+    Permission.PERFORMANCE_READ,
+    Permission.PERFORMANCE_MANAGE,
+    Permission.TRAINING_READ,
+    Permission.TRAINING_MANAGE,
+    Permission.ASSET_READ,
+    Permission.ASSET_MANAGE,
+    Permission.RECRUITMENT_READ,
+    Permission.RECRUITMENT_MANAGE,
+    Permission.HR_DASHBOARD_READ,
+    Permission.TEACHER_MANAGE,
+    Permission.LEAVE_APPROVE,
+  ],
   // Nurse: clinic module + attendance visibility.
-  Nurse: [Permission.CLINIC_MANAGE, Permission.CLINIC_READ, Permission.ATTENDANCE_READ],
+  Nurse: [
+    ...ESS_PERMISSIONS,
+    Permission.CLINIC_MANAGE,
+    Permission.CLINIC_READ,
+    Permission.ATTENDANCE_READ,
+  ],
   // Librarian: library module.
-  Librarian: [Permission.LIBRARY_MANAGE, Permission.LIBRARY_READ],
+  Librarian: [...ESS_PERMISSIONS, Permission.LIBRARY_MANAGE, Permission.LIBRARY_READ],
   // StoreKeeper: inventory module.
-  StoreKeeper: [Permission.INVENTORY_MANAGE, Permission.INVENTORY_READ],
+  StoreKeeper: [...ESS_PERMISSIONS, Permission.INVENTORY_MANAGE, Permission.INVENTORY_READ],
   // FleetAdmin: configures buses/routes and assigns students (gated by bus_tracking).
   FleetAdmin: [
+    ...ESS_PERMISSIONS,
     Permission.BUS_MANAGE,
     Permission.BUS_ASSIGN,
     Permission.BUS_READ,
     Permission.TRANSPORT_READ,
     Permission.CARD_READ,
+    Permission.EMPLOYEE_READ,
+    Permission.DRIVER_READ,
+    Permission.DRIVER_MANAGE,
   ],
   // BusSupervisor: on-board boarding/alighting scans.
   BusSupervisor: [
+    ...ESS_PERMISSIONS,
     Permission.TRANSPORT_CREATE,
     Permission.TRANSPORT_READ,
     Permission.CARD_READ,
     Permission.BUS_READ,
     Permission.PRESENCE_READ,
+    Permission.DRIVER_READ,
   ],
   Parent: [
     Permission.PRESENCE_READ,

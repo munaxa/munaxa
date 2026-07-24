@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { studentsApi, fullNameEn, fullNameAr, type Student } from '@/lib/people';
 import {
   busApi,
+  busDriverName,
   type Bus,
   type BusRoute,
   type BusStop,
@@ -450,13 +451,13 @@ export function useTransport(): TransportData {
       const trip1 = list.filter((a) => a.tripRound === 1 || a.tripRound === 3).length;
       const trip2 = list.filter((a) => a.tripRound === 2 || a.tripRound === 3).length;
       const withLabel = routeBuses.find((b) => b.label) ?? routeBuses[0];
-      const withDriver = routeBuses.find((b) => b.driverName);
+      const withDriver = routeBuses.find((b) => b.driver);
       return {
         route,
         area: routeAreaName.get(route.id) ?? UNZONED,
         buses: routeBuses,
         busLabel: withLabel?.label ?? withLabel?.plateNumber ?? null,
-        driverName: withDriver?.driverName ?? null,
+        driverName: withDriver ? busDriverName(withDriver) : null,
         capacity: capacityStatus(capacity, assigned),
         trip1,
         trip2,

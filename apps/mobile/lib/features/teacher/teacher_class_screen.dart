@@ -63,7 +63,7 @@ class _TeacherClassTabState extends ConsumerState<TeacherClassTab> {
       await ref.read(attendanceControllerProvider.notifier).markMany(
             sectionId: sectionId,
             date: _dateIso,
-            periodIndex: _period,
+            classNumber: _period,
             statusByStudentId: Map.of(_marks),
           );
       final pendingAfter = ref.read(attendanceControllerProvider);

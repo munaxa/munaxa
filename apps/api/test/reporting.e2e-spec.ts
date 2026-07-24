@@ -97,7 +97,7 @@ describe('Reporting (e2e)', () => {
             studentId: student.id,
             sectionId: section.id,
             date: new Date(`2026-03-0${d}`),
-            periodIndex: 0,
+            classNumber: 0,
             status: d === 4 ? 'ABSENT' : 'PRESENT',
           },
         });

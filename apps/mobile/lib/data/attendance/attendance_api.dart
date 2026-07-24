@@ -9,11 +9,11 @@ class AttendanceApi {
 
   final Dio _dio;
 
-  /// Sync one (sectionId, date, periodIndex) batch of marks. Returns the count the server marked.
+  /// Sync one (sectionId, date, classNumber) batch of marks. Returns the count the server marked.
   Future<int> syncBatch({
     required String sectionId,
     required String date,
-    required int periodIndex,
+    required int classNumber,
     required List<PendingMark> marks,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
@@ -21,7 +21,7 @@ class AttendanceApi {
       data: {
         'sectionId': sectionId,
         'date': date,
-        'periodIndex': periodIndex,
+        'classNumber': classNumber,
         'records': marks
             .map((m) => {
                   'studentId': m.studentId,
@@ -35,10 +35,10 @@ class AttendanceApi {
     return (res.data?['marked'] as num?)?.toInt() ?? 0;
   }
 
-  Future<void> markByQr(String qrCode, {String? date, int periodIndex = 0}) async {
+  Future<void> markByQr(String qrCode, {String? date, int classNumber = 0}) async {
     await _dio.post<Map<String, dynamic>>(
       '/attendance/students/qr',
-      data: {'qrCode': qrCode, if (date != null) 'date': date, 'periodIndex': periodIndex},
+      data: {'qrCode': qrCode, if (date != null) 'date': date, 'classNumber': classNumber},
     );
   }
 }

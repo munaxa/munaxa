@@ -12,6 +12,12 @@ import { TeacherRepository } from './teachers/teacher.repository';
 import { EmployeeController } from './employees/employee.controller';
 import { EmployeeService } from './employees/employee.service';
 import { EmployeeRepository } from './employees/employee.repository';
+import { DepartmentController } from './org/department.controller';
+import { DepartmentService } from './org/department.service';
+import { DepartmentRepository } from './org/department.repository';
+import { PositionController } from './org/position.controller';
+import { PositionService } from './org/position.service';
+import { PositionRepository } from './org/position.repository';
 import { EnrollmentLifecycleService } from './enrollment-lifecycle/enrollment-lifecycle.service';
 import { EnrollmentLifecycleRepository } from './enrollment-lifecycle/enrollment-lifecycle.repository';
 
@@ -21,7 +27,14 @@ import { EnrollmentLifecycleRepository } from './enrollment-lifecycle/enrollment
  */
 @Module({
   imports: [FinanceModule],
-  controllers: [StudentController, ParentController, TeacherController, EmployeeController],
+  controllers: [
+    StudentController,
+    ParentController,
+    TeacherController,
+    EmployeeController,
+    DepartmentController,
+    PositionController,
+  ],
   providers: [
     StudentService,
     StudentRepository,
@@ -31,9 +44,14 @@ import { EnrollmentLifecycleRepository } from './enrollment-lifecycle/enrollment
     TeacherRepository,
     EmployeeService,
     EmployeeRepository,
+    DepartmentService,
+    DepartmentRepository,
+    PositionService,
+    PositionRepository,
     EnrollmentLifecycleService,
     EnrollmentLifecycleRepository,
   ],
-  exports: [EnrollmentLifecycleService],
+  // EmployeeService is reused by the recruitment module to hire an applicant into an Employee.
+  exports: [EnrollmentLifecycleService, EmployeeService],
 })
 export class PeopleModule {}

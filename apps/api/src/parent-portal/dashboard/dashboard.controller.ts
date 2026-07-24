@@ -24,6 +24,20 @@ export class DashboardController {
     return this.service.childDashboard(studentId);
   }
 
+  @Get('timetable')
+  @ApiQuery({ name: 'studentId', required: true })
+  @ApiOperation({ summary: "A child's inherited weekly timetable" })
+  timetable(@Query('studentId') studentId: string) {
+    return this.service.childTimetable(studentId);
+  }
+
+  @Get('timetable/current')
+  @ApiQuery({ name: 'studentId', required: true })
+  @ApiOperation({ summary: "A child's live current/next class (Now Attending)" })
+  currentClass(@Query('studentId') studentId: string) {
+    return this.service.childCurrentClass(studentId);
+  }
+
   @Get('finance/summary')
   @ApiOperation({
     summary: 'Family finance landing: outstanding, next installment, total paid, history, children',

@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { GradeRecord, Homework, StudentAttendance, TimetableSlot } from '@prisma/client';
+import type { GradeRecord, Homework, StudentAttendance } from '@prisma/client';
 import { StudentScopeService } from '../common/student-scope.service';
 import { ResourceService, type ResourceView } from '../resources/resource.service';
 import {
   GamificationService,
   type GamificationSummary,
 } from '../gamification/gamification.service';
+import { SchedulingService } from '../../scheduling/scheduling.service';
 import { MeRepository, type AttendanceSummary } from './me.repository';
 
 export interface StudentDashboard {
@@ -38,6 +39,7 @@ export class MeService {
     private readonly scope: StudentScopeService,
     private readonly resources: ResourceService,
     private readonly gamification: GamificationService,
+    private readonly scheduling: SchedulingService,
   ) {}
 
   async dashboard(): Promise<StudentDashboard> {
@@ -90,10 +92,17 @@ export class MeService {
     return this.repo.attendanceHistory(studentId);
   }
 
-  async timetable(): Promise<TimetableSlot[]> {
+  // The student's weekly timetable is inherited from their section's PUBLISHED SchedulePlan, resolved
+  // by the platform SchedulingService (no per-student timetable records exist).
+  async timetable() {
     const student = await this.scope.requireStudent();
-    if (!student.sectionId) return [];
-    return this.repo.timetableForSection(student.sectionId);
+    return this.scheduling.getStudentSchedule(student.sectionId);
+  }
+
+  /** Live "now attending / next class" for the student app dashboard. */
+  async liveClass() {
+    const student = await this.scope.requireStudent();
+    return this.scheduling.getStudentCurrentClass(student.sectionId);
   }
 
   async resourceLibrary(): Promise<ResourceView[]> {

@@ -37,16 +37,16 @@ class AttendanceController extends Notifier<int> {
   Future<void> mark({
     required String sectionId,
     required String date,
-    required int periodIndex,
+    required int classNumber,
     required String studentId,
     required String status,
   }) async {
     await _queue.enqueue(
       PendingMark(
-        clientRef: '$sectionId:$date:$periodIndex:$studentId',
+        clientRef: '$sectionId:$date:$classNumber:$studentId',
         sectionId: sectionId,
         date: date,
-        periodIndex: periodIndex,
+        classNumber: classNumber,
         studentId: studentId,
         status: status,
       ),
@@ -60,16 +60,16 @@ class AttendanceController extends Notifier<int> {
   Future<void> markMany({
     required String sectionId,
     required String date,
-    required int periodIndex,
+    required int classNumber,
     required Map<String, String> statusByStudentId,
   }) async {
     for (final entry in statusByStudentId.entries) {
       await _queue.enqueue(
         PendingMark(
-          clientRef: '$sectionId:$date:$periodIndex:${entry.key}',
+          clientRef: '$sectionId:$date:$classNumber:${entry.key}',
           sectionId: sectionId,
           date: date,
-          periodIndex: periodIndex,
+          classNumber: classNumber,
           studentId: entry.key,
           status: entry.value,
         ),
@@ -86,7 +86,7 @@ class AttendanceController extends Notifier<int> {
 
     final batches = <String, List<PendingMark>>{};
     for (final mark in pending) {
-      batches.putIfAbsent('${mark.sectionId}|${mark.date}|${mark.periodIndex}', () => []).add(mark);
+      batches.putIfAbsent('${mark.sectionId}|${mark.date}|${mark.classNumber}', () => []).add(mark);
     }
 
     for (final marks in batches.values) {
@@ -95,7 +95,7 @@ class AttendanceController extends Notifier<int> {
         await _api.syncBatch(
           sectionId: first.sectionId,
           date: first.date,
-          periodIndex: first.periodIndex,
+          classNumber: first.classNumber,
           marks: marks,
         );
         await _queue.removeByRefs(marks.map((m) => m.clientRef).toSet());

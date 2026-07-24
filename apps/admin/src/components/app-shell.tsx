@@ -38,6 +38,13 @@ interface NavGroup {
 const NAV_GROUPS: NavGroup[] = [
   { items: [{ href: '/', labelKey: 'nav.dashboard', icon: 'dashboard' }] },
   {
+    titleKey: 'nav.section.me',
+    items: [
+      { href: '/me/hr', labelKey: 'nav.myHr', icon: 'employees', perm: 'ess:read' },
+      { href: '/me/team', labelKey: 'nav.myTeam', icon: 'employees', perm: 'team:read' },
+    ],
+  },
+  {
     titleKey: 'nav.section.people',
     items: [
       {
@@ -65,7 +72,40 @@ const NAV_GROUPS: NavGroup[] = [
         perm: 'teacher:manage',
       },
       { href: '/people/parents', labelKey: 'nav.parents', icon: 'parents', perm: 'parent:manage' },
-      { href: '/people/employees', labelKey: 'nav.hr', icon: 'employees', perm: 'employee:manage' },
+      { href: '/people/employees', labelKey: 'nav.hr', icon: 'employees', perm: 'employee:read' },
+      {
+        href: '/people/hr-dashboard',
+        labelKey: 'nav.hrDashboard',
+        icon: 'dashboard',
+        perm: 'hr:dashboard:read',
+      },
+      { href: '/people/org', labelKey: 'nav.organization', icon: 'employees', perm: 'hr:org:read' },
+      { href: '/people/leave', labelKey: 'nav.leave', icon: 'employees', perm: 'staff-leave:read' },
+      {
+        href: '/people/payroll',
+        labelKey: 'nav.payroll',
+        icon: 'employees',
+        perm: 'payroll:prepare',
+      },
+      {
+        href: '/people/performance',
+        labelKey: 'nav.performance',
+        icon: 'employees',
+        perm: 'performance:read',
+      },
+      {
+        href: '/people/training',
+        labelKey: 'nav.training',
+        icon: 'employees',
+        perm: 'training:read',
+      },
+      { href: '/people/assets', labelKey: 'nav.assets', icon: 'inventory', perm: 'asset:read' },
+      {
+        href: '/people/recruitment',
+        labelKey: 'nav.recruitment',
+        icon: 'enrollment',
+        perm: 'recruitment:read',
+      },
       { href: '/people/cards', labelKey: 'nav.cards', icon: 'cards', perm: 'card:read' },
     ],
   },

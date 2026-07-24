@@ -270,6 +270,82 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  landing:
+    dependencies:
+      '@munaxa/design-tokens':
+        specifier: workspace:*
+        version: link:../packages/design-tokens
+      '@munaxa/icons':
+        specifier: workspace:*
+        version: link:../packages/icons
+      '@munaxa/ui':
+        specifier: workspace:*
+        version: link:../packages/ui
+      next:
+        specifier: 15.1.12
+        version: 15.1.12(@opentelemetry/api@1.9.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      react:
+        specifier: 19.0.0
+        version: 19.0.0
+      react-dom:
+        specifier: 19.0.0
+        version: 19.0.0(react@19.0.0)
+      resend:
+        specifier: ^4.0.1
+        version: 4.8.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@eslint/js':
+        specifier: ^9.17.0
+        version: 9.39.4
+      '@next/eslint-plugin-next':
+        specifier: 15.1.12
+        version: 15.1.12
+      '@opennextjs/cloudflare':
+        specifier: ~1.16.6
+        version: 1.16.6(next@15.1.12(@opentelemetry/api@1.9.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(wrangler@4.105.0)
+      '@tailwindcss/postcss':
+        specifier: ^4.0.0
+        version: 4.3.1
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.19
+      '@types/react':
+        specifier: ^19.0.2
+        version: 19.2.16
+      '@types/react-dom':
+        specifier: ^19.0.2
+        version: 19.2.3(@types/react@19.2.16)
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.4(jiti@2.7.0)
+      eslint-config-prettier:
+        specifier: ^9.1.0
+        version: 9.1.2(eslint@9.39.4(jiti@2.7.0))
+      eslint-plugin-react-hooks:
+        specifier: ^5.1.0
+        version: 5.2.0(eslint@9.39.4(jiti@2.7.0))
+      globals:
+        specifier: ^15.14.0
+        version: 15.15.0
+      postcss:
+        specifier: ^8.4.49
+        version: 8.5.15
+      tailwindcss:
+        specifier: ^4.0.0
+        version: 4.3.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+      typescript-eslint:
+        specifier: ^8.19.1
+        version: 8.60.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
+      wrangler:
+        specifier: ^4.59.2
+        version: 4.105.0
+
   munaxademo:
     dependencies:
       '@munaxa/design-tokens':
@@ -347,85 +423,6 @@ importers:
         version: 8.60.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
       wrangler:
         specifier: ^4.100.0
-        version: 4.105.0
-
-  munaxalanding:
-    dependencies:
-      '@munaxa/design-tokens':
-        specifier: workspace:*
-        version: link:../packages/design-tokens
-      '@munaxa/icons':
-        specifier: workspace:*
-        version: link:../packages/icons
-      '@munaxa/ui':
-        specifier: workspace:*
-        version: link:../packages/ui
-      next:
-        specifier: 15.1.12
-        version: 15.1.12(@opentelemetry/api@1.9.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      react:
-        specifier: 19.0.0
-        version: 19.0.0
-      react-dom:
-        specifier: 19.0.0
-        version: 19.0.0(react@19.0.0)
-      resend:
-        specifier: ^4.0.1
-        version: 4.8.0(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
-      zod:
-        specifier: ^3.24.1
-        version: 3.25.76
-    devDependencies:
-      '@eslint/js':
-        specifier: ^9.17.0
-        version: 9.39.4
-      '@next/eslint-plugin-next':
-        specifier: 15.1.12
-        version: 15.1.12
-      '@opennextjs/cloudflare':
-        specifier: ~1.16.6
-        version: 1.16.6(next@15.1.12(@opentelemetry/api@1.9.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0))(wrangler@4.105.0)
-      '@tailwindcss/postcss':
-        specifier: ^4.0.0
-        version: 4.3.1
-      '@types/node':
-        specifier: ^22.10.5
-        version: 22.19.19
-      '@types/react':
-        specifier: ^19.0.2
-        version: 19.2.16
-      '@types/react-dom':
-        specifier: ^19.0.2
-        version: 19.2.3(@types/react@19.2.16)
-      eslint:
-        specifier: ^9.17.0
-        version: 9.39.4(jiti@2.7.0)
-      eslint-config-prettier:
-        specifier: ^9.1.0
-        version: 9.1.2(eslint@9.39.4(jiti@2.7.0))
-      eslint-plugin-react-hooks:
-        specifier: ^5.1.0
-        version: 5.2.0(eslint@9.39.4(jiti@2.7.0))
-      globals:
-        specifier: ^15.14.0
-        version: 15.15.0
-      postcss:
-        specifier: ^8.4.49
-        version: 8.5.15
-      tailwindcss:
-        specifier: ^4.0.0
-        version: 4.3.1
-      tw-animate-css:
-        specifier: ^1.4.0
-        version: 1.4.0
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-      typescript-eslint:
-        specifier: ^8.19.1
-        version: 8.60.1(eslint@9.39.4(jiti@2.7.0))(typescript@5.9.3)
-      wrangler:
-        specifier: ^4.59.2
         version: 4.105.0
 
   packages/config-eslint:
@@ -7774,7 +7771,7 @@ snapshots:
   '@aws-crypto/crc32@5.2.0':
     dependencies:
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/types': 3.973.10
+      '@aws-sdk/types': 3.973.13
       tslib: 2.8.1
 
   '@aws-crypto/crc32c@5.2.0':
@@ -7814,7 +7811,7 @@ snapshots:
 
   '@aws-crypto/util@5.2.0':
     dependencies:
-      '@aws-sdk/types': 3.973.10
+      '@aws-sdk/types': 3.973.13
       '@smithy/util-utf8': 2.3.0
       tslib: 2.8.1
 
@@ -7823,10 +7820,10 @@ snapshots:
       '@aws-crypto/crc32': 5.2.0
       '@aws-crypto/crc32c': 5.2.0
       '@aws-crypto/util': 5.2.0
-      '@aws-sdk/core': 3.974.17
-      '@aws-sdk/types': 3.973.10
-      '@smithy/core': 3.24.6
-      '@smithy/types': 4.14.3
+      '@aws-sdk/core': 3.974.23
+      '@aws-sdk/types': 3.973.13
+      '@smithy/core': 3.26.0
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@aws-sdk/client-cloudfront@3.984.0':
@@ -8112,25 +8109,25 @@ snapshots:
 
   '@aws-sdk/credential-provider-env@3.972.43':
     dependencies:
-      '@aws-sdk/core': 3.974.17
-      '@aws-sdk/types': 3.973.10
-      '@smithy/core': 3.24.6
-      '@smithy/types': 4.14.3
+      '@aws-sdk/core': 3.974.23
+      '@aws-sdk/types': 3.973.13
+      '@smithy/core': 3.26.0
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-http@3.972.45':
     dependencies:
-      '@aws-sdk/core': 3.974.17
-      '@aws-sdk/types': 3.973.10
-      '@smithy/core': 3.24.6
+      '@aws-sdk/core': 3.974.23
+      '@aws-sdk/types': 3.973.13
+      '@smithy/core': 3.26.0
       '@smithy/fetch-http-handler': 5.4.6
       '@smithy/node-http-handler': 4.7.6
-      '@smithy/types': 4.14.3
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-ini@3.972.48':
     dependencies:
-      '@aws-sdk/core': 3.974.17
+      '@aws-sdk/core': 3.974.23
       '@aws-sdk/credential-provider-env': 3.972.43
       '@aws-sdk/credential-provider-http': 3.972.45
       '@aws-sdk/credential-provider-login': 3.972.47
@@ -8138,10 +8135,10 @@ snapshots:
       '@aws-sdk/credential-provider-sso': 3.972.47
       '@aws-sdk/credential-provider-web-identity': 3.972.47
       '@aws-sdk/nested-clients': 3.997.15
-      '@aws-sdk/types': 3.973.10
-      '@smithy/core': 3.24.6
+      '@aws-sdk/types': 3.973.13
+      '@smithy/core': 3.26.0
       '@smithy/credential-provider-imds': 4.3.7
-      '@smithy/types': 4.14.3
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-login@3.972.47':
@@ -8169,29 +8166,29 @@ snapshots:
 
   '@aws-sdk/credential-provider-process@3.972.43':
     dependencies:
-      '@aws-sdk/core': 3.974.17
-      '@aws-sdk/types': 3.973.10
-      '@smithy/core': 3.24.6
-      '@smithy/types': 4.14.3
+      '@aws-sdk/core': 3.974.23
+      '@aws-sdk/types': 3.973.13
+      '@smithy/core': 3.26.0
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-sso@3.972.47':
     dependencies:
-      '@aws-sdk/core': 3.974.17
+      '@aws-sdk/core': 3.974.23
       '@aws-sdk/nested-clients': 3.997.15
       '@aws-sdk/token-providers': 3.1060.0
-      '@aws-sdk/types': 3.973.10
-      '@smithy/core': 3.24.6
-      '@smithy/types': 4.14.3
+      '@aws-sdk/types': 3.973.13
+      '@smithy/core': 3.26.0
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-web-identity@3.972.47':
     dependencies:
-      '@aws-sdk/core': 3.974.17
+      '@aws-sdk/core': 3.974.23
       '@aws-sdk/nested-clients': 3.997.15
-      '@aws-sdk/types': 3.973.10
-      '@smithy/core': 3.24.6
-      '@smithy/types': 4.14.3
+      '@aws-sdk/types': 3.973.13
+      '@smithy/core': 3.26.0
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@aws-sdk/dynamodb-codec@3.973.23':
@@ -8361,7 +8358,7 @@ snapshots:
 
   '@aws-sdk/xml-builder@3.972.27':
     dependencies:
-      '@smithy/types': 4.14.3
+      '@smithy/types': 4.15.0
       fast-xml-parser: 5.7.3
       tslib: 2.8.1
 
@@ -10769,8 +10766,8 @@ snapshots:
 
   '@smithy/credential-provider-imds@4.3.7':
     dependencies:
-      '@smithy/core': 3.24.6
-      '@smithy/types': 4.14.3
+      '@smithy/core': 3.26.0
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@smithy/eventstream-serde-browser@4.4.2':
@@ -10866,8 +10863,8 @@ snapshots:
 
   '@smithy/signature-v4@5.4.6':
     dependencies:
-      '@smithy/core': 3.24.6
-      '@smithy/types': 4.14.3
+      '@smithy/core': 3.26.0
+      '@smithy/types': 4.15.0
       tslib: 2.8.1
 
   '@smithy/smithy-client@4.14.2':

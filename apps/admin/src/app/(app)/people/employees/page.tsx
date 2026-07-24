@@ -1,28 +1,26 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
-import { useToast } from '@/components/toast';
 import { useConfirm } from '@/components/confirm';
+import { usePrincipal } from '@/components/shell';
 import { StatusBadge } from '@/components/status-badge';
 import {
-  EMPLOYMENT_STATUSES,
+  departmentsApi,
   employeesApi,
+  positionsApi,
   teachersApi,
-  type CreateEmployeeInput,
+  EMPLOYEE_STATUSES,
+  type Department,
   type Employee,
-  type EmploymentStatus,
+  type Position,
   type Teacher,
-  type UpdateEmployeeInput,
 } from '@/lib/people';
 import {
   Button,
-  Card,
-  CardContent,
   EmptyState,
-  CardHeader,
-  CardTitle,
   Field,
   Input,
   Select,
@@ -33,18 +31,8 @@ import {
   THead,
   TR,
 } from '@/components/ui';
-import { EmployeeProfileDialog } from './employee-profile-dialog';
+import { EmployeeEditor } from './employee-editor';
 import { TeacherProfileDialog } from '../teachers/teacher-profile-dialog';
-
-const EMPTY: CreateEmployeeInput = {
-  firstNameEn: '',
-  lastNameEn: '',
-  firstNameAr: '',
-  lastNameAr: '',
-  jobTitle: '',
-  department: '',
-  status: 'ACTIVE',
-};
 
 type StaffRow =
   | { kind: 'employee'; id: string; employee: Employee }
@@ -53,26 +41,35 @@ type StaffRow =
 export default function EmployeesPage() {
   const { t } = useI18n();
   const confirm = useConfirm();
+  const principal = usePrincipal();
+  const canManage = principal.permissions.includes('employee:manage') || principal.isPlatform;
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'teacher' | 'employee'>('all');
-  const [viewing, setViewing] = useState<Employee | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewingTeacher, setViewingTeacher] = useState<Teacher | null>(null);
-  const [editing, setEditing] = useState<Employee | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     try {
       // Teachers and general employees are stored separately, but staff want to see them in one
       // directory — merge both here. Teachers stay managed (assignments) on the Teachers tab.
-      const [emps, tchs] = await Promise.all([
-        employeesApi.list(),
+      const [emps, tchs, deps, pos] = await Promise.all([
+        employeesApi.list({ includeInactive: true }),
         teachersApi.list().catch(() => [] as Teacher[]),
+        departmentsApi.list().catch(() => [] as Department[]),
+        positionsApi.list().catch(() => [] as Position[]),
       ]);
       setEmployees(emps);
       setTeachers(tchs);
+      setDepartments(deps);
+      setPositions(pos);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load staff');
     } finally {
@@ -102,6 +99,8 @@ export default function EmployeesPage() {
     const q = query.trim().toLowerCase();
     return all.filter((r) => {
       if (typeFilter !== 'all' && r.kind !== typeFilter) return false;
+      const status = r.kind === 'teacher' ? r.teacher.status : r.employee.status;
+      if (statusFilter !== 'all' && status !== statusFilter) return false;
       if (!q) return true;
       const p = r.kind === 'teacher' ? r.teacher : r.employee;
       const role = r.kind === 'teacher' ? (r.teacher.specialization ?? '') : r.employee.jobTitle;
@@ -111,7 +110,7 @@ export default function EmployeesPage() {
         role.toLowerCase().includes(q)
       );
     });
-  }, [teachers, employees, query, typeFilter]);
+  }, [teachers, employees, query, typeFilter, statusFilter]);
 
   const activeCount =
     employees.filter((e) => e.status === 'ACTIVE').length +
@@ -128,7 +127,20 @@ export default function EmployeesPage() {
   return (
     <Shell>
       <div className="mx-auto max-w-5xl space-y-6">
-        <h1 className="font-display text-2xl font-semibold">{t('nav.hr')}</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="font-display text-2xl font-semibold">{t('nav.hr')}</h1>
+          <div className="flex gap-2">
+            <Link
+              href="/people/org"
+              className="inline-flex items-center rounded-lg border border-border px-3 py-2 text-sm hover:bg-secondary/60"
+            >
+              {t('hr.organization')}
+            </Link>
+            {canManage ? (
+              <Button onClick={() => setCreating(true)}>{t('people.addEmployee')}</Button>
+            ) : null}
+          </div>
+        </div>
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}
@@ -142,16 +154,6 @@ export default function EmployeesPage() {
           <Kpi label={t('people.kpiEmployees')} value={employees.length} />
           <Kpi label={t('people.kpiActive')} value={activeCount} tone="text-aqua" />
         </section>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('people.addEmployee')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CreateEmployee onCreated={load} onError={setError} />
-            <p className="mt-2 text-xs text-muted-foreground">{t('people.addTeacherHint')}</p>
-          </CardContent>
-        </Card>
 
         {/* Filters */}
         <div className="flex flex-wrap items-end gap-2">
@@ -170,6 +172,16 @@ export default function EmployeesPage() {
               <option value="all">{t('common.all')}</option>
               <option value="teacher">{t('people.typeTeacher')}</option>
               <option value="employee">{t('people.typeStaff')}</option>
+            </Select>
+          </Field>
+          <Field label={t('common.status')}>
+            <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <option value="all">{t('common.all')}</option>
+              {EMPLOYEE_STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {t(`hr.status.${s}`)}
+                </option>
+              ))}
             </Select>
           </Field>
         </div>
@@ -213,13 +225,12 @@ export default function EmployeesPage() {
               ) : (
                 <TR key={`e-${r.id}`}>
                   <TD>
-                    <button
-                      type="button"
-                      className="text-start font-medium text-foreground hover:text-primary hover:underline"
-                      onClick={() => setViewing(r.employee)}
+                    <Link
+                      href={`/people/employees/${r.employee.id}`}
+                      className="font-medium text-foreground hover:text-primary hover:underline"
                     >
                       {r.employee.firstNameEn} {r.employee.lastNameEn}
-                    </button>
+                    </Link>
                   </TD>
                   <TD dir="rtl">
                     {r.employee.firstNameAr} {r.employee.lastNameAr}
@@ -228,24 +239,29 @@ export default function EmployeesPage() {
                   <TD>
                     {r.employee.jobTitle}
                     {r.employee.department ? (
-                      <span className="text-muted-foreground"> · {r.employee.department}</span>
+                      <span className="text-muted-foreground"> · {r.employee.department.name}</span>
                     ) : null}
                   </TD>
                   <TD>
                     <StatusBadge status={r.employee.status} />
                   </TD>
                   <TD className="text-end">
-                    <Button variant="ghost" size="sm" onClick={() => setEditing(r.employee)}>
-                      {t('people.edit')}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive"
-                      onClick={() => void remove(r.employee.id)}
+                    <Link
+                      href={`/people/employees/${r.employee.id}`}
+                      className="text-sm text-primary hover:underline"
                     >
-                      {t('common.delete')}
-                    </Button>
+                      {t('people.view')}
+                    </Link>
+                    {canManage ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        onClick={() => void remove(r.employee.id)}
+                      >
+                        {t('common.delete')}
+                      </Button>
+                    ) : null}
                   </TD>
                 </TR>
               ),
@@ -259,30 +275,22 @@ export default function EmployeesPage() {
             ) : null}
           </TBody>
         </Table>
+        <p className="text-xs text-muted-foreground">{t('people.addTeacherHint')}</p>
       </div>
-
-      {viewing ? (
-        <EmployeeProfileDialog
-          employee={viewing}
-          onClose={() => setViewing(null)}
-          onEdit={() => {
-            setEditing(viewing);
-            setViewing(null);
-          }}
-        />
-      ) : null}
 
       {viewingTeacher ? (
         <TeacherProfileDialog teacher={viewingTeacher} onClose={() => setViewingTeacher(null)} />
       ) : null}
 
-      {editing ? (
+      {creating ? (
         <EmployeeEditor
-          employee={editing}
-          onClose={() => setEditing(null)}
-          onSaved={async () => {
-            setEditing(null);
-            await load();
+          departments={departments}
+          positions={positions}
+          managers={employees}
+          onClose={() => setCreating(false)}
+          onSaved={() => {
+            setCreating(false);
+            void load();
           }}
         />
       ) : null}
@@ -297,224 +305,6 @@ function Kpi({ label, value, tone }: { label: string; value: number; tone?: stri
         {label}
       </div>
       <div className={`font-display text-xl font-semibold ${tone ?? ''}`}>{value}</div>
-    </div>
-  );
-}
-
-function CreateEmployee({
-  onCreated,
-  onError,
-}: {
-  onCreated: () => Promise<void>;
-  onError: (m: string) => void;
-}) {
-  const { t } = useI18n();
-  const [form, setForm] = useState<CreateEmployeeInput>(EMPTY);
-  const [busy, setBusy] = useState(false);
-
-  function set<K extends keyof CreateEmployeeInput>(key: K, value: CreateEmployeeInput[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      const payload: CreateEmployeeInput = {
-        firstNameEn: form.firstNameEn,
-        lastNameEn: form.lastNameEn,
-        firstNameAr: form.firstNameAr,
-        lastNameAr: form.lastNameAr,
-        jobTitle: form.jobTitle,
-        status: form.status ?? 'ACTIVE',
-      };
-      if (form.department) payload.department = form.department;
-      await employeesApi.create(payload);
-      setForm(EMPTY);
-      await onCreated();
-    } catch (err) {
-      onError(err instanceof Error ? err.message : 'Create failed');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form onSubmit={(e) => void submit(e)} className="grid gap-2 sm:grid-cols-2">
-      <Input
-        placeholder={t('common.firstNameEn')}
-        value={form.firstNameEn}
-        onChange={(e) => set('firstNameEn', e.target.value)}
-        required
-      />
-      <Input
-        placeholder={t('common.lastNameEn')}
-        value={form.lastNameEn}
-        onChange={(e) => set('lastNameEn', e.target.value)}
-        required
-      />
-      <Input
-        placeholder="الاسم (AR)"
-        value={form.firstNameAr}
-        onChange={(e) => set('firstNameAr', e.target.value)}
-        required
-        dir="rtl"
-      />
-      <Input
-        placeholder="العائلة (AR)"
-        value={form.lastNameAr}
-        onChange={(e) => set('lastNameAr', e.target.value)}
-        required
-        dir="rtl"
-      />
-      <Input
-        placeholder={t('people.jobTitlePlaceholder')}
-        value={form.jobTitle}
-        onChange={(e) => set('jobTitle', e.target.value)}
-        required
-      />
-      <Input
-        placeholder={t('people.department')}
-        value={form.department ?? ''}
-        onChange={(e) => set('department', e.target.value)}
-      />
-      <Select
-        value={form.status ?? 'ACTIVE'}
-        onChange={(e) => set('status', e.target.value as CreateEmployeeInput['status'])}
-      >
-        {EMPLOYMENT_STATUSES.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
-      </Select>
-      <Button type="submit" className="sm:col-span-2" disabled={busy}>
-        {busy ? t('common.adding') : t('people.addEmployeeButton')}
-      </Button>
-    </form>
-  );
-}
-
-// --------------------------------------------------------------------------- Employee editor (modal)
-
-function EmployeeEditor({
-  employee,
-  onClose,
-  onSaved,
-}: {
-  employee: Employee;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const { t } = useI18n();
-  const toast = useToast();
-  const [form, setForm] = useState<UpdateEmployeeInput>({
-    firstNameEn: employee.firstNameEn,
-    lastNameEn: employee.lastNameEn,
-    firstNameAr: employee.firstNameAr,
-    lastNameAr: employee.lastNameAr,
-    jobTitle: employee.jobTitle,
-    department: employee.department ?? '',
-    status: employee.status,
-  });
-  const [saving, setSaving] = useState(false);
-  const set = (patch: Partial<UpdateEmployeeInput>) => setForm((f) => ({ ...f, ...patch }));
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await employeesApi.update(employee.id, form);
-      toast.success(t('people.employeeUpdated'));
-      await onSaved();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Save failed');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4">
-      <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
-      <div
-        className="relative my-8 w-full max-w-xl rounded-xl border border-border bg-card p-5 shadow-card"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-lg font-semibold">{t('people.editEmployee')}</h2>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label={t('common.cancel')}>
-            ✕
-          </Button>
-        </div>
-
-        <form onSubmit={(e) => void save(e)} className="grid gap-3 sm:grid-cols-2">
-          <Field label={t('common.firstNameEn')}>
-            <Input
-              value={form.firstNameEn ?? ''}
-              onChange={(e) => set({ firstNameEn: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label={t('common.lastNameEn')}>
-            <Input
-              value={form.lastNameEn ?? ''}
-              onChange={(e) => set({ lastNameEn: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label="الاسم (AR)">
-            <Input
-              dir="rtl"
-              value={form.firstNameAr ?? ''}
-              onChange={(e) => set({ firstNameAr: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label="العائلة (AR)">
-            <Input
-              dir="rtl"
-              value={form.lastNameAr ?? ''}
-              onChange={(e) => set({ lastNameAr: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label={t('people.jobTitle')}>
-            <Input
-              value={form.jobTitle ?? ''}
-              onChange={(e) => set({ jobTitle: e.target.value })}
-              required
-            />
-          </Field>
-          <Field label={t('people.department')}>
-            <Input
-              value={form.department ?? ''}
-              onChange={(e) => set({ department: e.target.value })}
-            />
-          </Field>
-          <Field label={t('common.status')}>
-            <Select
-              value={form.status ?? 'ACTIVE'}
-              onChange={(e) => set({ status: e.target.value as EmploymentStatus })}
-            >
-              {EMPLOYMENT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <div className="col-span-full flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
-              {t('common.cancel')}
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? t('common.saving') : t('common.saveChanges')}
-            </Button>
-          </div>
-        </form>
-      </div>
     </div>
   );
 }

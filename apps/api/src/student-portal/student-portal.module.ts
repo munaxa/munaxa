@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { SchedulingModule } from '../scheduling/scheduling.module';
 import { StorageService } from '../common/storage.service';
 import { StudentScopeService } from './common/student-scope.service';
 import { MeController } from './me/me.controller';
@@ -18,6 +19,7 @@ import { GamificationRepository } from './gamification/gamification.repository';
  * own record (`Student.userId`).
  */
 @Module({
+  imports: [SchedulingModule],
   controllers: [MeController, ResourceController, AchievementController],
   providers: [
     StudentScopeService,
