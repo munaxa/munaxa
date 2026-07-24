@@ -50,14 +50,14 @@ export class BusService {
     if (dto.routeId && !(await this.repo.routeExists(dto.routeId))) {
       throw new BadRequestException('Route not found in this tenant');
     }
+    if (dto.driverId) await this.assertDriver(dto.driverId);
     return this.repo.createBus({
       plateNumber: dto.plateNumber,
       routeId: dto.routeId ?? null,
       label: dto.label ?? null,
       capacity: dto.capacity ?? null,
       tripRound: dto.tripRound ?? null,
-      driverName: dto.driverName ?? null,
-      driverPhone: dto.driverPhone ?? null,
+      driverId: dto.driverId ?? null,
     });
   }
 
@@ -67,6 +67,7 @@ export class BusService {
     if (dto.routeId && !(await this.repo.routeExists(dto.routeId))) {
       throw new BadRequestException('Route not found in this tenant');
     }
+    if (dto.driverId) await this.assertDriver(dto.driverId);
     return this.repo.updateBus(id, {
       ...(dto.plateNumber !== undefined ? { plateNumber: dto.plateNumber } : {}),
       ...(dto.routeId !== undefined
@@ -77,12 +78,22 @@ export class BusService {
       ...(dto.label !== undefined ? { label: dto.label } : {}),
       ...(dto.capacity !== undefined ? { capacity: dto.capacity } : {}),
       ...(dto.tripRound !== undefined ? { tripRound: dto.tripRound } : {}),
-      ...(dto.driverName !== undefined ? { driverName: dto.driverName } : {}),
-      ...(dto.driverPhone !== undefined ? { driverPhone: dto.driverPhone } : {}),
+      ...(dto.driverId !== undefined
+        ? dto.driverId
+          ? { driver: { connect: { id: dto.driverId } } }
+          : { driver: { disconnect: true } }
+        : {}),
     });
   }
 
-  listBuses(): Promise<Bus[]> {
+  /** A bus driver must be an Employee that has a driver profile. */
+  private async assertDriver(driverId: string): Promise<void> {
+    if (!(await this.repo.isDriver(driverId))) {
+      throw new BadRequestException('The selected employee is not a registered driver');
+    }
+  }
+
+  listBuses() {
     return this.repo.listBuses();
   }
 

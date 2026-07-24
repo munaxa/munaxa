@@ -82,17 +82,10 @@ export class CreateBusDto {
   @IsIn([1, 2])
   tripRound?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Assigned driver — an Employee with a driver profile.' })
   @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  driverName?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(30)
-  driverPhone?: string;
+  @IsUUID()
+  driverId?: string;
 }
 
 export class UpdateBusDto extends PartialType(CreateBusDto) {}

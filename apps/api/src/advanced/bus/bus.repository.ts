@@ -2,6 +2,13 @@ import { Injectable } from '@nestjs/common';
 import type { Bus, BusRoute, BusStop, Prisma, StudentBusAssignment } from '@prisma/client';
 import { TenantRepository } from '../../common/tenant.repository';
 
+/** Driver (Employee) fields surfaced with each bus so the UI can show name + phone. */
+const BUS_DRIVER_INCLUDE = {
+  driver: { select: { id: true, firstNameEn: true, lastNameEn: true, personalPhone: true } },
+} satisfies Prisma.BusInclude;
+
+export type BusWithDriver = Prisma.BusGetPayload<{ include: typeof BUS_DRIVER_INCLUDE }>;
+
 @Injectable()
 export class BusRepository extends TenantRepository {
   createRoute(data: Omit<Prisma.BusRouteUncheckedCreateInput, 'tenantId'>): Promise<BusRoute> {
@@ -33,14 +40,29 @@ export class BusRepository extends TenantRepository {
     return this.run((tx) => tx.bus.update({ where: { id }, data }));
   }
 
-  listBuses(): Promise<Bus[]> {
+  listBuses(): Promise<BusWithDriver[]> {
     return this.run((tx) =>
-      tx.bus.findMany({ where: { deletedAt: null }, orderBy: { plateNumber: 'asc' } }),
+      tx.bus.findMany({
+        where: { deletedAt: null },
+        include: BUS_DRIVER_INCLUDE,
+        orderBy: { plateNumber: 'asc' },
+      }),
     );
   }
 
   findBus(id: string): Promise<Bus | null> {
     return this.run((tx) => tx.bus.findFirst({ where: { id, deletedAt: null } }));
+  }
+
+  /** True when `employeeId` is an Employee holding a (non-deleted) driver profile. */
+  isDriver(employeeId: string): Promise<boolean> {
+    return this.run(
+      async (tx) =>
+        (await tx.employee.findFirst({
+          where: { id: employeeId, deletedAt: null, driverProfile: { deletedAt: null } },
+          select: { id: true },
+        })) !== null,
+    );
   }
 
   updateLocation(id: string, lat: number, lng: number): Promise<Bus> {

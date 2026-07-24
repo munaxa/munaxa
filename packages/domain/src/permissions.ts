@@ -23,6 +23,51 @@ export const Permission = {
   TEACHER_MANAGE: 'teacher:manage',
   EMPLOYEE_MANAGE: 'employee:manage',
 
+  // Human Resources (HR transformation). `employee:manage` remains the write capability for the
+  // employee record itself; these add read separation, sensitive-data gating, lifecycle control,
+  // and org-structure management so profile tabs can be authorised independently.
+  EMPLOYEE_READ: 'employee:read',
+  HR_SENSITIVE_READ: 'hr:sensitive:read',
+  HR_LIFECYCLE_MANAGE: 'hr:lifecycle:manage',
+  HR_ORG_READ: 'hr:org:read',
+  HR_ORG_MANAGE: 'hr:org:manage',
+  // HR Phase 2 — contracts & documents (independently authorised profile tabs).
+  HR_CONTRACT_READ: 'hr:contract:read',
+  HR_CONTRACT_MANAGE: 'hr:contract:manage',
+  HR_DOCUMENT_READ: 'hr:document:read',
+  HR_DOCUMENT_MANAGE: 'hr:document:manage',
+  // HR Phase 3 — driver profiles (licence, medical, infractions). Drivers are Employees.
+  DRIVER_READ: 'driver:read',
+  DRIVER_MANAGE: 'driver:manage',
+  // HR Phase 4 — staff leave (distinct from the student `leave:*` in the parent portal).
+  STAFF_LEAVE_READ: 'staff-leave:read',
+  STAFF_LEAVE_REQUEST: 'staff-leave:request',
+  STAFF_LEAVE_APPROVE: 'staff-leave:approve',
+  STAFF_LEAVE_MANAGE: 'staff-leave:manage',
+  // HR Phase 5 — staff (payroll) attendance & payroll preparation. Distinct from the academic
+  // `attendance:*` (student/teaching presence); this feeds HR payroll runs.
+  STAFF_ATTENDANCE_READ: 'staff-attendance:read',
+  STAFF_ATTENDANCE_MANAGE: 'staff-attendance:manage',
+  PAYROLL_PREPARE: 'payroll:prepare',
+  // HR Phase 6 — performance management & training.
+  PERFORMANCE_READ: 'performance:read',
+  PERFORMANCE_MANAGE: 'performance:manage',
+  TRAINING_READ: 'training:read',
+  TRAINING_MANAGE: 'training:manage',
+  // HR Phase 7 — asset management (custody-tracked staff assets).
+  ASSET_READ: 'asset:read',
+  ASSET_MANAGE: 'asset:manage',
+  // HR Phase 8 — recruitment (vacancies, applicants, interviews, hire).
+  RECRUITMENT_READ: 'recruitment:read',
+  RECRUITMENT_MANAGE: 'recruitment:manage',
+  // HR Phase 9 — employee self-service (own HR data) & manager portal (direct reports).
+  ESS_READ: 'ess:read',
+  ESS_REQUEST: 'ess:request',
+  TEAM_READ: 'team:read',
+  TEAM_APPROVE: 'team:approve',
+  // HR Phase 10 — HR analytics dashboard, alerts & reporting.
+  HR_DASHBOARD_READ: 'hr:dashboard:read',
+
   // Operations
   TIMETABLE_MANAGE: 'timetable:manage',
   TIMETABLE_READ: 'timetable:read',
@@ -162,6 +207,43 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   [Permission.PARENT_MANAGE]: 'Create and edit parent/guardian profiles.',
   [Permission.TEACHER_MANAGE]: 'Create and edit teacher profiles.',
   [Permission.EMPLOYEE_MANAGE]: 'Create and edit staff/employee profiles.',
+  [Permission.EMPLOYEE_READ]: 'View the staff directory and non-sensitive employee profiles.',
+  [Permission.HR_SENSITIVE_READ]:
+    'View sensitive employee data (national ID, passport, visa, date of birth, bank details).',
+  [Permission.HR_LIFECYCLE_MANAGE]:
+    'Change an employee’s employment status (hire, probation, leave, suspend, terminate, archive).',
+  [Permission.HR_ORG_READ]: 'View the organisation structure (departments, positions, org chart).',
+  [Permission.HR_ORG_MANAGE]: 'Create and edit departments and positions.',
+  [Permission.HR_CONTRACT_READ]: 'View employment contracts and their terms.',
+  [Permission.HR_CONTRACT_MANAGE]: 'Create, edit, renew and terminate employment contracts.',
+  [Permission.HR_DOCUMENT_READ]: 'View and download employee documents.',
+  [Permission.HR_DOCUMENT_MANAGE]: 'Upload, version and delete employee documents.',
+  [Permission.DRIVER_READ]: 'View driver profiles (licence, medical, infractions, assigned buses).',
+  [Permission.DRIVER_MANAGE]: 'Create and edit driver profiles and record infractions.',
+  [Permission.STAFF_LEAVE_READ]: 'View staff leave types, balances and requests.',
+  [Permission.STAFF_LEAVE_REQUEST]: 'Submit staff leave requests.',
+  [Permission.STAFF_LEAVE_APPROVE]: 'Approve or reject staff leave requests.',
+  [Permission.STAFF_LEAVE_MANAGE]: 'Manage staff leave types and balances.',
+  [Permission.STAFF_ATTENDANCE_READ]: 'View staff daily attendance records for payroll.',
+  [Permission.STAFF_ATTENDANCE_MANAGE]:
+    'Record, bulk-mark and correct staff daily attendance (check-in/out, overtime).',
+  [Permission.PAYROLL_PREPARE]:
+    'Generate payroll-preparation summaries from staff attendance and approved leave.',
+  [Permission.PERFORMANCE_READ]: 'View performance cycles, appraisals and goals.',
+  [Permission.PERFORMANCE_MANAGE]:
+    'Manage performance cycles, write appraisals, and set employee goals.',
+  [Permission.TRAINING_READ]: 'View the training catalog and employee training records.',
+  [Permission.TRAINING_MANAGE]: 'Manage training courses and employee enrolments/completions.',
+  [Permission.ASSET_READ]: 'View the asset register and staff asset assignments.',
+  [Permission.ASSET_MANAGE]: 'Manage assets and assign/return them to staff (custody tracking).',
+  [Permission.RECRUITMENT_READ]: 'View job postings, applicants and interviews.',
+  [Permission.RECRUITMENT_MANAGE]:
+    'Manage job postings, applicants and interviews, and hire an applicant into an employee.',
+  [Permission.ESS_READ]: 'View your own HR data (profile, leave, attendance, assets, training).',
+  [Permission.ESS_REQUEST]: 'Submit and cancel your own leave requests.',
+  [Permission.TEAM_READ]: 'View your direct reports and their pending requests.',
+  [Permission.TEAM_APPROVE]: 'Approve or reject leave requests from your direct reports.',
+  [Permission.HR_DASHBOARD_READ]: 'View the HR analytics dashboard, alerts and headcount reports.',
 
   [Permission.TIMETABLE_MANAGE]: 'Create and edit class timetables.',
   [Permission.TIMETABLE_READ]: 'View class timetables.',
