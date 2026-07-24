@@ -11,7 +11,7 @@ export function Footer() {
         <div className="grid gap-12 lg:grid-cols-[1.4fr_repeat(5,minmax(0,1fr))] lg:gap-8">
           {/* Brand */}
           <div className="max-w-xs">
-            <Wordmark />
+            <Wordmark variant="wordmark" className="h-7" />
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
               The School Operating System for K-12 schools and education groups — Jordan and the
               wider region.
