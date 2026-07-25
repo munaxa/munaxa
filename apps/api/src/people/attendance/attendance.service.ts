@@ -4,6 +4,7 @@ import { AttendanceRepository, type StaffAttendanceView } from './attendance.rep
 import { DomainEvents } from '../../events/domain-events';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import { staffAttendanceRecordedEvent } from './staff-attendance-events';
+import { AttendanceLockService } from './lock/attendance-lock.service';
 import { workingDaysBetween } from '../leave/leave-days.logic';
 import {
   overlapWorkingDays,
@@ -42,11 +43,14 @@ export class AttendanceService {
   constructor(
     private readonly repo: AttendanceRepository,
     private readonly events: DomainEvents,
+    private readonly locks: AttendanceLockService,
   ) {}
 
   async record(employeeId: string, dto: RecordAttendanceDto): Promise<StaffAttendanceView> {
     await this.assertEmployee(employeeId);
     const date = parseDate(dto.date);
+    // A locked day is immutable: edits must go through the correction workflow (N3/N4).
+    await this.locks.assertWritable(date);
     const source = dto.source ?? StaffAttendanceSource.MANUAL;
     const { view, previousStatus } = await this.repo.record(employeeId, date, {
       status: dto.status,
@@ -63,6 +67,7 @@ export class AttendanceService {
 
   async bulk(dto: BulkAttendanceDto): Promise<{ count: number }> {
     const date = parseDate(dto.date);
+    await this.locks.assertWritable(date);
     const source = dto.source ?? StaffAttendanceSource.MANUAL;
     const results = await this.repo.bulkRecord(
       date,
@@ -79,6 +84,81 @@ export class AttendanceService {
       this.publishRecorded(r.employeeId, dto.date, r.status, r.source, r.previousStatus);
     }
     return { count: results.length };
+  }
+
+  /**
+   * Record a day whose status was **derived** by the shift + policy engines (biometric ingestion).
+   *
+   * Unlike a correction this is an ordinary write, so the lock guard applies: a device batch can
+   * never silently rewrite a sealed payroll period. Everything else (correction trail, audit,
+   * integration event) is the canonical path.
+   */
+  async recordDerived(
+    employeeId: string,
+    date: Date,
+    data: {
+      status: StaffAttendanceStatus;
+      source: StaffAttendanceSource;
+      checkInAt?: Date | null;
+      checkOutAt?: Date | null;
+      lateMinutes?: number | null;
+      overtimeHours?: number | null;
+    },
+  ): Promise<StaffAttendanceView> {
+    await this.locks.assertWritable(date);
+    const { view, previousStatus } = await this.repo.record(employeeId, date, {
+      status: data.status,
+      source: data.source,
+      ...(data.checkInAt !== undefined ? { checkInAt: data.checkInAt } : {}),
+      ...(data.checkOutAt !== undefined ? { checkOutAt: data.checkOutAt } : {}),
+      ...(data.lateMinutes !== undefined ? { lateMinutes: data.lateMinutes } : {}),
+      ...(data.overtimeHours !== undefined ? { overtimeHours: data.overtimeHours } : {}),
+    });
+    this.publishRecorded(
+      employeeId,
+      date.toISOString().slice(0, 10),
+      data.status,
+      data.source,
+      previousStatus,
+    );
+    return view;
+  }
+
+  /**
+   * Apply an **approved** attendance correction (N4).
+   *
+   * This is the only sanctioned way to change a locked day: the lock guard is intentionally not
+   * applied here because the correction workflow — request, review, approval, audit — is the
+   * control that replaces it. The write still goes through the canonical repository path, so the
+   * existing correction trail (`correctedFromStatus`/`correctedById`/`correctedAt`), the audit
+   * entry and the integration event all behave exactly as for any other write.
+   */
+  async applyApprovedCorrection(
+    employeeId: string,
+    date: Date,
+    data: {
+      status: StaffAttendanceStatus;
+      checkInAt?: Date | null;
+      checkOutAt?: Date | null;
+      note?: string | null;
+    },
+  ): Promise<StaffAttendanceView> {
+    const source = StaffAttendanceSource.MANUAL;
+    const { view, previousStatus } = await this.repo.record(employeeId, date, {
+      status: data.status,
+      source,
+      ...(data.checkInAt !== undefined ? { checkInAt: data.checkInAt } : {}),
+      ...(data.checkOutAt !== undefined ? { checkOutAt: data.checkOutAt } : {}),
+      ...(data.note !== undefined ? { note: data.note } : {}),
+    });
+    this.publishRecorded(
+      employeeId,
+      date.toISOString().slice(0, 10),
+      data.status,
+      source,
+      previousStatus,
+    );
+    return view;
   }
 
   /**
