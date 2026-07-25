@@ -792,11 +792,19 @@ model Tenant {
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
 
   // v2: platform billing (Munaxa → school) and outbound webhooks.
-  invoices         BillingInvoice[]
-  billingPayments  BillingPayment[]
-  paymentMethods   BillingPaymentMethod[]
-  billingContacts  BillingContact[]
-  webhookEndpoints WebhookEndpoint[]
+  invoices                      BillingInvoice[]
+  billingPayments               BillingPayment[]
+  paymentMethods                BillingPaymentMethod[]
+  billingContacts               BillingContact[]
+  webhookEndpoints              WebhookEndpoint[]
+  // Attendance evolution program
+  attendancePolicies            AttendancePolicy[]
+  shifts                        Shift[]
+  employeeShiftAssignments      EmployeeShiftAssignment[]
+  attendanceLocks               AttendanceLock[]
+  attendanceCorrections         AttendanceCorrectionRequest[]
+  attendanceCorrectionApprovals AttendanceCorrectionApproval[]
+  biometricPunches              BiometricRawPunch[]
 
   @@index([status])
   @@index([organizationId])
@@ -841,18 +849,21 @@ model Campus {
   updatedAt DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt DateTime? @db.Timestamptz(6)
 
-  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  school           School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  academicYears    AcademicYear[]
-  grades           Grade[]
-  classrooms       Classroom[]
-  enrollments      Enrollment[]
-  timetableConfig  TimetableConfig?
-  specialLocations SpecialLocation[]
-  bellSchedules    BellSchedule[]
-  schedulePlans    SchedulePlan[]
-  departments      Department[]
-  employees        Employee[]
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  school             School             @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYears      AcademicYear[]
+  grades             Grade[]
+  classrooms         Classroom[]
+  enrollments        Enrollment[]
+  timetableConfig    TimetableConfig?
+  specialLocations   SpecialLocation[]
+  bellSchedules      BellSchedule[]
+  schedulePlans      SchedulePlan[]
+  departments        Department[]
+  employees          Employee[]
+  attendancePolicies AttendancePolicy[]
+  shifts             Shift[]
+  attendanceLocks    AttendanceLock[]
 
   @@index([tenantId])
   @@index([tenantId, schoolId])
@@ -1211,36 +1222,39 @@ model Employee {
   updatedAt   DateTime  @updatedAt @db.Timestamptz(6)
   deletedAt   DateTime? @db.Timestamptz(6)
 
-  tenant             Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user               User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
-  campus             Campus?                 @relation(fields: [campusId], references: [id], onDelete: SetNull)
-  department         Department?             @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  position           Position?               @relation(fields: [positionId], references: [id], onDelete: SetNull)
-  manager            Employee?               @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
-  reports            Employee[]              @relation("EmployeeManager")
-  createdBy          User?                   @relation("EmployeeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy          User?                   @relation("EmployeeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  teacher            Teacher?
-  statusHistory      EmployeeStatusHistory[]
-  headOf             Department[]            @relation("DepartmentHead")
-  contracts          EmploymentContract[]
-  documents          EmployeeDocument[]
-  emergencyContacts  EmergencyContact[]
-  dependents         Dependent[]
-  education          EmployeeEducation[]
-  certificates       Certificate[]
-  bankAccounts       EmployeeBankAccount[]
-  driverProfile      DriverProfile?
-  busesDriven        Bus[]                   @relation("BusDriver")
-  leaveBalances      StaffLeaveBalance[]
-  leaveRequests      StaffLeaveRequest[]
-  attendance         StaffAttendance[]
-  performanceReviews PerformanceReview[]
-  performanceGoals   PerformanceGoal[]
-  trainingRecords    TrainingRecord[]
-  assetAssignments   AssetAssignment[]
-  assets             Asset[]
-  hiredFromApplicant JobApplicant?           @relation("ApplicantHire")
+  tenant                Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user                  User?                         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  campus                Campus?                       @relation(fields: [campusId], references: [id], onDelete: SetNull)
+  department            Department?                   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  position              Position?                     @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  manager               Employee?                     @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  reports               Employee[]                    @relation("EmployeeManager")
+  createdBy             User?                         @relation("EmployeeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy             User?                         @relation("EmployeeUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  teacher               Teacher?
+  statusHistory         EmployeeStatusHistory[]
+  headOf                Department[]                  @relation("DepartmentHead")
+  contracts             EmploymentContract[]
+  documents             EmployeeDocument[]
+  emergencyContacts     EmergencyContact[]
+  dependents            Dependent[]
+  education             EmployeeEducation[]
+  certificates          Certificate[]
+  bankAccounts          EmployeeBankAccount[]
+  driverProfile         DriverProfile?
+  busesDriven           Bus[]                         @relation("BusDriver")
+  leaveBalances         StaffLeaveBalance[]
+  leaveRequests         StaffLeaveRequest[]
+  attendance            StaffAttendance[]
+  performanceReviews    PerformanceReview[]
+  performanceGoals      PerformanceGoal[]
+  trainingRecords       TrainingRecord[]
+  assetAssignments      AssetAssignment[]
+  assets                Asset[]
+  hiredFromApplicant    JobApplicant?                 @relation("ApplicantHire")
+  shiftAssignments      EmployeeShiftAssignment[]
+  attendanceCorrections AttendanceCorrectionRequest[]
+  biometricPunches      BiometricRawPunch[]
 
   @@unique([tenantId, employeeNumber])
   @@index([tenantId])
@@ -2031,41 +2045,46 @@ model User {
   updatedAt              DateTime   @updatedAt @db.Timestamptz(6)
   deletedAt              DateTime?  @db.Timestamptz(6)
 
-  tenant                   Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles                UserRole[]
-  refreshTokens            RefreshToken[]
-  passwordResets           PasswordResetToken[]
-  passwordResetAudits      PasswordResetAudit[]
-  studentProfile           Student?
-  parentProfile            Parent?
-  teacherProfile           Teacher?
-  employeeProfile          Employee?
-  employeesCreated         Employee[]              @relation("EmployeeCreatedBy")
-  employeesUpdated         Employee[]              @relation("EmployeeUpdatedBy")
-  employeeStatusChanges    EmployeeStatusHistory[] @relation("EmployeeStatusActor")
-  contractsCreated         EmploymentContract[]    @relation("ContractCreatedBy")
-  contractsUpdated         EmploymentContract[]    @relation("ContractUpdatedBy")
-  employeeDocsUploaded     EmployeeDocument[]      @relation("EmployeeDocumentUploadedBy")
-  staffLeaveRequested      StaffLeaveRequest[]     @relation("StaffLeaveRequestedBy")
-  staffLeaveApproved       StaffLeaveApproval[]    @relation("StaffLeaveApprover")
-  staffAttendanceMarked    StaffAttendance[]       @relation("StaffAttendanceMarkedBy")
-  staffAttendanceCorrected StaffAttendance[]       @relation("StaffAttendanceCorrectedBy")
-  performanceReviewsGiven  PerformanceReview[]     @relation("PerformanceReviewer")
-  assetsAssigned           AssetAssignment[]       @relation("AssetAssignedBy")
-  interviewsConducted      Interview[]             @relation("Interviewer")
-  studentAttendanceMarks   StudentAttendance[]     @relation("StudentAttendanceMarkedBy")
-  teacherAttendanceMarks   TeacherAttendance[]     @relation("TeacherAttendanceMarkedBy")
-  notifications            Notification[]
-  notificationPreference   NotificationPreference?
-  deviceTokens             DeviceToken[]
-  auditLogs                AuditLog[]              @relation("AuditActor")
-  leaveRequestsMade        LeaveRequest[]          @relation("LeaveRequestedBy")
-  leaveRequestsReviewed    LeaveRequest[]          @relation("LeaveReviewedBy")
-  ptmSlotsCreated          PtmSlot[]               @relation("PtmSlotCreatedBy")
-  ptmBookingsMade          PtmBooking[]            @relation("PtmBookedBy")
-  documentsUploaded        Document[]              @relation("DocumentUploadedBy")
-  resourcesUploaded        Resource[]              @relation("ResourceUploadedBy")
-  achievementsAwarded      StudentAchievement[]    @relation("AchievementAwardedBy")
+  tenant                         Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userRoles                      UserRole[]
+  refreshTokens                  RefreshToken[]
+  passwordResets                 PasswordResetToken[]
+  passwordResetAudits            PasswordResetAudit[]
+  studentProfile                 Student?
+  parentProfile                  Parent?
+  teacherProfile                 Teacher?
+  employeeProfile                Employee?
+  employeesCreated               Employee[]                     @relation("EmployeeCreatedBy")
+  employeesUpdated               Employee[]                     @relation("EmployeeUpdatedBy")
+  employeeStatusChanges          EmployeeStatusHistory[]        @relation("EmployeeStatusActor")
+  contractsCreated               EmploymentContract[]           @relation("ContractCreatedBy")
+  contractsUpdated               EmploymentContract[]           @relation("ContractUpdatedBy")
+  employeeDocsUploaded           EmployeeDocument[]             @relation("EmployeeDocumentUploadedBy")
+  staffLeaveRequested            StaffLeaveRequest[]            @relation("StaffLeaveRequestedBy")
+  staffLeaveApproved             StaffLeaveApproval[]           @relation("StaffLeaveApprover")
+  staffAttendanceMarked          StaffAttendance[]              @relation("StaffAttendanceMarkedBy")
+  staffAttendanceCorrected       StaffAttendance[]              @relation("StaffAttendanceCorrectedBy")
+  performanceReviewsGiven        PerformanceReview[]            @relation("PerformanceReviewer")
+  assetsAssigned                 AssetAssignment[]              @relation("AssetAssignedBy")
+  interviewsConducted            Interview[]                    @relation("Interviewer")
+  studentAttendanceMarks         StudentAttendance[]            @relation("StudentAttendanceMarkedBy")
+  teacherAttendanceMarks         TeacherAttendance[]            @relation("TeacherAttendanceMarkedBy")
+  notifications                  Notification[]
+  notificationPreference         NotificationPreference?
+  deviceTokens                   DeviceToken[]
+  auditLogs                      AuditLog[]                     @relation("AuditActor")
+  leaveRequestsMade              LeaveRequest[]                 @relation("LeaveRequestedBy")
+  leaveRequestsReviewed          LeaveRequest[]                 @relation("LeaveReviewedBy")
+  ptmSlotsCreated                PtmSlot[]                      @relation("PtmSlotCreatedBy")
+  ptmBookingsMade                PtmBooking[]                   @relation("PtmBookedBy")
+  documentsUploaded              Document[]                     @relation("DocumentUploadedBy")
+  resourcesUploaded              Resource[]                     @relation("ResourceUploadedBy")
+  achievementsAwarded            StudentAchievement[]           @relation("AchievementAwardedBy")
+  shiftAssignmentsCreated        EmployeeShiftAssignment[]      @relation("ShiftAssignmentCreatedBy")
+  attendanceLocksCreated         AttendanceLock[]               @relation("AttendanceLockedBy")
+  attendanceLocksReleased        AttendanceLock[]               @relation("AttendanceLockReleasedBy")
+  attendanceCorrectionsRequested AttendanceCorrectionRequest[]  @relation("AttendanceCorrectionRequestedBy")
+  attendanceCorrectionsDecided   AttendanceCorrectionApproval[] @relation("AttendanceCorrectionDecidedBy")
 
   @@unique([tenantId, email])
   @@unique([tenantId, nationalId])
@@ -5819,4 +5838,240 @@ model WebhookDelivery {
 
   @@index([endpointId, status])
   @@index([eventType, createdAt])
+}
+
+// ============================================================================
+// Attendance evolution program — Shift (N1), Policy (N2), Lock (N3),
+// Correction workflow (N4), Biometric ingestion (N5).
+// All HR-owned (Employee aggregate). See CAPABILITY_OWNERSHIP_MATRIX.md.
+// ============================================================================
+
+enum ShiftKind {
+  MORNING
+  EVENING
+  SPLIT
+  FLEXIBLE
+  WEEKEND
+  CUSTOM
+}
+
+enum AttendanceLockScope {
+  DAY
+  WEEK
+  PAYROLL
+  SEMESTER
+}
+
+enum AttendanceLockStatus {
+  ACTIVE
+  RELEASED
+}
+
+enum AttendanceCorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  APPLIED
+  CANCELLED
+}
+
+enum AttendanceCorrectionDecision {
+  APPROVED
+  REJECTED
+}
+
+enum BiometricPunchDirection {
+  IN
+  OUT
+}
+
+/// Configurable attendance thresholds (N2). Data-driven: nothing hardcoded. One row per tenant may
+/// be flagged `isDefault`; a campus-scoped row overrides it for that campus.
+model AttendancePolicy {
+  id                           String   @id @default(uuid()) @db.Uuid
+  tenantId                     String   @db.Uuid
+  campusId                     String?  @db.Uuid
+  name                         String
+  isDefault                    Boolean  @default(false)
+  graceMinutes                 Int      @default(5)
+  lateAfterMinutes             Int      @default(1)
+  absentAfterMinutes           Int      @default(240)
+  halfDayAfterShortfallMinutes Int      @default(180)
+  earlyDepartureAfterMinutes   Int      @default(15)
+  overtimeAfterMinutes         Int      @default(30)
+  countWeekendAsWorking        Boolean  @default(false)
+  allowManualOverride          Boolean  @default(true)
+  isActive                     Boolean  @default(true)
+  createdAt                    DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt                    DateTime @updatedAt @db.Timestamptz(6)
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus Campus? @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  shifts Shift[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, campusId])
+}
+
+/// A configured work window (N1): expected check-in/out, unpaid break and an optional credited-hours
+/// cap. Thresholds live in the linked AttendancePolicy — never duplicated here.
+model Shift {
+  id               String    @id @default(uuid()) @db.Uuid
+  tenantId         String    @db.Uuid
+  campusId         String?   @db.Uuid
+  policyId         String?   @db.Uuid
+  name             String
+  kind             ShiftKind @default(MORNING)
+  /// "HH:MM" 24h, local school time (same frame as the timetable).
+  expectedCheckIn  String
+  expectedCheckOut String
+  breakMinutes     Int       @default(0)
+  maxHours         Decimal?  @db.Decimal(4, 2)
+  isActive         Boolean   @default(true)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus      Campus?                   @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  policy      AttendancePolicy?         @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  assignments EmployeeShiftAssignment[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, campusId])
+}
+
+/// Assignment of a shift to an employee over an effective window. `daysOfWeek` empty ⇒ every day the
+/// calendar treats as working.
+model EmployeeShiftAssignment {
+  id            String      @id @default(uuid()) @db.Uuid
+  tenantId      String      @db.Uuid
+  employeeId    String      @db.Uuid
+  shiftId       String      @db.Uuid
+  effectiveFrom DateTime    @db.Date
+  effectiveTo   DateTime?   @db.Date
+  daysOfWeek    DayOfWeek[]
+  createdById   String?     @db.Uuid
+  createdAt     DateTime    @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @db.Timestamptz(6)
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  shift     Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  createdBy User?    @relation("ShiftAssignmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, employeeId, effectiveFrom])
+  @@index([tenantId, shiftId])
+}
+
+/// An immutability window over staff attendance (N3). While ACTIVE, writes covering any date in
+/// [periodStart, periodEnd] are rejected; corrections must go through the correction workflow.
+model AttendanceLock {
+  id           String               @id @default(uuid()) @db.Uuid
+  tenantId     String               @db.Uuid
+  campusId     String?              @db.Uuid
+  scope        AttendanceLockScope
+  periodStart  DateTime             @db.Date
+  periodEnd    DateTime             @db.Date
+  status       AttendanceLockStatus @default(ACTIVE)
+  reason       String?
+  lockedById   String?              @db.Uuid
+  lockedAt     DateTime             @default(now()) @db.Timestamptz(6)
+  releasedById String?              @db.Uuid
+  releasedAt   DateTime?            @db.Timestamptz(6)
+  releaseNote  String?
+  createdAt    DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime             @updatedAt @db.Timestamptz(6)
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campus     Campus? @relation(fields: [campusId], references: [id], onDelete: Cascade)
+  lockedBy   User?   @relation("AttendanceLockedBy", fields: [lockedById], references: [id], onDelete: SetNull)
+  releasedBy User?   @relation("AttendanceLockReleasedBy", fields: [releasedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, status, periodStart, periodEnd])
+  @@index([tenantId, campusId, status])
+}
+
+/// Enterprise correction workflow (N4): request → review → approval → apply. Nothing is edited
+/// in place by the requester; the approved change is applied through the canonical write path and
+/// the original values are retained here as immutable history.
+model AttendanceCorrectionRequest {
+  id                  String                     @id @default(uuid()) @db.Uuid
+  tenantId            String                     @db.Uuid
+  employeeId          String                     @db.Uuid
+  date                DateTime                   @db.Date
+  requestedStatus     StaffAttendanceStatus
+  requestedCheckInAt  DateTime?                  @db.Timestamptz(6)
+  requestedCheckOutAt DateTime?                  @db.Timestamptz(6)
+  requestedNote       String?
+  /// Status observed when the request was raised (immutable record of what was corrected from).
+  previousStatus      StaffAttendanceStatus?
+  reason              String
+  evidenceUrl         String?
+  status              AttendanceCorrectionStatus @default(PENDING)
+  currentLevel        Int                        @default(1)
+  requiredLevels      Int                        @default(1)
+  requestedById       String?                    @db.Uuid
+  appliedAt           DateTime?                  @db.Timestamptz(6)
+  createdAt           DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                   @updatedAt @db.Timestamptz(6)
+
+  tenant      Tenant                         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee    Employee                       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  requestedBy User?                          @relation("AttendanceCorrectionRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
+  approvals   AttendanceCorrectionApproval[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, employeeId, date])
+}
+
+/// One decision in a correction's approval chain (mirrors the proven staff-leave approval trail).
+model AttendanceCorrectionApproval {
+  id          String                       @id @default(uuid()) @db.Uuid
+  tenantId    String                       @db.Uuid
+  requestId   String                       @db.Uuid
+  level       Int
+  decision    AttendanceCorrectionDecision
+  note        String?
+  decidedById String?                      @db.Uuid
+  decidedAt   DateTime                     @default(now()) @db.Timestamptz(6)
+
+  tenant    Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  request   AttendanceCorrectionRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  decidedBy User?                       @relation("AttendanceCorrectionDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  @@unique([requestId, level])
+  @@index([tenantId])
+}
+
+/// Normalised device punch (N5). Providers write here first (idempotent on the provider's own
+/// reference), then the ingestion service folds punches into StaffAttendance through the canonical
+/// record() path. Keeps a durable audit of what a device actually reported.
+model BiometricRawPunch {
+  id              String                  @id @default(uuid()) @db.Uuid
+  tenantId        String                  @db.Uuid
+  employeeId      String?                 @db.Uuid
+  providerKey     String
+  externalRef     String
+  deviceId        String?
+  punchAt         DateTime                @db.Timestamptz(6)
+  direction       BiometricPunchDirection
+  /// Employee identifier as reported by the device, before resolution (badge no, finger id, ...).
+  externalUserRef String?
+  rawPayload      Json?
+  processedAt     DateTime?               @db.Timestamptz(6)
+  processingError String?
+  createdAt       DateTime                @default(now()) @db.Timestamptz(6)
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, providerKey, externalRef])
+  @@index([tenantId, punchAt])
+  @@index([tenantId, employeeId, punchAt])
+  @@index([tenantId, processedAt])
 }
