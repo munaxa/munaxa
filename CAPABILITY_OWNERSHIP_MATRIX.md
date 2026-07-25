@@ -192,5 +192,35 @@ Order Step 4). All others in the program are extensions of Part A owners.
 
 ---
 
+## Part D — Program completion status
+
+All 15 PRs of the Attendance evolution program have landed on
+`claude/attendance-structure-ui-docs-lxo7qc`. Ownership is unchanged from the
+plan; the final repository-wide duplicate-detection audit
+(see `IMPLEMENTATION_PROGRESS.md`) confirms:
+
+| Invariant | Result |
+|-----------|--------|
+| One domain event bus | ✅ `events/domain-events.ts` (notifications subscribe) |
+| One working-day helper | ✅ `leave/leave-days.logic.ts` |
+| One attendance tally | ✅ `payroll-prep.logic.ts` |
+| One `HH:MM` parser | ✅ `scheduling-engine.ts` |
+| One StaffAttendance write path | ✅ `people/attendance/attendance.repository.ts` |
+| One holiday source of truth | ✅ Scheduling `ScheduleException(HOLIDAY)` |
+| Approval engines | ✅ per-context (correction reuses the leave pattern) |
+| Analytics owner | ✅ HR dashboard + reporting (no new abstraction) |
+
+**New tables introduced (all HR-owned, all justified in Part B):**
+`AttendancePolicy`, `Shift`, `EmployeeShiftAssignment`, `AttendanceLock`,
+`AttendanceCorrectionRequest`, `AttendanceCorrectionApproval`,
+`BiometricRawPunch`.
+
+**Bounded contexts unchanged:** Student ≠ Teacher ≠ Staff attendance remain three
+separate stores; staff attendance never left HR; Teacher stayed an Academic
+aggregate reached through the existing `Employee.teacher` bridge; students have
+no HR relationship.
+
+---
+
 _This matrix is updated as each PR lands. A change that would give a capability a
 second owner is a defect and must be redesigned._
