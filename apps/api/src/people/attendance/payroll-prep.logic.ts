@@ -10,7 +10,7 @@
  * The working week excludes the Fri/Sat weekend (see {@link workingDaysBetween}).
  */
 import { StaffAttendanceStatus } from '@prisma/client';
-import { workingDaysBetween } from '../leave/leave-days.logic';
+import { workingDaysBetween, type WorkingDayCalendar } from '../leave/leave-days.logic';
 
 export interface AttendanceDayInput {
   status: StaffAttendanceStatus;
@@ -52,10 +52,11 @@ export function overlapWorkingDays(
   rangeEnd: Date,
   leaveStart: Date,
   leaveEnd: Date,
+  calendar?: WorkingDayCalendar,
 ): number {
   const from = leaveStart > rangeStart ? leaveStart : rangeStart;
   const to = leaveEnd < rangeEnd ? leaveEnd : rangeEnd;
-  return workingDaysBetween(from, to);
+  return workingDaysBetween(from, to, calendar);
 }
 
 /**

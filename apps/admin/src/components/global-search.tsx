@@ -156,7 +156,7 @@ export function GlobalSearch({
     onClose();
     // next typedRoutes: ROUTE values must be typed routes for `next build`; the cast is required
     // there even though local tooling sees them as plain strings.
-
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     router.push(ROUTE[hit.type] as never);
   }
 

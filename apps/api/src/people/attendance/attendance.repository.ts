@@ -37,6 +37,25 @@ export interface BulkEntry {
   note?: string | null;
 }
 
+/**
+ * Result of a single-day record/correct upsert. Carries `previousStatus` (the status that was
+ * overwritten when this write changed an existing day; null on create or an unchanged status) so
+ * the service can publish an accurate `StaffAttendanceRecorded` integration event without a second
+ * read. The persisted `view` is returned unchanged for the HTTP response.
+ */
+export interface RecordResult {
+  view: StaffAttendanceView;
+  previousStatus: StaffAttendanceStatus | null;
+}
+
+/** Per-employee outcome of a bulk daily-roster mark (drives one integration event each). */
+export interface BulkResultEntry {
+  employeeId: string;
+  status: StaffAttendanceStatus;
+  source: StaffAttendanceSource;
+  previousStatus: StaffAttendanceStatus | null;
+}
+
 /** Minimal projection of an employee for payroll-prep (avoids over-fetching). */
 export type PayrollEmployee = {
   id: string;
@@ -66,7 +85,7 @@ export class AttendanceRepository extends TenantRepository {
    * existing row's status changes, the previous status is captured into the correction trail
    * (`correctedFromStatus` / `correctedById` / `correctedAt`).
    */
-  record(employeeId: string, date: Date, data: RecordAttendanceData): Promise<StaffAttendanceView> {
+  record(employeeId: string, date: Date, data: RecordAttendanceData): Promise<RecordResult> {
     const actorId = TenantContextStore.get()?.actorUserId ?? null;
     return this.run(async (tx, tenantId) => {
       const existing = await tx.staffAttendance.findUnique({
@@ -117,15 +136,23 @@ export class AttendanceRepository extends TenantRepository {
           ...(existing && existing.status !== data.status ? { from: existing.status } : {}),
         },
       });
-      return row;
+      const previousStatus = existing && existing.status !== data.status ? existing.status : null;
+      return { view: row, previousStatus };
     });
   }
 
-  /** Mark many employees for a single date in one transaction. Returns the affected row count. */
-  bulkRecord(date: Date, source: StaffAttendanceSource, entries: BulkEntry[]): Promise<number> {
+  /**
+   * Mark many employees for a single date in one transaction. Returns one result per employee (with
+   * the overwritten `previousStatus`, if any) so the service can publish an integration event each.
+   */
+  bulkRecord(
+    date: Date,
+    source: StaffAttendanceSource,
+    entries: BulkEntry[],
+  ): Promise<BulkResultEntry[]> {
     const actorId = TenantContextStore.get()?.actorUserId ?? null;
     return this.run(async (tx, tenantId) => {
-      let count = 0;
+      const results: BulkResultEntry[] = [];
       for (const entry of entries) {
         const existing = await tx.staffAttendance.findUnique({
           where: { tenantId_employeeId_date: { tenantId, employeeId: entry.employeeId, date } },
@@ -157,14 +184,19 @@ export class AttendanceRepository extends TenantRepository {
             },
           });
         }
-        count += 1;
+        results.push({
+          employeeId: entry.employeeId,
+          status: entry.status,
+          source,
+          previousStatus: existing && existing.status !== entry.status ? existing.status : null,
+        });
       }
       await this.writeAudit(tx, tenantId, {
         action: 'staff_attendance.bulk',
         entityType: 'StaffAttendance',
-        metadata: { date: date.toISOString().slice(0, 10), count },
+        metadata: { date: date.toISOString().slice(0, 10), count: results.length },
       });
-      return count;
+      return results;
     });
   }
 
@@ -220,6 +252,25 @@ export class AttendanceRepository extends TenantRepository {
       tx.staffAttendance.findMany({
         where: { date: { gte: from, lte: to } },
         select: { employeeId: true, status: true, lateMinutes: true, overtimeHours: true },
+      }),
+    );
+  }
+
+  /** Correction requests still awaiting a decision inside a range (blocks payroll validation). */
+  countPendingCorrections(from: Date, to: Date): Promise<number> {
+    return this.run((tx) =>
+      tx.attendanceCorrectionRequest.count({
+        where: { status: 'PENDING', date: { gte: from, lte: to } },
+      }),
+    );
+  }
+
+  /** Device punches stored but not yet folded into attendance (a payroll-validation warning). */
+  countUnprocessedPunches(from: Date, to: Date): Promise<number> {
+    const dayEnd = new Date(to.getTime() + 24 * 60 * 60 * 1000 - 1);
+    return this.run((tx) =>
+      tx.biometricRawPunch.count({
+        where: { processedAt: null, punchAt: { gte: from, lte: dayEnd } },
       }),
     );
   }

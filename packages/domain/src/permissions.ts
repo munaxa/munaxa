@@ -49,6 +49,17 @@ export const Permission = {
   STAFF_ATTENDANCE_READ: 'staff-attendance:read',
   STAFF_ATTENDANCE_MANAGE: 'staff-attendance:manage',
   PAYROLL_PREPARE: 'payroll:prepare',
+  // Attendance evolution program — shift scheduling, policy configuration, immutability locks,
+  // the correction workflow and biometric ingestion. All HR-scoped (staff attendance context);
+  // analytics deliberately reuses HR_DASHBOARD_READ rather than adding a permission.
+  SHIFT_READ: 'shift:read',
+  SHIFT_MANAGE: 'shift:manage',
+  ATTENDANCE_POLICY_READ: 'attendance-policy:read',
+  ATTENDANCE_POLICY_MANAGE: 'attendance-policy:manage',
+  ATTENDANCE_LOCK_MANAGE: 'attendance-lock:manage',
+  ATTENDANCE_CORRECTION_REQUEST: 'attendance-correction:request',
+  ATTENDANCE_CORRECTION_APPROVE: 'attendance-correction:approve',
+  BIOMETRIC_INGEST: 'biometric:ingest',
   // HR Phase 6 — performance management & training.
   PERFORMANCE_READ: 'performance:read',
   PERFORMANCE_MANAGE: 'performance:manage',
@@ -229,6 +240,17 @@ export const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
     'Record, bulk-mark and correct staff daily attendance (check-in/out, overtime).',
   [Permission.PAYROLL_PREPARE]:
     'Generate payroll-preparation summaries from staff attendance and approved leave.',
+  [Permission.SHIFT_READ]: 'View work shifts and employee shift assignments.',
+  [Permission.SHIFT_MANAGE]: 'Create and assign work shifts (windows, breaks, hour caps).',
+  [Permission.ATTENDANCE_POLICY_READ]: 'View attendance policy thresholds.',
+  [Permission.ATTENDANCE_POLICY_MANAGE]:
+    'Configure attendance policy thresholds (grace, late, absent, overtime).',
+  [Permission.ATTENDANCE_LOCK_MANAGE]:
+    'Lock and release staff attendance periods for payroll integrity.',
+  [Permission.ATTENDANCE_CORRECTION_REQUEST]: 'Request a correction to a staff attendance day.',
+  [Permission.ATTENDANCE_CORRECTION_APPROVE]:
+    'Approve or reject staff attendance correction requests.',
+  [Permission.BIOMETRIC_INGEST]: 'Ingest attendance punches from biometric/device providers.',
   [Permission.PERFORMANCE_READ]: 'View performance cycles, appraisals and goals.',
   [Permission.PERFORMANCE_MANAGE]:
     'Manage performance cycles, write appraisals, and set employee goals.',

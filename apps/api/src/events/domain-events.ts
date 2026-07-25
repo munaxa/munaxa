@@ -16,7 +16,25 @@ export type DomainEvent =
   | { type: 'CampusDeleted'; tenantId: string; total: number }
   | { type: 'StorageChanged'; tenantId: string; gigabytes: number }
   | { type: 'ApiRequestRecorded'; tenantId: string; count?: number }
-  | { type: 'AiUsageRecorded'; tenantId: string; units?: number };
+  | { type: 'AiUsageRecorded'; tenantId: string; units?: number }
+  // --- HR staff-attendance integration events (Attendance evolution program) -------------------
+  // Emitted by the HR staff-attendance write path (the canonical owner of StaffAttendance). Other
+  // bounded contexts (Academics teacher-attendance sync, Transport driver duty, Notifications)
+  // subscribe to these facts instead of importing HR. Payloads are primitive/serializable (no
+  // Prisma enums) so the same event can later be persisted to a durable outbox unchanged.
+  | {
+      type: 'StaffAttendanceRecorded';
+      tenantId: string;
+      employeeId: string;
+      /** ISO calendar day (YYYY-MM-DD) the attendance applies to. */
+      date: string;
+      /** Current StaffAttendanceStatus for the day (serialized). */
+      status: string;
+      /** StaffAttendanceSource that produced the mark (serialized). */
+      source: string;
+      /** Previous status when this write changed an existing day (a correction); null otherwise. */
+      previousStatus: string | null;
+    };
 
 export type DomainEventType = DomainEvent['type'];
 
