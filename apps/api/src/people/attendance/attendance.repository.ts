@@ -256,6 +256,25 @@ export class AttendanceRepository extends TenantRepository {
     );
   }
 
+  /** Correction requests still awaiting a decision inside a range (blocks payroll validation). */
+  countPendingCorrections(from: Date, to: Date): Promise<number> {
+    return this.run((tx) =>
+      tx.attendanceCorrectionRequest.count({
+        where: { status: 'PENDING', date: { gte: from, lte: to } },
+      }),
+    );
+  }
+
+  /** Device punches stored but not yet folded into attendance (a payroll-validation warning). */
+  countUnprocessedPunches(from: Date, to: Date): Promise<number> {
+    const dayEnd = new Date(to.getTime() + 24 * 60 * 60 * 1000 - 1);
+    return this.run((tx) =>
+      tx.biometricRawPunch.count({
+        where: { processedAt: null, punchAt: { gte: from, lte: dayEnd } },
+      }),
+    );
+  }
+
   /** Approved leave requests overlapping [from, to], with their paid/unpaid treatment. */
   approvedLeaveInRange(from: Date, to: Date): Promise<LeaveSpan[]> {
     return this.run(async (tx) => {

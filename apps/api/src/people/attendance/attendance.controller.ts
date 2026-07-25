@@ -47,6 +47,15 @@ export class AttendanceController {
     return this.service.bulk(dto);
   }
 
+  @Get('payroll-prep/validated')
+  @RequirePermissions(Permission.PAYROLL_PREPARE)
+  @ApiOperation({
+    summary: 'Validated payroll summary — proves the period is locked and free of open corrections',
+  })
+  payrollPrepValidated(@Query() query: PayrollPrepQueryDto) {
+    return this.service.payrollPrepValidated(query);
+  }
+
   @Get('payroll-prep')
   @RequirePermissions(Permission.PAYROLL_PREPARE)
   @ApiOperation({ summary: 'Payroll-preparation summary (JSON, or csv|xlsx|pdf via ?format=)' })

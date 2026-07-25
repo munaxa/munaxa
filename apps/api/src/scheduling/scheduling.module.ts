@@ -17,6 +17,7 @@ import { RamadanConfigRepository } from './ramadan/ramadan-config.repository';
 import { ScheduleExceptionController } from './exceptions/schedule-exception.controller';
 import { ScheduleExceptionService } from './exceptions/schedule-exception.service';
 import { ScheduleExceptionRepository } from './exceptions/schedule-exception.repository';
+import { WorkingDayCalendarService } from './calendar/working-day-calendar.service';
 
 /**
  * The platform scheduling engine — the single source of truth for schedule resolution and publishing
@@ -47,7 +48,10 @@ import { ScheduleExceptionRepository } from './exceptions/schedule-exception.rep
     RamadanConfigService,
     ScheduleExceptionRepository,
     ScheduleExceptionService,
+    WorkingDayCalendarService,
   ],
-  exports: [SchedulingService],
+  // WorkingDayCalendarService is the holiday port consumed by HR leave/payroll (ADR-0001) — the
+  // dependency points HR → Scheduling only, so there is no cycle.
+  exports: [SchedulingService, WorkingDayCalendarService],
 })
 export class SchedulingModule {}

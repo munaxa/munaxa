@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ReportingModule } from '../../reporting/reporting.module';
+import { SchedulingModule } from '../../scheduling/scheduling.module';
 import { AttendanceController, EmployeeAttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
 import { AttendanceRepository } from './attendance.repository';
@@ -35,7 +36,7 @@ import { AttendanceAnalyticsRepository } from './analytics/attendance-analytics.
  * existing reporting pipeline rather than introducing a new abstraction).
  */
 @Module({
-  imports: [ReportingModule],
+  imports: [ReportingModule, SchedulingModule],
   controllers: [
     AttendanceController,
     EmployeeAttendanceController,

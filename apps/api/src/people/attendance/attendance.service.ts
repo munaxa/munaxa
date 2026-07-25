@@ -5,6 +5,8 @@ import { DomainEvents } from '../../events/domain-events';
 import { TenantContextStore } from '../../prisma/tenant-context';
 import { staffAttendanceRecordedEvent } from './staff-attendance-events';
 import { AttendanceLockService } from './lock/attendance-lock.service';
+import { WorkingDayCalendarService } from '../../scheduling/calendar/working-day-calendar.service';
+import { validatePayrollPeriod, type ValidationResult } from './payroll-validation.logic';
 import { workingDaysBetween } from '../leave/leave-days.logic';
 import {
   overlapWorkingDays,
@@ -44,6 +46,7 @@ export class AttendanceService {
     private readonly repo: AttendanceRepository,
     private readonly events: DomainEvents,
     private readonly locks: AttendanceLockService,
+    private readonly calendar: WorkingDayCalendarService,
   ) {}
 
   async record(employeeId: string, dto: RecordAttendanceDto): Promise<StaffAttendanceView> {
@@ -202,7 +205,10 @@ export class AttendanceService {
     const to = parseDate(query.to);
     if (to < from) throw new BadRequestException('`to` must be on or after `from`');
 
-    const workingDays = workingDaysBetween(from, to);
+    // Calendar-aware since PR-2/2b: school-wide holidays come from Scheduling (the canonical owner)
+    // through the injected port, so leave and payroll can never disagree about a working day.
+    const calendar = await this.calendar.forRange(from, to);
+    const workingDays = workingDaysBetween(from, to, calendar);
     const [employees, attendance, leave] = await Promise.all([
       this.repo.listActiveEmployees(),
       this.repo.attendanceInRange(from, to),
@@ -223,7 +229,7 @@ export class AttendanceService {
 
     const leaveByEmployee = new Map<string, { paidLeaveDays: number; unpaidLeaveDays: number }>();
     for (const span of leave) {
-      const days = overlapWorkingDays(from, to, span.startDate, span.endDate);
+      const days = overlapWorkingDays(from, to, span.startDate, span.endDate, calendar);
       if (days <= 0) continue;
       const acc = leaveByEmployee.get(span.employeeId) ?? { paidLeaveDays: 0, unpaidLeaveDays: 0 };
       if (span.paid) acc.paidLeaveDays += days;
@@ -246,6 +252,37 @@ export class AttendanceService {
     });
 
     return { from: query.from.slice(0, 10), to: query.to.slice(0, 10), workingDays, rows };
+  }
+
+  /**
+   * Payroll **validation** (PR-13) — the gate between preparation and the payroll run.
+   *
+   * Proves the period is safe to hand over: fully locked (attendance can no longer move) and free of
+   * undecided corrections. Returns the same preparation payload plus the verdict, so payroll
+   * consumes one clean contract. Money is still never computed here.
+   */
+  async payrollPrepValidated(
+    query: PayrollPrepQueryDto,
+  ): Promise<PayrollPrepResult & { validation: ValidationResult }> {
+    const from = parseDate(query.from);
+    const to = parseDate(query.to);
+    const [result, locks, pendingCorrections] = await Promise.all([
+      this.payrollPrep(query),
+      this.locks.activeCovering(from, to),
+      this.repo.countPendingCorrections(from, to),
+    ]);
+
+    // Fully locked ⇔ no writable day remains in the range.
+    const periodFullyLocked =
+      locks.length > 0 && !(await this.locks.isRangeWritable(from, to, null));
+
+    const validation = validatePayrollPeriod({
+      periodFullyLocked,
+      pendingCorrections,
+      missingAttendanceDays: 0,
+      unresolvedPunches: await this.repo.countUnprocessedPunches(from, to),
+    });
+    return { ...result, validation };
   }
 
   /** Build a generic {@link ReportTable} of a payroll-prep result for CSV/xlsx/pdf export. */
