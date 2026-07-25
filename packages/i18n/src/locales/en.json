@@ -62,7 +62,9 @@
     "yes": "Yes",
     "no": "No",
     "done": "Done",
-    "back": "Back"
+    "back": "Back",
+    "approve": "Approve",
+    "reject": "Reject"
   },
   "auth": {
     "signIn": "Sign in",
@@ -218,7 +220,8 @@
     "performance": "Performance",
     "training": "Training",
     "assets": "Assets",
-    "recruitment": "Recruitment"
+    "recruitment": "Recruitment",
+    "attendanceOps": "Attendance ops"
   },
   "dashboard": {
     "title": "Overview",
@@ -1793,7 +1796,6 @@
     "recordAttendance": "Record attendance",
     "attendanceHistory": "Attendance history",
     "noAttendance": "No attendance recorded.",
-    "date": "Date",
     "lateMinutes": "Late (min)",
     "overtimeHours": "Overtime (hrs)",
     "correctedFrom": "corrected from",
@@ -1841,7 +1843,6 @@
     "trainingRecords": "Training records",
     "noTraining": "No training records.",
     "score": "Score",
-    "expires": "Expires",
     "mandatory": "Mandatory",
     "training": "Training",
     "expiringCertifications": "Expiring certifications (90 days)",
@@ -1977,5 +1978,48 @@
       "training": "Training",
       "probation": "Probation"
     }
+  },
+  "attendanceOps": {
+    "title": "Attendance operations",
+    "subtitle": "Locks, corrections, policy, shifts and analytics for staff attendance.",
+    "locks": "Attendance locks",
+    "lockPeriod": "Lock period",
+    "release": "Release",
+    "released": "Period released",
+    "locked": "Period locked",
+    "noLocks": "No attendance locks yet.",
+    "scope": "Scope",
+    "period": "Period",
+    "from": "From",
+    "to": "To",
+    "corrections": "Correction requests",
+    "noCorrections": "No pending correction requests.",
+    "employee": "Employee",
+    "change": "Change",
+    "reason": "Reason",
+    "level": "Level",
+    "approved": "Correction approved",
+    "rejected": "Correction rejected",
+    "policies": "Attendance policies",
+    "noPolicies": "No policies configured; the system default applies.",
+    "default": "Default",
+    "grace": "Grace",
+    "absentAfter": "Absent after",
+    "shifts": "Shifts",
+    "noShifts": "No shifts configured.",
+    "window": "Window",
+    "break": "Break",
+    "analytics": "Analytics",
+    "run": "Run",
+    "runHint": "Choose a range and run to see attendance analytics.",
+    "noData": "No attendance data in this range.",
+    "days": "Days",
+    "absences": "Absences",
+    "lates": "Late",
+    "department": "Department",
+    "employees": "Employees",
+    "absenceRate": "Absence rate",
+    "latenessRate": "Lateness rate",
+    "activeLocksHint": "Active locks:"
   }
 }
