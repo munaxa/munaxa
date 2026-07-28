@@ -83,10 +83,19 @@ pnpm dev                  # runs api + admin via Turborepo
 | `pnpm docker:up` / `pnpm docker:down` | Local infra |
 
 ## Documentation
+
+Everything is indexed at [`docs/README.md`](./docs/README.md); the repository-wide index is
+[`/docs/README.md`](../docs/README.md).
+
+- **Contribution rules (mandatory)**: [`/PLATFORM_ENGINEERING_STANDARDS.md`](../PLATFORM_ENGINEERING_STANDARDS.md)
 - **Session handoff / continuation guide**: [`docs/HANDOFF.md`](./docs/HANDOFF.md) — read first to resume work
 - Architecture blueprint: [`docs/architecture/`](./docs/architecture/README.md)
-- Design system (shared UI layer): [`/platform/README.md`](../platform/README.md)
-- Phase deployment notes: [`docs/phases/`](./docs/phases/)
+- Business domains: [`docs/domains/`](./docs/domains/README.md)
+- UX architecture and patterns: [`docs/ux/`](./docs/ux/README.md)
+- UI governance: [`docs/ui-governance.md`](./docs/ui-governance.md)
+- Shared platform: [`/platform/README.md`](../platform/README.md)
+- Phase delivery history: [`docs/phases/`](./docs/phases/)
+- Historical reports: [`docs/archive/`](./docs/archive/README.md)
 
 ## Phase status
 - ✅ Phase 0 — System Architecture
@@ -106,4 +115,5 @@ pnpm dev                  # runs api + admin via Turborepo
 - ✅ Phase 14 — Advanced Modules
 - ✅ Phase 15 — Production Hardening
 
-Development is **phase-by-phase**; see `MunaxaPrompts/` for the phase specifications.
+Development is **phase-by-phase**; see `MunaxaPrompts/` for the original phase specifications
+and [`docs/phases/`](./docs/phases/) for what each phase delivered.

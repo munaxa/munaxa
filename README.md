@@ -4,7 +4,9 @@ Monorepo for the AXA product ecosystem and the shared platform they all build on
 
 ```
 /
-├── platform/         @axa/platform — the shared, product-agnostic foundation
+├── PLATFORM_ENGINEERING_STANDARDS.md   the rulebook — read before contributing
+├── docs/README.md                      the documentation index
+├── platform/         @axa/platform — the shared, product-agnostic foundation (frozen)
 ├── munaxa/           Munaxa — Multi-Tenant School Operating System
 ├── workaxa/          Workaxa — reserved, not implemented yet
 ├── tooling/          shared ESLint + TypeScript configs (@axa/config-*)
@@ -14,6 +16,15 @@ Monorepo for the AXA product ecosystem and the shared platform they all build on
 ├── docker-compose.yml   local dev stack (Munaxa)
 └── render.yaml          staging blueprint (Munaxa)
 ```
+
+## Start here
+
+| Read | For |
+| --- | --- |
+| [PLATFORM_ENGINEERING_STANDARDS.md](./PLATFORM_ENGINEERING_STANDARDS.md) | **Mandatory.** How work is done here — human or AI |
+| [docs/README.md](./docs/README.md) | The documentation index: every document, its purpose and audience |
+| [platform/README.md](./platform/README.md) | Consuming the shared platform |
+| [munaxa/docs/README.md](./munaxa/docs/README.md) | The Munaxa product |
 
 The repository root is the **workspace root**, not a product. It owns dependency resolution
 (pnpm), the task graph (turbo), lint/format/TypeScript baselines and CI. Product code lives
@@ -36,10 +47,11 @@ Every product consumes its components, tokens, icons and theme from
 token or a colour — enforced by review, by ESLint for colour, and by `pnpm validate` for the
 theme contract and token scales.
 
-[`platform/CONTRIBUTING.md`](platform/CONTRIBUTING.md) is the **mandatory standard** for all
-work in the shared layer; [`platform/architecture/`](platform/architecture/README.md) explains
-the reasoning. Read them before adding UI anywhere. The one decision that matters is whether a
-thing is shared or product-specific.
+[`PLATFORM_ENGINEERING_STANDARDS.md`](./PLATFORM_ENGINEERING_STANDARDS.md) is the mandatory
+rulebook for every contributor; [`platform/CONTRIBUTING.md`](platform/CONTRIBUTING.md) is the
+checklist for changing the shared layer itself, and
+[`platform/architecture/`](platform/architecture/README.md) explains the reasoning. The one
+decision that matters is whether a thing is shared or product-specific.
 
 ```bash
 pnpm validate   # theme contract + structural token mirrors — runs in CI before lint

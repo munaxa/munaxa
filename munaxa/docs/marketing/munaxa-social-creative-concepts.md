@@ -5,11 +5,11 @@ Each creative below is copy-paste ready. Every prompt includes the Munaxa logo r
 ## Brand & Design Reference
 
 These creatives reproduce the **Munaxa platform UI**, so they pull from the same design-system
-source of truth as the product. Keep them in sync with
-[`docs/design-system/README.md`](../design-system/README.md),
-[`packages/config-tailwind/preset.ts`](../../packages/config-tailwind/preset.ts), and the live
-references in [`docs/design-system/`](../design-system/). If the code and a prompt ever disagree,
-the code wins.
+source of truth as the product. Keep them in sync with the Munaxa palette,
+[`platform/themes/munaxa/palette.css`](../../../platform/themes/munaxa/palette.css), the brand
+hexes in [`platform/themes/munaxa/brand.ts`](../../../platform/themes/munaxa/brand.ts), and the
+brand assets in [`docs/design-system/`](../design-system/README.md). If the code and a prompt ever
+disagree, the code wins.
 
 - **Logo:** [`docs/design-system/logo.png`](../design-system/logo.png) — the transparent, stylised
   ibex in the brand gradient (coral horns → violet base). Reference it by this repo-relative path.

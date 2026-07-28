@@ -28,11 +28,25 @@ it is design, diagrams (Mermaid), and strategy.
 | 14 | [Attendance / Presence / Transport — Audit](./14-attendance-presence-transport-audit.md) | Pre-build compatibility audit (Phase 21) |
 | 14b | […Migration Report](./14b-attendance-presence-transport-migration-report.md) | Migration + RLS report (Phase 21) |
 | 15 | [Identity & Cross-Tenant Membership](./15-identity-and-cross-tenant-membership.md) | ADR — one human, many schools (deferred) |
+| 16 | [Document Engine](./16-document-engine.md) | Declarative document / PDF generation |
+
+## Cross-cutting
+
+| Document | Scope |
+|---|---|
+| [Capability Ownership Matrix](./capability-ownership-matrix.md) | Which module owns which capability, and the seams between them |
+| [Decision Records](./adr/) | ADRs — immutable; supersede, never edit |
 
 ## Related references
 
-- [**Design System**](../design-system/README.md) — tokens, themes (light/dark), bilingual/RTL
-  rules, and the shared UI kit (the visual layer that sits on top of this architecture).
+- [**Documentation index**](../../../docs/README.md) — every document in the repository.
+- [**Engineering standards**](../../../PLATFORM_ENGINEERING_STANDARDS.md) — the mandatory rulebook.
+- [**Business domains**](../domains/README.md) — per-domain living design (HR, finance,
+  attendance, transport, scheduling, student lifecycle, enrolment).
+- [**UX architecture**](../ux/README.md) — records, navigation, search, history, approvals.
+- [**Shared platform**](../../../platform/README.md) — tokens, themes, components: the visual
+  layer this architecture sits beneath. Munaxa's consumption rules are in
+  [`../ui-governance.md`](../ui-governance.md).
 - [Integrations — JoFotara e-invoicing](../integrations/jofotara/01-compliance-analysis.md) —
   compliance analysis + framework architecture.
 
