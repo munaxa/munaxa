@@ -4,15 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  useToast,
-} from '@axa/design-system';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@axa/platform';
 import { hrDashboardApi, type HrAlert, type HrDashboard } from '@/lib/people';
 
 export default function HrDashboardPage() {

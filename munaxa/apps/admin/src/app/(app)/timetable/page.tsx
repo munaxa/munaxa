@@ -13,7 +13,7 @@ import {
   Select,
   useToast,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 import {
   academicYearsApi,
   campusesApi,
@@ -525,7 +525,7 @@ export default function TimetableWorkspace() {
                                         {c.teacherName ? ` · ${c.teacherName}` : ' · no teacher'}
                                       </span>
                                       {c.locationName ? (
-                                        <span className="block text-[10px] text-aqua">
+                                        <span className="block text-[10px] text-accent-cool">
                                           {c.locationName}
                                         </span>
                                       ) : null}

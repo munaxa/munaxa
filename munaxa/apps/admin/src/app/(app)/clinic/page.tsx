@@ -21,7 +21,7 @@ import {
   TR,
   Table,
   type PickerOption,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { loadStudentOptions } from '@/lib/pickers';
 import {
   CLINIC_OUTCOMES,

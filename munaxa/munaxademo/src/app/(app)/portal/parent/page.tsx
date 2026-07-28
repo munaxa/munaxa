@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useDemo } from '@/lib/demo-store/context';
 import { studentName } from '@/lib/demo-store/selectors';
 import { jod, pct, fmtDate } from '@/lib/format';
-import { Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@axa/design-system';
+import { Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@axa/platform';
 import { PageHeader } from '@/components/page';
 import type { Student } from '@/seed/types';
 
@@ -53,12 +53,12 @@ export default function ParentPortalPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid grid-cols-3 gap-2 text-center">
-                  <Stat label="Attendance" value={pct(st.attRate)} tone="text-aqua" />
-                  <Stat label="Average" value={pct(st.avg)} tone="text-aqua" />
+                  <Stat label="Attendance" value={pct(st.attRate)} tone="text-accent-cool" />
+                  <Stat label="Average" value={pct(st.avg)} tone="text-accent-cool" />
                   <Stat
                     label="Balance"
                     value={jod(st.balance)}
-                    tone={st.balance > 0 ? 'text-coral' : ''}
+                    tone={st.balance > 0 ? 'text-accent-warm' : ''}
                   />
                 </div>
                 <div className="flex flex-wrap gap-2">

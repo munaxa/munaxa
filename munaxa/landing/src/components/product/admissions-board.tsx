@@ -1,11 +1,11 @@
-import { cn } from '@axa/design-system';
+import { cn } from '@axa/platform';
 
 /**
  * Admissions pipeline — a stage-based board of applicants moving from inquiry to enrolled.
  * The "Enrolled" column hints at the hand-off into Finance (a fee plan is created on enrollment).
  */
 
-type Card = { name: string; meta: string; tone?: 'aqua' | 'coral' };
+type Card = { name: string; meta: string; tone?: 'cool' | 'warm' };
 
 const COLUMNS: { title: string; count: number; cards: Card[]; accent: string }[] = [
   {
@@ -22,21 +22,21 @@ const COLUMNS: { title: string; count: number; cards: Card[]; accent: string }[]
     count: 11,
     accent: 'bg-info',
     cards: [
-      { name: 'Sami Barakat', meta: 'Grade 4 · Scheduled', tone: 'aqua' },
+      { name: 'Sami Barakat', meta: 'Grade 4 · Scheduled', tone: 'cool' },
       { name: 'Dana Suleiman', meta: 'Grade 9 · Interview' },
     ],
   },
   {
     title: 'Offer',
     count: 7,
-    accent: 'bg-coral',
-    cards: [{ name: 'Layla Nasser', meta: 'Grade 1 · Sent', tone: 'coral' }],
+    accent: 'bg-accent-warm',
+    cards: [{ name: 'Layla Nasser', meta: 'Grade 1 · Sent', tone: 'warm' }],
   },
   {
     title: 'Enrolled',
     count: 38,
-    accent: 'bg-aqua',
-    cards: [{ name: 'Adam Zaid', meta: 'Grade 7 · Fee plan created', tone: 'aqua' }],
+    accent: 'bg-accent-cool',
+    cards: [{ name: 'Adam Zaid', meta: 'Grade 7 · Fee plan created', tone: 'cool' }],
   },
 ];
 
@@ -49,7 +49,7 @@ export function AdmissionsBoard() {
           <p className="text-[11px] text-muted-foreground">80 active applications</p>
         </div>
         <span className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground">
-          Conversion <span className="mono text-aqua">47%</span>
+          Conversion <span className="mono text-accent-cool">47%</span>
         </span>
       </div>
 
@@ -71,8 +71,8 @@ export function AdmissionsBoard() {
                   <p
                     className={cn(
                       'mt-0.5 text-[10px]',
-                      card.tone === 'aqua' && 'text-aqua',
-                      card.tone === 'coral' && 'text-coral',
+                      card.tone === 'cool' && 'text-accent-cool',
+                      card.tone === 'warm' && 'text-accent-warm',
                       !card.tone && 'text-muted-foreground',
                     )}
                   >

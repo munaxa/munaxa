@@ -20,7 +20,7 @@ import {
   TH,
   THead,
   TR,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { RecordHeader } from './record-header';
 
 /**
@@ -161,7 +161,7 @@ export function ParentProfileDialog({
                       </TD>
                       <TD
                         className={`text-end font-mono ${
-                          Number(s.outstanding) > 0 ? 'text-coral' : ''
+                          Number(s.outstanding) > 0 ? 'text-accent-warm' : ''
                         }`}
                       >
                         {money(s.outstanding)}

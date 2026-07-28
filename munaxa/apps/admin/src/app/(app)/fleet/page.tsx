@@ -13,7 +13,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { CardSkeleton } from './components';
 import { RouteDashboard } from './dashboard';
 import { AreaPlanning } from './areas';

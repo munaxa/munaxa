@@ -22,7 +22,7 @@ import {
   Table,
   useToast,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { PageHeader, Kpi } from '@/components/page';
 
 interface DemoRequest {
@@ -105,9 +105,9 @@ export default function RequestsPage() {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi label="New" value={num(counts('NEW'))} tone="primary" />
         <Kpi label="Contacted" value={num(counts('CONTACTED'))} />
-        <Kpi label="Scheduled" value={num(counts('SCHEDULED'))} tone="coral" />
-        <Kpi label="Approved" value={num(counts('APPROVED'))} tone="aqua" />
-        <Kpi label="Converted" value={num(counts('CONVERTED'))} tone="aqua" />
+        <Kpi label="Scheduled" value={num(counts('SCHEDULED'))} tone="warm" />
+        <Kpi label="Approved" value={num(counts('APPROVED'))} tone="cool" />
+        <Kpi label="Converted" value={num(counts('CONVERTED'))} tone="cool" />
         <Kpi label="Rejected" value={num(counts('REJECTED'))} />
       </section>
 

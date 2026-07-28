@@ -1,4 +1,4 @@
-import { Reveal, cn } from '@axa/design-system';
+import { Reveal, cn } from '@axa/platform';
 
 /**
  * The problem, told typographically. Disconnected tools drift apart; the copy names the cost of
@@ -39,7 +39,7 @@ export function Fragmentation() {
               'Parents chasing updates the school already had',
             ].map((line) => (
               <div key={line} className="flex items-start gap-3 text-sm text-muted-foreground">
-                <span className="mt-2 h-1 w-4 shrink-0 rounded-full bg-coral" aria-hidden />
+                <span className="mt-2 h-1 w-4 shrink-0 rounded-full bg-accent-warm" aria-hidden />
                 {line}
               </div>
             ))}

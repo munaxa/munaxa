@@ -12,7 +12,7 @@
   },
   "aliases": {
     "components": "@/components",
-    "utils": "@axa/design-system",
+    "utils": "@axa/platform",
     "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"

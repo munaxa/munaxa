@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft } from '@axa/design-system/icons';
+import { ArrowLeft } from '@axa/platform/icons';
 import { Header } from './header';
 import { Footer } from './footer';
 

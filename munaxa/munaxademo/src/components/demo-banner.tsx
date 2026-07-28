@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useDemo } from '@/lib/demo-store/context';
-import { useToast } from '@axa/design-system';
+import { useToast } from '@axa/platform';
 
 /**
  * Permanent demonstration banner shown on every authenticated page. Also offers an

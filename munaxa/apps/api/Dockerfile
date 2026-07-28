@@ -13,7 +13,7 @@ WORKDIR /repo
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc turbo.json ./
 COPY tooling/ tooling/
-COPY designsystem/ designsystem/
+COPY platform/ platform/
 COPY munaxa/apps/api/package.json munaxa/apps/api/
 COPY munaxa/packages/ munaxa/packages/
 COPY munaxa/prisma/ munaxa/prisma/

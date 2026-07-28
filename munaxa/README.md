@@ -10,7 +10,7 @@ people management, attendance, scheduling, finance, communication, and reporting
 ## Layout
 
 Munaxa is one product inside the [AXA workspace](../README.md). Its UI comes entirely from the
-shared design system at [`/designsystem`](../designsystem/README.md) — there are no Munaxa-local
+shared design system at [`/platform`](../platform/README.md) — there are no Munaxa-local
 component or token packages.
 
 ```text
@@ -38,12 +38,12 @@ Shared, cross-product concerns live at the workspace root, not here:
 
 | Concern                          | Location                                        |
 | -------------------------------- | ----------------------------------------------- |
-| Components, tokens, icons, theme | [`/designsystem`](../designsystem/README.md)     |
+| Components, tokens, icons, theme | [`/platform`](../platform/README.md)             |
 | ESLint / TypeScript bases        | [`/tooling`](../tooling)                         |
 | Workspace, task graph, CI        | `/pnpm-workspace.yaml`, `/turbo.json`, `/.github` |
 
-The Munaxa theme (`@axa/design-system/css/themes/munaxa`) is the brand: teal `#007595`, its
-palette authored in [`/designsystem/themes/munaxa`](../designsystem/themes/munaxa).
+The Munaxa theme (`@axa/platform/css/themes/munaxa`) is the brand: teal `#007595`, its
+palette authored in [`/platform/themes/munaxa`](../platform/themes/munaxa).
 
 ## Prerequisites
 - Node.js 22+ · pnpm 10+ · Docker · (Flutter 3.24+ for mobile)
@@ -85,7 +85,7 @@ pnpm dev                  # runs api + admin via Turborepo
 ## Documentation
 - **Session handoff / continuation guide**: [`docs/HANDOFF.md`](./docs/HANDOFF.md) — read first to resume work
 - Architecture blueprint: [`docs/architecture/`](./docs/architecture/README.md)
-- Design system (shared UI layer): [`/designsystem/README.md`](../designsystem/README.md)
+- Design system (shared UI layer): [`/platform/README.md`](../platform/README.md)
 - Phase deployment notes: [`docs/phases/`](./docs/phases/)
 
 ## Phase status

@@ -16,7 +16,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { platformConsoleApi, type SchoolRow } from '@/lib/platform-console';
 import { PlatformNav } from '../platform-nav';
 

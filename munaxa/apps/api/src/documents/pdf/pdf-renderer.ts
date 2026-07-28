@@ -24,7 +24,7 @@ export interface RenderedPdf {
 
 /**
  * Visual tokens mirrored from the Munaxa theme in the shared design system
- * (`/designsystem/themes/munaxa/brand.ts` for colour, `/designsystem/tokens` for the scales).
+ * (`/platform/themes/munaxa/brand.ts` for colour, `/platform/tokens` for the scales).
  * No colours, sizes or spacing are invented here; each maps to a design-system token so the PDF
  * reads as a natural extension of the web app.
  *

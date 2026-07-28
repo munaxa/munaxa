@@ -14,7 +14,7 @@ import {
   Select,
   useToast,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { PageHeader } from '@/components/page';
 import type { SchoolEvent } from '@/seed/types';
 

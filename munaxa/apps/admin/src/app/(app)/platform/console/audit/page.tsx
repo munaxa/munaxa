@@ -14,7 +14,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { platformConsoleApi, type AuditRow } from '@/lib/platform-console';
 import { PlatformNav } from '../platform-nav';
 

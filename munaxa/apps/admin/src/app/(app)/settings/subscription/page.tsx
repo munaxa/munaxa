@@ -15,7 +15,7 @@ import {
   StatCard,
   Textarea,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import {
   subscriptionApi,
   formatLimit,

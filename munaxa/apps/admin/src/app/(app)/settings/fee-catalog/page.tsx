@@ -20,7 +20,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { admissionsApi, type FeeItem, type FeeItemKind, type GradeFeeItem } from '@/lib/admissions';
 import { schoolsApi, campusesApi, gradesApi, academicYearsApi } from '@/lib/structure';
 import type { AcademicYear, Campus, Grade } from '@/lib/structure';

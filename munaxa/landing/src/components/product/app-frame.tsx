@@ -1,5 +1,5 @@
-import { Lock } from '@axa/design-system/icons';
-import { cn } from '@axa/design-system';
+import { Lock } from '@axa/platform/icons';
+import { cn } from '@axa/platform';
 
 /**
  * Browser/app window chrome that frames in-product UI so it reads as a real screenshot of the
@@ -25,8 +25,8 @@ export function AppFrame({
       <div className="flex items-center gap-3 border-b border-border bg-secondary/40 px-4 py-2.5">
         <div className="flex items-center gap-1.5" aria-hidden>
           <span className="h-2.5 w-2.5 rounded-full bg-destructive/60" />
-          <span className="h-2.5 w-2.5 rounded-full bg-coral/60" />
-          <span className="h-2.5 w-2.5 rounded-full bg-aqua/60" />
+          <span className="h-2.5 w-2.5 rounded-full bg-accent-warm/60" />
+          <span className="h-2.5 w-2.5 rounded-full bg-accent-cool/60" />
         </div>
         <div className="mx-auto flex max-w-[62%] items-center gap-1.5 truncate rounded-md border border-border bg-background/60 px-3 py-1 text-xs text-muted-foreground">
           <Lock className="h-3 w-3" aria-hidden />

@@ -81,7 +81,7 @@ jobs:
         run: pnpm prisma:generate
 
       - name: Build internal packages
-        run: pnpm turbo run build --filter=@axa/design-system --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils
+        run: pnpm turbo run build --filter=@axa/platform --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils
 
       - name: Apply database migrations
         run: pnpm --filter @munaxa/api prisma:deploy
@@ -91,6 +91,9 @@ jobs:
 
       - name: Seed database
         run: pnpm --filter @munaxa/api db:seed
+
+      - name: Validate platform contract
+        run: pnpm validate
 
       - name: Format check
         run: pnpm format:check
@@ -138,7 +141,7 @@ jobs:
 
   # NOTE: munaxademo and landing are workspace members. They are built, typechecked and linted
   # by the `node` job above via `turbo` (pnpm build / typecheck / lint cover all workspace
-  # packages, including these apps and their @axa/design-system dependency). Their previous
+  # packages, including these apps and their @axa/platform dependency). Their previous
   # standalone `demo` / `landing` jobs were removed when they joined the workspace.
 
   designsystem:

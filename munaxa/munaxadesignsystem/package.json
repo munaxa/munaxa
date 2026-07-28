@@ -15,7 +15,7 @@
     "deploy": "vite build && wrangler deploy"
   },
   "dependencies": {
-    "@axa/design-system": "file:../../designsystem",
+    "@axa/platform": "file:../../platform",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",

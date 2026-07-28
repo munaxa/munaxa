@@ -25,7 +25,7 @@ repository root** — that is the single thing that makes or breaks the deploy.
 1. **`munaxademo` — wrong file-tracing root (real build bug, now fixed in-repo).**
    `next.config.mjs` pinned `outputFileTracingRoot` to the app directory. That made sense when the
    demo was a standalone project, but once it joined the workspace it (a) stopped tracing the shared
-   `@axa/design-system` files into the standalone bundle and (b) produced a flat
+   `@axa/platform` files into the standalone bundle and (b) produced a flat
    `.next/standalone/.next/...` layout while the OpenNext adapter expects the monorepo-nested
    `.next/standalone/munaxa/munaxademo/.next/...` layout — so OpenNext failed with
    `ENOENT … pages-manifest.json`. Fixed by tracing from the workspace (repository) root.

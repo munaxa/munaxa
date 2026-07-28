@@ -1,4 +1,4 @@
-import { Badge } from '@axa/design-system';
+import { Badge } from '@axa/platform';
 
 /**
  * Finance domain component: renders a charge/invoice status as a toned Badge.

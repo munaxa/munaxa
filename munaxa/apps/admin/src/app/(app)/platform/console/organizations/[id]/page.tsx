@@ -22,7 +22,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { platformConsoleApi, type OrganizationDetail } from '@/lib/platform-console';
 import { formatPrice } from '@/lib/subscription';
 

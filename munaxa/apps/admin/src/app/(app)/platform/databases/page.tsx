@@ -12,7 +12,7 @@ import {
   Field,
   Input,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useI18n } from '@/components/i18n-provider';
 import { platformApi, type Promotion, type TenantDbStatus } from '@/lib/platform';
 
@@ -174,7 +174,7 @@ function Wizard({
                 className={[
                   'mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px]',
                   s.done
-                    ? 'bg-aqua/20 text-aqua'
+                    ? 'bg-accent-cool/20 text-accent-cool'
                     : s.current
                       ? 'bg-primary/20 text-primary'
                       : 'bg-secondary/60 text-muted-foreground',

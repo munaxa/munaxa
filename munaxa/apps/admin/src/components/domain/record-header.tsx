@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Badge } from '@axa/design-system';
+import { Badge } from '@axa/platform';
 
 /**
  * Record Workspace header (Munaxa DS): identity block (initials/avatar + title + optional

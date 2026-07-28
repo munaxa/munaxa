@@ -27,7 +27,7 @@ import {
   TH,
   THead,
   TR,
-} from '@axa/design-system';
+} from '@axa/platform';
 
 const EMPTY: CreateTeacherInput = {
   firstNameEn: '',

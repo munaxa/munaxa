@@ -17,7 +17,7 @@ import {
   Spinner,
   StatCard,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { platformConsoleApi, type SchoolDetail } from '@/lib/platform-console';
 import { formatLimit, type PlanView } from '@/lib/subscription';
 import { PLAN_FEATURE_KEYS } from '../../feature-keys';

@@ -29,7 +29,7 @@ import {
   THead,
   TR,
   EmptyState,
-} from '@axa/design-system';
+} from '@axa/platform';
 
 export default function InventoryPage() {
   const { t } = useI18n();

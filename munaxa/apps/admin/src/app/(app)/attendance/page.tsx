@@ -18,7 +18,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useI18n } from '@/components/i18n-provider';
 import { loadSectionOptions } from '@/lib/pickers';
 import { attendanceApi } from '@/lib/attendance';
@@ -27,8 +27,8 @@ import { studentsApi, fullNameEn, fullNameAr, type Student } from '@/lib/people'
 type Status = 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
 const STATUSES: Status[] = ['PRESENT', 'LATE', 'ABSENT', 'EXCUSED'];
 const TONE: Record<Status, string> = {
-  PRESENT: 'bg-aqua text-ink-900',
-  LATE: 'bg-coral text-ink-900',
+  PRESENT: 'bg-accent-cool text-ink-900',
+  LATE: 'bg-accent-warm text-ink-900',
   ABSENT: 'bg-destructive text-destructive-foreground',
   EXCUSED: 'bg-primary text-primary-foreground',
 };

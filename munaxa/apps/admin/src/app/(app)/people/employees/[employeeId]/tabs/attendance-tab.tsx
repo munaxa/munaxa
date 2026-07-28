@@ -19,7 +19,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import {
   attendanceApi,
   STAFF_ATTENDANCE_STATUSES,

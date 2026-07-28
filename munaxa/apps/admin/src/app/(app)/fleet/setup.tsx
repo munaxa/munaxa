@@ -20,7 +20,7 @@ import {
   Table,
   Textarea,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useI18n } from '@/components/i18n-provider';
 import { busApi, driversApi, type Bus, type BusRoute, type DriverListRow } from '@/lib/bus';
 import { areasApi, type Area } from '@/lib/areas';

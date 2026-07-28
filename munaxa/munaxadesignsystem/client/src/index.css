@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* Brand palette — single source of truth (@axa/design-system/tokens). The :root/.dark color tokens
+/* Brand palette — single source of truth (@axa/platform). The :root/.dark color tokens
    below come from this import; only structural vars (fonts, radius, hero gradient) stay local. */
-@import "@axa/design-system/css/themes/munaxa";
+@import "@axa/platform/css/themes/munaxa";
 /* Munaxa Design System type families (mirrors munaxalanding): Sora (display),
    Inter (body), Cairo (Arabic/RTL). The font files are loaded in index.html. */
 
@@ -66,7 +66,7 @@
 
 :root {
   /* ── Munaxa Design System — Light theme (website default) ───────────────
-     Color tokens come from @axa/design-system/tokens (imported above). Only structural,
+     Color tokens come from @axa/platform (imported above). Only structural,
      non-palette vars live here. */
 
   /* Type families */
@@ -87,7 +87,7 @@
 }
 
 .dark {
-  /* Color tokens come from @axa/design-system/tokens (.dark block in theme.oklch.css). Only the
+  /* Color tokens come from @axa/platform (.dark block in themes/munaxa/palette.css). Only the
      structural hero gradient is local. */
   --grad-hero: radial-gradient(
     ellipse 90% 60% at 50% -10%,

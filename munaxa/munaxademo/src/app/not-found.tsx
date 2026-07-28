@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { buttonVariants } from '@axa/design-system';
+import { buttonVariants } from '@axa/platform';
 import { Logo } from '@/components/logo';
 import { DEFAULT_LOCALE, getMessages, resolveMessage } from '@/lib/i18n';
 
@@ -30,7 +30,7 @@ export default function NotFound() {
           className="absolute left-1/2 top-1/2 -z-10 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary opacity-20 blur-3xl sm:h-72 sm:w-72"
           aria-hidden
         />
-        <span className="block bg-gradient-to-b from-primary to-aqua bg-clip-text font-display text-[7rem] font-bold leading-none tracking-tighter text-transparent sm:text-[11rem] lg:text-[13rem]">
+        <span className="block bg-gradient-to-b from-primary to-accent-cool bg-clip-text font-display text-[7rem] font-bold leading-none tracking-tighter text-transparent sm:text-[11rem] lg:text-[13rem]">
           {t('notFound.code')}
         </span>
       </div>

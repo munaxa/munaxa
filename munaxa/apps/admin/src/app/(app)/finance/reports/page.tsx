@@ -20,7 +20,7 @@ import {
   TH,
   THead,
   TR,
-} from '@axa/design-system';
+} from '@axa/platform';
 
 type Dimension = 'category' | 'academicYear' | 'grade' | 'campus';
 const DIMENSIONS: { value: Dimension; label: string }[] = [

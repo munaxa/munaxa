@@ -1,5 +1,5 @@
-import { CheckCircle2, Clock } from '@axa/design-system/icons';
-import { cn } from '@axa/design-system';
+import { CheckCircle2, Clock } from '@axa/platform/icons';
+import { cn } from '@axa/platform';
 
 /**
  * Finance workspace — collections progress, a term summary, and a JoFotara e-invoicing status
@@ -22,14 +22,14 @@ export function FinanceWorkspace() {
           <p className="text-[11px] text-muted-foreground">Term 1 collections</p>
           <p className="mt-1 font-display text-2xl font-bold mono">JOD 412,750</p>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-secondary">
-            <div className="h-full rounded-full bg-aqua" style={{ width: '91.5%' }} />
+            <div className="h-full rounded-full bg-accent-cool" style={{ width: '91.5%' }} />
           </div>
           <div className="mt-1.5 flex items-center justify-between text-[11px]">
             <span className="text-muted-foreground">
-              <span className="mono text-aqua">91.5%</span> collected
+              <span className="mono text-accent-cool">91.5%</span> collected
             </span>
             <span className="text-muted-foreground">
-              Outstanding <span className="mono text-coral">JOD 38,400</span>
+              Outstanding <span className="mono text-accent-warm">JOD 38,400</span>
             </span>
           </div>
 
@@ -37,11 +37,11 @@ export function FinanceWorkspace() {
             {[
               { k: 'Invoiced', v: '451,150' },
               { k: 'Discounts', v: '12,300' },
-              { k: 'Overdue', v: '9,240', tone: 'coral' as const },
+              { k: 'Overdue', v: '9,240', tone: 'warm' as const },
             ].map((s) => (
               <div key={s.k} className="rounded-lg border border-border bg-background px-2 py-1.5">
                 <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{s.k}</p>
-                <p className={cn('mono text-[11px] font-semibold', s.tone === 'coral' && 'text-coral')}>
+                <p className={cn('mono text-[11px] font-semibold', s.tone === 'warm' && 'text-accent-warm')}>
                   {s.v}
                 </p>
               </div>
@@ -54,7 +54,7 @@ export function FinanceWorkspace() {
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold">Recent invoices</p>
             <span className="flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-aqua" aria-hidden />
+              <span className="h-1.5 w-1.5 rounded-full bg-accent-cool" aria-hidden />
               JoFotara e-invoicing · live
             </span>
           </div>
@@ -70,7 +70,7 @@ export function FinanceWorkspace() {
                 <span
                   className={cn(
                     'flex w-24 shrink-0 items-center justify-end gap-1 text-[10px]',
-                    inv.status === 'cleared' ? 'text-aqua' : 'text-coral',
+                    inv.status === 'cleared' ? 'text-accent-cool' : 'text-accent-warm',
                   )}
                 >
                   {inv.status === 'cleared' ? (

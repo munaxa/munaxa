@@ -6,16 +6,7 @@ import Link from 'next/link';
 import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useI18n } from '@/components/i18n-provider';
 import { usePrincipal } from '@/components/shell';
-import {
-  Badge,
-  Button,
-  Card,
-  Spinner,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  useToast,
-} from '@axa/design-system';
+import { Badge, Button, Card, Spinner, Tabs, TabsList, TabsTrigger, useToast } from '@axa/platform';
 import { useConfirm } from '@/components/confirm';
 import { fullNameAr, fullNameEn, studentsApi, type Student } from '@/lib/people';
 import { StudentEditor } from '../student-editor';
@@ -112,7 +103,7 @@ export function StudentProfile() {
       // Template-literal path isn't statically a typed Route; cast as elsewhere in the app.
       // Required for `next build` (typedRoutes); local type-aware lint lacks .next/types and
       // sees it as redundant — disable that rule here.
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+
       router.push(`${pathname}?${qs.toString()}` as never);
     },
     [router, pathname, searchParams],

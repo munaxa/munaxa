@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Badge, Button, cn } from '@axa/design-system';
+import { Badge, Button, cn } from '@axa/platform';
 import { logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache } from '@/lib/session';
 import { advancedApi } from '@/lib/advanced';
@@ -481,7 +481,7 @@ export function AppShell({
         className="pointer-events-none fixed inset-0 -z-10"
         style={{
           background:
-            'radial-gradient(1200px 560px at 8% -10%, color-mix(in oklch, var(--aqua) 14%, transparent), transparent 60%), radial-gradient(1000px 520px at 100% -8%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 60%)',
+            'radial-gradient(1200px 560px at 8% -10%, color-mix(in oklch, var(--accent-cool) 14%, transparent), transparent 60%), radial-gradient(1000px 520px at 100% -8%, color-mix(in oklch, var(--primary) 16%, transparent), transparent 60%)',
         }}
       />
       {/* Skip link — first focusable element; jumps keyboard/SR users past the nav. */}
@@ -678,7 +678,7 @@ function CurrentYearIndicator() {
     return (
       <Link
         href="/structure/academic-year"
-        className="hidden items-center gap-2 rounded-lg border border-coral/40 bg-coral/10 px-3 py-1.5 text-xs font-medium text-coral md:flex"
+        className="hidden items-center gap-2 rounded-lg border border-accent-warm/40 bg-accent-warm/10 px-3 py-1.5 text-xs font-medium text-accent-warm md:flex"
         title={t('shell.noActiveYear')}
       >
         <span>{t('shell.noActiveYear')}</span>

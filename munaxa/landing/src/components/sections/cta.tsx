@@ -1,5 +1,5 @@
-import { ArrowRight } from '@axa/design-system/icons';
-import { Reveal, buttonVariants, cn } from '@axa/design-system';
+import { ArrowRight } from '@axa/platform/icons';
+import { Reveal, buttonVariants, cn } from '@axa/platform';
 import { DEMO_URL } from '@/lib/site';
 
 /** Closing call to action — quiet confidence, one clear ask. */

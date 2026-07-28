@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
-import { Badge, Button, Checkbox, Field, Input, Select, useToast } from '@axa/design-system';
+import { Badge, Button, Checkbox, Field, Input, Select, useToast } from '@axa/platform';
 import { useConfirm, useAlert } from '@/components/confirm';
 import {
   studentsApi,

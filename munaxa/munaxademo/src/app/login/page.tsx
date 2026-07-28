@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PERSONAS, PERSONA_BY_ID, type PersonaId } from '@/lib/rbac';
 import { Logo } from '@/components/logo';
-import { Button, Card, CardContent, Field, Input } from '@axa/design-system';
+import { Button, Card, CardContent, Field, Input } from '@axa/platform';
 
 const PERSONA_KEY = 'munaxa.demo.persona';
 

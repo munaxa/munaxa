@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { Mail, Clock, MapPin, Loader2, CheckCircle2, AlertCircle, Send } from '@axa/design-system/icons';
-import { Button, Input, Label, Reveal, Textarea, cn } from '@axa/design-system';
+import { Mail, Clock, MapPin, Loader2, CheckCircle2, AlertCircle, Send } from '@axa/platform/icons';
+import { Button, Input, Label, Reveal, Textarea, cn } from '@axa/platform';
 import { CONTACT_EMAIL } from '@/lib/site';
 
 type Status = 'idle' | 'submitting' | 'success' | 'error';
@@ -259,7 +259,7 @@ export function Contact() {
             </Button>
 
             {status === 'success' && (
-              <p className={cn('mt-4 flex items-center gap-2 text-sm font-medium text-aqua')} role="status">
+              <p className={cn('mt-4 flex items-center gap-2 text-sm font-medium text-accent-cool')} role="status">
                 <CheckCircle2 className="h-4 w-4" aria-hidden />
                 Thank you! We&apos;ve received your message and will be in touch shortly.
               </p>

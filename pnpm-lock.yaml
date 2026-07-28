@@ -37,51 +37,11 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  designsystem:
-    dependencies:
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      lucide-react:
-        specifier: ^0.469.0
-        version: 0.469.0(react@19.0.0)
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.0.0(react@19.0.0)
-      tailwind-merge:
-        specifier: ^2.6.0
-        version: 2.6.1
-    devDependencies:
-      '@axa/config-eslint':
-        specifier: workspace:*
-        version: link:../tooling/config-eslint
-      '@axa/config-typescript':
-        specifier: workspace:*
-        version: link:../tooling/config-typescript
-      '@types/react':
-        specifier: ^19.0.2
-        version: 19.2.16
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.16)
-      eslint:
-        specifier: ^9.17.0
-        version: 9.39.4(jiti@2.7.0)
-      react:
-        specifier: ^19.0.0
-        version: 19.0.0
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
-
   munaxa/apps/admin:
     dependencies:
-      '@axa/design-system':
+      '@axa/platform':
         specifier: workspace:*
-        version: link:../../../designsystem
+        version: link:../../../platform
       '@munaxa/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -312,9 +272,9 @@ importers:
 
   munaxa/landing:
     dependencies:
-      '@axa/design-system':
+      '@axa/platform':
         specifier: workspace:*
-        version: link:../../designsystem
+        version: link:../../platform
       next:
         specifier: 15.1.12
         version: 15.1.12(@opentelemetry/api@1.9.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -382,9 +342,9 @@ importers:
 
   munaxa/munaxademo:
     dependencies:
-      '@axa/design-system':
+      '@axa/platform':
         specifier: workspace:*
-        version: link:../../designsystem
+        version: link:../../platform
       next:
         specifier: 15.5.19
         version: 15.5.19(@opentelemetry/api@1.9.1)(react-dom@19.0.0(react@19.0.0))(react@19.0.0)
@@ -528,6 +488,46 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)(terser@5.48.0)
+
+  platform:
+    dependencies:
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.469.0
+        version: 0.469.0(react@19.0.0)
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.0.0(react@19.0.0)
+      tailwind-merge:
+        specifier: ^2.6.0
+        version: 2.6.1
+    devDependencies:
+      '@axa/config-eslint':
+        specifier: workspace:*
+        version: link:../tooling/config-eslint
+      '@axa/config-typescript':
+        specifier: workspace:*
+        version: link:../tooling/config-typescript
+      '@types/react':
+        specifier: ^19.0.2
+        version: 19.2.16
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.16)
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.4(jiti@2.7.0)
+      react:
+        specifier: ^19.0.0
+        version: 19.0.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
 
   tooling/config-eslint:
     dependencies:

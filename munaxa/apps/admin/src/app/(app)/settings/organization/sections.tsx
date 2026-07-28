@@ -16,7 +16,7 @@ import {
   Switch,
   Textarea,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useI18n } from '@/components/i18n-provider';
 import {
   ACCEPTED_IMAGE_TYPES,

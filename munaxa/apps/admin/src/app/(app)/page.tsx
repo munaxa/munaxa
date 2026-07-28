@@ -8,10 +8,10 @@ import { dashboardApi, type DashboardOverview } from '@/lib/dashboard';
 import { financeApi, type FinanceDashboard } from '@/lib/finance';
 import { NavIcon, type NavIconKey } from '@/components/nav-icons';
 import type { Locale } from '@/lib/i18n';
-import { Button, Card, CardContent, EmptyState, cn } from '@axa/design-system';
+import { Button, Card, CardContent, EmptyState, cn } from '@axa/platform';
 
 type Translate = (k: string) => string;
-type Tone = 'primary' | 'aqua' | 'coral';
+type Tone = 'primary' | 'cool' | 'warm';
 
 // Chart palette — semantic design tokens (amber/late, blue/excused, grey/absent).
 const LATE = 'var(--warning)';
@@ -143,7 +143,7 @@ function Dashboard() {
             />
             <Kpi
               icon="attendance"
-              tone="aqua"
+              tone="cool"
               label={t('dashboard.attendanceToday')}
               value={rate !== null ? `${rate}%` : '—'}
               delta={
@@ -152,11 +152,11 @@ function Dashboard() {
                   : undefined
               }
               spark={markedRates}
-              sparkTone="aqua"
+              sparkTone="cool"
             />
             <Kpi
               icon="enrollment"
-              tone="coral"
+              tone="warm"
               label={t('dashboard.newAdmissions')}
               value={formatNumber(data.deltas.studentsThisMonth, locale)}
             />
@@ -354,7 +354,7 @@ function DeltaChip({
     <p
       className={cn(
         'mt-1.5 flex items-center gap-1 text-[11px] font-semibold',
-        up ? 'text-aqua' : 'text-coral',
+        up ? 'text-accent-cool' : 'text-accent-warm',
       )}
     >
       <span aria-hidden="true">{up ? '▲' : '▼'}</span>
@@ -452,8 +452,8 @@ function AttendanceWidget({
             </h2>
             <p className="text-xs text-muted-foreground">{t('dashboard.thisWeek')}</p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-aqua/10 px-2.5 py-1 text-[11px] font-semibold text-aqua">
-            <span className="h-1.5 w-1.5 rounded-full bg-aqua" aria-hidden="true" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-cool/10 px-2.5 py-1 text-[11px] font-semibold text-accent-cool">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent-cool" aria-hidden="true" />
             {t('dashboard.live')}
           </span>
         </div>
@@ -472,7 +472,7 @@ function AttendanceWidget({
                 <p
                   className={cn(
                     'mt-1 text-[11px] font-semibold',
-                    delta >= 0 ? 'text-aqua' : 'text-coral',
+                    delta >= 0 ? 'text-accent-cool' : 'text-accent-warm',
                   )}
                 >
                   {delta >= 0 ? '▲' : '▼'} {Math.abs(delta)}% {t('dashboard.vsYesterday')}
@@ -487,9 +487,9 @@ function AttendanceWidget({
           <div className="min-w-0 flex-1">
             <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
               <span>{t('dashboard.attendanceTrend')}</span>
-              <span className="flex items-center gap-1.5 font-medium text-aqua">
+              <span className="flex items-center gap-1.5 font-medium text-accent-cool">
                 <span
-                  className="inline-block h-0 w-3.5 border-t border-dashed border-aqua"
+                  className="inline-block h-0 w-3.5 border-t border-dashed border-accent-cool"
                   aria-hidden="true"
                 />
                 {t('dashboard.target')} 90%
@@ -500,7 +500,9 @@ function AttendanceWidget({
               {data.attendanceTrend.map((d, i) => (
                 <span
                   key={d.date}
-                  className={i === data.attendanceTrend.length - 1 ? 'font-semibold text-aqua' : ''}
+                  className={
+                    i === data.attendanceTrend.length - 1 ? 'font-semibold text-accent-cool' : ''
+                  }
                 >
                   {shortDay(d.date, locale)}
                 </span>
@@ -540,7 +542,7 @@ function AttendanceWidget({
               </span>
             ))}
             {avg !== null ? (
-              <span className="ms-auto text-[11px] font-semibold text-aqua">
+              <span className="ms-auto text-[11px] font-semibold text-accent-cool">
                 {t('dashboard.averageThisWeek')} {avg}%
               </span>
             ) : null}
@@ -577,7 +579,7 @@ function Ring({
       >
         <defs>
           <linearGradient id="ring-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="var(--aqua)" />
+            <stop offset="0" stopColor="var(--accent-cool)" />
             <stop offset="1" stopColor="var(--primary)" />
           </linearGradient>
         </defs>
@@ -646,7 +648,7 @@ function TrendSpline({ points }: { points: DashboardOverview['attendanceTrend'] 
           y1={targetY}
           x2={W}
           y2={targetY}
-          stroke="var(--aqua)"
+          stroke="var(--accent-cool)"
           strokeWidth="1.5"
           strokeDasharray="5 5"
           opacity="0.5"
@@ -757,7 +759,7 @@ function FeeCollectionCard({
                   value={formatMoneyCompact(finance.outstanding, locale)}
                 />
                 <FinRow
-                  color="var(--coral)"
+                  color="var(--accent-warm)"
                   label={t('dashboard.overdue')}
                   value={formatMoneyCompact(finance.overdue, locale)}
                   danger
@@ -796,7 +798,10 @@ function FinRow({
       />
       <span className="flex-1 text-muted-foreground">{label}</span>
       <span
-        className={cn('font-mono text-[13px] font-semibold tabular-nums', danger && 'text-coral')}
+        className={cn(
+          'font-mono text-[13px] font-semibold tabular-nums',
+          danger && 'text-accent-warm',
+        )}
       >
         {value}
       </span>
@@ -919,7 +924,7 @@ function FeesAtRiskCard({
                       <td
                         className={cn(
                           'py-2.5 text-end font-mono text-[13px] font-semibold tabular-nums',
-                          overdue && 'text-coral',
+                          overdue && 'text-accent-warm',
                         )}
                       >
                         {masked ? <Dots /> : formatMoney(r.overdue, locale)}
@@ -928,13 +933,15 @@ function FeesAtRiskCard({
                         <span
                           className={cn(
                             'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold',
-                            overdue ? 'bg-coral/10 text-coral' : 'bg-aqua/10 text-aqua',
+                            overdue
+                              ? 'bg-accent-warm/10 text-accent-warm'
+                              : 'bg-accent-cool/10 text-accent-cool',
                           )}
                         >
                           <span
                             className={cn(
                               'h-1.5 w-1.5 rounded-full',
-                              overdue ? 'bg-coral' : 'bg-aqua',
+                              overdue ? 'bg-accent-warm' : 'bg-accent-cool',
                             )}
                             aria-hidden="true"
                           />
@@ -1053,13 +1060,13 @@ function Dots() {
 // ---------------------------------------------------------------------------
 const chipTone: Record<Tone, string> = {
   primary: 'bg-primary/10 text-primary',
-  aqua: 'bg-aqua/10 text-aqua',
-  coral: 'bg-coral/10 text-coral',
+  cool: 'bg-accent-cool/10 text-accent-cool',
+  warm: 'bg-accent-warm/10 text-accent-warm',
 };
 const strokeTone: Record<Tone, string> = {
   primary: 'stroke-primary',
-  aqua: 'stroke-aqua',
-  coral: 'stroke-coral',
+  cool: 'stroke-accent-cool',
+  warm: 'stroke-accent-warm',
 };
 
 function greetingFor(d: Date): 'greetingMorning' | 'greetingAfternoon' | 'greetingEvening' {

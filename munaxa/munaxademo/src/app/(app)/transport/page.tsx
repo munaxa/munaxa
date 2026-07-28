@@ -20,7 +20,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 
 export default function TransportPage() {
@@ -57,7 +57,7 @@ function Transport() {
         <Kpi label="Buses" value={num(data.buses.length)} />
         <Kpi label="Routes" value={num(data.routes.length)} />
         <Kpi label="Drivers" value={num(data.drivers.length)} />
-        <Kpi label="Riders" value={num(totalRiders)} tone="aqua" />
+        <Kpi label="Riders" value={num(totalRiders)} tone="cool" />
       </section>
 
       <div className="flex flex-wrap items-end gap-2">

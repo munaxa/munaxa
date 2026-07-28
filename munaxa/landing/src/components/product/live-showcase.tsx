@@ -6,7 +6,7 @@ import { DashboardPreview } from './dashboard-preview';
 import { AdmissionsBoard } from './admissions-board';
 import { FinanceWorkspace } from './finance-workspace';
 import { IntelligencePanel } from './intelligence-panel';
-import { cn } from '@axa/design-system';
+import { cn } from '@axa/platform';
 
 type View = { key: string; label: string; url: string; Node: ComponentType };
 
@@ -19,11 +19,11 @@ const VIEWS: View[] = [
 
 // The activity feed rotates believable, in-product events — the operating system "breathing".
 const ACTIVITY = [
-  { tone: 'aqua', text: 'Payment received · Al-Masri family · JOD 1,850' },
-  { tone: 'coral', text: 'New application · Yousef Haddad · Grade 6' },
-  { tone: 'aqua', text: 'Report cards published · Grades 7–9' },
+  { tone: 'cool', text: 'Payment received · Al-Masri family · JOD 1,850' },
+  { tone: 'warm', text: 'New application · Yousef Haddad · Grade 6' },
+  { tone: 'cool', text: 'Report cards published · Grades 7–9' },
   { tone: 'muted', text: 'Bus route 4 · on time · 28 students' },
-  { tone: 'aqua', text: 'Attendance recorded · 96.4% present' },
+  { tone: 'cool', text: 'Attendance recorded · 96.4% present' },
 ] as const;
 
 const ADVANCE_MS = 4200;
@@ -83,15 +83,15 @@ export function LiveShowcase() {
               aria-live="polite"
             >
               <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-aqua opacity-60" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-aqua" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-cool opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-cool" />
               </span>
               <span
                 key={activity}
                 className={cn(
                   'view-in truncate text-[11px] font-medium',
-                  act.tone === 'aqua' && 'text-aqua',
-                  act.tone === 'coral' && 'text-coral',
+                  act.tone === 'cool' && 'text-accent-cool',
+                  act.tone === 'warm' && 'text-accent-warm',
                   act.tone === 'muted' && 'text-muted-foreground',
                 )}
               >

@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 import { useSession } from '@/lib/session-context';
 import type { PersonaId } from '@/lib/rbac';
-import { Button } from '@axa/design-system';
+import { Button } from '@axa/platform';
 import { Logo } from './logo';
 
 const SEEN_KEY = 'munaxa.demo.onboarded';

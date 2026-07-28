@@ -1,6 +1,6 @@
 'use client';
 
-import { TokenReference } from '@axa/design-system';
+import { TokenReference } from '@axa/platform';
 
 /**
  * Design-token reference. Live values read off the running theme (sourced from munaxadesignsystem

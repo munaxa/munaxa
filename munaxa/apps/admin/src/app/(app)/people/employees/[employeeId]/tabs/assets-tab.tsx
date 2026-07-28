@@ -16,7 +16,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { assetsApi, type AssetAssignment } from '@/lib/people';
 
 export function AssetsTab({ employeeId, canManage }: { employeeId: string; canManage: boolean }) {

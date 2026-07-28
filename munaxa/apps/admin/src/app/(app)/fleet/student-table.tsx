@@ -2,17 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
-import {
-  Checkbox,
-  EmptyState,
-  Pagination,
-  Table,
-  TBody,
-  TD,
-  TH,
-  THead,
-  TR,
-} from '@axa/design-system';
+import { Checkbox, EmptyState, Pagination, Table, TBody, TD, TH, THead, TR } from '@axa/platform';
 import { TripBadge } from './components';
 import type { StudentRow } from './lib';
 

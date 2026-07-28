@@ -18,7 +18,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { platformConsoleApi, type PlanVersion } from '@/lib/platform-console';
 import { type PlanView } from '@/lib/subscription';
 import { PlatformNav } from '../platform-nav';

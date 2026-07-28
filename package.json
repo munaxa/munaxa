@@ -15,6 +15,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "validate": "turbo run validate",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "prisma:generate": "pnpm --filter @munaxa/api prisma:generate",
@@ -40,7 +41,7 @@
     "@prisma/client": "6.19.3"
   },
   "lint-staged": {
-    "{designsystem,munaxa/apps,munaxa/packages,tooling}/**/*.{ts,tsx,js,jsx}": [
+    "{platform,munaxa/apps,munaxa/packages,tooling}/**/*.{ts,tsx,js,jsx}": [
       "eslint --fix",
       "prettier --write"
     ],

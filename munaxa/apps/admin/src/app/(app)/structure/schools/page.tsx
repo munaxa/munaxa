@@ -5,7 +5,7 @@ import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { useConfirm } from '@/components/confirm';
 import { schoolsApi, campusesApi, type School, type Campus } from '@/lib/structure';
-import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@axa/design-system';
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Input } from '@axa/platform';
 
 export default function SchoolsPage() {
   const { t } = useI18n();

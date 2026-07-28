@@ -15,7 +15,7 @@ import {
   Field,
   Input,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useConfirm } from '@/components/confirm';
 import { leaveApi, type LeaveRequest, type LeaveType } from '@/lib/people';
 

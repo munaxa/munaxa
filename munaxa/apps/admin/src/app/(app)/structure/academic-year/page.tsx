@@ -22,7 +22,7 @@ import {
   Stepper,
   useToast,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 import {
   academicYearsApi,
   campusesApi,
@@ -269,7 +269,9 @@ function AcademicYearCard({
                 <Badge tone={STATUS_TONE[year.status]}>{statusLabel}</Badge>
               </CardTitle>
               {year.isCurrent ? (
-                <p className="text-xs font-medium text-aqua">{t('academicYear.currentMarker')}</p>
+                <p className="text-xs font-medium text-accent-cool">
+                  {t('academicYear.currentMarker')}
+                </p>
               ) : null}
               <p className="text-xs text-muted-foreground">
                 {fmtDate(year.startDate)} → {fmtDate(year.endDate)}
@@ -281,7 +283,7 @@ function AcademicYearCard({
                     {fmtDate(year.registrationStartDate)} → {fmtDate(year.registrationEndDate)}
                   </span>
                 ) : (
-                  <span className="text-coral">{t('academicYear.registrationNotSet')}</span>
+                  <span className="text-accent-warm">{t('academicYear.registrationNotSet')}</span>
                 )}
               </p>
             </div>
@@ -477,8 +479,8 @@ function ActivationValidation({
   const missing = checks.filter((c) => !c.ok);
   if (missing.length === 0) return null;
   return (
-    <div className="rounded-xl border border-coral/30 bg-coral/10 p-4">
-      <p className="text-sm font-medium text-coral">{t('academicYear.cannotActivate')}</p>
+    <div className="rounded-xl border border-accent-warm/30 bg-accent-warm/10 p-4">
+      <p className="text-sm font-medium text-accent-warm">{t('academicYear.cannotActivate')}</p>
       <ul className="mt-2 space-y-1.5">
         {missing.map((c) => (
           <li key={c.key} className="flex items-center justify-between gap-2 text-sm">
@@ -640,8 +642,10 @@ function CloseWizard({
         {step === 1 ? <CloseValidation checks={closeChecks} /> : null}
         {step === 2 ? <CloseConfirm /> : null}
         {step === 3 ? (
-          <div className="rounded-xl border border-aqua/30 bg-aqua/10 p-6 text-center">
-            <p className="text-lg font-semibold text-aqua">✓ {t('academicYear.close.done')}</p>
+          <div className="rounded-xl border border-accent-cool/30 bg-accent-cool/10 p-6 text-center">
+            <p className="text-lg font-semibold text-accent-cool">
+              ✓ {t('academicYear.close.done')}
+            </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {t('academicYear.close.doneDetail')}
             </p>
@@ -729,7 +733,9 @@ function CloseValidation({ checks }: { checks: AcademicYearReadiness['close']['c
           className="flex items-center justify-between gap-2 rounded-lg border border-border p-3 text-sm"
         >
           <span className="flex items-center gap-2">
-            <span className={c.ok ? 'text-aqua' : 'text-coral'}>{c.ok ? '✓' : '✗'}</span>
+            <span className={c.ok ? 'text-accent-cool' : 'text-accent-warm'}>
+              {c.ok ? '✓' : '✗'}
+            </span>
             <span>{c.label}</span>
             {c.severity === 'info' ? (
               <Badge tone="muted">{t('academicYear.advisory')}</Badge>

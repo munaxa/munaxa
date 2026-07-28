@@ -12,7 +12,7 @@ WORKDIR /repo
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc turbo.json ./
 COPY tooling/ tooling/
-COPY designsystem/ designsystem/
+COPY platform/ platform/
 COPY munaxa/apps/admin/package.json munaxa/apps/admin/
 COPY munaxa/packages/ munaxa/packages/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \

@@ -18,7 +18,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { FeeModifiedBadge } from '@/components/fee-modified-badge';
 import { admissionsApi, type EnrollmentRow, type FeeModificationRow } from '@/lib/admissions';
 import { schoolsApi, campusesApi, gradesApi, academicYearsApi } from '@/lib/structure';

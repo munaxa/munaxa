@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import { PostHogProvider } from '@/lib/posthog';
-import { ToastProvider } from '@axa/design-system';
+import { ToastProvider } from '@axa/platform';
 import { ConfirmProvider } from '@/components/confirm';
 import { I18nProvider } from '@/components/i18n-provider';
 import { DEFAULT_LOCALE, directionForLocale } from '@/lib/i18n';

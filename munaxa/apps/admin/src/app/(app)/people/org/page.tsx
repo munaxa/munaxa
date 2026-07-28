@@ -22,7 +22,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useConfirm } from '@/components/confirm';
 import { departmentsApi, positionsApi, type Department, type Position } from '@/lib/people';
 

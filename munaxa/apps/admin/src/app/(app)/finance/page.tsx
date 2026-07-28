@@ -23,7 +23,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { FinanceTab } from '@/app/(app)/people/students/[studentId]/tabs/finance-tab';
 import {
   familiesApi,
@@ -849,7 +849,7 @@ function RecordPaymentDialog({
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Allocated {jod(allocated)}</span>
-              <span className={remaining < -1e-9 ? 'text-coral' : 'text-muted-foreground'}>
+              <span className={remaining < -1e-9 ? 'text-accent-warm' : 'text-muted-foreground'}>
                 {remaining >= 0
                   ? `Surplus → credit ${jod(remaining)}`
                   : `Over by ${jod(-remaining)}`}

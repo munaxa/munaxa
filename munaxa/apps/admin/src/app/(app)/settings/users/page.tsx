@@ -15,7 +15,7 @@ import {
   Select,
   cn,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { Shell } from '@/components/shell';
 import { useI18n } from '@/components/i18n-provider';
 import { usersApi, type UserStatus, type UserSummary } from '@/lib/users';

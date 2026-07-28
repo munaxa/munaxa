@@ -21,7 +21,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { ChargeStatusBadge, TransactionStatusBadge } from '@/components/domain';
 import { FeeModifiedBadge } from '@/components/fee-modified-badge';
 import { DocumentsSection } from './documents-section';
@@ -417,7 +417,7 @@ export function FinanceTab({
             <Stat
               label="Outstanding"
               value={num(totals.outstanding)}
-              tone={Number(totals.outstanding) > 0 ? 'text-coral' : ''}
+              tone={Number(totals.outstanding) > 0 ? 'text-accent-warm' : ''}
             />
             <Stat label="Paid" value={num(totals.paid)} />
             <Stat label="Discounts" value={num(totals.discounts)} />
@@ -972,7 +972,7 @@ function CollectionsPanel({
         {/* Overdue snapshot — the numbers the officer works from. */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           <Stat label="Outstanding" value={num(s.outstanding)} />
-          <Stat label="Overdue" value={num(s.overdue)} tone={overdue ? 'text-coral' : ''} />
+          <Stat label="Overdue" value={num(s.overdue)} tone={overdue ? 'text-accent-warm' : ''} />
           <Stat label="Overdue items" value={String(s.overdueCount)} />
           <Stat
             label="Oldest overdue"
@@ -986,7 +986,7 @@ function CollectionsPanel({
           <div className="rounded-md border border-border px-3 py-2 text-sm">
             {profile.transportSuspended ? (
               <span>
-                <span className="font-medium text-coral">Transport suspended</span>
+                <span className="font-medium text-accent-warm">Transport suspended</span>
                 {profile.transportSuspendedAt ? ` on ${dateStr(profile.transportSuspendedAt)}` : ''}
                 {profile.transportSuspendedReason ? ` — ${profile.transportSuspendedReason}` : ''}
               </span>
@@ -1180,7 +1180,9 @@ function ChargeNode({
         </div>
         <div className="flex items-center gap-4 text-sm">
           <span className="text-muted-foreground">Net {num(cv.net)}</span>
-          <span className={Number(cv.balance) > 0 ? 'font-semibold text-coral' : 'font-semibold'}>
+          <span
+            className={Number(cv.balance) > 0 ? 'font-semibold text-accent-warm' : 'font-semibold'}
+          >
             Out {num(cv.balance)}
           </span>
         </div>

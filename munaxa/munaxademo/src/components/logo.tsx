@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { cn } from '@axa/design-system';
+import { cn } from '@axa/platform';
 
 /**
  * The Munaxa logo, per the brand system. `variant` selects the lockup: horizontal (headers/nav,

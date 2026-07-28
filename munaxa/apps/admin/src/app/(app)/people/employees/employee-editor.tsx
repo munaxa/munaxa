@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useI18n } from '@/components/i18n-provider';
-import { Button, Field, Input, Select, useToast } from '@axa/design-system';
+import { Button, Field, Input, Select, useToast } from '@axa/platform';
 import {
   employeesApi,
   EMPLOYEE_ENTRY_STATUSES,

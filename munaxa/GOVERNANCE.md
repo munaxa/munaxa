@@ -1,9 +1,9 @@
 # Munaxa UI Governance
 
-**Status:** Authoritative · **Canonical source of truth:** [`/designsystem`](../designsystem/README.md)
+**Status:** Authoritative · **Canonical source of truth:** [`/platform`](../platform/README.md)
 **Applies to:** `apps/admin`, `landing`, `munaxademo` and all Munaxa UI.
 
-The shared design system at the repository root is the **single, formal source of truth** for
+The shared platform at the repository root is the **single, formal source of truth** for
 tokens, themes, components and patterns. This document codifies how Munaxa consumes and enforces
 it. The narrative design references under [`munaxadesignsystem/`](./munaxadesignsystem) remain
 useful as pattern documentation, but they are **not** the source of any value — code is.
@@ -13,15 +13,15 @@ useful as pattern documentation, but they are **not** the source of any value �
 ## 0. One brand, all surfaces
 
 Every Munaxa surface renders the **Munaxa theme**, defined once in
-[`/designsystem/themes/munaxa/palette.css`](../designsystem/themes/munaxa/palette.css): teal
-primary `#007595` with coral + aqua accents and semantic success / warning / error / info, in
-light and dark.
+[`/platform/themes/munaxa/palette.css`](../platform/themes/munaxa/palette.css): teal
+primary `#007595` with the `--accent-warm` / `--accent-cool` neutral accents and semantic
+success / warning / info / destructive roles, in light and dark.
 
 | Surface                | Theme comes from                                  |
 | ---------------------- | ------------------------------------------------- |
-| `apps/admin` (product) | `@import '@axa/design-system/css/themes/munaxa';`  |
-| `landing` (marketing)  | `@import '@axa/design-system/css/themes/munaxa';`  |
-| `munaxademo` (sandbox) | `@import '@axa/design-system/css/themes/munaxa';`  |
+| `apps/admin` (product) | `@import '@axa/platform/css/themes/munaxa';`  |
+| `landing` (marketing)  | `@import '@axa/platform/css/themes/munaxa';`  |
+| `munaxademo` (sandbox) | `@import '@axa/platform/css/themes/munaxa';`  |
 
 **Rule:** there is exactly one physical palette file. No app inlines colours, forks a theme, or
 maintains its own token copy. When the brand changes, edit the palette — every surface follows.
@@ -32,15 +32,15 @@ maintains its own token copy. When the brand changes, edit the palette — every
 
 | Layer                 | Home                               | Rule                                                                                       |
 | --------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| **Tokens**            | `/designsystem/tokens`             | Spacing, radius, elevation, motion, z-index, breakpoints. Never invent a value.               |
-| **Theme (colour)**    | `/designsystem/themes/munaxa`      | The only place a Munaxa colour is written down.                                              |
-| **Primitives**        | `/designsystem/components`         | The only home for Button, Input, Card, Dialog, Tabs, Table, … No app-local re-implementations. |
-| **Patterns**          | `/designsystem/patterns`           | StatCard, Stepper, Progress, Reveal, TokenReference.                                          |
+| **Tokens**            | `/platform/tokens`             | Spacing, radius, elevation, motion, z-index, breakpoints. Never invent a value.               |
+| **Theme (colour)**    | `/platform/themes/munaxa`      | The only place a Munaxa colour is written down.                                              |
+| **Primitives**        | `/platform/ui/components`         | The only home for Button, Input, Card, Dialog, Tabs, Table, … No app-local re-implementations. |
+| **Patterns**          | `/platform/ui/patterns`           | StatCard, Stepper, Progress, Reveal, TokenReference.                                          |
 | **Domain components** | `apps/admin/src/components/domain` | Munaxa-specific compositions over primitives (status badges, `RecordHeader`). Each owns the single source of truth for its domain's status colours. |
 
 Deciding where something goes is covered in
-[`/designsystem/README.md` §3](../designsystem/README.md). The short version: one consumer means
-it belongs to Munaxa; two consumers means it belongs to the design system.
+[`/platform/README.md` §3](../platform/README.md). The short version: one consumer means
+it belongs to Munaxa; two consumers means it belongs to the platform.
 
 ---
 
@@ -50,8 +50,8 @@ it belongs to Munaxa; two consumers means it belongs to the design system.
 - **Never** hardcode hex/`rgb`/`hsl` colours or raw Tailwind palette classes (`bg-red-500`). Use
   semantic classes (`bg-primary`, `text-muted-foreground`, `bg-success`, `border-border`).
   _(Mechanically enforced — see §5.)_
-- **Never** duplicate a primitive — reuse or extend the design system.
-- **Never** put school, HR or finance terminology into the design system.
+- **Never** duplicate a primitive — reuse or extend the platform.
+- **Never** put school, HR or finance terminology into the platform.
 - **Never** change business logic, APIs, database schemas, routes or workflows for a design change.
 
 ## 3. Always
@@ -79,18 +79,19 @@ it belongs to Munaxa; two consumers means it belongs to the design system.
 ## 5. Enforcement
 
 - **ESLint guardrail** (`apps/admin/eslint.config.mjs`): blocks hardcoded hex colours and raw
-  Tailwind palette colours in `src/**`. Build fails on violation. The design system carries the
-  same rule for `components/`, `patterns/`, `tokens/` and `lib/`.
-- **CI gates:** `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build` must pass; `prettier` +
-  `eslint --fix` run pre-commit.
-- Each app's `globals.css` declares `@source` over `/designsystem/components` and
-  `/designsystem/patterns` so token classes used by shared components resolve.
+  Tailwind palette colours in `src/**`. Build fails on violation. The platform carries the
+  same rule for `ui/` and `tokens/`.
+- **CI gates:** `pnpm validate` (theme contract + token mirrors), `pnpm lint`, `pnpm typecheck`,
+  `pnpm test` and `pnpm build` must pass; `prettier` + `eslint --fix` run pre-commit.
+- Each app's `globals.css` declares `@source` over `/platform/ui` so token classes used by
+  shared components resolve.
 
 ## 6. Contribution flow
 
-1. Check [`/designsystem`](../designsystem/README.md) for an existing token / component / pattern.
+1. Check [`/platform`](../platform/README.md) for an existing token / component / pattern, and
+   read [`/platform/CONTRIBUTING.md`](../platform/CONTRIBUTING.md) before changing anything there.
 2. Reuse or extend it (preserving its public API) rather than forking.
-3. If it is missing and **a second product would need it**, add it to the design system. If only
+3. If it is missing and **a second product would need it**, add it to the platform. If only
    Munaxa needs it, add it under `apps/admin/src/components` — never inline in a page.
 4. Keep changes composition-only unless the task is explicitly about logic.
 5. Verify: `pnpm turbo run typecheck lint --filter=@munaxa/admin` and
@@ -106,4 +107,4 @@ it belongs to Munaxa; two consumers means it belongs to the design system.
 - **Status badges** use a soft-tint variant of the semantic colours for dense tables (colours
   remain theme-sourced).
 
-> When unsure, prefer the design system and ask before deviating.
+> When unsure, prefer the platform and ask before deviating.

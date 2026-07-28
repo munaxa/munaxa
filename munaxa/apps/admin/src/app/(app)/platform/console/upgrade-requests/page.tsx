@@ -3,16 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Shell } from '@/components/shell';
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  Input,
-  Select,
-  Spinner,
-  useToast,
-} from '@axa/design-system';
+import { Badge, Button, Card, CardContent, Input, Select, Spinner, useToast } from '@axa/platform';
 import { platformConsoleApi, type PlatformUpgradeRequest } from '@/lib/platform-console';
 import { PlatformNav } from '../platform-nav';
 

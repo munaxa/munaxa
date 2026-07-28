@@ -10,7 +10,7 @@ import {
 } from '@/lib/demo-store/selectors';
 import { jod, pct, num } from '@/lib/format';
 import { PageHeader, Gate, Kpi } from '@/components/page';
-import { Card, CardContent, CardHeader, CardTitle, cn } from '@axa/design-system';
+import { Card, CardContent, CardHeader, CardTitle, cn } from '@axa/platform';
 
 export default function AnalyticsPage() {
   return (
@@ -58,10 +58,10 @@ function Analytics() {
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Kpi label="Students" value={num(k.students)} />
-        <Kpi label="Attendance" value={pct(attendanceRate(data))} tone="aqua" />
-        <Kpi label="Avg score" value={pct(k.avgScore)} tone="aqua" />
-        <Kpi label="Collection" value={pct(fin.collectionRate)} tone="aqua" />
-        <Kpi label="Outstanding" value={jod(fin.outstanding)} tone="coral" />
+        <Kpi label="Attendance" value={pct(attendanceRate(data))} tone="cool" />
+        <Kpi label="Avg score" value={pct(k.avgScore)} tone="cool" />
+        <Kpi label="Collection" value={pct(fin.collectionRate)} tone="cool" />
+        <Kpi label="Outstanding" value={jod(fin.outstanding)} tone="warm" />
         <Kpi label="Admissions" value={num(k.admissionsOpen)} tone="primary" />
       </section>
 
@@ -94,7 +94,9 @@ function Analytics() {
                 label={`Grade ${l}`}
                 value={dist[l] ?? 0}
                 max={distTotal}
-                tone={l === 'F' ? 'bg-destructive' : l === 'D' ? 'bg-coral' : 'bg-aqua'}
+                tone={
+                  l === 'F' ? 'bg-destructive' : l === 'D' ? 'bg-accent-warm' : 'bg-accent-cool'
+                }
               />
             ))}
           </CardContent>
@@ -109,13 +111,13 @@ function Analytics() {
               label="Collected"
               value={Math.round(fin.collected)}
               max={Math.round(fin.billed)}
-              tone="bg-aqua"
+              tone="bg-accent-cool"
             />
             <ChartBar
               label="Outstanding"
               value={Math.round(fin.outstanding)}
               max={Math.round(fin.billed)}
-              tone="bg-coral"
+              tone="bg-accent-warm"
             />
             <ChartBar
               label="Overdue"

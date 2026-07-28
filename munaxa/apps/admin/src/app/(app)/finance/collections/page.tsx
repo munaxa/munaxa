@@ -21,7 +21,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { financeApi, type AgingReport, type PushOutstandingInput } from '@/lib/finance';
 
 const jod = (v: string | number) => `${Number(v).toFixed(3)} JOD`;

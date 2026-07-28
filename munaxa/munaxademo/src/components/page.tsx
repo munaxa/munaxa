@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, cn } from '@axa/design-system';
+import { Card, CardContent, cn } from '@axa/platform';
 import { useSession } from '@/lib/session-context';
 
 /** Standard page header: title + optional subtitle + right-aligned actions. */
@@ -35,14 +35,14 @@ export function Kpi({
 }: {
   label: string;
   value: string;
-  tone?: 'aqua' | 'coral' | 'primary';
+  tone?: 'cool' | 'warm' | 'primary';
   href?: string;
 }) {
   const cls =
-    tone === 'aqua'
-      ? 'text-aqua'
-      : tone === 'coral'
-        ? 'text-coral'
+    tone === 'cool'
+      ? 'text-accent-cool'
+      : tone === 'warm'
+        ? 'text-accent-warm'
         : tone === 'primary'
           ? 'text-primary'
           : '';

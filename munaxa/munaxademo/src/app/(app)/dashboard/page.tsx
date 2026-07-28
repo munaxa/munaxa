@@ -5,7 +5,7 @@ import { useSession } from '@/lib/session-context';
 import { kpis, attendanceToday, topOutstanding, studentName } from '@/lib/demo-store/selectors';
 import { jod, num, pct } from '@/lib/format';
 import { PageHeader, Kpi, Bar } from '@/components/page';
-import { Card, CardContent, CardHeader, CardTitle, Badge } from '@axa/design-system';
+import { Card, CardContent, CardHeader, CardTitle, Badge } from '@axa/platform';
 
 export default function DashboardPage() {
   const { data } = useDemo();
@@ -31,16 +31,16 @@ export default function DashboardPage() {
         <Kpi
           label="Attendance"
           value={pct(k.attendanceToday)}
-          tone="aqua"
+          tone="cool"
           href={can('attendance:read') ? '/attendance' : undefined}
         />
         {can('finance:read') ? (
-          <Kpi label="Outstanding" value={jod(k.outstanding)} tone="coral" href="/finance" />
+          <Kpi label="Outstanding" value={jod(k.outstanding)} tone="warm" href="/finance" />
         ) : (
-          <Kpi label="Avg score" value={pct(k.avgScore)} tone="aqua" />
+          <Kpi label="Avg score" value={pct(k.avgScore)} tone="cool" />
         )}
         {can('finance:read') ? (
-          <Kpi label="Collected" value={jod(k.collected)} tone="aqua" href="/finance" />
+          <Kpi label="Collected" value={jod(k.collected)} tone="cool" href="/finance" />
         ) : (
           <Kpi label="Books on loan" value={num(k.booksOnLoan)} />
         )}
@@ -53,8 +53,13 @@ export default function DashboardPage() {
               <CardTitle>Attendance today</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Bar label="Present" n={att.counts.PRESENT} total={att.total} className="bg-aqua" />
-              <Bar label="Late" n={att.counts.LATE} total={att.total} className="bg-coral" />
+              <Bar
+                label="Present"
+                n={att.counts.PRESENT}
+                total={att.total}
+                className="bg-accent-cool"
+              />
+              <Bar label="Late" n={att.counts.LATE} total={att.total} className="bg-accent-warm" />
               <Bar
                 label="Absent"
                 n={att.counts.ABSENT}
@@ -105,7 +110,7 @@ export default function DashboardPage() {
                   className="flex items-center justify-between gap-3 border-b border-border pb-1.5 last:border-0"
                 >
                   <span>{studentName(row.student!)}</span>
-                  <span className="font-mono text-coral">{jod(row.balance)}</span>
+                  <span className="font-mono text-accent-warm">{jod(row.balance)}</span>
                 </div>
               ))}
             </CardContent>

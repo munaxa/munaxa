@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { Button, Card, CardContent, Field, Input, Select } from '@axa/design-system';
+import { Button, Card, CardContent, Field, Input, Select } from '@axa/platform';
 
 interface Form {
   schoolName: string;

@@ -6,20 +6,20 @@ real consumer to be designed against rather than a hypothetical one.
 
 ## What already exists for you
 
-The shared UI layer is done and is the single source of truth:
+The shared platform is done and is the single source of truth:
 
 | You need               | Where it comes from                                              |
 | ---------------------- | ---------------------------------------------------------------- |
-| Components             | `@axa/design-system`                                              |
-| Design tokens          | `@axa/design-system/tokens`                                       |
-| Icons                  | `@axa/design-system/icons`                                        |
-| UI hooks               | `@axa/design-system/hooks`                                        |
-| Theme registry         | `@axa/design-system/themes`                                       |
-| The Workaxa theme      | `@import '@axa/design-system/css/themes/workaxa';`                |
+| Components             | `@axa/platform`                                              |
+| Design tokens          | `@axa/platform/tokens`                                       |
+| Icons                  | `@axa/platform/icons`                                        |
+| UI hooks               | `@axa/platform/hooks`                                        |
+| Theme registry         | `@axa/platform/themes`                                       |
+| The Workaxa theme      | `@import '@axa/platform/css/themes/workaxa';`                |
 
 The Workaxa palette is already authored — see
-[`designsystem/themes/workaxa/`](../designsystem/themes/workaxa). Nothing about starting Workaxa
-requires touching the design system's colours.
+[`platform/themes/workaxa/`](../platform/themes/workaxa). Nothing about starting Workaxa
+requires touching the platform's colours.
 
 ## When you start
 
@@ -27,19 +27,19 @@ requires touching the design system's colours.
    (`workaxa/apps/*`, `workaxa/packages/*`).
 2. Add the new paths to the root [`pnpm-workspace.yaml`](../pnpm-workspace.yaml) and, for any
    package that emits declarations, to the root [`tsconfig.json`](../tsconfig.json) references.
-3. Depend on `"@axa/design-system": "workspace:*"`.
+3. Depend on `"@axa/platform": "workspace:*"`.
 4. In the app's `globals.css`:
 
    ```css
    @import 'tailwindcss';
-   @import '@axa/design-system/css/themes/workaxa';
-   @source '../../../../designsystem/components';
-   @source '../../../../designsystem/patterns';
+   @import '@axa/platform/css/themes/workaxa';
+   @source '../../../../platform/ui';
    ```
 
    (Adjust the `@source` depth to the file's actual location — Tailwind v4 needs to scan the
-   design system's sources to emit the classes its components use.)
+   platform's sources to emit the classes its components use.)
 
-Read [`designsystem/README.md`](../designsystem/README.md) before adding any component: whether
-something belongs in the design system or in this product is the one decision that determines
-whether the shared layer stays reusable.
+Read [`platform/CONTRIBUTING.md`](../platform/CONTRIBUTING.md) before adding any component —
+it is the mandatory standard for all work in the shared layer. Whether something belongs in the
+platform or in this product is the one decision that determines whether the shared layer stays
+reusable.

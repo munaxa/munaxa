@@ -21,7 +21,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { PageHeader, Gate, Bar } from '@/components/page';
 import type { AttendanceStatus } from '@/seed/types';
 
@@ -129,9 +129,14 @@ function Attendance() {
             label="Present"
             n={summary.counts.PRESENT}
             total={summary.total}
-            className="bg-aqua"
+            className="bg-accent-cool"
           />
-          <Bar label="Late" n={summary.counts.LATE} total={summary.total} className="bg-coral" />
+          <Bar
+            label="Late"
+            n={summary.counts.LATE}
+            total={summary.total}
+            className="bg-accent-warm"
+          />
           <Bar
             label="Absent"
             n={summary.counts.ABSENT}

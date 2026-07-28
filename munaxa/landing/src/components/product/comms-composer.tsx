@@ -1,5 +1,5 @@
-import { Send, Check, CheckCheck } from '@axa/design-system/icons';
-import { cn } from '@axa/design-system';
+import { Send, Check, CheckCheck } from '@axa/platform/icons';
+import { cn } from '@axa/platform';
 
 /**
  * Communication — an announcement composer with live audience targeting and per-channel delivery.
@@ -74,7 +74,7 @@ export function CommsComposer() {
                   <span
                     className={cn(
                       'flex items-center gap-0.5',
-                      d.state === 'read' ? 'text-aqua' : 'text-muted-foreground',
+                      d.state === 'read' ? 'text-accent-cool' : 'text-muted-foreground',
                     )}
                   >
                     {d.state === 'read' ? (
@@ -87,7 +87,7 @@ export function CommsComposer() {
               </div>
             ))}
           </div>
-          <div className="mt-3 rounded-lg bg-aqua/10 px-2.5 py-2 text-[11px] text-aqua">
+          <div className="mt-3 rounded-lg bg-accent-cool/10 px-2.5 py-2 text-[11px] text-accent-cool">
             <span className="mono font-semibold">88%</span> opened within 2 hours
           </div>
         </div>

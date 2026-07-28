@@ -20,7 +20,7 @@ import {
   TR,
   Table,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 import type { AttendanceStatus, InvoiceStatus } from '@/seed/types';
 
 const CHARGE_TONE: Record<InvoiceStatus, Tone> = {
@@ -196,13 +196,13 @@ function StudentProfile() {
       </Card>
 
       {/* Finance — student card */}
-      <Card className={derived.outstanding > 0 ? 'border-coral/40' : ''}>
+      <Card className={derived.outstanding > 0 ? 'border-accent-warm/40' : ''}>
         <CardHeader>
           <CardTitle>Finance</CardTitle>
           {derived.outstanding > 0 ? (
             <p className="text-sm text-muted-foreground">
               Outstanding{' '}
-              <strong className="font-mono text-coral">{jod(derived.outstanding)}</strong>
+              <strong className="font-mono text-accent-warm">{jod(derived.outstanding)}</strong>
               {derived.overdue > 0 ? (
                 <>
                   {' · '}overdue{' '}
@@ -217,10 +217,14 @@ function StudentProfile() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Kpi label="Charged" value={derived.charged.toFixed(3)} />
-            <Kpi label="Paid" value={derived.paid.toFixed(3)} tone="text-aqua" />
+            <Kpi label="Paid" value={derived.paid.toFixed(3)} tone="text-accent-cool" />
             <Kpi label="Discounts" value={(0).toFixed(3)} />
-            <Kpi label="Outstanding" value={derived.outstanding.toFixed(3)} tone="text-coral" />
-            <Kpi label="Credit" value={(0).toFixed(3)} tone="text-aqua" />
+            <Kpi
+              label="Outstanding"
+              value={derived.outstanding.toFixed(3)}
+              tone="text-accent-warm"
+            />
+            <Kpi label="Credit" value={(0).toFixed(3)} tone="text-accent-cool" />
             <Kpi label="Refunded" value={(0).toFixed(3)} />
           </div>
 
@@ -306,13 +310,13 @@ function StudentProfile() {
               label="Present"
               n={derived.counts.PRESENT}
               total={derived.attendance.length}
-              className="bg-aqua"
+              className="bg-accent-cool"
             />
             <Bar
               label="Late"
               n={derived.counts.LATE}
               total={derived.attendance.length}
-              className="bg-coral"
+              className="bg-accent-warm"
             />
             <Bar
               label="Absent"

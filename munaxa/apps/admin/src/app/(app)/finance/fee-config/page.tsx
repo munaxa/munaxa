@@ -24,7 +24,7 @@ import {
   TabsList,
   TabsTrigger,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useConfirm } from '@/components/confirm';
 import {
   feeConfigApi,

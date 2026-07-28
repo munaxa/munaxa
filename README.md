@@ -1,10 +1,10 @@
 # AXA
 
-Monorepo for the AXA product ecosystem and the design system they all share.
+Monorepo for the AXA product ecosystem and the shared platform they all build on.
 
 ```
 /
-├── designsystem/     @axa/design-system — the shared, product-agnostic UI layer
+├── platform/         @axa/platform — the shared, product-agnostic foundation
 ├── munaxa/           Munaxa — Multi-Tenant School Operating System
 ├── workaxa/          Workaxa — reserved, not implemented yet
 ├── tooling/          shared ESLint + TypeScript configs (@axa/config-*)
@@ -18,7 +18,7 @@ Monorepo for the AXA product ecosystem and the design system they all share.
 The repository root is the **workspace root**, not a product. It owns dependency resolution
 (pnpm), the task graph (turbo), lint/format/TypeScript baselines and CI. Product code lives
 entirely under its own product folder. This is what lets `munaxa/` and a future `workaxa/`
-resolve `@axa/design-system` through `workspace:*` instead of publishing to a registry.
+resolve `@axa/platform` through `workspace:*` instead of publishing to a registry.
 
 ## Getting started
 
@@ -26,18 +26,24 @@ resolve `@axa/design-system` through `workspace:*` instead of publishing to a re
 pnpm install
 pnpm prisma:generate        # Munaxa API's Prisma client
 pnpm build                  # everything, in dependency order
-pnpm lint && pnpm typecheck && pnpm test
+pnpm validate && pnpm lint && pnpm typecheck && pnpm test
 ```
 
-## The design system is the single source of truth
+## The platform is the single source of truth
 
 Every product consumes its components, tokens, icons and theme from
-[`designsystem/`](designsystem/README.md). There are no product-local copies of a button, a
-card, a token or a colour — that is enforced by review and, for colour, by ESLint.
+[`platform/`](platform/README.md). There are no product-local copies of a button, a card, a
+token or a colour — enforced by review, by ESLint for colour, and by `pnpm validate` for the
+theme contract and token scales.
 
-Read [`designsystem/README.md`](designsystem/README.md) before adding UI anywhere. The one
-decision that matters is whether a thing is shared or product-specific; the rules for making
-that call are in §3 of that document.
+[`platform/CONTRIBUTING.md`](platform/CONTRIBUTING.md) is the **mandatory standard** for all
+work in the shared layer; [`platform/architecture/`](platform/architecture/README.md) explains
+the reasoning. Read them before adding UI anywhere. The one decision that matters is whether a
+thing is shared or product-specific.
+
+```bash
+pnpm validate   # theme contract + structural token mirrors — runs in CI before lint
+```
 
 ## Products
 

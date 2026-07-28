@@ -19,7 +19,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { attendanceApi, type PayrollPrepResult } from '@/lib/people';
 
 /** First and last day of the current month, ISO date. */

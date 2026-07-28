@@ -15,7 +15,7 @@ import {
   Table,
   useToast,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 import type { AdmissionStage } from '@/seed/types';
 
@@ -61,7 +61,7 @@ function Admissions() {
             key={s}
             label={s}
             value={String(count(s))}
-            tone={s === 'ENROLLED' ? 'aqua' : s === 'OFFER' ? 'coral' : undefined}
+            tone={s === 'ENROLLED' ? 'cool' : s === 'OFFER' ? 'warm' : undefined}
           />
         ))}
       </section>

@@ -15,7 +15,7 @@ import {
   Field,
   Input,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useConfirm } from '@/components/confirm';
 import { trainingApi, type TrainingCourse, type TrainingRecord } from '@/lib/people';
 

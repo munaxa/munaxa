@@ -17,7 +17,7 @@ import {
   TH,
   THead,
   TR,
-} from '@axa/design-system';
+} from '@axa/platform';
 
 export default function HrPage() {
   return (
@@ -64,7 +64,7 @@ function Hr() {
           label="Support staff"
           value={num(data.employees.filter((e) => e.kind === 'STAFF').length)}
         />
-        <Kpi label="Monthly payroll" value={jod(payroll)} tone="coral" />
+        <Kpi label="Monthly payroll" value={jod(payroll)} tone="warm" />
       </section>
 
       <div className="flex flex-wrap items-end gap-2">

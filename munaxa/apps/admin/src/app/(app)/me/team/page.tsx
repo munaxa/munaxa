@@ -17,7 +17,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { teamApi, type LeaveRequest, type TeamMember } from '@/lib/people';
 
 export default function MyTeamPage() {

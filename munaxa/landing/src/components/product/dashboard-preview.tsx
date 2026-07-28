@@ -9,9 +9,9 @@ import {
   Bus,
   MessageSquare,
   BarChart3,
-} from '@axa/design-system/icons';
+} from '@axa/platform/icons';
 import Image from 'next/image';
-import { cn } from '@axa/design-system';
+import { cn } from '@axa/platform';
 
 /**
  * A faithful, static recreation of the Munaxa owner dashboard — the same navigation, KPIs and
@@ -32,27 +32,27 @@ const NAV = [
   { label: 'Reports', icon: BarChart3 },
 ];
 
-const KPIS: { label: string; value: string; tone?: 'aqua' | 'coral' }[] = [
+const KPIS: { label: string; value: string; tone?: 'cool' | 'warm' }[] = [
   { label: 'Students', value: '500' },
   { label: 'Parents', value: '700' },
   { label: 'Teachers', value: '50' },
-  { label: 'Attendance', value: '96.4%', tone: 'aqua' },
-  { label: 'Outstanding', value: 'JOD 38,400', tone: 'coral' },
-  { label: 'Collected', value: 'JOD 412,750', tone: 'aqua' },
+  { label: 'Attendance', value: '96.4%', tone: 'cool' },
+  { label: 'Outstanding', value: 'JOD 38,400', tone: 'warm' },
+  { label: 'Collected', value: 'JOD 412,750', tone: 'cool' },
 ];
 
 const ATTENDANCE = [
-  { label: 'Present', value: 463, pct: 92.6, bar: 'bg-aqua' },
-  { label: 'Late', value: 18, pct: 3.6, bar: 'bg-coral' },
+  { label: 'Present', value: 463, pct: 92.6, bar: 'bg-accent-cool' },
+  { label: 'Late', value: 18, pct: 3.6, bar: 'bg-accent-warm' },
   { label: 'Absent', value: 12, pct: 2.4, bar: 'bg-destructive' },
   { label: 'Excused', value: 7, pct: 1.4, bar: 'bg-primary' },
 ];
 
-const NOTIFICATIONS: { title: string; body: string; tone: 'aqua' | 'coral' | 'muted' }[] = [
-  { title: 'Fee reminders sent', body: '214 families notified', tone: 'aqua' },
-  { title: 'New admission application', body: 'Yousef Haddad · Grade 6', tone: 'coral' },
+const NOTIFICATIONS: { title: string; body: string; tone: 'cool' | 'warm' | 'muted' }[] = [
+  { title: 'Fee reminders sent', body: '214 families notified', tone: 'cool' },
+  { title: 'New admission application', body: 'Yousef Haddad · Grade 6', tone: 'warm' },
   { title: 'Term 1 report cards published', body: 'Grades 7–9', tone: 'muted' },
-  { title: 'Bus route 4 delayed', body: '~10 min · 28 students', tone: 'coral' },
+  { title: 'Bus route 4 delayed', body: '~10 min · 28 students', tone: 'warm' },
 ];
 
 const OUTSTANDING = [
@@ -62,9 +62,9 @@ const OUTSTANDING = [
   { name: 'Karim Nasser', value: 'JOD 960' },
 ];
 
-function toneText(tone?: 'aqua' | 'coral') {
-  if (tone === 'aqua') return 'text-aqua';
-  if (tone === 'coral') return 'text-coral';
+function toneText(tone?: 'cool' | 'warm') {
+  if (tone === 'cool') return 'text-accent-cool';
+  if (tone === 'warm') return 'text-accent-warm';
   return 'text-foreground';
 }
 
@@ -162,8 +162,8 @@ export function DashboardPreview() {
                     <span
                       className={cn(
                         'shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium',
-                        n.tone === 'aqua' && 'bg-aqua/15 text-aqua',
-                        n.tone === 'coral' && 'bg-coral/15 text-coral',
+                        n.tone === 'cool' && 'bg-accent-cool/15 text-accent-cool',
+                        n.tone === 'warm' && 'bg-accent-warm/15 text-accent-warm',
                         n.tone === 'muted' && 'bg-secondary text-muted-foreground',
                       )}
                     >
@@ -184,7 +184,7 @@ export function DashboardPreview() {
                   className="flex items-center justify-between gap-3 border-b border-border pb-1.5 text-[11px] last:border-0"
                 >
                   <span className="truncate">{row.name}</span>
-                  <span className="mono text-coral">{row.value}</span>
+                  <span className="mono text-accent-warm">{row.value}</span>
                 </div>
               ))}
             </div>

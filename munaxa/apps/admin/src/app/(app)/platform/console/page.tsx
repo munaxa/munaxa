@@ -13,7 +13,7 @@ import {
   Spinner,
   StatCard,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { platformConsoleApi, type DashboardMetrics } from '@/lib/platform-console';
 import { formatPrice } from '@/lib/subscription';
 import { PlatformNav } from './platform-nav';

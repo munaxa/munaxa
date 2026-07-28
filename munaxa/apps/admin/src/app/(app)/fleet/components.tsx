@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { useI18n } from '@/components/i18n-provider';
-import { Badge, Button, Dialog, Field, Select } from '@axa/design-system';
+import { Badge, Button, Dialog, Field, Select } from '@axa/platform';
 import { TRIP_OPTIONS, type Capacity, type RouteVM, type TripValue } from './lib';
 
 // ---------------------------------------------------------------------------
@@ -32,8 +32,8 @@ export function CapacityMeter({ capacity }: { capacity: Capacity }) {
     capacity.state === 'exceeded'
       ? 'bg-destructive'
       : capacity.state === 'near'
-        ? 'bg-coral'
-        : 'bg-aqua';
+        ? 'bg-accent-warm'
+        : 'bg-accent-cool';
   const exceededBar = capacity.state === 'exceeded';
   return (
     <div className="space-y-1">

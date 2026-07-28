@@ -14,7 +14,7 @@ import {
   Input,
   Select,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { studentsApi, type Student, type EnrollmentHistoryRow } from '@/lib/people';
 import { financeApi, type Statement } from '@/lib/finance';
 import { busApi, type StudentTransport } from '@/lib/bus';
@@ -109,7 +109,7 @@ export function OverviewTab({
       </Card>
 
       {statement ? (
-        <Card className={Number(statement.totals.outstanding) > 0 ? 'border-coral/40' : ''}>
+        <Card className={Number(statement.totals.outstanding) > 0 ? 'border-accent-warm/40' : ''}>
           <CardHeader>
             <CardTitle>{t('nav.finance')}</CardTitle>
           </CardHeader>
@@ -118,17 +118,17 @@ export function OverviewTab({
             <Snapshot
               label={t('finance.paid')}
               value={num(statement.totals.paid)}
-              tone="text-aqua"
+              tone="text-accent-cool"
             />
             <Snapshot
               label={t('finance.outstanding')}
               value={num(statement.totals.outstanding)}
-              tone={Number(statement.totals.outstanding) > 0 ? 'text-coral' : undefined}
+              tone={Number(statement.totals.outstanding) > 0 ? 'text-accent-warm' : undefined}
             />
             <Snapshot
               label={t('finance.credit')}
               value={num(statement.totals.creditBalance)}
-              tone={Number(statement.totals.creditBalance) > 0 ? 'text-aqua' : undefined}
+              tone={Number(statement.totals.creditBalance) > 0 ? 'text-accent-cool' : undefined}
             />
           </CardContent>
         </Card>
@@ -410,7 +410,7 @@ function PlacementDialog({
               <div className="flex justify-between border-t border-border pt-1 font-medium">
                 <span>{t('studentProfile.difference')}</span>
                 <span
-                  className={`font-mono ${Number(feeStep.difference) > 0 ? 'text-coral' : Number(feeStep.difference) < 0 ? 'text-aqua' : ''}`}
+                  className={`font-mono ${Number(feeStep.difference) > 0 ? 'text-accent-warm' : Number(feeStep.difference) < 0 ? 'text-accent-cool' : ''}`}
                 >
                   {Number(feeStep.difference) > 0 ? '+' : ''}
                   {feeStep.difference}
@@ -759,7 +759,7 @@ function ReactivateDialog({
   );
 }
 
-/** Badge tone for a participation status (Active green, terminal-negative coral, else muted). */
+/** Badge tone for a participation status (Active green, terminal-negative warm, else muted). */
 function statusTone(status: string): 'success' | 'warning' | 'danger' | 'muted' {
   switch (status) {
     case 'ACTIVE':

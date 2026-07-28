@@ -14,7 +14,7 @@ import {
   CardTitle,
   EmptyState,
   Spinner,
-} from '@axa/design-system';
+} from '@axa/platform';
 
 /**
  * Transport tab — read-only view of the student's route assignment (from the Fleet module).

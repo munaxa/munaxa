@@ -24,7 +24,7 @@ import {
   Textarea,
   cn,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useConfirm } from '@/components/confirm';
 import { studentsApi, type ImportResult, type Student } from '@/lib/people';
 import { sectionsApi, type Section } from '@/lib/structure';
@@ -229,7 +229,7 @@ export default function StudentsPage() {
           <StatCard
             label={t('people.statActive')}
             value={stats.ACTIVE}
-            tone="aqua"
+            tone="cool"
             loading={loading}
           />
           <StatCard
@@ -241,7 +241,7 @@ export default function StudentsPage() {
           <StatCard
             label={t('people.statGraduated')}
             value={stats.GRADUATED}
-            tone="coral"
+            tone="warm"
             loading={loading}
           />
           <StatCard
@@ -469,13 +469,13 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  tone: 'primary' | 'aqua' | 'coral' | 'danger' | 'muted';
+  tone: 'primary' | 'cool' | 'warm' | 'danger' | 'muted';
   loading: boolean;
 }) {
   const toneClass: Record<typeof tone, string> = {
     primary: 'text-foreground',
-    aqua: 'text-aqua',
-    coral: 'text-coral',
+    cool: 'text-accent-cool',
+    warm: 'text-accent-warm',
     danger: 'text-destructive',
     muted: 'text-muted-foreground',
   };

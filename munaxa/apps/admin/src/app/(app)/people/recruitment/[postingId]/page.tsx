@@ -17,7 +17,7 @@ import {
   Input,
   Select,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import {
   APPLICANT_STATUSES,
   recruitmentApi,

@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge } from '@axa/design-system';
+import { Badge } from '@axa/platform';
 
 /**
  * Permanent financial flag shown wherever a student's finances surface (profile, finance card,

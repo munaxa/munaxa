@@ -1,5 +1,5 @@
-import { ArrowRight, ShieldCheck } from '@axa/design-system/icons';
-import { CountUp, Reveal, buttonVariants, cn } from '@axa/design-system';
+import { ArrowRight, ShieldCheck } from '@axa/platform/icons';
+import { CountUp, Reveal, buttonVariants, cn } from '@axa/platform';
 import { DEMO_URL } from '@/lib/site';
 import { LiveShowcase } from '@/components/product/live-showcase';
 
@@ -21,7 +21,7 @@ export function Hero() {
       <div className="shell text-center">
         <Reveal>
           <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-[0.72rem] font-medium text-muted-foreground backdrop-blur">
-            <span className="h-1.5 w-1.5 rounded-full bg-aqua" aria-hidden />
+            <span className="h-1.5 w-1.5 rounded-full bg-accent-cool" aria-hidden />
             The School Operating System · K-12
           </span>
         </Reveal>
@@ -60,7 +60,7 @@ export function Hero() {
           <ul className="mt-9 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-sm text-muted-foreground">
             {TRUST.map((t) => (
               <li key={t} className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-aqua" aria-hidden />
+                <ShieldCheck className="h-4 w-4 text-accent-cool" aria-hidden />
                 {t}
               </li>
             ))}
@@ -80,7 +80,7 @@ export function Hero() {
           {/* Floating accent chips — depth, not decoration; numbers count up on view. */}
           <div className="float-soft absolute -left-2 top-16 hidden rounded-xl border border-border bg-card/90 px-3 py-2 shadow-lg backdrop-blur lg:block">
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Collected</p>
-            <p className="mono font-display text-sm font-bold text-aqua">
+            <p className="mono font-display text-sm font-bold text-accent-cool">
               <CountUp value={412750} prefix="JOD " />
             </p>
           </div>

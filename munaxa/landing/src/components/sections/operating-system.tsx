@@ -1,4 +1,4 @@
-import { Reveal } from '@axa/design-system';
+import { Reveal } from '@axa/platform';
 import { SystemMap } from '@/components/product/system-map';
 
 /**

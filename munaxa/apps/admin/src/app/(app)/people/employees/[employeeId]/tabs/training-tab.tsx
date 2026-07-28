@@ -18,7 +18,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import {
   trainingApi,
   TRAINING_RECORD_STATUSES,

@@ -13,7 +13,7 @@ import {
   Field,
   Input,
   Select,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { CapacityMeter, RouteStatusBadge } from './components';
 import { UNZONED, useDebouncedValue, type RouteVM, type TransportData } from './lib';
 

@@ -18,7 +18,7 @@ import {
   TR,
   Table,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 
 const LETTER_TONE: Record<string, Tone> = {
   A: 'success',
@@ -47,8 +47,8 @@ export default function StudentPortalPage() {
       <PageHeader title="Student portal" subtitle={`${studentName(student)} · ${grade?.nameEn}`} />
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Attendance" value={pct(attRate)} tone="aqua" />
-        <Kpi label="Average" value={pct(avg)} tone="aqua" />
+        <Kpi label="Attendance" value={pct(attRate)} tone="cool" />
+        <Kpi label="Average" value={pct(avg)} tone="cool" />
         <Kpi label="Subjects" value={String(grades.length)} />
         <Kpi label="Reward points" value={String(points)} tone="primary" />
       </section>

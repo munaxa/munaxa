@@ -21,7 +21,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useI18n } from '@/components/i18n-provider';
 import { useConfirm } from '@/components/confirm';
 import { loadStudentOptions } from '@/lib/pickers';

@@ -22,7 +22,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 import type { Invoice, InvoiceStatus, PaymentMethod } from '@/seed/types';
 
@@ -99,10 +99,10 @@ function Finance() {
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Kpi label="Billed" value={jod(summary.billed)} />
-        <Kpi label="Collected" value={jod(summary.collected)} tone="aqua" />
-        <Kpi label="Outstanding" value={jod(summary.outstanding)} tone="coral" />
-        <Kpi label="Overdue" value={jod(summary.overdue)} tone="coral" />
-        <Kpi label="Collection rate" value={pct(summary.collectionRate)} tone="aqua" />
+        <Kpi label="Collected" value={jod(summary.collected)} tone="cool" />
+        <Kpi label="Outstanding" value={jod(summary.outstanding)} tone="warm" />
+        <Kpi label="Overdue" value={jod(summary.overdue)} tone="warm" />
+        <Kpi label="Collection rate" value={pct(summary.collectionRate)} tone="cool" />
       </section>
 
       <div className="flex flex-wrap items-end gap-2">
@@ -148,7 +148,7 @@ function Finance() {
                     <TD>{nameOf(inv.studentId)}</TD>
                     <TD>{inv.descriptionEn}</TD>
                     <TD className="text-end font-mono">{inv.amount.toFixed(3)}</TD>
-                    <TD className="text-end font-mono text-coral">{balance.toFixed(3)}</TD>
+                    <TD className="text-end font-mono text-accent-warm">{balance.toFixed(3)}</TD>
                     <TD className="font-mono text-xs">{fmtDate(inv.dueDate)}</TD>
                     <TD>
                       <Badge tone={STATUS_TONE[inv.status]}>{inv.status}</Badge>

@@ -22,7 +22,7 @@ import {
   THead,
   TR,
   EmptyState,
-} from '@axa/design-system';
+} from '@axa/platform';
 
 const AUDIENCES = ['ALL', 'PARENTS', 'TEACHERS', 'STUDENTS'];
 
@@ -124,7 +124,7 @@ export default function CommunicationPage() {
           </CardContent>
         </Card>
 
-        {message ? <p className="text-sm text-aqua">{message}</p> : null}
+        {message ? <p className="text-sm text-accent-cool">{message}</p> : null}
         {error ? (
           <p className="text-sm text-destructive" role="alert">
             {error}

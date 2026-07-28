@@ -22,7 +22,7 @@ import {
   THead,
   TR,
   Table,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { Shell } from '@/components/shell';
 import { loadSectionOptions } from '@/lib/pickers';
 import { useI18n } from '@/components/i18n-provider';

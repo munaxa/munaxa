@@ -12,7 +12,7 @@ import {
   Input,
   Select,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { useConfirm } from '@/components/confirm';
 
 export interface FieldSpec {

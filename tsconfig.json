@@ -2,7 +2,7 @@
   "//": "Root tsconfig for editor/IDE resolution. Apps & packages extend @axa/config-typescript.",
   "files": [],
   "references": [
-    { "path": "designsystem" },
+    { "path": "platform" },
     { "path": "munaxa/apps/api" },
     { "path": "munaxa/apps/admin" },
     { "path": "munaxa/packages/domain" },

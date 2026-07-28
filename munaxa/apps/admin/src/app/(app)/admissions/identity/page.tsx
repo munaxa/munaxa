@@ -13,7 +13,7 @@ import {
   Field,
   Input,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import {
   admissionsApi,
   type IdentityLookupResult,

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Button, cn } from '@axa/design-system';
+import { Button, cn } from '@axa/platform';
 import { useSession } from '@/lib/session-context';
 import { useDemo } from '@/lib/demo-store/context';
 import type { PersonaId } from '@/lib/rbac';

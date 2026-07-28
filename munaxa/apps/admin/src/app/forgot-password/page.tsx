@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { requestPasswordReset } from '@/lib/auth';
 import { useI18n } from '@/components/i18n-provider';
 import { Logo } from '@/components/logo';
-import { Button, Field, Input } from '@axa/design-system';
+import { Button, Field, Input } from '@axa/platform';
 
 /**
  * Password-reset request. Posts to the anti-enumeration endpoint (always 202) and shows a neutral

@@ -6,7 +6,7 @@ import { IDLE_TIMEOUT_MS, logout, type Principal } from '@/lib/auth';
 import { clearPrincipalCache, loadPrincipal } from '@/lib/session';
 import { AppShell } from './app-shell';
 import { PrivacyProvider } from './privacy-provider';
-import { Spinner } from '@axa/design-system';
+import { Spinner } from '@axa/platform';
 
 /** User-activity events that reset the inactivity countdown. */
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart'] as const;

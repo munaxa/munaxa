@@ -17,7 +17,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { admissionsApi, type FeeModificationRow } from '@/lib/admissions';
 
 const STATUS_TONE: Record<string, 'success' | 'warning' | 'danger' | 'muted'> = {

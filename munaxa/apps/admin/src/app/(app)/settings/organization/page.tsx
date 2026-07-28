@@ -11,7 +11,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { organizationApi, type OrganizationSettings } from '@/lib/organization';
 import {
   AcademicSection,

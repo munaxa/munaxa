@@ -20,7 +20,7 @@ import {
   TR,
   Table,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 
 const LETTER_TONE: Record<string, Tone> = {
   A: 'success',
@@ -81,7 +81,9 @@ function Academics() {
               label={`Grade ${l}`}
               n={dist[l] ?? 0}
               total={distTotal}
-              className={l === 'F' ? 'bg-destructive' : l === 'D' ? 'bg-coral' : 'bg-aqua'}
+              className={
+                l === 'F' ? 'bg-destructive' : l === 'D' ? 'bg-accent-warm' : 'bg-accent-cool'
+              }
             />
           ))}
         </CardContent>

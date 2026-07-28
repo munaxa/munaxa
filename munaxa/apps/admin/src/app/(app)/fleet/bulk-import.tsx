@@ -16,7 +16,7 @@ import {
   TR,
   Table,
   useToast,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { busApi } from '@/lib/bus';
 import { runBulk, type TransportData } from './lib';
 
@@ -212,7 +212,7 @@ export function BulkImport({ data, canAssign }: { data: TransportData; canAssign
                         {r.error ? (
                           <span className="text-destructive">{r.error}</span>
                         ) : (
-                          <span className="text-aqua">{t('transport.import.ok')}</span>
+                          <span className="text-accent-cool">{t('transport.import.ok')}</span>
                         )}
                       </TD>
                     </TR>

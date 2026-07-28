@@ -26,7 +26,7 @@ import {
   THead,
   TR,
   EmptyState,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { LoanStatusBadge } from '@/components/domain';
 
 export default function LibraryPage() {

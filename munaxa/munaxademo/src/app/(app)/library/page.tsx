@@ -19,7 +19,7 @@ import {
   Table,
   useToast,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { PageHeader, Gate, Kpi } from '@/components/page';
 
 const LOAN_TONE: Record<string, Tone> = {
@@ -65,11 +65,11 @@ function Library() {
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Kpi label="Titles" value={num(data.books.length)} />
         <Kpi label="Copies" value={num(data.books.reduce((s, b) => s + b.copies, 0))} />
-        <Kpi label="On loan" value={num(activeLoans.length)} tone="coral" />
+        <Kpi label="On loan" value={num(activeLoans.length)} tone="warm" />
         <Kpi
           label="Overdue"
           value={num(data.loans.filter((l) => l.status === 'OVERDUE').length)}
-          tone="coral"
+          tone="warm"
         />
       </section>
 

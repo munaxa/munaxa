@@ -1,5 +1,5 @@
-import { ArrowRight } from '@axa/design-system/icons';
-import { Reveal, cn } from '@axa/design-system';
+import { ArrowRight } from '@axa/platform/icons';
+import { Reveal, cn } from '@axa/platform';
 
 /**
  * Editorial two-column module section: copy on one side, live product surface on the other.

@@ -30,7 +30,7 @@ import {
   TH,
   THead,
   TR,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { EmployeeEditor } from './employee-editor';
 import { TeacherProfileDialog } from '../teachers/teacher-profile-dialog';
 
@@ -152,7 +152,7 @@ export default function EmployeesPage() {
           <Kpi label={t('people.kpiStaff')} value={employees.length + teachers.length} />
           <Kpi label={t('people.kpiTeachers')} value={teachers.length} />
           <Kpi label={t('people.kpiEmployees')} value={employees.length} />
-          <Kpi label={t('people.kpiActive')} value={activeCount} tone="text-aqua" />
+          <Kpi label={t('people.kpiActive')} value={activeCount} tone="text-accent-cool" />
         </section>
 
         {/* Filters */}

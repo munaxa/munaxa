@@ -1,5 +1,5 @@
 import { Resend } from 'resend';
-import { themes } from '@axa/design-system/themes';
+import { themes } from '@axa/platform/themes';
 import { CONTACT_EMAIL, CONTACT_FROM_EMAIL, SITE_NAME, SITE_URL } from './site';
 import { escapeHtml } from './validation';
 import { logger } from './logger';

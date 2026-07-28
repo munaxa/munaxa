@@ -22,7 +22,7 @@ import {
   Table,
   useToast,
   type Tone,
-} from '@axa/design-system';
+} from '@axa/platform';
 import { PageHeader } from '@/components/page';
 
 interface Account {

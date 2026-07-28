@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Shell } from '@/components/shell';
-import { Badge, Card, CardContent, Input, Spinner, useToast } from '@axa/design-system';
+import { Badge, Card, CardContent, Input, Spinner, useToast } from '@axa/platform';
 import { platformConsoleApi, type TimelineItem } from '@/lib/platform-console';
 
 /** Per-school chronological activity feed, derived from the Audit Log. */

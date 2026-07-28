@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CountUp, cn } from '@axa/design-system';
+import { CountUp, cn } from '@axa/platform';
 
 /**
  * School intelligence — a leadership view that reads across modules: attendance trend, collection
@@ -18,9 +18,9 @@ const GRADES = [
   { g: 'G10–12', v: 90 },
 ];
 const STATS = [
-  { k: 'Attendance', v: 96.4, decimals: 1, suffix: '%', d: '+2.1', tone: 'aqua' as const },
-  { k: 'Collection rate', v: 91.5, decimals: 1, suffix: '%', d: '+4.3', tone: 'aqua' as const },
-  { k: 'Avg. GPA', v: 3.41, decimals: 2, suffix: '', d: '-0.04', tone: 'coral' as const },
+  { k: 'Attendance', v: 96.4, decimals: 1, suffix: '%', d: '+2.1', tone: 'cool' as const },
+  { k: 'Collection rate', v: 91.5, decimals: 1, suffix: '%', d: '+4.3', tone: 'cool' as const },
+  { k: 'Avg. GPA', v: 3.41, decimals: 2, suffix: '', d: '-0.04', tone: 'warm' as const },
 ];
 
 export function IntelligencePanel() {
@@ -91,7 +91,7 @@ export function IntelligencePanel() {
               <span className="mono font-display text-xl font-bold">
                 <CountUp value={s.v} decimals={s.decimals} suffix={s.suffix} />
               </span>
-              <span className={cn('mono text-[11px]', s.tone === 'aqua' ? 'text-aqua' : 'text-coral')}>
+              <span className={cn('mono text-[11px]', s.tone === 'cool' ? 'text-accent-cool' : 'text-accent-warm')}>
                 {s.d}
               </span>
             </div>
@@ -105,14 +105,14 @@ export function IntelligencePanel() {
           <svg viewBox="0 0 100 44" preserveAspectRatio="none" className="h-24 w-full" aria-hidden>
             <polyline
               points={`0,44 ${pts} 100,44`}
-              fill="var(--aqua)"
+              fill="var(--accent-cool)"
               opacity="0.08"
               stroke="none"
             />
             <polyline
               points={pts}
               fill="none"
-              stroke="var(--aqua)"
+              stroke="var(--accent-cool)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
