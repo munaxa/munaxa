@@ -8,7 +8,7 @@ on:
     branches: [main]
     paths-ignore:
       - '**/*.md'
-      - 'docs/**'
+      - 'munaxa/docs/**'
       - 'LICENSE'
 
 concurrency:
@@ -36,9 +36,9 @@ jobs:
         with:
           filters: |
             mobile:
-              - 'apps/mobile/**'
+              - 'munaxa/apps/mobile/**'
             designsystem:
-              - 'munaxadesignsystem/**'
+              - 'munaxa/munaxadesignsystem/**'
 
   node:
     name: Lint · Typecheck · Test · Build (JS/TS)
@@ -81,16 +81,19 @@ jobs:
         run: pnpm prisma:generate
 
       - name: Build internal packages
-        run: pnpm turbo run build --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils --filter=@munaxa/design-tokens
+        run: pnpm turbo run build --filter=@axa/platform --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils
 
       - name: Apply database migrations
         run: pnpm --filter @munaxa/api prisma:deploy
 
       - name: Provision restricted application role
-        run: psql "$PSQL_DIRECT_URL" -v ON_ERROR_STOP=1 -f infra/postgres/app-role.sql
+        run: psql "$PSQL_DIRECT_URL" -v ON_ERROR_STOP=1 -f munaxa/infra/postgres/app-role.sql
 
       - name: Seed database
         run: pnpm --filter @munaxa/api db:seed
+
+      - name: Validate platform contract
+        run: pnpm validate
 
       - name: Format check
         run: pnpm format:check
@@ -124,22 +127,22 @@ jobs:
           channel: stable
           cache: true
       - name: Prepare platform folders
-        working-directory: apps/mobile
+        working-directory: munaxa/apps/mobile
         run: flutter create --platforms=android,ios .
       - name: Pub get
-        working-directory: apps/mobile
+        working-directory: munaxa/apps/mobile
         run: flutter pub get
       - name: Analyze
-        working-directory: apps/mobile
+        working-directory: munaxa/apps/mobile
         run: flutter analyze
       - name: Test
-        working-directory: apps/mobile
+        working-directory: munaxa/apps/mobile
         run: flutter test
 
-  # NOTE: munaxademo and munaxalanding are now workspace members (approach A). They are built,
-  # typechecked and linted by the `node` job above via `turbo` (pnpm build / typecheck / lint
-  # cover all workspace packages, including these apps and their @munaxa/* dependencies). Their
-  # previous standalone `demo` / `landing` jobs were removed when they joined the workspace.
+  # NOTE: munaxademo and landing are workspace members. They are built, typechecked and linted
+  # by the `node` job above via `turbo` (pnpm build / typecheck / lint cover all workspace
+  # packages, including these apps and their @axa/platform dependency). Their previous
+  # standalone `demo` / `landing` jobs were removed when they joined the workspace.
 
   designsystem:
     name: Typecheck · Build (Design System)
@@ -151,7 +154,7 @@ jobs:
     if: needs.changes.outputs.designsystem == 'true'
     defaults:
       run:
-        working-directory: munaxadesignsystem
+        working-directory: munaxa/munaxadesignsystem
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -161,7 +164,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-          cache-dependency-path: munaxadesignsystem/pnpm-lock.yaml
+          cache-dependency-path: munaxa/munaxadesignsystem/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       # NOTE: the design system has no ESLint setup (only `check`/`format`), so

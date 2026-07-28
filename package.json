@@ -1,8 +1,8 @@
 {
-  "name": "munaxa",
+  "name": "axa",
   "version": "0.1.0",
   "private": true,
-  "description": "Munaxa — Multi-Tenant School Operating System (School OS)",
+  "description": "AXA ecosystem monorepo — the shared design system plus every AXA product (Munaxa, Workaxa, …).",
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.33.0",
   "engines": {
@@ -15,6 +15,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "validate": "turbo run validate",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\"",
     "prisma:generate": "pnpm --filter @munaxa/api prisma:generate",
@@ -23,9 +24,12 @@
     "docker:down": "docker compose down",
     "prepare": "husky"
   },
+  "prisma": {
+    "schema": "munaxa/prisma/schema.prisma"
+  },
   "devDependencies": {
-    "@munaxa/config-eslint": "workspace:*",
-    "@munaxa/config-typescript": "workspace:*",
+    "@axa/config-eslint": "workspace:*",
+    "@axa/config-typescript": "workspace:*",
     "husky": "^9.1.7",
     "lint-staged": "^15.2.10",
     "prettier": "^3.4.2",
@@ -37,11 +41,11 @@
     "@prisma/client": "6.19.3"
   },
   "lint-staged": {
-    "{apps,packages}/**/*.{ts,tsx,js,jsx}": [
+    "{platform,munaxa/apps,munaxa/packages,tooling}/**/*.{ts,tsx,js,jsx}": [
       "eslint --fix",
       "prettier --write"
     ],
-    "{munaxalanding,munaxademo,munaxadesignsystem,scripts,infra}/**/*.{ts,tsx,js,jsx}": [
+    "munaxa/{landing,munaxademo,munaxadesignsystem,orbix-studio,scripts,infra}/**/*.{ts,tsx,js,jsx}": [
       "prettier --write"
     ],
     "*.{json,md,yml,yaml,css}": [
