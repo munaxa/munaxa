@@ -1,0 +1,20 @@
+{
+  "extends": "@axa/config-typescript/react-library.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "."
+  },
+  "include": [
+    "index.ts",
+    "tokens/**/*.ts",
+    "typography/**/*.ts",
+    "themes/**/*.ts",
+    "icons/**/*.ts",
+    "lib/**/*.ts",
+    "hooks/**/*.ts",
+    "components/**/*.ts",
+    "components/**/*.tsx",
+    "patterns/**/*.ts",
+    "patterns/**/*.tsx"
+  ]
+}

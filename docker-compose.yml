@@ -15,7 +15,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Provisions the restricted, NOBYPASSRLS application role on first init.
-      - ./infra/postgres/app-role.sql:/docker-entrypoint-initdb.d/01-app-role.sql:ro
+      - ./munaxa/infra/postgres/app-role.sql:/docker-entrypoint-initdb.d/01-app-role.sql:ro
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-munaxa} -d ${POSTGRES_DB:-munaxa}']
       interval: 10s

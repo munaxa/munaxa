@@ -1,15 +1,13 @@
 {
-  "//": "Root tsconfig for editor/IDE resolution. Apps & packages extend @munaxa/config-typescript.",
+  "//": "Root tsconfig for editor/IDE resolution. Apps & packages extend @axa/config-typescript.",
   "files": [],
   "references": [
-    { "path": "apps/api" },
-    { "path": "apps/admin" },
-    { "path": "packages/domain" },
-    { "path": "packages/contracts" },
-    { "path": "packages/utils" },
-    { "path": "packages/i18n" },
-    { "path": "packages/design-tokens" },
-    { "path": "packages/icons" },
-    { "path": "packages/ui" }
+    { "path": "designsystem" },
+    { "path": "munaxa/apps/api" },
+    { "path": "munaxa/apps/admin" },
+    { "path": "munaxa/packages/domain" },
+    { "path": "munaxa/packages/contracts" },
+    { "path": "munaxa/packages/utils" },
+    { "path": "munaxa/packages/i18n" }
   ]
 }

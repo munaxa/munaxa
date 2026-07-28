@@ -1,7 +1,13 @@
+# AXA ecosystem workspace. One pnpm root so every product resolves the shared design system
+# and the shared tooling configs through `workspace:*` instead of a published registry.
+#
+# `munaxa/munaxadesignsystem` and `munaxa/orbix-studio` are deliberately NOT members: they are
+# standalone Cloudflare apps with their own pnpm roots and lockfiles (see munaxa/README.md).
 packages:
-  - 'apps/api'
-  - 'apps/admin'
-  - 'munaxademo'
-  - 'munaxalanding'
-  - 'landing'
-  - 'packages/*'
+  - 'tooling/*'
+  - 'designsystem'
+  - 'munaxa/apps/api'
+  - 'munaxa/apps/admin'
+  - 'munaxa/munaxademo'
+  - 'munaxa/landing'
+  - 'munaxa/packages/*'

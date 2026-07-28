@@ -1,0 +1,78 @@
+{
+  "name": "@axa/design-system",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The product-agnostic AXA design system: design tokens, product themes, typography, icons, components, patterns and templates. Single source of truth for every AXA product (Munaxa, Workaxa, Inkaxa, …). Contains no product terminology and no business logic.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./tokens": {
+      "types": "./dist/tokens/index.d.ts",
+      "default": "./dist/tokens/index.js"
+    },
+    "./typography": {
+      "types": "./dist/typography/index.d.ts",
+      "default": "./dist/typography/index.js"
+    },
+    "./themes": {
+      "types": "./dist/themes/index.d.ts",
+      "default": "./dist/themes/index.js"
+    },
+    "./icons": {
+      "types": "./dist/icons/index.d.ts",
+      "default": "./dist/icons/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
+      "default": "./dist/hooks/index.js"
+    },
+    "./patterns": {
+      "types": "./dist/patterns/index.d.ts",
+      "default": "./dist/patterns/index.js"
+    },
+    "./css/tokens": "./tokens/css/primitives.css",
+    "./css/motion": "./patterns/motion/motion.css",
+    "./css/base": "./themes/base.css",
+    "./css/themes/munaxa": "./themes/munaxa/index.css",
+    "./css/themes/workaxa": "./themes/workaxa/index.css",
+    "./css/themes/inkaxa": "./themes/inkaxa/index.css",
+    "./source": "./index.ts"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "tokens/css",
+    "themes",
+    "patterns/motion/motion.css",
+    "assets"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit --tsBuildInfoFile node_modules/.cache/tsc-typecheck.tsbuildinfo",
+    "test": "echo \"no tests yet\" && exit 0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.469.0",
+    "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@axa/config-eslint": "workspace:*",
+    "@axa/config-typescript": "workspace:*",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.17.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,90 +1,54 @@
-# Munaxa — School Operating System (School OS)
+# AXA
 
-Munaxa is a **production-grade, multi-tenant School Operating System** for K-12 schools, built for
-the **Jordan** market (Arabic + English, RTL + LTR). It covers school administration, student &
-people management, attendance, scheduling, finance, communication, and reporting.
+Monorepo for the AXA product ecosystem and the design system they all share.
 
-> Munaxa is **not** an LMS. It integrates with Google Classroom and Microsoft Teams via **deep
-> links only** and never duplicates LMS functionality.
-
-## Monorepo layout
-
-```text
-munaxa/
-├── apps/
-│   ├── api/        # NestJS backend (modular monolith, DDD + Clean Architecture)
-│   ├── admin/      # Next.js 15 Admin Portal (App Router, Tailwind, shadcn)
-│   └── mobile/     # Flutter apps (Parent / Student / Teacher flavors)
-├── packages/
-│   ├── domain/         # Framework-free domain enums/constants (roles, permissions, locale)
-│   ├── contracts/      # Shared DTOs / zod schemas (API ⇄ Admin source of truth)
-│   ├── utils/          # Cross-cutting helpers (Jordan validators, money)
-│   ├── i18n/           # en/ar message catalogs
-│   ├── ui/             # Shared React UI helpers
-│   ├── config-typescript/  # Shared tsconfig bases
-│   ├── config-eslint/      # Shared ESLint (flat) configs
-│   └── config-tailwind/    # Tailwind preset + design tokens
-├── prisma/         # Prisma schema & migrations (shared PostgreSQL)
-├── docs/           # Architecture (Phase 0) & runbooks
-└── .github/        # CI/CD workflows
+```
+/
+├── designsystem/     @axa/design-system — the shared, product-agnostic UI layer
+├── munaxa/           Munaxa — Multi-Tenant School Operating System
+├── workaxa/          Workaxa — reserved, not implemented yet
+├── tooling/          shared ESLint + TypeScript configs (@axa/config-*)
+├── package.json      workspace root
+├── pnpm-workspace.yaml
+├── turbo.json
+├── docker-compose.yml   local dev stack (Munaxa)
+└── render.yaml          staging blueprint (Munaxa)
 ```
 
-## Prerequisites
-- Node.js 22+ · pnpm 10+ · Docker · (Flutter 3.24+ for mobile)
+The repository root is the **workspace root**, not a product. It owns dependency resolution
+(pnpm), the task graph (turbo), lint/format/TypeScript baselines and CI. Product code lives
+entirely under its own product folder. This is what lets `munaxa/` and a future `workaxa/`
+resolve `@axa/design-system` through `workspace:*` instead of publishing to a registry.
 
-## Quick start
+## Getting started
 
 ```bash
-cp .env.example .env
-cp apps/api/.env.example apps/api/.env
-cp apps/admin/.env.example apps/admin/.env.local
-
 pnpm install
-pnpm docker:up            # Postgres (+ app role), Redis, LocalStack(S3), Mailhog
-pnpm prisma:generate
-pnpm prisma:migrate       # apply migrations (also seeds the global permission catalog)
-pnpm --filter @munaxa/api db:seed:demo   # demo school + admin login + a sample student
-pnpm dev                  # runs api + admin via Turborepo
+pnpm prisma:generate        # Munaxa API's Prisma client
+pnpm build                  # everything, in dependency order
+pnpm lint && pnpm typecheck && pnpm test
 ```
 
-- API: http://localhost:4000/api/v1 — Swagger at `/api/docs`
-- Admin: http://localhost:3000
+## The design system is the single source of truth
 
-**Demo login** (from `db:seed:demo`): tenant `demo` · `admin@demo.example` · `ChangeMe123!`
+Every product consumes its components, tokens, icons and theme from
+[`designsystem/`](designsystem/README.md). There are no product-local copies of a button, a
+card, a token or a colour — that is enforced by review and, for colour, by ESLint.
 
-## Common scripts
+Read [`designsystem/README.md`](designsystem/README.md) before adding UI anywhere. The one
+decision that matters is whether a thing is shared or product-specific; the rules for making
+that call are in §3 of that document.
 
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Run all apps in dev |
-| `pnpm build` | Build all packages/apps |
-| `pnpm lint` / `pnpm typecheck` / `pnpm test` | Quality gates |
-| `pnpm format` | Prettier write |
-| `pnpm prisma:migrate` | Create/apply a dev migration (+ seeds permissions) |
-| `pnpm --filter @munaxa/api db:seed:demo` | Seed a demo school + admin login |
-| `pnpm docker:up` / `pnpm docker:down` | Local infra |
+## Products
 
-## Documentation
-- **Session handoff / continuation guide**: [`docs/HANDOFF.md`](./docs/HANDOFF.md) — read first to resume work
-- Architecture blueprint: [`docs/architecture/`](./docs/architecture/README.md)
-- Phase deployment notes: [`docs/phases/`](./docs/phases/)
+| Product     | Folder                       | Status                                          |
+| ----------- | ---------------------------- | ----------------------------------------------- |
+| **Munaxa**  | [`munaxa/`](munaxa/README.md) | In development. Admin portal, API, landing, demo |
+| **Workaxa** | [`workaxa/`](workaxa/README.md) | Reserved. Theme authored, no code yet          |
+| **Inkaxa**  | —                            | Theme authored, no product root yet              |
 
-## Phase status
-- ✅ Phase 0 — System Architecture
-- ✅ Phase 1 — Foundation Setup
-- ✅ Phase 2 — Core Database Design
-- ✅ Phase 3 — Authentication & RBAC
-- ✅ Phase 4 — School Structure Management
-- ✅ Phase 5 — People Management
-- ✅ Phase 6 — Timetable Engine
-- ✅ Phase 7 — Attendance System
-- ✅ Phase 8 — Academics
-- ✅ Phase 9 — Finance
-- ✅ Phase 10 — Communication System
-- ✅ Phase 11 — Parent Portal
-- ✅ Phase 12 — Student App
-- ✅ Phase 13 — Reporting
-- ✅ Phase 14 — Advanced Modules
-- ✅ Phase 15 — Production Hardening
+## Workspace members
 
-Development is **phase-by-phase**; see `MunaxaPrompts/` for the phase specifications.
+`pnpm-workspace.yaml` lists them. Two apps under `munaxa/` are deliberately *not* members —
+`munaxa/munaxadesignsystem` and `munaxa/orbix-studio` are standalone Cloudflare apps with their
+own pnpm roots and lockfiles.
