@@ -15,7 +15,7 @@ services:
   - type: web
     name: munaxa-api
     runtime: docker
-    dockerfilePath: ./munaxa/apps/api/Dockerfile
+    dockerfilePath: ./school/apps/api/Dockerfile
     dockerContext: .
     region: frankfurt
     plan: free
@@ -73,7 +73,7 @@ services:
   - type: web
     name: munaxa-admin
     runtime: docker
-    dockerfilePath: ./munaxa/apps/admin/Dockerfile
+    dockerfilePath: ./school/apps/admin/Dockerfile
     dockerContext: .
     region: frankfurt
     plan: free

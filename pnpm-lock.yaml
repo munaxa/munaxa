@@ -37,18 +37,58 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  munaxa/apps/admin:
+  platform:
+    dependencies:
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      lucide-react:
+        specifier: ^0.469.0
+        version: 0.469.0(react@19.0.0)
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.0.0(react@19.0.0)
+      tailwind-merge:
+        specifier: ^2.6.0
+        version: 2.6.1
+    devDependencies:
+      '@axa/config-eslint':
+        specifier: workspace:*
+        version: link:../tooling/config-eslint
+      '@axa/config-typescript':
+        specifier: workspace:*
+        version: link:../tooling/config-typescript
+      '@types/react':
+        specifier: ^19.0.2
+        version: 19.2.16
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.16)
+      eslint:
+        specifier: ^9.17.0
+        version: 9.39.4(jiti@2.7.0)
+      react:
+        specifier: ^19.0.0
+        version: 19.0.0
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+
+  school/apps/admin:
     dependencies:
       '@axa/platform':
         specifier: workspace:*
         version: link:../../../platform
-      '@munaxa/contracts':
+      '@school/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
-      '@munaxa/domain':
+      '@school/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@munaxa/i18n':
+      '@school/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
       '@sentry/nextjs':
@@ -107,7 +147,7 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  munaxa/apps/api:
+  school/apps/api:
     dependencies:
       '@aws-sdk/client-s3':
         specifier: ^3.717.0
@@ -115,15 +155,6 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.717.0
         version: 3.1061.0
-      '@munaxa/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@munaxa/domain':
-        specifier: workspace:*
-        version: link:../../packages/domain
-      '@munaxa/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.24(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -151,6 +182,15 @@ importers:
       '@prisma/client':
         specifier: ^6.2.1
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      '@school/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@school/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@school/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@sentry/nestjs':
         specifier: ^9.0.0
         version: 9.47.1(@nestjs/common@11.1.24(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.24)
@@ -270,7 +310,7 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  munaxa/landing:
+  school/landing:
     dependencies:
       '@axa/platform':
         specifier: workspace:*
@@ -340,7 +380,7 @@ importers:
         specifier: ^4.59.2
         version: 4.105.0
 
-  munaxa/munaxademo:
+  school/munaxademo:
     dependencies:
       '@axa/platform':
         specifier: workspace:*
@@ -416,7 +456,7 @@ importers:
         specifier: ^4.100.0
         version: 4.105.0
 
-  munaxa/packages/contracts:
+  school/packages/contracts:
     dependencies:
       zod:
         specifier: ^3.24.1
@@ -428,7 +468,7 @@ importers:
       '@axa/config-typescript':
         specifier: workspace:*
         version: link:../../../tooling/config-typescript
-      '@munaxa/domain':
+      '@school/domain':
         specifier: workspace:*
         version: link:../domain
       eslint:
@@ -438,7 +478,7 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  munaxa/packages/domain:
+  school/packages/domain:
     devDependencies:
       '@axa/config-eslint':
         specifier: workspace:*
@@ -453,7 +493,7 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  munaxa/packages/i18n:
+  school/packages/i18n:
     devDependencies:
       '@axa/config-eslint':
         specifier: workspace:*
@@ -461,7 +501,7 @@ importers:
       '@axa/config-typescript':
         specifier: workspace:*
         version: link:../../../tooling/config-typescript
-      '@munaxa/domain':
+      '@school/domain':
         specifier: workspace:*
         version: link:../domain
       eslint:
@@ -471,7 +511,7 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
-  munaxa/packages/utils:
+  school/packages/utils:
     devDependencies:
       '@axa/config-eslint':
         specifier: workspace:*
@@ -488,46 +528,6 @@ importers:
       vitest:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.19)(lightningcss@1.32.0)(terser@5.48.0)
-
-  platform:
-    dependencies:
-      class-variance-authority:
-        specifier: ^0.7.1
-        version: 0.7.1
-      clsx:
-        specifier: ^2.1.1
-        version: 2.1.1
-      lucide-react:
-        specifier: ^0.469.0
-        version: 0.469.0(react@19.0.0)
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.0.0(react@19.0.0)
-      tailwind-merge:
-        specifier: ^2.6.0
-        version: 2.6.1
-    devDependencies:
-      '@axa/config-eslint':
-        specifier: workspace:*
-        version: link:../tooling/config-eslint
-      '@axa/config-typescript':
-        specifier: workspace:*
-        version: link:../tooling/config-typescript
-      '@types/react':
-        specifier: ^19.0.2
-        version: 19.2.16
-      '@types/react-dom':
-        specifier: ^19.2.3
-        version: 19.2.3(@types/react@19.2.16)
-      eslint:
-        specifier: ^9.17.0
-        version: 9.39.4(jiti@2.7.0)
-      react:
-        specifier: ^19.0.0
-        version: 19.0.0
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
 
   tooling/config-eslint:
     dependencies:

@@ -28,8 +28,8 @@ next-env.d.ts
 !**/.env.example
 
 # Prisma
-munaxa/prisma/*.db
-munaxa/prisma/migrations/dev.db*
+school/prisma/*.db
+school/prisma/migrations/dev.db*
 
 # Testing
 coverage/
@@ -48,17 +48,17 @@ Thumbs.db
 !.vscode/settings.json
 
 # Flutter / Dart
-munaxa/apps/mobile/.dart_tool/
-munaxa/apps/mobile/.flutter-plugins
-munaxa/apps/mobile/.flutter-plugins-dependencies
-munaxa/apps/mobile/build/
-munaxa/apps/mobile/.pub-cache/
-munaxa/apps/mobile/.pub/
-munaxa/apps/mobile/ios/Pods/
-munaxa/apps/mobile/**/GeneratedPluginRegistrant.*
-munaxa/apps/mobile/android/.gradle/
-munaxa/apps/mobile/android/local.properties
-munaxa/apps/mobile/*.iml
+school/apps/mobile/.dart_tool/
+school/apps/mobile/.flutter-plugins
+school/apps/mobile/.flutter-plugins-dependencies
+school/apps/mobile/build/
+school/apps/mobile/.pub-cache/
+school/apps/mobile/.pub/
+school/apps/mobile/ios/Pods/
+school/apps/mobile/**/GeneratedPluginRegistrant.*
+school/apps/mobile/android/.gradle/
+school/apps/mobile/android/local.properties
+school/apps/mobile/*.iml
 
 # Sentry
 .sentryclirc

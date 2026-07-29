@@ -14,8 +14,8 @@ export default [
       '**/node_modules/**',
       '**/coverage/**',
       '**/.turbo/**',
-      'munaxa/apps/mobile/**',
-      'munaxa/infra/**', // ops/load-test scripts (e.g. k6) run outside the app toolchain
+      'school/apps/mobile/**',
+      'school/infra/**', // ops/load-test scripts (e.g. k6) run outside the app toolchain
       '**/*.config.{js,mjs,cjs,ts}',
       '**/*.d.ts',
     ],

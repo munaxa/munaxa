@@ -57,7 +57,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: munaxa/apps/api/Dockerfile
+          file: school/apps/api/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.repo }}/munaxa-api:${{ github.sha }}
@@ -69,7 +69,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: munaxa/apps/admin/Dockerfile
+          file: school/apps/admin/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ steps.meta.outputs.repo }}/munaxa-admin:${{ github.sha }}
@@ -103,7 +103,7 @@ jobs:
             echo "::warning::DIRECT_DATABASE_URL secret is not set for this environment — skipping migrations."
             exit 0
           fi
-          pnpm --filter @munaxa/api prisma:deploy
+          pnpm --filter @school/api prisma:deploy
       - name: Re-apply restricted application role grants
         run: |
           if [ -z "$DIRECT_DATABASE_URL" ]; then
@@ -111,7 +111,7 @@ jobs:
             exit 0
           fi
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client >/dev/null
-          psql "$DIRECT_DATABASE_URL" -v ON_ERROR_STOP=1 -f munaxa/infra/postgres/app-role.sql
+          psql "$DIRECT_DATABASE_URL" -v ON_ERROR_STOP=1 -f school/infra/postgres/app-role.sql
 
   deploy:
     name: Deploy services
