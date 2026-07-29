@@ -34,6 +34,10 @@ school/prisma/migrations/dev.db*
 # Testing
 coverage/
 
+# Storybook build output
+storybook-static/
+*.storybook.log
+
 # Logs
 *.log
 npm-debug.log*

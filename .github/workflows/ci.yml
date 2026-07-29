@@ -116,6 +116,11 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Storybook is the platform's component documentation and its a11y review surface. Building
+      # it catches a story that no longer compiles against the component it documents.
+      - name: Build Storybook
+        run: pnpm build-storybook
+
   flutter:
     name: Analyze · Test (Flutter)
     runs-on: ubuntu-latest
