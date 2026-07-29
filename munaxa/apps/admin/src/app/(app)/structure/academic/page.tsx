@@ -107,7 +107,7 @@ export default function AcademicStructurePage() {
                 <p className="text-sm text-muted-foreground">{t('academicYear.subtitle')}</p>
                 <a
                   href="/structure/academic-year"
-                  className="mt-3 inline-flex items-center text-sm font-medium text-primary hover:underline"
+                  className="mt-3 inline-flex items-center text-sm font-medium text-primary-strong hover:underline"
                 >
                   {t('academicYear.title')} →
                 </a>

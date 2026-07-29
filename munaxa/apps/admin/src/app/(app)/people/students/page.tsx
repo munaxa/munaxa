@@ -346,14 +346,14 @@ export default function StudentsPage() {
                       <div className="flex items-center gap-3">
                         <span
                           aria-hidden="true"
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary-strong"
                         >
                           {(s.firstNameEn.trim()[0] ?? '?').toUpperCase()}
                         </span>
                         <span className="min-w-0">
                           <button
                             type="button"
-                            className="block truncate text-start font-medium text-foreground hover:text-primary hover:underline"
+                            className="block truncate text-start font-medium text-foreground hover:text-primary-strong hover:underline"
                             onClick={() => openProfile(s)}
                           >
                             {s.firstNameEn} {s.lastNameEn}

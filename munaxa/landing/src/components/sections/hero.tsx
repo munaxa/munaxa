@@ -30,7 +30,7 @@ export function Hero() {
           <h1 className="display mx-auto mt-6 max-w-4xl text-[2.6rem] leading-[0.98] sm:text-6xl lg:text-[4.6rem]">
             Run the entire school
             <br className="hidden sm:block" /> as{' '}
-            <span className="text-primary">one system.</span>
+            <span className="text-primary-strong">one system.</span>
           </h1>
         </Reveal>
 
@@ -89,7 +89,7 @@ export function Hero() {
             style={{ animationDelay: '1.4s' }}
           >
             <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Attendance</p>
-            <p className="mono font-display text-sm font-bold text-primary">
+            <p className="mono font-display text-sm font-bold text-primary-strong">
               <CountUp value={96.4} decimals={1} suffix="%" />
             </p>
           </div>

@@ -486,7 +486,10 @@ function ActivationValidation({
           <li key={c.key} className="flex items-center justify-between gap-2 text-sm">
             <span className="text-muted-foreground">✗ {c.label}</span>
             {c.resolveRoute ? (
-              <a href={c.resolveRoute} className="text-xs font-medium text-primary hover:underline">
+              <a
+                href={c.resolveRoute}
+                className="text-xs font-medium text-primary-strong hover:underline"
+              >
                 {t('academicYear.resolve')} →
               </a>
             ) : null}
@@ -742,7 +745,10 @@ function CloseValidation({ checks }: { checks: AcademicYearReadiness['close']['c
             ) : null}
           </span>
           {!c.ok && c.resolveRoute ? (
-            <a href={c.resolveRoute} className="text-xs font-medium text-primary hover:underline">
+            <a
+              href={c.resolveRoute}
+              className="text-xs font-medium text-primary-strong hover:underline"
+            >
               {t('academicYear.resolve')} →
             </a>
           ) : null}

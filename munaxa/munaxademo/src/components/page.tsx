@@ -44,7 +44,7 @@ export function Kpi({
       : tone === 'warm'
         ? 'text-accent-warm'
         : tone === 'primary'
-          ? 'text-primary'
+          ? 'text-primary-strong'
           : '';
   const body = (
     <Card className={href ? 'h-full transition hover:border-primary/40 hover:shadow-glow' : ''}>

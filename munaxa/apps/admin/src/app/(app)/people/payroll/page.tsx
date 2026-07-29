@@ -64,7 +64,7 @@ export default function PayrollPrepPage() {
           <h1 className="font-display text-2xl font-semibold">{t('hr.payrollPrep')}</h1>
           <Link
             href="/people/employees"
-            className="text-sm text-muted-foreground hover:text-primary"
+            className="text-sm text-muted-foreground hover:text-primary-strong"
           >
             ← {t('nav.hr')}
           </Link>

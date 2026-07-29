@@ -142,7 +142,7 @@ export function ParentProfileDialog({
                       <TD>
                         <button
                           type="button"
-                          className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                          className="text-start font-medium text-foreground hover:text-primary-strong hover:underline"
                           onClick={() => openStudent(s.studentId)}
                         >
                           {s.firstNameEn} {s.lastNameEn}

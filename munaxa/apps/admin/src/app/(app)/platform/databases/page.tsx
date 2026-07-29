@@ -176,7 +176,7 @@ function Wizard({
                   s.done
                     ? 'bg-accent-cool/20 text-accent-cool'
                     : s.current
-                      ? 'bg-primary/20 text-primary'
+                      ? 'bg-primary/20 text-primary-strong'
                       : 'bg-secondary/60 text-muted-foreground',
                 ].join(' ')}
               >

@@ -131,7 +131,7 @@ export function SystemMap() {
           >
             <span
               className={cn(
-                'grid h-11 w-11 place-items-center rounded-2xl border bg-card text-primary transition-all duration-300',
+                'grid h-11 w-11 place-items-center rounded-2xl border bg-card text-primary-strong transition-all duration-300',
                 activeSet !== null && on
                   ? 'border-primary/60 shadow-[0_10px_30px_-12px_var(--glow)] scale-110'
                   : 'border-border shadow-[0_10px_30px_-16px_color-mix(in_oklch,var(--foreground)_50%,transparent)]',

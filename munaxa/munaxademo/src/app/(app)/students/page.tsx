@@ -143,7 +143,7 @@ function Students() {
                   <TD>
                     <Link
                       href={`/students/${s.id}` as never}
-                      className="font-medium text-foreground hover:text-primary hover:underline"
+                      className="font-medium text-foreground hover:text-primary-strong hover:underline"
                     >
                       {studentName(s)}
                     </Link>

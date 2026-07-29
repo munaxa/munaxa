@@ -110,7 +110,7 @@ export default function AdmissionIdentityPage() {
                     </span>
                     <Link
                       href={`/people/students/${s.id}`}
-                      className="text-xs text-primary hover:underline"
+                      className="text-xs text-primary-strong hover:underline"
                     >
                       {t('admissionsIdentity.openStudent')}
                     </Link>

@@ -317,7 +317,10 @@ function SignInCard(p: CardProps) {
               />
               {t('auth.rememberMe')}
             </label>
-            <Link href={forgotPasswordHref} className="font-medium text-primary hover:underline">
+            <Link
+              href={forgotPasswordHref}
+              className="font-medium text-primary-strong hover:underline"
+            >
               {t('auth.forgotPassword')}
             </Link>
           </div>
@@ -392,7 +395,7 @@ function SignInCard(p: CardProps) {
 function TechBadge({ icon, title, desc }: { icon: React.ReactNode; title: string; desc: string }) {
   return (
     <div className="flex items-center gap-2.5 rounded-xl border border-border bg-background/40 px-3 py-2.5">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-strong">
         {icon}
       </span>
       <div className="min-w-0 leading-tight">
@@ -414,7 +417,7 @@ function BrandPanel({ t }: { t: (k: string) => string }) {
       <h2 className="font-display text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl">
         {t('auth.marketingTitle1')}
         <br />
-        <span className="text-primary">{t('auth.marketingTitle2')}</span>
+        <span className="text-primary-strong">{t('auth.marketingTitle2')}</span>
       </h2>
       <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground lg:text-base">
         {t('auth.marketingSubtitle')}
@@ -459,7 +462,7 @@ function ComplianceBadge({
 }) {
   return (
     <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card/60 px-3 py-2.5 backdrop-blur">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary-strong">
         {icon}
       </span>
       <div className="min-w-0 leading-tight">
@@ -538,7 +541,7 @@ function DashboardPreview({ t }: { t: (k: string) => string }) {
             <ul className="space-y-2">
               {ops.map((o) => (
                 <li key={o.label} className="flex items-center gap-2">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary-strong">
                     {o.icon}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-[10px] text-muted-foreground">
@@ -582,7 +585,7 @@ function AreaChart() {
         </linearGradient>
       </defs>
       <path d={area} fill={`url(#${id})`} />
-      <path d={line} fill="none" className="stroke-primary" strokeWidth="1.5" />
+      <path d={line} fill="none" className="stroke-primary-strong" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -633,7 +636,7 @@ function InputWithIcon({
       className={`relative rounded-xl border bg-background/50 transition-colors ${
         invalid
           ? 'border-destructive focus-within:border-destructive focus-within:ring-2 focus-within:ring-destructive/30'
-          : 'border-input focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40'
+          : 'border-input focus-within:border-primary-strong focus-within:ring-2 focus-within:ring-ring/40'
       }`}
     >
       <span className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-3 text-muted-foreground">
@@ -676,7 +679,7 @@ function ThemeToggle() {
         aria-pressed={active === 'light'}
         className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
           active === 'light'
-            ? 'bg-primary/15 text-primary'
+            ? 'bg-primary/15 text-primary-strong'
             : 'text-muted-foreground hover:text-foreground'
         }`}
       >
@@ -689,7 +692,7 @@ function ThemeToggle() {
         aria-pressed={active === 'dark'}
         className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
           active === 'dark'
-            ? 'bg-primary/15 text-primary'
+            ? 'bg-primary/15 text-primary-strong'
             : 'text-muted-foreground hover:text-foreground'
         }`}
       >

@@ -155,7 +155,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
                   onClick={close}
                   className="group rounded-xl border border-border bg-background/40 p-3 transition hover:border-primary/40 hover:shadow-glow"
                 >
-                  <p className="font-display text-sm font-semibold group-hover:text-primary">
+                  <p className="font-display text-sm font-semibold group-hover:text-primary-strong">
                     {m.title}
                   </p>
                   <p className="text-xs text-muted-foreground">{m.desc}</p>

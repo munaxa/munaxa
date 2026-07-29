@@ -5,7 +5,7 @@ import { escapeHtml } from './validation';
 import { logger } from './logger';
 
 /** Email HTML cannot read CSS custom properties, so it renders the theme's static hexes. */
-const { color: brand, neutral } = themes.munaxa.brand;
+const { color: brand, neutral } = themes.school.brand;
 
 let client: Resend | null = null;
 

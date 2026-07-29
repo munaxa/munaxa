@@ -15,10 +15,10 @@ The shared platform is done and is the single source of truth:
 | Icons                  | `@axa/platform/icons`                                        |
 | UI hooks               | `@axa/platform/hooks`                                        |
 | Theme registry         | `@axa/platform/themes`                                       |
-| The Workaxa theme      | `@import '@axa/platform/css/themes/workaxa';`                |
+| The Workaxa theme      | `@import '@axa/platform/css/themes/work';`                |
 
 The Workaxa palette is already authored — see
-[`platform/themes/workaxa/`](../platform/themes/workaxa). Nothing about starting Workaxa
+[`platform/themes/work/`](../platform/themes/work). Nothing about starting Workaxa
 requires touching the platform's colours.
 
 ## When you start
@@ -32,7 +32,7 @@ requires touching the platform's colours.
 
    ```css
    @import 'tailwindcss';
-   @import '@axa/platform/css/themes/workaxa';
+   @import '@axa/platform/css/themes/work';
    @source '../../../../platform/ui';
    ```
 

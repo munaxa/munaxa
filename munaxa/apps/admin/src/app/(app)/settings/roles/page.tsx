@@ -395,7 +395,7 @@ const RoleEditor = forwardRef<
                   <h3 className="font-display text-sm font-semibold">{titleCase(category)}</h3>
                   <button
                     type="button"
-                    className="text-xs text-primary hover:underline"
+                    className="text-xs text-primary-strong hover:underline"
                     onClick={() => toggleGroup(entries, !allOn)}
                   >
                     {allOn ? t('roles.clear') : t('roles.selectAll')}

@@ -81,7 +81,7 @@ export default function RequestDemoPage() {
               </p>
               <Link
                 href="/login"
-                className="inline-block text-sm font-medium text-primary hover:underline"
+                className="inline-block text-sm font-medium text-primary-strong hover:underline"
               >
                 Already have credentials? Sign in
               </Link>

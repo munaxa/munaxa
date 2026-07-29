@@ -90,7 +90,7 @@ export default function PostingDetailPage() {
           <h1 className="font-display text-2xl font-semibold">{t('hr.applicants')}</h1>
           <Link
             href="/people/recruitment"
-            className="text-sm text-muted-foreground hover:text-primary"
+            className="text-sm text-muted-foreground hover:text-primary-strong"
           >
             ← {t('hr.recruitment')}
           </Link>

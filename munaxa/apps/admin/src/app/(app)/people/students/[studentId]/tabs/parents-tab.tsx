@@ -99,7 +99,7 @@ export function ParentsTab({ student }: { student: Student }) {
                   <div className="min-w-0">
                     <button
                       type="button"
-                      className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                      className="text-start font-medium text-foreground hover:text-primary-strong hover:underline"
                       onClick={() => setViewing(link.parent)}
                     >
                       {link.parent.firstNameEn} {link.parent.lastNameEn}

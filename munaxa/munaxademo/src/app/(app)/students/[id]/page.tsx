@@ -108,7 +108,7 @@ function StudentProfile() {
         <Card>
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
             Student not found.{' '}
-            <Link href={'/students' as never} className="text-primary hover:underline">
+            <Link href={'/students' as never} className="text-primary-strong hover:underline">
               Back to students
             </Link>
           </CardContent>

@@ -1059,12 +1059,12 @@ function Dots() {
 // Tones + helpers
 // ---------------------------------------------------------------------------
 const chipTone: Record<Tone, string> = {
-  primary: 'bg-primary/10 text-primary',
+  primary: 'bg-primary/10 text-primary-strong',
   cool: 'bg-accent-cool/10 text-accent-cool',
   warm: 'bg-accent-warm/10 text-accent-warm',
 };
 const strokeTone: Record<Tone, string> = {
-  primary: 'stroke-primary',
+  primary: 'stroke-primary-strong',
   cool: 'stroke-accent-cool',
   warm: 'stroke-accent-warm',
 };

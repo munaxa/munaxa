@@ -23,7 +23,7 @@ export function PlatformNav({ active }: { active: string }) {
           className={[
             'rounded-md px-3 py-1.5 text-sm font-medium transition',
             i.key === active
-              ? 'bg-primary/10 text-primary'
+              ? 'bg-primary/10 text-primary-strong'
               : 'text-muted-foreground hover:bg-secondary/60',
           ].join(' ')}
         >

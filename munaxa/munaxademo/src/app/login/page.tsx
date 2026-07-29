@@ -113,7 +113,7 @@ export default function LoginPage() {
             Don’t have access yet?{' '}
             <Link
               href={'/request-demo' as never}
-              className="font-medium text-primary hover:underline"
+              className="font-medium text-primary-strong hover:underline"
             >
               Book a demo
             </Link>
@@ -139,7 +139,7 @@ export default function LoginPage() {
                 onClick={() => choosePersona(p.id)}
                 className="group flex flex-col rounded-xl border border-border bg-card p-4 text-start shadow-card transition hover:border-primary/40 hover:shadow-glow"
               >
-                <span className="font-display text-base font-semibold group-hover:text-primary">
+                <span className="font-display text-base font-semibold group-hover:text-primary-strong">
                   {p.nameEn}
                 </span>
                 <span className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">

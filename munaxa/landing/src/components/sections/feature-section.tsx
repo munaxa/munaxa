@@ -50,7 +50,7 @@ export function FeatureSection({
 
           {handoff && (
             <p className="mt-7 inline-flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3.5 py-1.5 text-[0.78rem] text-muted-foreground">
-              <ArrowRight className="h-3.5 w-3.5 text-primary" aria-hidden />
+              <ArrowRight className="h-3.5 w-3.5 text-primary-strong" aria-hidden />
               {handoff}
             </p>
           )}

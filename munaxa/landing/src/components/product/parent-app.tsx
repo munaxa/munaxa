@@ -9,7 +9,7 @@ export function ParentApp() {
           <p className="text-[11px] text-muted-foreground">Good morning, Rana</p>
           <p className="font-display text-base font-semibold">Adam · Grade 7-B</p>
         </div>
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/12 font-display text-sm font-semibold text-primary">
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/12 font-display text-sm font-semibold text-primary-strong">
           A
         </span>
       </div>
@@ -34,7 +34,7 @@ export function ParentApp() {
 
       <div className="mt-3 grid grid-cols-2 gap-2.5">
         <div className="rounded-2xl border border-border bg-card p-3">
-          <GraduationCap className="h-4 w-4 text-primary" aria-hidden />
+          <GraduationCap className="h-4 w-4 text-primary-strong" aria-hidden />
           <p className="mt-2 text-[11px] text-muted-foreground">Term average</p>
           <p className="mono font-display text-lg font-bold">88%</p>
         </div>

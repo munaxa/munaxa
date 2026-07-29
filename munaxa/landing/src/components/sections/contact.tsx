@@ -134,7 +134,7 @@ export function Contact() {
               const Icon = c.icon;
               return (
                 <li key={c.label} className="flex items-center gap-3.5">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border bg-card text-primary">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-border bg-card text-primary-strong">
                     <Icon className="h-5 w-5" aria-hidden />
                   </span>
                   <span className="min-w-0">
@@ -144,7 +144,7 @@ export function Contact() {
                     {c.href ? (
                       <a
                         href={c.href}
-                        className="mono text-sm font-medium text-foreground transition hover:text-primary"
+                        className="mono text-sm font-medium text-foreground transition hover:text-primary-strong"
                       >
                         {c.value}
                       </a>

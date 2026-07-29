@@ -518,7 +518,9 @@ function PlacementDialog({
                     setGradeId(enrollment.grade?.id ?? '');
                   }}
                   className={`rounded-lg border px-3 py-2 text-start text-sm ${
-                    reason === r ? 'border-primary bg-primary/5' : 'border-border hover:bg-accent'
+                    reason === r
+                      ? 'border-primary-strong bg-primary/5'
+                      : 'border-border hover:bg-accent'
                   }`}
                 >
                   <div className="font-medium">{t(`studentProfile.reason_${r}`)}</div>

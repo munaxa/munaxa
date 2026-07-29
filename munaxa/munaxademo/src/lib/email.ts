@@ -10,7 +10,7 @@ import { themes } from '@axa/platform/themes';
 import type { DemoRequest } from '@/lib/requests';
 
 /** Email HTML cannot read CSS custom properties, so it renders the theme's static hexes. */
-const { neutral } = themes.munaxa.brand;
+const { neutral } = themes.school.brand;
 
 /** Read a var/secret on both Node (process.env) and Cloudflare Workers (CF env). */
 async function readEnv(name: string): Promise<string | undefined> {

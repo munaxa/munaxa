@@ -30,7 +30,7 @@ export function CommsComposer() {
             {AUDIENCE.map((a) => (
               <span
                 key={a}
-                className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
+                className="rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary-strong"
               >
                 {a}
               </span>

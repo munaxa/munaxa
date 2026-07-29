@@ -67,7 +67,7 @@ export default function OrganizationPage() {
           <h1 className="font-display text-2xl font-semibold">{t('hr.organization')}</h1>
           <Link
             href="/people/employees"
-            className="text-sm text-muted-foreground hover:text-primary"
+            className="text-sm text-muted-foreground hover:text-primary-strong"
           >
             ← {t('nav.hr')}
           </Link>

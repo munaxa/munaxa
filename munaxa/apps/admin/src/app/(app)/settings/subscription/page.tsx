@@ -170,7 +170,10 @@ export default function SubscriptionSettingsPage() {
         {/* Plan comparison */}
         <div className="grid gap-4 md:grid-cols-3">
           {plans.map((p) => (
-            <Card key={p.id} className={p.id === summary.plan?.id ? 'ring-2 ring-primary' : ''}>
+            <Card
+              key={p.id}
+              className={p.id === summary.plan?.id ? 'ring-2 ring-primary-strong' : ''}
+            >
               <CardHeader>
                 <CardTitle className="flex items-center justify-between text-base">
                   {p.name}

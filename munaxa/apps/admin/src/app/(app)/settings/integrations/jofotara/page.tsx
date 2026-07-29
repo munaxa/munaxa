@@ -262,7 +262,7 @@ export default function JoFotaraPage() {
                     onClick={() => setStep(i)}
                     className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
                       step === i
-                        ? 'border-primary bg-primary/10 text-foreground'
+                        ? 'border-primary-strong bg-primary/10 text-foreground'
                         : i < set.completedSteps
                           ? 'border-transparent bg-muted text-muted-foreground'
                           : 'border-border text-muted-foreground'

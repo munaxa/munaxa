@@ -68,7 +68,7 @@ export default function HrDashboardPage() {
             </Button>
             <Link
               href="/people/employees"
-              className="text-sm text-muted-foreground hover:text-primary"
+              className="text-sm text-muted-foreground hover:text-primary-strong"
             >
               ← {t('nav.hr')}
             </Link>

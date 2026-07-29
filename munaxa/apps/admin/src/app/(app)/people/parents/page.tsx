@@ -114,7 +114,7 @@ export default function ParentsPage() {
                 <TD>
                   <button
                     type="button"
-                    className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                    className="text-start font-medium text-foreground hover:text-primary-strong hover:underline"
                     onClick={() => setViewing(p)}
                   >
                     {p.firstNameEn} {p.lastNameEn}

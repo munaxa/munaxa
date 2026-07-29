@@ -145,7 +145,10 @@ export function EmployeeProfile() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5">
-      <Link href="/people/employees" className="text-sm text-muted-foreground hover:text-primary">
+      <Link
+        href="/people/employees"
+        className="text-sm text-muted-foreground hover:text-primary-strong"
+      >
         ← {t('nav.hr')}
       </Link>
 

@@ -834,7 +834,7 @@ function RecordPaymentDialog({
                       <TD className="text-sm">
                         <button
                           type="button"
-                          className="text-primary underline"
+                          className="text-primary-strong underline"
                           onClick={() =>
                             setAlloc((prev) => ({ ...prev, [l.installmentId]: l.balance }))
                           }

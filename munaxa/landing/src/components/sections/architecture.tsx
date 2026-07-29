@@ -82,7 +82,7 @@ export function Architecture() {
             return (
               <Reveal key={c.title}>
                 <div className="group h-full bg-background p-6 transition-colors hover:bg-secondary/40">
-                  <span className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-card text-primary">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl border border-border bg-card text-primary-strong">
                     <Icon className="h-5 w-5" aria-hidden />
                   </span>
                   <h3 className="mt-4 font-display text-base font-semibold">{c.title}</h3>

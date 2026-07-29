@@ -607,7 +607,7 @@ export function AppShell({
                 className={cn(
                   'hidden h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium transition-colors sm:flex',
                   privacy.enabled
-                    ? 'border-primary/30 bg-primary/10 text-primary'
+                    ? 'border-primary/30 bg-primary/10 text-primary-strong'
                     : 'border-border text-muted-foreground hover:bg-accent',
                 )}
               >
@@ -628,7 +628,7 @@ export function AppShell({
             <div className="flex items-center gap-2 rounded-lg border border-border py-1 ps-1 pe-2">
               <span
                 aria-hidden="true"
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary-strong"
               >
                 {principal.roles[0]?.[0]?.toUpperCase() ?? 'U'}
               </span>

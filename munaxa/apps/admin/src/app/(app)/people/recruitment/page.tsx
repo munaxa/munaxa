@@ -104,7 +104,7 @@ export default function RecruitmentPage() {
           <h1 className="font-display text-2xl font-semibold">{t('hr.recruitment')}</h1>
           <Link
             href="/people/employees"
-            className="text-sm text-muted-foreground hover:text-primary"
+            className="text-sm text-muted-foreground hover:text-primary-strong"
           >
             ← {t('nav.hr')}
           </Link>
@@ -146,7 +146,7 @@ export default function RecruitmentPage() {
                     <div>
                       <Link
                         href={`/people/recruitment/${p.id}`}
-                        className="font-medium hover:text-primary"
+                        className="font-medium hover:text-primary-strong"
                       >
                         {p.title}
                       </Link>

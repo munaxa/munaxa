@@ -204,7 +204,7 @@ export default function EmployeesPage() {
                   <TD>
                     <button
                       type="button"
-                      className="text-start font-medium text-foreground hover:text-primary hover:underline"
+                      className="text-start font-medium text-foreground hover:text-primary-strong hover:underline"
                       onClick={() => setViewingTeacher(r.teacher)}
                     >
                       {r.teacher.firstNameEn} {r.teacher.lastNameEn}
@@ -227,7 +227,7 @@ export default function EmployeesPage() {
                   <TD>
                     <Link
                       href={`/people/employees/${r.employee.id}`}
-                      className="font-medium text-foreground hover:text-primary hover:underline"
+                      className="font-medium text-foreground hover:text-primary-strong hover:underline"
                     >
                       {r.employee.firstNameEn} {r.employee.lastNameEn}
                     </Link>
@@ -248,7 +248,7 @@ export default function EmployeesPage() {
                   <TD className="text-end">
                     <Link
                       href={`/people/employees/${r.employee.id}`}
-                      className="text-sm text-primary hover:underline"
+                      className="text-sm text-primary-strong hover:underline"
                     >
                       {t('people.view')}
                     </Link>
