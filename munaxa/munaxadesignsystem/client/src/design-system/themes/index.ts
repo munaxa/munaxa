@@ -1,26 +1,13 @@
-import { colors } from "../tokens";
-
-// light (website default) + dark "ink" theme contract. Values mirror the
-// semantic CSS variables in index.css.
-export const themes = {
-  light: {
-    background: colors.neutral.bg,
-    foreground: colors.neutral.ink,
-    surface: colors.neutral[0],
-    border: colors.neutral.border,
-    primary: colors.brand.primaryLight,
-    coral: colors.coral.light,
-    aqua: colors.aqua.light,
-  },
-  dark: {
-    background: colors.ink[900],
-    foreground: "#F4F0FF",
-    surface: colors.ink[700],
-    border: colors.ink.border,
-    primary: colors.brand.primaryDark,
-    coral: colors.coral.dark,
-    aqua: colors.aqua.dark,
-  },
-} as const;
-
-export type ThemeName = keyof typeof themes;
+/**
+ * The colour schemes this site can render.
+ *
+ * Colour itself is NOT defined here: the site consumes the Munaxa palette from the shared
+ * platform (`@import "@axa/platform/css/themes/munaxa"` in index.css), and every component
+ * styles itself through that theme contract. This module carries only the scheme *name*, which
+ * `ThemeProvider` uses to toggle the `.dark` class.
+ *
+ * A previous revision derived this type from a local copy of the design tokens
+ * (`design-system/tokens/*`). That copy had drifted from the shipped palette and had no runtime
+ * consumers, so it was removed — see /PLATFORM_ENGINEERING_STANDARDS.md §6.
+ */
+export type ThemeName = 'light' | 'dark';
