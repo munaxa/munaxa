@@ -70,10 +70,9 @@ Munaxa is the brand; the products are named for what they do.
 
 ## Workspace members
 
-`pnpm-workspace.yaml` lists them. One app under `school/` is deliberately *not* a member —
-`school/orbix-studio` is a standalone Cloudflare app with its own pnpm root and lockfile. Because
-it resolves `@axa/platform` through a `file:` dependency rather than `workspace:*`, a platform
-change can break it while every workspace build stays green.
+`pnpm-workspace.yaml` lists them. Every app in the repository is now a workspace member, so each
+one resolves `@axa/platform` through `workspace:*` and a platform change is caught by the ordinary
+workspace build rather than by a separate job.
 
 The Platform's own documentation site is its Storybook, deployed to Cloudflare from the
 `@axa/platform/build-storybook` bundle.
