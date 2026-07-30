@@ -28,7 +28,6 @@ jobs:
       pull-requests: read
     outputs:
       mobile: ${{ steps.filter.outputs.mobile }}
-      designsystem: ${{ steps.filter.outputs.designsystem }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -37,11 +36,6 @@ jobs:
           filters: |
             mobile:
               - 'school/apps/mobile/**'
-            designsystem:
-              - 'school/munaxadesignsystem/**'
-              # It consumes @axa/platform through a `file:` dependency, so a platform-only
-              # change can break it while every workspace build stays green. Watch both.
-              - 'platform/**'
 
   node:
     name: Lint · Typecheck · Test · Build (JS/TS)
@@ -151,36 +145,6 @@ jobs:
   # by the `node` job above via `turbo` (pnpm build / typecheck / lint cover all workspace
   # packages, including these apps and their @axa/platform dependency). Their previous
   # standalone `demo` / `landing` jobs were removed when they joined the workspace.
-
-  designsystem:
-    name: Typecheck · Build (Design System)
-    runs-on: ubuntu-latest
-    # Standalone Cloudflare app (own pnpm root + lockfile, not in the workspace).
-    # Deployed to Cloudflare via the dashboard Git integration; this job only
-    # validates the static (Cloudflare) build. Only run when its code changes.
-    needs: changes
-    if: needs.changes.outputs.designsystem == 'true'
-    defaults:
-      run:
-        working-directory: school/munaxadesignsystem
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: school/munaxadesignsystem/pnpm-lock.yaml
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      # NOTE: the design system has no ESLint setup (only `check`/`format`), so
-      # lint is omitted. Typecheck + the Cloudflare static build gate it.
-      - name: Typecheck
-        run: pnpm check
-      - name: Build (Cloudflare static)
-        run: pnpm cf:build
 
   security:
     name: Security scans
