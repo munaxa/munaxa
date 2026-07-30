@@ -5,8 +5,9 @@ build
 .turbo
 coverage
 pnpm-lock.yaml
-munaxa/apps/mobile
+school/apps/mobile
 munaxadesignsystem
 landing
 munaxalanding.bak
 *.md
+storybook-static/

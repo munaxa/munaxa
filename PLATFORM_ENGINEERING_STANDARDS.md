@@ -65,10 +65,10 @@ The membership test, applied without mercy:
 If no, it is product code. That is not a demotion. Most code is product code, and a small platform
 is a healthy one.
 
-**A product** (`munaxa/`, `workaxa/`, …) is a complete, independently deployable business system
+**A product** (`school/`, `work/`, …) is a complete, independently deployable business system
 that consumes the platform. It owns its domain model, business rules, workflows, database, API,
 navigation, app shell, authentication UI, copy and deployment. Products are **peers** — the fact
-that Munaxa exists and Workaxa does not gives Munaxa no special claim on the shared layer.
+that School exists and Work does not gives School no special claim on the shared layer.
 
 **Two directories inside `platform/` are product-owned:** `platform/themes/<product>/` and
 `platform/assets/<product>/`. Changing your own product's palette or artwork is a product change,
@@ -103,7 +103,7 @@ change follows [`platform/CONTRIBUTING.md`](./platform/CONTRIBUTING.md) in full.
 
 Absolute. No exception, no temporary exemption, no "just this one type".
 
-A single `import { Student } from '@munaxa/domain'` inside `platform/` makes the platform
+A single `import { Student } from '@school/domain'` inside `platform/` makes the platform
 unbuildable for every other product, and the damage is invisible until the second product tries to
 install — by which time the import is load-bearing. Two products that import each other are one
 product with a confusing folder layout.
@@ -139,7 +139,7 @@ Before creating **any** component, hook, service, utility, type, permission, eve
 ```bash
 grep -rn "export function <Name>\|export const <Name>" platform/ui <product>/apps
 grep -rn "<what it does>" --include=*.ts --include=*.tsx
-grep -n  "<RESOURCE>" munaxa/packages/domain/src/permissions.ts     # permissions
+grep -n  "<RESOURCE>" school/packages/domain/src/permissions.ts     # permissions
 ```
 
 State what you searched for and what you found. "I searched for X and Y and found nothing" is part
@@ -161,9 +161,9 @@ A future product might need it?               → that product. Wait for the sec
 | ---------- | ---------- |
 | Anything in `platform/` | [`platform/CONTRIBUTING.md`](./platform/CONTRIBUTING.md) |
 | A UI component or screen | [`platform/architecture/`](./platform/architecture/README.md) |
-| Munaxa UI | [`munaxa/docs/ui-governance.md`](./munaxa/docs/ui-governance.md) |
-| A record screen, search, timeline, audit UI | [`munaxa/docs/ux/`](./munaxa/docs/ux/README.md) |
-| A backend module | [`munaxa/docs/architecture/`](./munaxa/docs/architecture/README.md) |
+| Munaxa UI | [`school/docs/ui-governance.md`](./school/docs/ui-governance.md) |
+| A record screen, search, timeline, audit UI | [`school/docs/ux/`](./school/docs/ux/README.md) |
+| A backend module | [`school/docs/architecture/`](./school/docs/architecture/README.md) |
 
 ## 6. Reuse and duplication
 
@@ -180,7 +180,7 @@ A future product might need it?               → that product. Wait for the sec
   them evolve honestly. Three: extract, now that you know what genuinely varies. The wrong
   abstraction is more expensive than duplication, because it couples two things forever and grows
   a flag for every difference.
-- **Never unify across products.** Munaxa and Workaxa having similar-looking domain logic is
+- **Never unify across products.** School and Work having similar-looking domain logic is
   expected and correct. Only genuinely product-agnostic code is shared.
 
 Duplication is **never** acceptable for: a design token or colour, a UI primitive, a security
@@ -189,7 +189,7 @@ control, or a business rule that must hold globally.
 ## 7. Design system rules
 
 Full reasoning: [`platform/architecture/theming.md`](./platform/architecture/theming.md).
-Munaxa-specific enforcement: [`munaxa/docs/ui-governance.md`](./munaxa/docs/ui-governance.md).
+Munaxa-specific enforcement: [`school/docs/ui-governance.md`](./school/docs/ui-governance.md).
 
 - **Never introduce a new colour, spacing, radius, shadow, z-index or motion value.** Use the
   token-backed utilities. A missing value is a bug report against the scale, not a licence to
@@ -197,7 +197,7 @@ Munaxa-specific enforcement: [`munaxa/docs/ui-governance.md`](./munaxa/docs/ui-g
 - **Never hardcode a hex, `rgb()`, `hsl()` or a raw Tailwind palette class** (`bg-red-500`). Use
   semantic classes: `bg-primary`, `text-muted-foreground`, `bg-success`, `border-border`.
   Mechanically enforced — ESLint fails the build in `platform/ui`, `platform/tokens` and
-  `munaxa/apps/admin/src`.
+  `school/apps/admin/src`.
 - **Raw hexes live in exactly one place:** `platform/themes/<product>/brand.ts`, for surfaces that
   cannot read CSS variables (HTML email, OG images, favicons, PDF).
 - **Semantic roles are named for their role**, never their appearance. `--destructive`, not
@@ -239,8 +239,8 @@ Naming, TypeScript and React conventions in detail:
 
 ## 9. Security and permissions
 
-Munaxa specifics: [`munaxa/docs/architecture/09-security-architecture.md`](./munaxa/docs/architecture/09-security-architecture.md)
-and [`05-rbac-matrix.md`](./munaxa/docs/architecture/05-rbac-matrix.md).
+Munaxa specifics: [`school/docs/architecture/09-security-architecture.md`](./school/docs/architecture/09-security-architecture.md)
+and [`05-rbac-matrix.md`](./school/docs/architecture/05-rbac-matrix.md).
 
 - **Nothing is accessible without a permission.** Every mutating endpoint carries an explicit
   permission requirement; every UI affordance that triggers a permissioned action is gated on the
@@ -289,13 +289,13 @@ and [`05-rbac-matrix.md`](./munaxa/docs/architecture/05-rbac-matrix.md).
 
 ## 11. Documentation
 
-Standards: [`munaxa/docs/ux/documentation-architecture.md`](./munaxa/docs/ux/documentation-architecture.md).
+Standards: [`school/docs/ux/documentation-architecture.md`](./school/docs/ux/documentation-architecture.md).
 
 - **Update documentation with every architectural change** — the affected document, the index, and
   an ADR if a decision was made between real alternatives.
 - **One authoritative source per topic.** If you find yourself restating a rule, link to it
   instead. Duplicated documentation drifts and then lies.
-- **Record decisions as ADRs**, in `munaxa/docs/architecture/adr/`. An ADR states context,
+- **Record decisions as ADRs**, in `school/docs/architecture/adr/`. An ADR states context,
   decision, alternatives considered and consequences. ADRs are immutable — supersede, never edit.
 - **Point-in-time reports go to `docs/archive/`** and are never edited afterwards. They are
   historical evidence, not current guidance.
@@ -369,7 +369,7 @@ When sources disagree:
 1. An explicit, current instruction from the repository owner
 2. This document
 3. platform/CONTRIBUTING.md and platform/architecture/
-4. Product governance (munaxa/docs/ui-governance.md) and product architecture docs
+4. Product governance (school/docs/ui-governance.md) and product architecture docs
 5. Existing code
 ```
 

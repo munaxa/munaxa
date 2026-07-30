@@ -3,11 +3,11 @@
   "files": [],
   "references": [
     { "path": "platform" },
-    { "path": "munaxa/apps/api" },
-    { "path": "munaxa/apps/admin" },
-    { "path": "munaxa/packages/domain" },
-    { "path": "munaxa/packages/contracts" },
-    { "path": "munaxa/packages/utils" },
-    { "path": "munaxa/packages/i18n" }
+    { "path": "school/apps/api" },
+    { "path": "school/apps/admin" },
+    { "path": "school/packages/domain" },
+    { "path": "school/packages/contracts" },
+    { "path": "school/packages/utils" },
+    { "path": "school/packages/i18n" }
   ]
 }

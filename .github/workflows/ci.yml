@@ -8,7 +8,7 @@ on:
     branches: [main]
     paths-ignore:
       - '**/*.md'
-      - 'munaxa/docs/**'
+      - 'school/docs/**'
       - 'LICENSE'
 
 concurrency:
@@ -36,9 +36,12 @@ jobs:
         with:
           filters: |
             mobile:
-              - 'munaxa/apps/mobile/**'
+              - 'school/apps/mobile/**'
             designsystem:
-              - 'munaxa/munaxadesignsystem/**'
+              - 'school/munaxadesignsystem/**'
+              # It consumes @axa/platform through a `file:` dependency, so a platform-only
+              # change can break it while every workspace build stays green. Watch both.
+              - 'platform/**'
 
   node:
     name: Lint · Typecheck · Test · Build (JS/TS)
@@ -81,16 +84,16 @@ jobs:
         run: pnpm prisma:generate
 
       - name: Build internal packages
-        run: pnpm turbo run build --filter=@axa/platform --filter=@munaxa/domain --filter=@munaxa/contracts --filter=@munaxa/utils
+        run: pnpm turbo run build --filter=@axa/platform --filter=@school/domain --filter=@school/contracts --filter=@school/utils
 
       - name: Apply database migrations
-        run: pnpm --filter @munaxa/api prisma:deploy
+        run: pnpm --filter @school/api prisma:deploy
 
       - name: Provision restricted application role
-        run: psql "$PSQL_DIRECT_URL" -v ON_ERROR_STOP=1 -f munaxa/infra/postgres/app-role.sql
+        run: psql "$PSQL_DIRECT_URL" -v ON_ERROR_STOP=1 -f school/infra/postgres/app-role.sql
 
       - name: Seed database
-        run: pnpm --filter @munaxa/api db:seed
+        run: pnpm --filter @school/api db:seed
 
       - name: Validate platform contract
         run: pnpm validate
@@ -108,10 +111,15 @@ jobs:
         run: pnpm test
 
       - name: Integration tests (DB / RLS)
-        run: pnpm --filter @munaxa/api test:e2e
+        run: pnpm --filter @school/api test:e2e
 
       - name: Build
         run: pnpm build
+
+      # Storybook is the platform's component documentation and its a11y review surface. Building
+      # it catches a story that no longer compiles against the component it documents.
+      - name: Build Storybook
+        run: pnpm build-storybook
 
   flutter:
     name: Analyze · Test (Flutter)
@@ -127,16 +135,16 @@ jobs:
           channel: stable
           cache: true
       - name: Prepare platform folders
-        working-directory: munaxa/apps/mobile
+        working-directory: school/apps/mobile
         run: flutter create --platforms=android,ios .
       - name: Pub get
-        working-directory: munaxa/apps/mobile
+        working-directory: school/apps/mobile
         run: flutter pub get
       - name: Analyze
-        working-directory: munaxa/apps/mobile
+        working-directory: school/apps/mobile
         run: flutter analyze
       - name: Test
-        working-directory: munaxa/apps/mobile
+        working-directory: school/apps/mobile
         run: flutter test
 
   # NOTE: munaxademo and landing are workspace members. They are built, typechecked and linted
@@ -154,7 +162,7 @@ jobs:
     if: needs.changes.outputs.designsystem == 'true'
     defaults:
       run:
-        working-directory: munaxa/munaxadesignsystem
+        working-directory: school/munaxadesignsystem
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -164,7 +172,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
-          cache-dependency-path: munaxa/munaxadesignsystem/pnpm-lock.yaml
+          cache-dependency-path: school/munaxadesignsystem/pnpm-lock.yaml
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       # NOTE: the design system has no ESLint setup (only `check`/`format`), so
