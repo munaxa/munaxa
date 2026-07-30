@@ -6,7 +6,6 @@ build
 coverage
 pnpm-lock.yaml
 school/apps/mobile
-munaxadesignsystem
 landing
 munaxalanding.bak
 *.md
