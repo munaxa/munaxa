@@ -9,6 +9,7 @@ Monorepo for the AXA product ecosystem and the shared platform they all build on
 ├── platform/         @axa/platform — the shared, product-agnostic foundation (frozen)
 ├── school/           Munaxa School — Multi-Tenant School Operating System
 ├── work/             Munaxa Work — reserved, not implemented yet
+├── edms/             Munaxa Docs — Enterprise Document Management System (architecture only)
 ├── tooling/          shared ESLint + TypeScript configs (@axa/config-*)
 ├── package.json      workspace root
 ├── pnpm-workspace.yaml
@@ -65,7 +66,7 @@ Munaxa is the brand; the products are named for what they do.
 | ---------- | ----------------------------- | -------- | ------------------------------------------------ |
 | **School** | [`school/`](school/README.md) | `school` | In development. Admin portal, API, landing, demo  |
 | **Work**   | [`work/`](work/README.md)     | `work`   | Reserved. Theme authored, no code yet             |
-| **Docs**   | —                             | `docs`   | Theme authored, no product root yet               |
+| **Docs**   | [`edms/`](edms/README.md)     | `docs`   | Phase 0 complete: architecture designed, no code yet |
 | **Group**  | —                             | `group`  | Corporate identity. Theme only                    |
 
 ## Workspace members
