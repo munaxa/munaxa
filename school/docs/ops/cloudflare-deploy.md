@@ -56,6 +56,13 @@ In **Workers & Pages → \<project\> → Settings → Builds**, disconnect the G
 three projects. Leaving it connected means two systems deploy the same Worker and the last one
 to finish wins, which reintroduces exactly the nondeterminism this workflow removes.
 
+> **Order matters — do not disconnect until the workflow has deployed successfully at least
+> once.** This workflow can only deploy if GitHub Actions can run at all: on a private
+> repository that means billed minutes, and if the account's spending limit is reached, jobs
+> fail in a few seconds without ever being assigned a runner. Disconnecting Workers Builds
+> before a green run leaves *nothing* deploying these Workers. Confirm a successful run under
+> **Actions → Deploy Cloudflare**, then disconnect.
+
 ---
 
 ## The Worker name is load-bearing
