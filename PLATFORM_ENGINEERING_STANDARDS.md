@@ -1,15 +1,24 @@
-# AXA Platform Engineering Standards
+# Munaxa Platform Engineering Standards
 
-**Status: mandatory · Applies to: every contributor, human and AI · Scope: the whole repository**
+**Status: mandatory · Applies to: every contributor, human and AI · Scope: every repository in
+the Munaxa ecosystem — munaxa, munaxa-platform, munaxa-school, munaxa-work, munaxa-docs**
 
-This is the engineering rulebook. It defines **how work is done here** — not what the system is.
-For what the system is, see the [documentation index](./docs/README.md).
+This is the engineering rulebook. It defines **how work is done** across the ecosystem — not
+what the system is. For what each system is, see that repository's own README.
+
+> **On scope.** This document predates the repository separation, when everything lived in one
+> monorepo. It is kept here, in the corporate repository, because it governs all five. Where it
+> still says "this repository" about cross-cutting rules, read "every repository"; where it
+> refers to a `platform/` or `school/` directory, the equivalent now lives in
+> [munaxa-platform](https://github.com/tam2om/munaxa-platform) or
+> [munaxa-school](https://github.com/tam2om/munaxa-school). See
+> [`docs/MIGRATION_REPORT.md`](./docs/MIGRATION_REPORT.md).
 
 It is the single authoritative source for contribution rules. Where any other document repeats a
 rule, that document is a summary and this one governs.
 
-> **The platform is frozen.** Its structure, package name and public API are settled. Development
-> happens inside products. `platform/` changes only when a genuine cross-product need is proven —
+> **The platform is frozen.** Its structure, package names and public API are settled. Development
+> happens inside products. `munaxa-platform` changes only when a genuine cross-product need is proven —
 > see [§3](#3-changing-the-platform).
 
 ---

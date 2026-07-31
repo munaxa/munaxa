@@ -1,13 +1,5 @@
 {
-  "//": "Root tsconfig for editor/IDE resolution. Apps & packages extend @axa/config-typescript.",
+  "//": "Root tsconfig for editor/IDE resolution. Apps extend @munaxa/config-typescript.",
   "files": [],
-  "references": [
-    { "path": "platform" },
-    { "path": "school/apps/api" },
-    { "path": "school/apps/admin" },
-    { "path": "school/packages/domain" },
-    { "path": "school/packages/contracts" },
-    { "path": "school/packages/utils" },
-    { "path": "school/packages/i18n" }
-  ]
+  "references": []
 }

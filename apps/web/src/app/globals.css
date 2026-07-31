@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+
+/* The Corporate theme: the shared theme contract plus the Munaxa group palette, both
+ * authored in the platform. Swapping this one line is the entirety of this site's branding —
+ * there is no local design system to configure. */
+@import '@munaxa/theme/css/corporate';
+
+/* Tailwind v4 must scan the design system's shipped sources to emit the classes its
+ * components use. Points at the installed package, never a path into another repository. */
+@source '../../node_modules/@munaxa/platform/dist';
+
+@layer base {
+  :root {
+    /* The app-level radius the platform contract derives sm/md/lg from. Corporate runs a
+     * softer, more editorial curve than the product consoles. */
+    --radius: 0.875rem;
+    --hairline: color-mix(in oklch, var(--foreground) 8%, transparent);
+  }
+
+  .dark {
+    --hairline: color-mix(in oklch, var(--foreground) 12%, transparent);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+}
