@@ -1,9 +1,0 @@
-node_modules
-dist
-coverage
-.turbo
-**/*.spec.ts
-test
-.env
-.env.*
-!.env.example

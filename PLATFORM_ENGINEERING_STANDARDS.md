@@ -1,15 +1,24 @@
-# AXA Platform Engineering Standards
+# Munaxa Platform Engineering Standards
 
-**Status: mandatory · Applies to: every contributor, human and AI · Scope: the whole repository**
+**Status: mandatory · Applies to: every contributor, human and AI · Scope: every repository in
+the Munaxa ecosystem — munaxa, munaxa-platform, munaxa-school, munaxa-work, munaxa-docs**
 
-This is the engineering rulebook. It defines **how work is done here** — not what the system is.
-For what the system is, see the [documentation index](./docs/README.md).
+This is the engineering rulebook. It defines **how work is done** across the ecosystem — not
+what the system is. For what each system is, see that repository's own README.
+
+> **On scope.** This document predates the repository separation, when everything lived in one
+> monorepo. It is kept here, in the corporate repository, because it governs all five. Where it
+> still says "this repository" about cross-cutting rules, read "every repository"; where it
+> refers to a `platform/` or `school/` directory, the equivalent now lives in
+> [munaxa-platform](https://github.com/tam2om/munaxa-platform) or
+> [munaxa-school](https://github.com/tam2om/munaxa-school). See
+> [`docs/MIGRATION_REPORT.md`](./docs/MIGRATION_REPORT.md).
 
 It is the single authoritative source for contribution rules. Where any other document repeats a
 rule, that document is a summary and this one governs.
 
-> **The platform is frozen.** Its structure, package name and public API are settled. Development
-> happens inside products. `platform/` changes only when a genuine cross-product need is proven —
+> **The platform is frozen.** Its structure, package names and public API are settled. Development
+> happens inside products. `munaxa-platform` changes only when a genuine cross-product need is proven —
 > see [§3](#3-changing-the-platform).
 
 ---
@@ -53,8 +62,8 @@ Everything below follows from these. If you remember nothing else, remember thes
 
 ## 2. Platform and product
 
-**The platform** (`platform/`, shipped as `@axa/platform`) is the code that is true for every AXA
-product regardless of what business it serves: design tokens, typography, themes, icons, UI
+**The platform** (the `munaxa-platform` repository, shipped as `@munaxa/*`) is the code that is
+true for every Munaxa product regardless of what business it serves: design tokens, typography, themes, icons, UI
 components, patterns, templates and brand assets.
 
 The membership test, applied without mercy:
@@ -111,14 +120,14 @@ product with a confusing folder layout.
 **Products import the platform through public entry points only:**
 
 ```ts
-import { Button, Card, useToast, cn } from '@axa/platform';
-import { Search } from '@axa/platform/icons';
-import { tokens } from '@axa/platform/tokens';
-import { themes } from '@axa/platform/themes';
+import { Button, Card, useToast, cn } from '@munaxa/ui';
+import { Search } from '@munaxa/icons';
+import { tokens } from '@munaxa/tokens';
+import { themes } from '@munaxa/theme';
 ```
 
-Never a deep path (`@axa/platform/ui/components/primitives/button`), never a relative path into
-`platform/`. The internal folder layout exists so files can be re-filed without breaking anyone;
+Never a deep path (`@munaxa/ui/components/primitives/button`), never a relative path into
+another repository. The internal folder layout exists so files can be re-filed without breaking anyone;
 a deep import forfeits that. Full detail:
 [`platform/architecture/import-rules.md`](./platform/architecture/import-rules.md).
 
@@ -169,7 +178,7 @@ A future product might need it?               → that product. Wait for the sec
 
 - **Never duplicate code.** If you are about to write something that exists, extend the existing
   thing instead.
-- **Reuse existing platform components.** A screen is assembled from `@axa/platform` components
+- **Reuse existing platform components.** A screen is assembled from `@munaxa/ui` components
   plus the product's own domain components. Writing a new button, input, card, table, dialog,
   badge or spinner is always wrong.
 - **Never copy platform code into a product to modify it.** If a platform component cannot do what

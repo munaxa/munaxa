@@ -1,79 +1,78 @@
-# AXA
+# Munaxa
 
-Monorepo for the AXA product ecosystem and the shared platform they all build on.
+The corporate repository for **Munaxa** — the company website, and the org-level engineering
+standards the whole ecosystem is held to.
 
+This repository is **not** the platform. It consumes the shared design system exactly like
+every other product.
+
+## The ecosystem
+
+| Repository                                                            | What it is                        |
+| --------------------------------------------------------------------- | --------------------------------- |
+| **munaxa** (this repo)                                                  | Corporate website + org standards  |
+| [munaxa-platform](https://github.com/tam2om/munaxa-platform)             | The shared design system           |
+| [munaxa-school](https://github.com/tam2om/munaxa-school)                 | School — the School OS             |
+| [munaxa-work](https://github.com/tam2om/munaxa-work)                     | Work — HCM                         |
+| [munaxa-docs](https://github.com/tam2om/munaxa-docs)                     | Docs — document control            |
+
+```text
+                    munaxa-platform
+                           │
+        ┌──────────┬───────┴───────┬──────────┐
+        ▼          ▼               ▼          ▼
+     munaxa   munaxa-school   munaxa-work  munaxa-docs
 ```
-/
-├── PLATFORM_ENGINEERING_STANDARDS.md   the rulebook — read before contributing
-├── docs/README.md                      the documentation index
-├── platform/         @axa/platform — the shared, product-agnostic foundation (frozen)
-├── school/           Munaxa School — Multi-Tenant School Operating System
-├── work/             Munaxa Work — reserved, not implemented yet
-├── edms/             Munaxa Docs — Enterprise Document Management System (architecture only)
-├── tooling/          shared ESLint + TypeScript configs (@axa/config-*)
-├── package.json      workspace root
-├── pnpm-workspace.yaml
-├── turbo.json
-├── docker-compose.yml   local dev stack (School)
-└── render.yaml          staging blueprint (School)
+
+That is every dependency edge in the ecosystem. Products never depend on each other, and the
+platform never depends on a product. Each repository installs, lints, typechecks, tests and
+builds on its own, without cloning any other.
+
+## What's here
+
+```text
+munaxa/
+├── apps/web/                            # The corporate site (Next.js 15, App Router)
+├── PLATFORM_ENGINEERING_STANDARDS.md    # Mandatory. How work is done across the ecosystem
+└── docs/MIGRATION_REPORT.md             # The monorepo → multi-repo migration record
 ```
 
-## Start here
+The corporate site covers the company's own surfaces: product showcase, pricing, about,
+careers and contact. Product marketing sites live with their products —
+`munaxa.com`'s School landing page is in `munaxa-school`, not here.
 
-| Read | For |
-| --- | --- |
-| [PLATFORM_ENGINEERING_STANDARDS.md](./PLATFORM_ENGINEERING_STANDARDS.md) | **Mandatory.** How work is done here — human or AI |
-| [docs/README.md](./docs/README.md) | The documentation index: every document, its purpose and audience |
-| [platform/README.md](./platform/README.md) | Consuming the shared platform |
-| [school/docs/README.md](./school/docs/README.md) | The School product |
+## The design system comes from the platform
 
-The repository root is the **workspace root**, not a product. It owns dependency resolution
-(pnpm), the task graph (turbo), lint/format/TypeScript baselines and CI. Product code lives
-entirely under its own product folder. This is what lets `school/` and a future `work/`
-resolve `@axa/platform` through `workspace:*` instead of publishing to a registry.
+Corporate owns its content, routing and copy. It owns no design system:
 
-## Getting started
+```tsx
+import { buttonVariants, Card } from '@munaxa/ui';
+```
+
+```css
+/* apps/web/src/app/globals.css */
+@import 'tailwindcss';
+@import '@munaxa/theme/css/corporate';
+@source '../../node_modules/@munaxa/platform/dist';
+```
+
+Branding is that theme import and nothing more. Writing a Button here, defining a colour, or
+hardcoding a hex is a bug — the change belongs in
+[munaxa-platform](https://github.com/tam2om/munaxa-platform). CI enforces both halves: a
+`no hardcoded hex` lint rule, and a `boundaries` job that fails on an import from any product.
+
+## Setup
+
+Installing needs a GitHub token with `read:packages` on the `tam2om` org — that is how
+`@munaxa/*` resolves from GitHub Packages:
 
 ```bash
+export GITHUB_TOKEN=<PAT with read:packages>
 pnpm install
-pnpm prisma:generate        # School API's Prisma client
-pnpm build                  # everything, in dependency order
-pnpm validate && pnpm lint && pnpm typecheck && pnpm test
+
+pnpm dev        # http://localhost:3100
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 ```
-
-## The platform is the single source of truth
-
-Every product consumes its components, tokens, icons and theme from
-[`platform/`](platform/README.md). There are no product-local copies of a button, a card, a
-token or a colour — enforced by review, by ESLint for colour, and by `pnpm validate` for the
-theme contract and token scales.
-
-[`PLATFORM_ENGINEERING_STANDARDS.md`](./PLATFORM_ENGINEERING_STANDARDS.md) is the mandatory
-rulebook for every contributor; [`platform/CONTRIBUTING.md`](platform/CONTRIBUTING.md) is the
-checklist for changing the shared layer itself, and
-[`platform/architecture/`](platform/architecture/README.md) explains the reasoning. The one
-decision that matters is whether a thing is shared or product-specific.
-
-```bash
-pnpm validate   # theme contract + structural token mirrors — runs in CI before lint
-```
-
-## Products
-
-Munaxa is the brand; the products are named for what they do.
-
-| Product    | Folder                        | Theme    | Status                                           |
-| ---------- | ----------------------------- | -------- | ------------------------------------------------ |
-| **School** | [`school/`](school/README.md) | `school` | In development. Admin portal, API, landing, demo  |
-| **Work**   | [`work/`](work/README.md)     | `work`   | Reserved. Theme authored, no code yet             |
-| **Docs**   | [`edms/`](edms/README.md)     | `docs`   | Phase 0 complete: architecture designed, no code yet |
-| **Group**  | —                             | `group`  | Corporate identity. Theme only                    |
-
-## Workspace members
-
-`pnpm-workspace.yaml` lists them. Every app in the repository is now a workspace member, so each
-one resolves `@axa/platform` through `workspace:*` and a platform change is caught by the ordinary
-workspace build rather than by a separate job.
-
-The Platform's own documentation site is its Storybook, deployed to Cloudflare from the
-`@axa/platform/build-storybook` bundle.

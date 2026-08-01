@@ -1,10 +1,7 @@
-# AXA ecosystem workspace. One pnpm root so every product resolves the shared platform
-# and the shared tooling configs through `workspace:*` instead of a published registry.
+# Munaxa Corporate — an independent workspace.
+#
+# The corporate website is a consumer of the shared platform exactly like every other
+# product: @munaxa/* is resolved from the registry, not from a workspace member. This
+# repository must never depend on School, Work or Docs.
 packages:
-  - 'tooling/*'
-  - 'platform'
-  - 'school/apps/api'
-  - 'school/apps/admin'
-  - 'school/munaxademo'
-  - 'school/landing'
-  - 'school/packages/*'
+  - 'apps/*'
