@@ -1,0 +1,22 @@
+# Secret-scanning configuration.
+#
+# The security job scans full history (fetch-depth: 0), so findings in commits
+# that predate the repository split keep failing the build even after the files
+# are deleted. Everything allowlisted here is a value that is *designed* to be
+# public — nothing that would need rotating.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Supabase publishable keys are public by design"
+# Supabase issues two key types. `sb_publishable_…` is the browser-facing key: it
+# is meant to ship in client-side JavaScript and carries no authority of its own,
+# with row-level security doing the actual enforcement. The generic-api-key rule
+# cannot tell it apart from a real credential.
+#
+# Deliberately scoped to the publishable prefix: a leaked `sb_secret_…` service
+# key is a genuine incident and must still fail this job.
+regexes = [
+  '''sb_publishable_[A-Za-z0-9_\-]{20,}''',
+]
