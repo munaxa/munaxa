@@ -9,7 +9,7 @@
     "prebuild": "pnpm run sync:brand",
     "build": "next build",
     "predev": "pnpm run sync:brand",
-    "sync:brand": "munaxa-sync-brand school public && munaxa-sync-brand work public && munaxa-sync-brand docs public",
+    "sync:brand": "munaxa-sync-brand group public && munaxa-sync-brand school public && munaxa-sync-brand work public && munaxa-sync-brand docs public",
     "start": "next start -p 3100",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
