@@ -66,3 +66,9 @@ school/apps/mobile/*.iml
 
 # Sentry
 .sentryclirc
+
+# Product brand artwork, copied out of @munaxa/platform by `munaxa-sync-brand` on predev and
+# prebuild. The corporate site keeps the group's own identity in the header and footer; it
+# carries all three products' marks because the pages that list them show each product wearing
+# its own. Generated, never authored.
+apps/*/public/branding/

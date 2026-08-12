@@ -1,5 +1,15 @@
 import Link from 'next/link';
-import { cn } from '@munaxa/ui';
+import {
+  BrandProvider,
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  ProductLogo,
+  cn,
+  productBrands,
+  type BrandedProductId,
+} from '@munaxa/ui';
 
 /**
  * The corporate site chrome: header, primary navigation and footer.
@@ -9,24 +19,61 @@ import { cn } from '@munaxa/ui';
  * and there is no local component library; anything reusable belongs in `@munaxa/ui`.
  */
 
-/** The products the corporate site showcases. Each links out to its own product site. */
+/**
+ * The three products, keyed to their ids in the platform's brand registry.
+ *
+ * The name is not written out here. `productBrands.<id>.name` is where a product is called what
+ * it is called, and a second copy on the corporate site is a second thing to update when one is
+ * renamed — on the surface most likely to be missed, because nobody working on a product opens it.
+ */
 export const PRODUCTS = [
   {
-    name: 'Munaxa School',
+    id: 'school',
     href: 'https://munaxa.com',
     blurb: 'The School Operating System — admissions, attendance, finance and communication.',
   },
   {
-    name: 'Munaxa Work',
+    id: 'work',
     href: '#',
     blurb: 'HCM: people, contracts, leave, performance and payroll operations.',
   },
   {
-    name: 'Munaxa Docs',
+    id: 'docs',
     href: '#',
     blurb: 'Enterprise document control: workflows, revisions, numbering and audit evidence.',
   },
-] as const;
+] as const satisfies readonly { id: BrandedProductId; href: string; blurb: string }[];
+
+/**
+ * One product's card, wearing its own identity.
+ *
+ * This is the one corporate surface where product branding belongs. The site itself keeps the
+ * group's — the header wordmark, the navy palette, the `corporate` theme — because it is the
+ * company speaking; but a page whose subject is the three products is a page where showing three
+ * identical navy cards would be hiding the very thing it is describing.
+ *
+ * The symbol carries the colour, so nothing here names a hex. Each card scopes its own
+ * `BrandProvider`, which is exactly what the provider is for: the product a logo shows is a
+ * property of where it sits, and here the three sit side by side.
+ *
+ * The symbol is decorative — the product's name is written beside it, and a picture captioned
+ * with the text next to it is announced twice.
+ */
+export function ProductCard({ id, blurb }: { id: BrandedProductId; blurb: string }) {
+  return (
+    <BrandProvider product={id}>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <ProductLogo variant="symbol" height={24} decorative />
+            <CardTitle>{productBrands[id].name}</CardTitle>
+          </div>
+          <CardDescription>{blurb}</CardDescription>
+        </CardHeader>
+      </Card>
+    </BrandProvider>
+  );
+}
 
 const NAV = [
   { href: '/products', label: 'Products' },

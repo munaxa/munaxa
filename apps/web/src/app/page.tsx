@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { buttonVariants, Card, CardHeader, CardTitle, CardDescription } from '@munaxa/ui';
-import { PRODUCTS } from '@/components/site-shell';
+import { buttonVariants } from '@munaxa/ui';
+import { PRODUCTS, ProductCard } from '@/components/site-shell';
 
 export default function HomePage() {
   return (
@@ -29,12 +29,7 @@ export default function HomePage() {
         </h2>
         <div className="grid gap-6 md:grid-cols-3">
           {PRODUCTS.map((product) => (
-            <Card key={product.name}>
-              <CardHeader>
-                <CardTitle>{product.name}</CardTitle>
-                <CardDescription>{product.blurb}</CardDescription>
-              </CardHeader>
-            </Card>
+            <ProductCard key={product.id} id={product.id} blurb={product.blurb} />
           ))}
         </div>
       </section>
