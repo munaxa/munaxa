@@ -30,7 +30,7 @@ storage, cents) is marked and deferred.
 
 | Need | Why | Status at time of writing |
 | --- | --- | --- |
-| A principal in the **management account** with Organizations administration (`organizations:*` read, `CreateOrganizationalUnit`, `CreateAccount`, `DescribeCreateAccountStatus`, `MoveAccount`, `CreatePolicy`, `AttachPolicy`, `EnablePolicyType`, `TagResource`), plus `iam:CreateServiceLinkedRole` and the IAM organization root-access actions in §5 | Account creation and SCPs can only be done from the management account | **Not available to the automation.** The AWS connector requires re-authorization, so nothing below has been inspected or executed |
+| A principal in the **management account** with Organizations administration (`organizations:*` read, `CreateOrganizationalUnit`, `CreateAccount`, `DescribeCreateAccountStatus`, `MoveAccount`, `CreatePolicy`, `AttachPolicy`, `EnablePolicyType`, `TagResource`), plus `iam:CreateServiceLinkedRole` and the IAM organization root-access actions in §5 | Account creation and SCPs can only be done from the management account | **Not available.** The connector is signed in as the management account's root user, and root is not used for this. No scoped principal exists (§1.3) |
 | The **root email address** for the new account: a mailbox Munaxa controls, used by no other AWS account (a role address or distribution list, not a person's private mailbox) | `CreateAccount` requires it, and it is the account's recovery channel | **Missing.** It must be chosen by the owner; this runbook does not invent one |
 
 ### 1.2 Inspect the organization (read-only)
@@ -78,6 +78,144 @@ aws organizations list-create-account-status --states IN_PROGRESS FAILED
 `infra/terraform/README.md`; Docs ADR-0024). Those Docs resources are **not touched** by this
 runbook: SCPs never apply to the management account (_"SCPs don't affect users or roles in the
 management account"_), and every guardrail below is attached to the new OU only.
+
+### 1.3 Management-account principal assessment (2026-10-06T10:03Z)
+
+**Rule.** No Organizations discovery or write operation runs as the management account's root user.
+The checks below are read-only IAM and IAM Identity Center calls, made only to find out whether a
+scoped principal already exists. **No Organizations API was called.**
+
+**Calls made**, all read-only:
+
+- `sts:GetCallerIdentity`;
+- `iam:ListRoles`, `ListUsers`, `ListPolicies` (×2), `GetRole`, `ListAttachedRolePolicies`,
+  `GetPolicyVersion` (×4);
+- `iam:ListAttachedUserPolicies`, `ListUserPolicies`, `ListGroupsForUser` (×3 each);
+- `sso-admin:ListInstances` in `eu-central-1`, `us-east-1`, `eu-west-1` and `me-central-1`.
+
+#### Verified current state
+
+| Item | Finding |
+| --- | --- |
+| **Connector identity** | `arn:aws:iam::800728620253:root`, the root user of management account `800728620253` |
+| IAM Identity Center | **No instance** in `eu-central-1`, `us-east-1`, `eu-west-1` or `me-central-1` (other Regions not checked) |
+| Roles a human or agent can assume | One: `munaxa-docs/bootstrap/munaxa-docs-eu-prod-deployer`. It trusts IAM users `claude-munaxa-docs` and `admin.tamer` (source identity and session-name conditions) |
+| That role's Organizations access | **Denied.** Its guardrail policy `munaxa-docs-eu-prod-deployer-guardrails-identity` has `Deny organizations:*` (Sid `NoOrganizationsBillingOrAccountSecurityControls`), under the `munaxa-docs-eu-prod-deployer-boundary` permissions boundary. It is Docs Production's deployer and **unsuitable**; it must not be repurposed |
+| Other roles | 15 workload roles (ECS execution and task, Backup, Scheduler, RDS monitoring), all trusted by AWS services only, plus 8 service-linked roles (including `AWSServiceRoleForOrganizations`). None is suitable |
+| IAM users | `admin.tamer` (`AdministratorAccess`), `claude-munaxa-docs` (`AdministratorAccess`), `munaxa-docs-ses-smtp` (inline `ses-send-only`). The first two can do Organizations administration, but they are **unscoped** (full administrator), so they do not meet the requirement |
+| Customer-managed policies | 11, all Docs Production deployer policies or boundaries under `/munaxa-docs/bootstrap/`. None grants scoped Organizations access |
+| Read-only Organizations role | **None exists** |
+| Can the connector use a scoped role? | **No.** None exists, and the connector is signed in as root. A root session cannot assume IAM roles, so a role would also require the connector to be signed in as a non-root principal |
+
+**Incidental observations, not acted on:**
+
+- Two IAM users with `AdministratorAccess` exist in the management account. They are Docs' existing
+  setup (`munaxa-docs` `infra/terraform/README.md`: _"Both administrator users keep
+  AdministratorAccess"_).
+- `munaxa-docs-nonprod-ecs-execution-role` and `-task-role` trust ECS in **`me-central-1`**, while
+  the `munaxa-docs-eu-nonprod-*` roles trust `eu-central-1`. That is a Docs matter (ADR-0003 F6).
+
+#### Result: **BLOCKED** — a scoped management principal must be established
+
+The exact blocker: no principal exists in the management account that has Organizations access
+limited to what this runbook needs, and the connector is authenticated only as root. Nothing was
+created. No IAM user, access key or role is created without explicit authorization.
+
+#### Proposed principal (not created; needs explicit authorization)
+
+**Mechanism (recommended): IAM Identity Center** in `eu-central-1` (free), with one permission set
+and the connector signed in through it. That gives no long-lived credentials and no IAM user, which
+fits ADR-0003's rule.
+
+The alternative is an IAM role in the management account, under path `/munaxa-org/`, assumed from a
+non-root sign-in. Which option is usable depends on how the AWS connector can be signed in; check
+its settings before choosing.
+
+Either way, two separately grantable policies are needed:
+
+**`munaxa-org-discovery`** (read-only; enough for §1.2):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OrganizationsReadOnly",
+      "Effect": "Allow",
+      "Action": ["organizations:Describe*", "organizations:List*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OrganizationsQuotasReadOnly",
+      "Effect": "Allow",
+      "Action": ["servicequotas:ListServiceQuotas", "servicequotas:GetServiceQuota"],
+      "Resource": "*"
+    },
+    { "Sid": "WhoAmI", "Effect": "Allow", "Action": "sts:GetCallerIdentity", "Resource": "*" }
+  ]
+}
+```
+
+**`munaxa-org-nonprod-provisioning`** (granted only when §2–§6 are approved; exactly the operations
+those sections use):
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "NonProdOuAccountAndScps",
+      "Effect": "Allow",
+      "Action": [
+        "organizations:CreateOrganizationalUnit",
+        "organizations:CreateAccount",
+        "organizations:DescribeCreateAccountStatus",
+        "organizations:MoveAccount",
+        "organizations:TagResource",
+        "organizations:EnablePolicyType",
+        "organizations:CreatePolicy",
+        "organizations:AttachPolicy"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "TrustedAccessForCentralRootManagementOnly",
+      "Effect": "Allow",
+      "Action": "organizations:EnableAWSServiceAccess",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "organizations:ServicePrincipal": "iam.amazonaws.com" } }
+    },
+    {
+      "Sid": "CentralRootAccessManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:EnableOrganizationsRootCredentialsManagement",
+        "iam:EnableOrganizationsRootSessions",
+        "iam:ListOrganizationsFeatures"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OrganizationsServiceLinkedRoleOnly",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "iam:AWSServiceName": "organizations.amazonaws.com" } }
+    }
+  ]
+}
+```
+
+Notes:
+
+- **What is not granted.** No `AdministratorAccess`, no `*:*`, nothing in EC2, RDS, ECS, ECR,
+  Route 53 or ACM, no `DetachPolicy`/`DeletePolicy`/`CloseAccount`. Rollback (§9) uses a separately
+  authorized session.
+- **Tighten after discovery.** Once §1.2 has returned `<ROOT_ID>` and the policy IDs, `AttachPolicy`,
+  `MoveAccount` and `CreateOrganizationalUnit` can be limited to the root, the `NonProduction` OU and
+  the three `munaxa-nonprod-*` policies by ARN.
+- **Order.** Grant only `munaxa-org-discovery` first, run §1.2, and grant the provisioning policy
+  only when creation is approved.
 
 ---
 
@@ -479,6 +617,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06 | §1.2 inspection | **Not run.** The AWS connector required re-authorization (`AWS_MCP` sign-in), so no Organizations call could be made | Claude Code session |
 | 2026-10-06 | §2–§7 | **Not run.** Blocked on §1.1: management-account access for the automation, and the owner-chosen root email address | — |
 | 2026-10-06T09:57Z | §1.2 inspection, second attempt (read-only discovery task) | **Blocked before the first call.** `sts:GetCallerIdentity` through the AWS connector returned "`AWS_MCP` needs you to sign in again". No Organizations API was reached, no alternative credential was used, and nothing was created or changed | Claude Code session |
+| 2026-10-06T10:03Z | §1.3 principal assessment (read-only IAM and IAM Identity Center) | Connector now reachable, as `arn:aws:iam::800728620253:root`. No scoped Organizations principal and no Identity Center instance found. **No Organizations API called; nothing created or changed. BLOCKED** pending a scoped principal | Claude Code session |
 
 ### Discovery status (2026-10-06T09:57Z)
 
