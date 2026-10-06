@@ -1,6 +1,6 @@
 # ADR-0003 — AWS non-production foundation: one account, Amazon ECR, its own domain
 
-**Status:** Proposed · **Proposed:** 2026-10-06 · **Scope:** `munaxa`, `munaxa-identity`, `munaxa-work`,
+**Status:** Accepted · **Proposed:** 2026-10-06 · **Accepted:** 2026-10-06 · **Scope:** `munaxa`, `munaxa-identity`, `munaxa-work`,
 `munaxa-docs`, `munaxa-school`
 **For:** whoever provisions Munaxa's AWS environments, product engineering leads, and anyone wiring a
 product's CI to AWS.
@@ -21,7 +21,7 @@ background, not a source of decisions. If it is rebased, renamed, merged, moved 
 is unaffected, and where the two ever differ, this ADR governs. Every "current state" statement below
 names its source.
 
-Throughout, **decided** means binding once this ADR is accepted. **Deferred** means deliberately left
+Throughout, **decided** means binding: this ADR is accepted. **Deferred** means deliberately left
 open, with a named owner. **Product ADR** means the decision belongs to one product's repository and
 this ADR does not make it.
 
@@ -29,13 +29,14 @@ this ADR does not make it.
 
 ## 1. Status
 
-Proposed. It becomes binding when accepted. Nothing it describes may be provisioned before then,
-which honours Docs ADR-0022's condition that _"the AWS region and account structure are decided
-before any resource is provisioned"_.
+Accepted on 2026-10-06, after review and a cross-repository consistency audit
+(`docs/verification/aws-adr-0003-consistency-audit.md`). It is binding from that date. Until it was
+accepted, nothing it describes could be provisioned; that honoured Docs ADR-0022's condition that
+_"the AWS region and account structure are decided before any resource is provisioned"_.
 
 ## 2. Date
 
-Proposed 2026-10-06.
+Proposed 2026-10-06. Accepted 2026-10-06.
 
 ## 3. Context
 
