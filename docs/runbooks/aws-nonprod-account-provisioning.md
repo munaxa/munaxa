@@ -217,6 +217,79 @@ Notes:
 - **Order.** Grant only `munaxa-org-discovery` first, run §1.2, and grant the provisioning policy
   only when creation is approved.
 
+### 1.4 AWS connector authentication capability (2026-10-06T10:34Z)
+
+The check used AWS documentation, read through the connector's documentation tools, and the
+connector's own tool interface. No AWS API call was made, and nothing was created or changed.
+
+**Sources:**
+
+- AWS Sign-In User Guide, "Configure OAuth access to AWS MCP Server" and "Sign-In with OAuth 2.0";
+- "AWS Sign-In condition keys reference";
+- AWS Security Blog, "Introducing OAuth Support for AWS MCP Server" (2026-07-09);
+- AWS MCP Server guide, "Setting up the AWS MCP Server".
+
+| Question | Finding |
+| --- | --- |
+| How the connector authenticates | **Interactive OAuth 2.1 through AWS Sign-In**, browser-based (authorization code with PKCE). `https://claude.ai/*` is an approved redirect URI for Claude. Access tokens last up to one hour and are refreshed automatically with rotating refresh tokens |
+| Identities interactive sign-in accepts | _"IAM users; AWS account root users; IAM Identity Center users; SAML and Custom Identity broker users"_ (Sign-In with OAuth 2.0) |
+| **IAM Identity Center / SSO** | **Supported.** The Security Blog lists it among the three interactive sign-in methods (_"managed access through AWS IAM Identity Center for enterprises"_) |
+| Can it use an Identity Center permission set? | **Yes, by implication.** An Identity Center sign-in produces a session for one account and one permission set, and the connector acts with exactly that session's permissions. The Sign-In page's exact steps for choosing the account and permission set during OAuth are **not documented in the pages read**, and are confirmed at first sign-in |
+| **Assumed role** | **Supported only as the signed-in identity**, through federation (a SAML or custom identity broker) into a role. AWS's own CloudTrail examples show an `AssumedRole` session (`assumed-role/Admin/…`) authorizing the MCP Server |
+| Switching to a role mid-session | **Not supported by this connector.** `run_script`/`call_boto3` accept no credentials, profile or role parameter. AWS documents multi-profile switching only for the local SigV4 proxy (_"Multi-profile switching is only available with SigV4 authentication"_), not for the hosted OAuth connector. Root could not assume a role anyway |
+| Reconnecting with different credentials | **Yes.** Disconnect the AWS connector in the claude.ai connector settings and authorize again, signing in as the other identity. An existing AWS Sign-In browser session is reused, so sign out of the root session first |
+| Browser sign-in required | **Yes** for this connector. Non-interactive client-credentials tokens need existing SigV4 credentials, which this cloud session does not hold and must not hold |
+| Permissions the signed-in identity needs | `signin:AuthorizeOAuth2Access` and `signin:CreateOAuth2Token` on `arn:aws:signin:*:*:service-principal/aws-mcp.amazonaws.com` (AWS-managed `AWSMCPSignInOAuthAccessPolicy`), plus the AWS permissions for the work itself. **Root needs none**, which is why the connector worked as root without setup |
+| Documented restrictions on root | **None.** Root is an explicitly supported OAuth identity. Sign-In resource-based policies and RCPs can condition on `aws:PrincipalArn`/`signin:PrincipalArn`, so root could be denied OAuth. However, RCPs, like SCPs, do not affect the management account, and whether a Sign-In resource policy can bind the management account's root was **not verified**. In practice the restriction is procedural: this runbook does not run as root (§1.3) |
+| Governance available | Sign-In condition keys: `signin:OAuthClientId`, `signin:OAuthRedirectUri`, `signin:OAuthGrantType`. `aws:SignInSessionArn` lets one OAuth session be denied. All OAuth activity is in CloudTrail |
+
+#### Decision: **CONNECTOR SUPPORTS IAM IDENTITY CENTER**
+
+Identity Center is the recommended mechanism for this project:
+
+- it needs no IAM user and no access key, as ADR-0003 requires;
+- it is free;
+- it is the mechanism AWS names for this connector;
+- it is reusable later for human access to `munaxa-nonprod` and `munaxa-prod`.
+
+A federated role would need an external identity provider (SAML or a custom broker) that Munaxa
+does not have. A console role switch from an IAM user would need an IAM user, which is excluded.
+
+**What has to exist before reconnecting** (none of it is created yet; each step needs explicit
+authorization):
+
+1. An **IAM Identity Center organization instance**, enabled from the management account. The home
+   Region is a choice: `eu-central-1` matches ADR-0003. Enabling it is free.
+2. An **Identity Center user** for the operator, with an email address the owner chooses, and MFA
+   required.
+3. A **permission set**, for example `MunaxaOrgDiscovery`, containing:
+   - `munaxa-org-discovery` (§1.3) as an inline policy;
+   - `signin:AuthorizeOAuth2Access` and `signin:CreateOAuth2Token` on
+     `arn:aws:signin:*:*:service-principal/aws-mcp.amazonaws.com`, restricted with
+     `signin:OAuthRedirectUri` `https://claude.ai/*`;
+   - a short session duration (one hour).
+
+   `munaxa-org-nonprod-provisioning` (§1.3) goes into a **second** permission set, assigned only when
+   creation is approved.
+4. An **assignment** of that user and permission set to the management account `800728620253`.
+
+Identity Center does not avoid root for the first step. Enabling Identity Center, creating the
+permission set and assigning it are themselves management-account changes, and today only root or
+the two `AdministratorAccess` IAM users can make them. That bootstrap is the owner's to perform, or to
+authorize explicitly. It is the last time a root or administrator session is needed for this work.
+
+**Reconnecting afterwards:**
+
+1. Sign out of the AWS console root session.
+2. Disconnect the AWS connector in claude.ai connector settings, and connect it again.
+3. At AWS Sign-In, choose IAM Identity Center sign-in, sign in as the Identity Center user, and
+   select account `800728620253` with `MunaxaOrgDiscovery`.
+4. Approve the request.
+5. Verify with `sts:GetCallerIdentity`. The expected ARN has the form
+   `arn:aws:sts::800728620253:assumed-role/AWSReservedSSO_MunaxaOrgDiscovery_<suffix>/<user>`.
+
+**Then** §1.2 discovery can run.
+
 ---
 
 ## 2. Account creation
@@ -618,6 +691,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06 | §2–§7 | **Not run.** Blocked on §1.1: management-account access for the automation, and the owner-chosen root email address | — |
 | 2026-10-06T09:57Z | §1.2 inspection, second attempt (read-only discovery task) | **Blocked before the first call.** `sts:GetCallerIdentity` through the AWS connector returned "`AWS_MCP` needs you to sign in again". No Organizations API was reached, no alternative credential was used, and nothing was created or changed | Claude Code session |
 | 2026-10-06T10:03Z | §1.3 principal assessment (read-only IAM and IAM Identity Center) | Connector now reachable, as `arn:aws:iam::800728620253:root`. No scoped Organizations principal and no Identity Center instance found. **No Organizations API called; nothing created or changed. BLOCKED** pending a scoped principal | Claude Code session |
+| 2026-10-06T10:34Z | §1.4 connector authentication capability | Documentation-only check. **Connector supports IAM Identity Center** (interactive OAuth through AWS Sign-In). No AWS API call; nothing created or changed. Still **BLOCKED** until the Identity Center principal exists and the connector is re-authorized as it | Claude Code session |
 
 ### Discovery status (2026-10-06T09:57Z)
 
