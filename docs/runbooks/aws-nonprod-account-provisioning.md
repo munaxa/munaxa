@@ -533,6 +533,60 @@ user, the one-time bootstrap anticipated in §1.4.
 **Remaining gate:** Organizations discovery (§1.2) runs only once step 5 shows the
 `MunaxaOrgDiscovery` session. Until then the root session is not used for anything further.
 
+### 1.7 AWS MCP OAuth failure — diagnosis and fix (2026-10-06T13:12Z)
+
+**Symptom.** The connector authorization with the `MunaxaOrgDiscovery` identity failed. The owner saw
+`ofid_44e04f9d7af50755`, an identifier that does not appear in CloudTrail. Diagnosis and the fix
+were made from a root connector session, authorized by the owner solely for this purpose.
+
+**Cause (CloudTrail event history, `us-east-1`, `signin.amazonaws.com`):**
+
+| Time (UTC) | Event, as `AWSReservedSSO_MunaxaOrgDiscovery_…/munaxa-org-operator` | Result |
+| --- | --- | --- |
+| 12:55:35, 12:57:57 | `AuthorizeOAuth2Access`, `redirect_uri` `https://claude.ai/api/mcp/auth_callback` | **success** |
+| 12:55:35, 12:57:59 | `CreateOAuth2Token`, `grant_type` `authorization_code` | **`AccessDenied` "Token generation failed"** |
+
+`CreateOAuth2Token` requests carry only `resource` and `client_id`, and no redirect URI. That holds
+for the successful root token requests at 13:03 too. So the §1.5 condition `signin:OAuthRedirectUri`
+on statement `AwsMcpOAuthTokensFromClaudeOnly` could never match, and token creation was implicitly
+denied. The condition on `AuthorizeOAuth2Access` did match and was not the problem.
+
+An earlier `ConsoleLogin` failure at 11:47 ("No username found in supplied account") was an
+Identity Center username typed into the root/IAM-user sign-in form. It is the sign-in path issue
+from §1.4, not a permission one.
+
+**Change (owner-preferred AWS-supported policy instead of custom conditions):**
+
+1. `AttachManagedPolicyToPermissionSet` adds `arn:aws:iam::aws:policy/AWSMCPSignInOAuthAccessPolicy`
+   (v1). It grants `signin:AuthorizeOAuth2Access` and `signin:CreateOAuth2Token` on
+   `arn:aws:signin:*:*:service-principal/aws-mcp.amazonaws.com` only, with no conditions.
+2. `PutInlinePolicyToPermissionSet` replaces the inline policy with only `OrganizationsReadOnly`
+   (`organizations:Describe*`, `organizations:List*`) and `OrganizationsQuotaRead`
+   (`servicequotas:ListServiceQuotas`). The two custom `signin` statements are removed.
+3. `ProvisionPermissionSet` to `800728620253`: request `fa626084-01af-49a2-905b-1605e3778aab`,
+   `SUCCEEDED` at 13:12:36Z.
+
+**Trade-off accepted.** The claude.ai redirect restriction on authorization and the
+`client_credentials` exclusion are gone. Headless tokens would still need this role's own SigV4
+credentials, and the role grants nothing beyond Organizations and Service Quotas reads.
+
+**Verified after the change (read-only):**
+
+- one permission set, `PT1H`;
+- inline policy exactly the two statements above;
+- managed policies exactly `AWSMCPSignInOAuthAccessPolicy`, with no customer-managed references;
+- one assignment (`munaxa-org-operator` on `800728620253`);
+- the provisioned role carries the same policies;
+- IAM roles 26, IAM users and access keys unchanged, Identity Center users unchanged.
+
+Nothing outside the permission set changed. No Organizations API was called.
+
+**Next:**
+
+1. Reconnect the connector as `munaxa-org-operator`, following §1.4 and §1.6.
+2. Verify with `sts:GetCallerIdentity`.
+3. Run §1.2 discovery only in that scoped session, never as root.
+
 ---
 
 ## 2. Account creation
@@ -938,6 +992,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06T10:37Z | §1.5 Identity Center bootstrap (authorized) | **Nothing created.** Two blockers: `CreateInstance` is rejected in a management account (console-only enablement), and no operator email was supplied. Read-only: `ec2:DescribeRegions` and `sso-admin:ListInstances` in all 18 enabled Regions (none exists). No Organizations call | Claude Code session |
 | 2026-10-06T11:23Z | §1.6 discovery identity (authorized) | **Created:** Identity Center user `munaxa-org-operator`, permission set `MunaxaOrgDiscovery` (inline policy only, `PT1H`), assignment to `800728620253` (`SUCCEEDED`). Verified read-only: no managed policy, no boundary, no IAM user or key, only the expected `AWSReservedSSO_*` role added. MFA is the documented default (owner to confirm); the user is pending first sign-in. No Organizations call | Claude Code session (root bootstrap, owner-authorized) |
 | 2026-10-06T11:44Z | §1.2 discovery as `munaxa-org-operator` (step 1: identity check) | **Blocked before verification.** The single permitted pre-check, `sts:GetCallerIdentity`, returned "`AWS_MCP` needs you to sign in again". The connector was not authorized in this session, so the expected `AWSReservedSSO_MunaxaOrgDiscovery_4ae1c821d8802e94/munaxa-org-operator` identity could not be confirmed. No Organizations call, nothing created or changed. Gate: **BLOCKED** | Claude Code session |
+| 2026-10-06T13:12Z | §1.7 OAuth diagnosis and fix (root, owner-authorized) | Cause: `CreateOAuth2Token` `AccessDenied` because the token request has no redirect URI for the custom condition. Fix: `AWSMCPSignInOAuthAccessPolicy` attached, inline reduced to Organizations and Service Quotas reads, re-provisioned (`SUCCEEDED`). No Organizations call, nothing else changed | Claude Code session (root) |
 
 ### Discovery status (2026-10-06T09:57Z)
 
