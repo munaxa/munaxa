@@ -2,8 +2,8 @@
 
 **Implements:** [ADR-0003](../adr/0003-aws-non-production-foundation.md) §5 (account model) and §8
 (security rationale); follow-up F4. **Status:** ready to execute once the prerequisites in §1 are
-met. **Not yet executed:** nothing in this runbook has been run against AWS (see "Execution record"
-at the end).
+met. **Not yet executed:** nothing in this runbook has been run against AWS. Two discovery attempts on
+2026-10-06 were blocked by AWS connector authorization (see "Execution record" at the end).
 
 **Scope.** This runbook covers only:
 
@@ -478,6 +478,17 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | --- | --- | --- | --- |
 | 2026-10-06 | §1.2 inspection | **Not run.** The AWS connector required re-authorization (`AWS_MCP` sign-in), so no Organizations call could be made | Claude Code session |
 | 2026-10-06 | §2–§7 | **Not run.** Blocked on §1.1: management-account access for the automation, and the owner-chosen root email address | — |
+| 2026-10-06T09:57Z | §1.2 inspection, second attempt (read-only discovery task) | **Blocked before the first call.** `sts:GetCallerIdentity` through the AWS connector returned "`AWS_MCP` needs you to sign in again". No Organizations API was reached, no alternative credential was used, and nothing was created or changed | Claude Code session |
+
+### Discovery status (2026-10-06T09:57Z)
+
+| | State |
+| --- | --- |
+| **Verified current state** | **None from AWS.** The only known facts are repository evidence: management account `800728620253`, which holds Docs Production and Docs Non-Production (`munaxa-docs` `infra/terraform/README.md`, Docs ADR-0024). They are unconfirmed against AWS |
+| **Not determined** | Organization ID and status; `FeatureSet`; root ID; OU tree, including whether `NonProduction`/`Production` exist; member accounts and their placement; SCP policy-type status; existing SCPs and their targets; region or other restrictions; account quota and usage; whether the principal may create accounts |
+| **Planned state (unchanged)** | §2–§6: `NonProduction` OU, `munaxa-nonprod` account, three SCPs on the OU, centralized root access. Not started |
+| **Items requiring action** | 1. Re-authorize the AWS connector, signed in as a management-account principal with Organizations read access (`organizations:Describe*`, `organizations:List*`, `servicequotas:ListServiceQuotas`), so §1.2 can run. 2. The owner chooses the root email address (§1.1). Needed only for creation, not for discovery |
+| **Decision gate** | **BLOCKED.** No prerequisite in §1.2 has been verified |
 
 When the prerequisites are met, continue from §1.2 and append rows here. The values to record are:
 
