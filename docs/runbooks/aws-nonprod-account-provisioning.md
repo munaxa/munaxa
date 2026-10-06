@@ -452,6 +452,87 @@ How these conditions were chosen:
 **Remaining gate:** Organizations discovery (§1.2) starts only after step 5 shows the
 `MunaxaOrgDiscovery` session.
 
+### 1.6 Discovery identity — created (2026-10-06T11:23Z)
+
+**Instance (enabled by the owner in the console, 2026-10-06T10:46:58Z):**
+
+| Item | Value |
+| --- | --- |
+| Instance | `ssoins-6987a5ab7f1b6dbb` (`arn:aws:sso:::instance/ssoins-6987a5ab7f1b6dbb`), `ACTIVE`, organization instance |
+| Owner account | `800728620253` (management) |
+| Organization | `o-qzf8irwaya` (owner-confirmed; not yet read from Organizations) |
+| Primary Region | `eu-central-1` |
+| Identity source | Identity Center directory, identity store `d-99674e1617` |
+| Multi-account permissions | Enabled |
+| Encryption | AWS-owned key |
+
+**Created through the API**, authorized by the owner. The caller was the management account's root
+user, the one-time bootstrap anticipated in §1.4.
+
+| Time (UTC) | Object | Result |
+| --- | --- | --- |
+| 11:23 | Identity Center user `munaxa-org-operator` | User ID `83a408d2-70f1-702d-a1bc-aff83b24d510`. Display name "Munaxa organization operator", email `admin@munaxa.com` (owner-supplied) |
+| 11:23 | Permission set `MunaxaOrgDiscovery` | `arn:aws:sso:::permissionSet/ssoins-6987a5ab7f1b6dbb/ps-20c7894c9f2223bf`. Session duration `PT1H`. Tags `Project=Munaxa`, `Purpose=ADR-0003-org-discovery` |
+| 11:23 | Inline policy on `MunaxaOrgDiscovery` | Exactly the §1.5 policy: `organizations:Describe*`, `organizations:List*`, `servicequotas:ListServiceQuotas`, `signin:AuthorizeOAuth2Access` (redirect `https://claude.ai/*`), and `signin:CreateOAuth2Token` (redirect `https://claude.ai/*`, grant types `authorization_code` and `refresh_token`). Both `signin` actions are limited to `arn:aws:signin:*:*:service-principal/aws-mcp.amazonaws.com` |
+| 11:23:27 | Account assignment | `munaxa-org-operator` → `800728620253` → `MunaxaOrgDiscovery`. Request `2429d001-8b2d-483d-b7c3-a8235084e85d`, `SUCCEEDED` |
+
+**Verification (read-only, immediately afterwards):**
+
+| # | Check | Result |
+| - | ----- | ------ |
+| 1 | Identity store users | Exactly one: `munaxa-org-operator`, `admin@munaxa.com` ✅ |
+| 2 | Permission sets in the instance | Exactly one: `MunaxaOrgDiscovery`, `PT1H` ✅ |
+| 3 | Its policies | The inline policy above, byte-for-byte as defined. **No** AWS-managed policies, **no** customer-managed policy references, **no** permissions boundary (`GetPermissionsBoundaryForPermissionSet`: "PermissionsBoundary not present") ✅ |
+| 4 | Assignments | One: `USER 83a408d2-…` on `800728620253`. `ListAccountsForProvisionedPermissionSet` returns only `800728620253`, and `ListPermissionSetsProvisionedToAccount` returns only `MunaxaOrgDiscovery` ✅ |
+| 5 | AdministratorAccess | Not attached anywhere in the permission set. The provisioned IAM role `AWSReservedSSO_MunaxaOrgDiscovery_4ae1c821d8802e94` (path `/aws-reserved/sso.amazonaws.com/eu-central-1/`) has **no** attached managed policy, only `AwsSSOInlinePolicy` ✅ |
+| 6 | IAM users and keys | Unchanged from the pre-change baseline: `admin.tamer` (no keys), `claude-munaxa-docs` (1 key, created 2026-10-04), `munaxa-docs-ses-smtp` (1 key, created 2026-10-05). **No IAM user or access key created** ✅ |
+| 7 | IAM roles | 25 before, 26 after. The only addition is the Identity Center-managed `AWSReservedSSO_MunaxaOrgDiscovery_*` role that the assignment provisions (expected, §1.5). `AWSServiceRoleForSSO` was already present from the owner's enablement ✅ |
+| 8 | Out of scope | No Organizations API called, no second permission set, no change to Docs roles or users, and no account, OU, SCP or application resource created ✅ |
+
+**MFA:**
+
+- **Instance setting.** It is not exposed through any API used here, and it was not changed. AWS documents it as on by default for a new instance: _"IAM Identity Center comes preconfigured with
+  multi-factor authentication (MFA) turned on by default"_, prompting _"Every time they sign in
+  (always-on)"_ (the default), and _"Require them to register an MFA device at sign in"_ (the default
+  for users without a device).
+- **Owner check.** Under **IAM Identity Center → Settings → Authentication → Multi-factor
+  authentication**, confirm those two values, then record "confirmed" here.
+- **User state.** **Pending first sign-in.** The operator has no password and no MFA device yet.
+  Users created through the API are not sent an invitation. The owner sets the first password by
+  choosing **Users → `munaxa-org-operator` → Reset password → Send an email to the user with
+  instructions** (or by generating a one-time password). The device is self-registered at first
+  sign-in. That step cannot be completed or bypassed through the API, and it was not.
+
+#### Reconnecting the AWS connector as `munaxa-org-operator`
+
+| Item | Value |
+| --- | --- |
+| Access portal | `https://d-99674e1617.awsapps.com/start`. This is the default form for this identity store; confirm it on the Identity Center dashboard if it was customized |
+| Home Region | `eu-central-1` |
+| Account | `800728620253` |
+| User | `munaxa-org-operator` (`admin@munaxa.com`) |
+| Permission set | `MunaxaOrgDiscovery` |
+| MFA | Required at every sign-in, registered at the first one |
+
+1. **Set the password** by sending the password-reset email from the console, as above, and opening
+   the link from `admin@munaxa.com`.
+2. **Sign out of the root console session** and close all AWS tabs. Sign-In reuses an active session.
+3. **Sign in to the access portal.** Open it, sign in as `munaxa-org-operator`, set the password,
+   **register an MFA device** and complete MFA. Confirm that account `800728620253` shows
+   `MunaxaOrgDiscovery`.
+4. **Reconnect the connector.** In claude.ai, open **Settings → Connectors → AWS**, then disconnect
+   and connect. When AWS Sign-In opens, use the IAM Identity Center sign-in or the existing portal
+   session, select account `800728620253` and `MunaxaOrgDiscovery`, then review and **approve**.
+   Do not choose root or an IAM user.
+5. **Confirm the identity.** Ask Claude to run `sts:GetCallerIdentity`. The expected ARN is
+   `arn:aws:sts::800728620253:assumed-role/AWSReservedSSO_MunaxaOrgDiscovery_4ae1c821d8802e94/munaxa-org-operator`.
+   **Anything else, root included, means stop.**
+6. **If the connector loses access after about an hour**, the token refresh was refused. Remove only
+   the `StringLike` redirect condition from `AwsMcpOAuthTokensFromClaudeOnly` (§1.5) and record it.
+
+**Remaining gate:** Organizations discovery (§1.2) runs only once step 5 shows the
+`MunaxaOrgDiscovery` session. Until then the root session is not used for anything further.
+
 ---
 
 ## 2. Account creation
@@ -855,6 +936,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06T10:03Z | §1.3 principal assessment (read-only IAM and IAM Identity Center) | Connector now reachable, as `arn:aws:iam::800728620253:root`. No scoped Organizations principal and no Identity Center instance found. **No Organizations API called; nothing created or changed. BLOCKED** pending a scoped principal | Claude Code session |
 | 2026-10-06T10:34Z | §1.4 connector authentication capability | Documentation-only check. **Connector supports IAM Identity Center** (interactive OAuth through AWS Sign-In). No AWS API call; nothing created or changed. Still **BLOCKED** until the Identity Center principal exists and the connector is re-authorized as it | Claude Code session |
 | 2026-10-06T10:37Z | §1.5 Identity Center bootstrap (authorized) | **Nothing created.** Two blockers: `CreateInstance` is rejected in a management account (console-only enablement), and no operator email was supplied. Read-only: `ec2:DescribeRegions` and `sso-admin:ListInstances` in all 18 enabled Regions (none exists). No Organizations call | Claude Code session |
+| 2026-10-06T11:23Z | §1.6 discovery identity (authorized) | **Created:** Identity Center user `munaxa-org-operator`, permission set `MunaxaOrgDiscovery` (inline policy only, `PT1H`), assignment to `800728620253` (`SUCCEEDED`). Verified read-only: no managed policy, no boundary, no IAM user or key, only the expected `AWSReservedSSO_*` role added. MFA is the documented default (owner to confirm); the user is pending first sign-in. No Organizations call | Claude Code session (root bootstrap, owner-authorized) |
 
 ### Discovery status (2026-10-06T09:57Z)
 
