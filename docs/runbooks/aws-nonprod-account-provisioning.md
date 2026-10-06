@@ -679,6 +679,112 @@ The organization supports ADR-0003 with no conflict. Provisioning cannot start u
    controls and that no other AWS account uses; it cannot be `admin@munaxa.com` if that is already
    any account's root email.
 
+### 1.9 Provisioning permission set `MunaxaOrgNonprodProvisioning` — authorized, not yet created (2026-10-06T13:24Z)
+
+**Authorized by the owner:**
+
+- create the permission set `MunaxaOrgNonprodProvisioning`;
+- attach `AWSMCPSignInOAuthAccessPolicy` to it;
+- assign it only to `munaxa-org-operator` on `800728620253`.
+
+Nothing else is authorized: no OU, account, SCP, trusted access or other change.
+
+**Result: not created.** The connector's verified identity was
+`arn:aws:sts::800728620253:assumed-role/AWSReservedSSO_MunaxaOrgDiscovery_4ae1c821d8802e94/munaxa-org-operator`.
+`MunaxaOrgDiscovery` grants no `sso-admin` permission, so it cannot create a permission set. No
+creation call was attempted, and no other route was used. The only AWS call made was
+`sts:GetCallerIdentity`.
+
+**Ready-to-apply definition** (final; supersedes the §1.3 draft):
+
+| Item | Value |
+| --- | --- |
+| Name | `MunaxaOrgNonprodProvisioning` |
+| Description | "Creates the ADR-0003 NonProduction OU, munaxa-nonprod account and its SCPs (no other writes)" |
+| Session duration | `PT1H`. Provisioning is a short, attended task; re-sign-in is cheap, and a long-lived write session is not wanted |
+| AWS-managed policy | `arn:aws:iam::aws:policy/AWSMCPSignInOAuthAccessPolicy`, and nothing else |
+| Customer-managed policies, permissions boundary | None |
+| Assignment | `munaxa-org-operator` (user ID `83a408d2-70f1-702d-a1bc-aff83b24d510`) → `800728620253` only |
+
+Inline policy:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "NonProdOuAccountAndScps",
+      "Effect": "Allow",
+      "Action": [
+        "organizations:CreateOrganizationalUnit",
+        "organizations:CreateAccount",
+        "organizations:DescribeCreateAccountStatus",
+        "organizations:MoveAccount",
+        "organizations:TagResource",
+        "organizations:CreatePolicy",
+        "organizations:AttachPolicy"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "TrustedAccessForCentralRootManagementOnly",
+      "Effect": "Allow",
+      "Action": "organizations:EnableAWSServiceAccess",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "organizations:ServicePrincipal": "iam.amazonaws.com" } }
+    },
+    {
+      "Sid": "CentralRootAccessManagement",
+      "Effect": "Allow",
+      "Action": [
+        "iam:EnableOrganizationsRootCredentialsManagement",
+        "iam:EnableOrganizationsRootSessions",
+        "iam:ListOrganizationsFeatures"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OrganizationsServiceLinkedRoleOnly",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "iam:AWSServiceName": "organizations.amazonaws.com" } }
+    }
+  ]
+}
+```
+
+Notes on the definition:
+
+- `organizations:EnablePolicyType` is omitted: SCPs are already enabled (§1.8).
+- No read actions are included. Verification during provisioning uses the `MunaxaOrgDiscovery`
+  session (§1.2 and §7 checks).
+- After §2–§3 return `<NONPROD_OU_ID>` and the account ID, `MoveAccount`, `AttachPolicy` and
+  `CreateOrganizationalUnit` can be narrowed by ARN if the set is kept beyond the one provisioning
+  run.
+
+**How to apply it** (needs Identity Center administration in `800728620253`, so a root or
+administrator session, as for §1.6):
+
+- **Option 1: the owner, in the console.**
+  1. Go to IAM Identity Center → Permission sets → Create → Custom.
+  2. Attach `AWSMCPSignInOAuthAccessPolicy` and paste the inline policy above.
+  3. Set the session to 1 hour and name the set `MunaxaOrgNonprodProvisioning`.
+  4. Under AWS accounts → `800728620253` → Assign users, assign `munaxa-org-operator` →
+     `MunaxaOrgNonprodProvisioning`.
+- **Option 2: Claude, once the connector is temporarily signed in as root or an Identity Center
+  administrator.** The calls are `CreatePermissionSet`, `AttachManagedPolicyToPermissionSet`,
+  `PutInlinePolicyToPermissionSet`, `CreateAccountAssignment` and the provisioning status poll.
+  Afterwards Claude runs the §1.6-style verification (exact policies, one assignment,
+  `MunaxaOrgDiscovery` unchanged, IAM users and keys unchanged), and the owner reconnects the
+  connector as the operator.
+
+**Remaining blockers before account/OU/SCP provisioning:**
+
+1. this permission set exists and is assigned (above);
+2. the `munaxa-nonprod` root email address is supplied (§1.1);
+3. explicit authorization to run §2–§6.
+
 ---
 
 ## 2. Account creation
@@ -1086,6 +1192,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06T11:44Z | §1.2 discovery as `munaxa-org-operator` (step 1: identity check) | **Blocked before verification.** The single permitted pre-check, `sts:GetCallerIdentity`, returned "`AWS_MCP` needs you to sign in again". The connector was not authorized in this session, so the expected `AWSReservedSSO_MunaxaOrgDiscovery_4ae1c821d8802e94/munaxa-org-operator` identity could not be confirmed. No Organizations call, nothing created or changed. Gate: **BLOCKED** | Claude Code session |
 | 2026-10-06T13:12Z | §1.7 OAuth diagnosis and fix (root, owner-authorized) | Cause: `CreateOAuth2Token` `AccessDenied` because the token request has no redirect URI for the custom condition. Fix: `AWSMCPSignInOAuthAccessPolicy` attached, inline reduced to Organizations and Service Quotas reads, re-provisioned (`SUCCEEDED`). No Organizations call, nothing else changed | Claude Code session (root) |
 | 2026-10-06T13:20Z | §1.8 organization discovery (scoped identity verified) | **Done, read-only.** Organization `o-qzf8irwaya`, `ALL` features, root `r-tbrv`, no OUs, one account (management), SCPs `DenyLeaveAndCloseAccount` and `FullAWSAccess` only, quota 10 with 1 used. No conflict with ADR-0003. Gate **BLOCKED** on a provisioning permission set and the new account's root email. Nothing created | Claude Code session (`munaxa-org-operator`) |
+| 2026-10-06T13:24Z | §1.9 provisioning permission set (authorized) | **Not created.** The connector was `MunaxaOrgDiscovery`, which has no `sso-admin` permissions. No creation attempted; only `sts:GetCallerIdentity` was called. The final definition is recorded, ready to apply from a root or administrator session | Claude Code session (`munaxa-org-operator`) |
 
 ### Discovery status (2026-10-06T09:57Z)
 
