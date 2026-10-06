@@ -12,10 +12,14 @@ isolated infrastructure") to AWS. Where it changes an ADR-0002 statement it says
 than leaving two answers. Like every ADR it is immutable once accepted: supersede it, do not edit
 its decisions.
 
-The investigation behind it is in `munaxa-identity`, `docs/runbooks/aws-staging-architecture.md`, on
-the review branch `claude/aws-nonprod-dns-decision` (`da4f531`). That document's §3 covers the network,
-§4 DNS, §8 accounts and §9 cost, with prices verified on 2026-10-06 against the AWS Price List for
-`eu-central-1`. Every "current state" statement below names its source.
+**This ADR is self-contained.** Every decision and its rationale are stated here, and nothing in it
+depends on another repository's branch. The supporting analysis (option comparisons, prices verified
+on 2026-10-06 against the AWS Price List for `eu-central-1`, and the detailed network, DNS and account
+design) was written in `munaxa-identity` as `docs/runbooks/aws-staging-architecture.md`, on a review
+branch at the time of writing (commit `da4f531`). Below it is called "the supporting analysis". It is
+background, not a source of decisions. If it is rebased, renamed, merged, moved or discarded, this ADR
+is unaffected, and where the two ever differ, this ADR governs. Every "current state" statement below
+names its source.
 
 Throughout, **decided** means binding once this ADR is accepted. **Deferred** means deliberately left
 open, with a named owner. **Product ADR** means the decision belongs to one product's repository and
@@ -38,8 +42,12 @@ Proposed 2026-10-06.
 - **Munaxa has no revenue.** Hosting must cost as little as practical, but a non-production
   environment that does not resemble production cannot test a production deployment.
 - **AWS is the chosen platform.** ECS on Fargate (Docs ADR-0022) in `eu-central-1` (Docs ADR-0023).
-  Docs has started its production there, and Identity has prepared its first AWS artifacts (ECR
-  publishing via GitHub OIDC, a migration runner, TLS to RDS) on review branches in `munaxa-identity`.
+  Docs has started its production there. At the time of writing, Identity had prepared its first AWS
+  artifacts (ECR publishing via GitHub OIDC, a migration runner, TLS to RDS) as unmerged review work in
+  `munaxa-identity`.
+- **Identity and Work have a staging environment today, on Render**, not AWS. It runs as one public
+  origin, with images published to GHCR and pulled by digest using a stored registry credential
+  (`munaxa-identity` `deploy/render.yaml`, `deploy/RENDER.md`; ADR-0002 §7 and §12).
 - **There is no account convention.** Docs Production and Docs Non-Production both live in
   `800728620253`, **the AWS Organizations management account**. Docs' own Terraform README states
   the consequence: _"service control policies do not apply to it. Isolation is enforced entirely in
@@ -74,6 +82,24 @@ authentication service and the only holder of its private signing key; Work rece
 verification key. Docs and School remain independently authenticated (ADR-0002 binding decision 13).
 None of this changes.
 
+### 4.1 Transition from Render staging
+
+**Decided.**
+
+- **Render staging stays operational** while AWS non-production for Identity and Work is built and
+  validated. There is no requirement to migrate immediately and no shutdown date.
+- **Render staging is not the AWS non-production environment.** It is not in `munaxa-nonprod`, is not
+  governed by this ADR's account, registry or domain rules, and its configuration is not a template
+  for them.
+- **AWS non-production becomes the authoritative semi-production environment** for Identity and Work
+  once it passes its acceptance testing. Until then, Render staging remains the environment of
+  record for those products.
+- **Render staging may then be retired** whenever it is no longer needed. Retirement is an
+  operational decision for the Identity and Work owners; this ADR sets no date.
+- **The existing Render GHCR workflows remain valid** throughout, and after the transition for as
+  long as Render staging exists (§6, "Deferred"). Their GHCR use is not an AWS deployment and is not
+  superseded by §13.
+
 ## 5. Account model
 
 **Decided.**
@@ -95,8 +121,8 @@ AWS Organization (all features enabled, so SCPs apply to member accounts)
     └── munaxa-prod — every product's production environment (created when first needed)
 ```
 
-- **One account per environment class, not per product.** ADR-0002 binding decision 10 already
-  lists provider accounts among what products share. Product isolation is enforced inside the
+- **One account per environment class, not per product.** ADR-0002's "Decisions taken now" item 10
+  already lists provider accounts among what products share. Product isolation is enforced inside the
   account (§10), so per-product accounts would add eight accounts and cross-account networking and
   buy no isolation.
 - **Why a member account and not the management account.** AWS: _"SCPs don't affect users or roles
@@ -118,14 +144,29 @@ AWS Organization (all features enabled, so SCPs apply to member accounts)
 **Decided.**
 
 ```text
-GitHub Actions job in environment aws-<env>
-  → GitHub OIDC token (sub = repo:munaxa/munaxa-<product>:environment:aws-<env>)
+GitHub Actions job in environment aws-nonprod (or aws-eu-prod)
+  → GitHub OIDC token (sub = repo:munaxa/munaxa-<product>:environment:aws-nonprod, or :aws-eu-prod)
   → product-specific AWS role in that environment's account (publisher or deployer)
   → Amazon ECR repository munaxa-<product>-<component>
   → immutable digest repository@sha256:…
   → ECS Fargate task definition (service and one-off tasks run the same digest)
 ```
 
+- **GitHub environments, one per AWS environment, in every product repository that deploys to AWS:**
+
+  | GitHub environment | AWS account      | Region         | Purpose                                     |
+  | ------------------ | ---------------- | -------------- | ------------------------------------------- |
+  | `aws-nonprod`      | `munaxa-nonprod` | `eu-central-1` | Non-production publishing and deployment    |
+  | `aws-eu-prod`      | `munaxa-prod`    | `eu-central-1` | Production promotion and deployment (later) |
+
+  The names are explicit, not placeholders. The environment name becomes the OIDC `sub` that each
+  role's trust policy matches exactly, so it is the boundary between accounts. `aws-` marks an AWS
+  target, as distinct from the Render `staging` environment and other hosts. `eu-prod` names the
+  region class of production, because production data residency is bound to its region. It is the
+  token Docs already uses for its production resources (`munaxa-docs-eu-prod-*`). Non-production
+  holds no customer data and is one account in one region, so it needs no region token. A production
+  environment in another region would be a new environment with its own name, decided when that
+  region is.
 - **No long-lived credentials.** No AWS access key, ECR password or registry token in source,
   images, repository files or GitHub secrets. Each role trusts **one repository and one GitHub
   environment**, by exact `sub` and `aud` match.
@@ -135,18 +176,26 @@ GitHub Actions job in environment aws-<env>
 - **Promotion copies the digest.** Production gets its own repositories in `munaxa-prod`. A job in
   the production environment copies the exact digest from `munaxa-nonprod`, so production never
   runs from, or depends on, the non-production account.
-- **Reference implementation:** Identity's `.github/workflows/publish-ecr.yml`,
-  `.github/scripts/verify-runtime-image.sh` and `docs/runbooks/ecr-image.md`, on review branch
-  `claude/identity-ecr-publish` (`1c07a8e`). Before its first AWS publish it adopts this ADR's names:
-  repository `munaxa-identity-api` (it currently uses `munaxa/identity-api`) and GitHub environment
-  `aws-nonprod` (it currently uses `aws-staging`).
+- **Conformance is defined by the rules above, not by any implementation.** A product's pipeline
+  conforms when it meets them, in whatever form.
+
+**Implementation status (informative, not part of the decision).** Identity's ECR publishing work
+was the first implementation and informed this standard: a workflow, an image-verification script
+and a runbook (`.github/workflows/publish-ecr.yml`, `.github/scripts/verify-runtime-image.sh`,
+`docs/runbooks/ecr-image.md`). At the time of writing it was unmerged, on review branch
+`claude/identity-ecr-publish` (`1c07a8e`). It predates this standard and uses repository
+`munaxa/identity-api` and GitHub environment `aws-staging`. It must be aligned to
+`munaxa-identity-api` and `aws-nonprod` before its first AWS publish (F5). It is a useful pattern for
+other products, but this ADR does not depend on it: if it is rebased, renamed, merged or discarded,
+the standard is unchanged.
 
 **Deferred:**
 
 - Whether GHCR remains the channel for delivering images to dedicated-cloud and on-premises
-  customers (ADR-0002 §11). Existing GHCR publishing workflows may continue, but **no AWS environment
-  pulls from GHCR**.
-- A shared reusable publish workflow in `munaxa` (ADR-0002 §10 "shared CI templates").
+  customers (ADR-0002 §11). Existing GHCR publishing workflows, including those that feed Render
+  staging (§4.1), may continue, but **no AWS environment pulls from GHCR**.
+- A shared reusable publish workflow in `munaxa` (ADR-0002 §10 CI/CD row "Shared reusable workflows";
+  "Decisions taken now" item 10 "CI templates").
 
 ## 7. Domain model
 
@@ -173,8 +222,8 @@ GitHub Actions job in environment aws-<env>
 **Deferred to provisioning:**
 
 - the Route 53 implementation (registrar, hosted zone, records);
-- certificates (one non-production wildcard and one production certificate per hostname is the
-  recommendation in the architecture document §4.5);
+- certificates (the supporting analysis recommends one non-production wildcard and one production
+  certificate per hostname);
 - CAA records.
 
 ## 8. Security rationale
@@ -184,7 +233,7 @@ would have to fail at once:
 
 1. The production account trusts nothing from `munaxa-nonprod`, and no production role accepts an
    `aws-nonprod` OIDC subject.
-2. GitHub environment protection rules gate `aws-<prod>`, and each environment's variables name only
+2. GitHub environment protection rules gate `aws-eu-prod`, and each environment's variables name only
    its own account's roles.
 3. Infrastructure code pins its one allowed account ID.
 4. SCPs apply to member accounts.
@@ -238,7 +287,7 @@ It does not have production's _size_. Non-production is not made production-size
 | `munaxa-nonprod.com` | **≈ $16 a year** registration + $0.50/month zone (the zone replaces a planned sub-zone) | Route 53 `.com` price since 2026-07-01 (secondary source; re-check at purchase) |
 
 The whole Identity + Work non-production environment is estimated at about **$128–133 a month**
-on-demand (architecture document §9), less with Fargate Spot.
+on-demand in the supporting analysis, less with Fargate Spot. That is an estimate, not a decision.
 
 ## 10. Product isolation
 
@@ -265,7 +314,7 @@ binding decisions 5 and 12.
   - Multi-AZ databases;
   - endpoints in every AZ that runs tasks;
   - longer log retention;
-  - its own OIDC provider, trusting only the production GitHub environment.
+  - its own OIDC provider, trusting only the `aws-eu-prod` GitHub environment.
 - **Docs today (unchanged by this ADR):** Docs Production and Docs Non-Production are in the
   management account, and Docs production follows its accepted ADRs (0022–0025), including its GHCR
   plan. Moving Docs Non-Production into `munaxa-nonprod`, and Docs Production into `munaxa-prod`,
@@ -276,7 +325,8 @@ binding decisions 5 and 12.
 
 ## 12. Consequences
 
-- **Already decided in the architecture document, referenced here and not re-decided:**
+- **Non-production infrastructure baseline.** This ADR records it as the ecosystem baseline. Its
+  detailed design and costing are in the supporting analysis; this ADR does not re-derive them:
   - one shared non-production VPC, one shared ALB, one shared ECS cluster;
   - private ECS tasks;
   - VPC endpoints instead of a NAT gateway for the initial Identity + Work environment;
@@ -302,6 +352,7 @@ ADR-0002 is not edited. These statements are superseded or updated here:
 | §10 row **DNS**: "One `munaxa.com` zone" | **Updated:** production keeps one `munaxa.com` zone (on Cloudflare); non-production uses the separate `munaxa-nonprod.com` (§7) |
 | §10 row **Compute**: "Same cluster/account/provider" | **Consistent:** one account and one cluster per environment class (§5) |
 | Binding decisions 13–15 and "Decisions taken now" 5–6 | **Unchanged** |
+| §7 and §12 description of Work + Identity **staged on Render** | **Unchanged.** Render staging continues during the transition (§4.1) and is outside this ADR's AWS rules |
 | §5C and §7 describe Identity's tokens as **RS256** | **Factual correction, not a decision:** Identity signs **ES256** (`munaxa-identity` `packages/config/src/environment.ts`, `IDENTITY_SIGNING_ALGORITHMS = ['ES256']`). Work verifies with the public key either way |
 
 ADR-0001 is unchanged and consistent. Its consequence that _"one browser origin is required for
@@ -317,7 +368,7 @@ Each item names its owner. None is decided or implemented here.
 | F2 | **Work `munaxa_work_tenant` cookie.** Unprefixed, so a sibling host can plant it. It carries only a tenant _selection_ among the user's own memberships (Work ADR-0032), never an authority. Review it for host-only (`__Host-`) protection before production | Work | Work change |
 | F3 | **School default sender `no-reply@munaxa.app`** (`munaxa-school` `apps/api/src/config/env.validation.ts`). `munaxa.app` returned NXDOMAIN on 2026-10-06, so it appears unregistered or unconfigured, and mail from it would fail authentication | School | School change |
 | F4 | Create `munaxa-nonprod`, enable SCPs with a baseline, and register `munaxa-nonprod.com` | Infrastructure owner | Provisioning, after acceptance |
-| F5 | Align Identity's ECR artifacts with §6 names before its first publish | Identity | Configuration |
+| F5 | Align Identity's ECR implementation work with §6 (repository `munaxa-identity-api`, GitHub environment `aws-nonprod`) before its first publish, whatever branch it is then on | Identity | Configuration |
 | F6 | Docs: move Non-Production into `munaxa-nonprod`, Production into `munaxa-prod`, and its registry to ECR | Docs | **Docs ADR** |
 | F7 | GHCR's future as the dedicated-cloud and on-premises distribution channel | Ecosystem | Future ecosystem ADR |
 | F8 | School: the hostname move (ADR-0002 R2), a build-time API URL that prevents promotion by digest, and static S3 keys that become a task role on ECS | School | School ADRs |
