@@ -587,6 +587,98 @@ Nothing outside the permission set changed. No Organizations API was called.
 2. Verify with `sts:GetCallerIdentity`.
 3. Run §1.2 discovery only in that scoped session, never as root.
 
+### 1.8 Organization discovery — results (2026-10-06T13:20Z)
+
+**Connector identity, verified first:**
+`arn:aws:sts::800728620253:assumed-role/AWSReservedSSO_MunaxaOrgDiscovery_4ae1c821d8802e94/munaxa-org-operator`
+(`UserId AROA3U3ZFDTO22YPIUNLB:munaxa-org-operator`). Root was not used.
+
+**Calls, all read-only:**
+
+- `organizations:DescribeOrganization`, `ListRoots`, `ListOrganizationalUnitsForParent`,
+  `ListAccountsForParent`, `ListAccounts`;
+- `ListPolicies` for SCPs, RCPs, EC2 declarative, tag, backup and AI opt-out policies;
+- `DescribePolicy` and `ListTargetsForPolicy` for each SCP;
+- `ListAWSServiceAccessForOrganization`, `ListDelegatedAdministrators`, `ListCreateAccountStatus`;
+- `servicequotas:ListServiceQuotas` (`organizations`).
+
+Nothing was created or changed.
+
+#### Verified current state
+
+| Item | Value |
+| --- | --- |
+| Organization | `o-qzf8irwaya`, `arn:aws:organizations::800728620253:organization/o-qzf8irwaya` |
+| Feature set | **`ALL`** |
+| Management account | `800728620253` (account name `tamer.haj`, joined `INVITED` 2026-10-03T18:58Z, `ACTIVE`) |
+| Root | `r-tbrv` (`Root`). Policy types enabled: **`SERVICE_CONTROL_POLICY`** only |
+| OUs | **None.** No `NonProduction`, no `Production` |
+| Accounts | **One**: `800728620253`, the management account, directly under the root. There are no member accounts |
+| Docs Production / Non-Production | **In the management account, confirmed.** It is the organization's only account, and its IAM holds both the `munaxa-docs-eu-prod-*` and the `munaxa-docs-*nonprod*` roles (§1.3) |
+| SCPs | `DenyLeaveAndCloseAccount` (`p-5jgkeubl`, customer-managed) on the **root**: `Deny organizations:LeaveOrganization, account:CloseAccount`. `FullAWSAccess` (`p-FullAWSAccess`) on the root and on `800728620253`. Nothing else |
+| Region restriction | **None** |
+| Service restrictions | **None** for IAM, STS, Sign-In/Identity Center, OIDC, EC2/NAT, RDS, ElastiCache, VPC, ECS, ECR, Route 53, ACM, CloudTrail or Organizations. SCPs do not affect the management account in any case |
+| Other policy types | No RCPs, declarative, tag, backup or AI opt-out policies |
+| Trusted service access | `sso.amazonaws.com` only (Identity Center) |
+| Delegated administrators | None |
+| Account-creation history | None (no create-account requests, in progress or failed) |
+| Account quota | `L-E619E033` "Maximum number of accounts" = **10** (adjustable). **In use: 1. Available: 9** |
+
+#### Compared with ADR-0003 and this runbook
+
+| # | ADR-0003 element | Compatibility | Notes |
+| - | ---------------- | ------------- | ----- |
+| 1 | `munaxa-nonprod` member account | ✅ | Quota available, no name or email clash, no prior failed attempt |
+| 2 | `NonProduction` OU | ✅ | Does not exist; the root can hold it |
+| 3 | Future `Production` OU | ✅ | Does not exist; not created now (§3) |
+| 4 | `eu-central-1` lock | ✅ | No existing region SCP to conflict with §6.2 |
+| 5 | No IAM users or access keys | ✅ for the member account (§6.3) | The management account keeps its existing IAM users (Docs' setup, out of scope) |
+| 6 | CloudTrail protection | ✅ | No conflicting policy. No trail yet (§6.5) |
+| 7–10 | No NAT, no EC2, small Single-AZ RDS, small non-serverless ElastiCache | ✅ | No existing SCP touches these. §6.4 applies them to the OU only |
+| 11 | GitHub OIDC | ✅ | Nothing restricts IAM/STS/OIDC |
+| 12–13 | ECR, ECS/Fargate | ✅ | Nothing restricts them |
+| — | SCP policy type (§6.1) | ✅ **Already enabled.** §6.1's `enable-policy-type` is not needed |
+| — | SCP slots | ✅ | The `NonProduction` OU will hold `FullAWSAccess` plus three, within the limit of 10 |
+
+**Conflicts: none with ADR-0003.** Three details change the runbook's plan:
+
+1. **`DenyLeaveAndCloseAccount` is already at the root**, so every member account inherits it. The
+   `DenyLeavingOrClosing` statement in §6.3 duplicates it. That is harmless, and it can be dropped or
+   kept as the OU's own copy; decide at provisioning.
+2. **Rollback (§9).** `organizations:CloseAccount` called from the management account is not
+   restricted by SCPs, which never apply to the management account. The §9 note to "temporarily
+   detach §6.3's `account:CloseAccount` deny first" is therefore unnecessary for a
+   management-account closure. The root SCP only stops a member closing itself.
+3. **Trusted access for `iam.amazonaws.com`**, needed for centralized root access (§5), is not
+   enabled yet. Enabling it is part of provisioning.
+
+**Intentional exception, unchanged:** Docs Production and Docs Non-Production stay in the management
+account (ADR-0003 §11, F6).
+
+#### Permissions and prerequisites
+
+| Need | Current `MunaxaOrgDiscovery` | Required later |
+| --- | --- | --- |
+| Discovery | ✅ `organizations:Describe*`/`List*`, `servicequotas:ListServiceQuotas` | — |
+| Create the `NonProduction` OU, create `munaxa-nonprod`, poll its status, move it | ❌ | `organizations:CreateOrganizationalUnit`, `CreateAccount`, `DescribeCreateAccountStatus`, `MoveAccount`, `TagResource`, plus `iam:CreateServiceLinkedRole` for `organizations.amazonaws.com` |
+| Create and attach the three SCPs | ❌ | `organizations:CreatePolicy`, `AttachPolicy` (`EnablePolicyType` is **no longer needed**) |
+| Centralized root access (§5) | ❌ | `organizations:EnableAWSServiceAccess` (for `iam.amazonaws.com` only), `iam:EnableOrganizationsRootCredentialsManagement`, `iam:EnableOrganizationsRootSessions`, `iam:ListOrganizationsFeatures` |
+
+These are exactly the `munaxa-org-nonprod-provisioning` policy in §1.3, minus `EnablePolicyType`. The
+policy needs to be created as a **second Identity Center permission set**, plus the OAuth policy
+from §1.7, and assigned only when provisioning is approved.
+
+#### Provisioning gate: **BLOCKED** (organization-side: clear)
+
+The organization supports ADR-0003 with no conflict. Provisioning cannot start until:
+
+1. **A principal with provisioning permissions exists.** The `MunaxaOrgNonprodProvisioning`
+   permission set (above) has not been created or assigned. Creating it is an Identity Center change
+   that needs explicit authorization.
+2. **The root email address for `munaxa-nonprod` is supplied** (§1.1). It must be a mailbox Munaxa
+   controls and that no other AWS account uses; it cannot be `admin@munaxa.com` if that is already
+   any account's root email.
+
 ---
 
 ## 2. Account creation
@@ -993,6 +1085,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06T11:23Z | §1.6 discovery identity (authorized) | **Created:** Identity Center user `munaxa-org-operator`, permission set `MunaxaOrgDiscovery` (inline policy only, `PT1H`), assignment to `800728620253` (`SUCCEEDED`). Verified read-only: no managed policy, no boundary, no IAM user or key, only the expected `AWSReservedSSO_*` role added. MFA is the documented default (owner to confirm); the user is pending first sign-in. No Organizations call | Claude Code session (root bootstrap, owner-authorized) |
 | 2026-10-06T11:44Z | §1.2 discovery as `munaxa-org-operator` (step 1: identity check) | **Blocked before verification.** The single permitted pre-check, `sts:GetCallerIdentity`, returned "`AWS_MCP` needs you to sign in again". The connector was not authorized in this session, so the expected `AWSReservedSSO_MunaxaOrgDiscovery_4ae1c821d8802e94/munaxa-org-operator` identity could not be confirmed. No Organizations call, nothing created or changed. Gate: **BLOCKED** | Claude Code session |
 | 2026-10-06T13:12Z | §1.7 OAuth diagnosis and fix (root, owner-authorized) | Cause: `CreateOAuth2Token` `AccessDenied` because the token request has no redirect URI for the custom condition. Fix: `AWSMCPSignInOAuthAccessPolicy` attached, inline reduced to Organizations and Service Quotas reads, re-provisioned (`SUCCEEDED`). No Organizations call, nothing else changed | Claude Code session (root) |
+| 2026-10-06T13:20Z | §1.8 organization discovery (scoped identity verified) | **Done, read-only.** Organization `o-qzf8irwaya`, `ALL` features, root `r-tbrv`, no OUs, one account (management), SCPs `DenyLeaveAndCloseAccount` and `FullAWSAccess` only, quota 10 with 1 used. No conflict with ADR-0003. Gate **BLOCKED** on a provisioning permission set and the new account's root email. Nothing created | Claude Code session (`munaxa-org-operator`) |
 
 ### Discovery status (2026-10-06T09:57Z)
 
