@@ -290,6 +290,168 @@ authorize explicitly. It is the last time a root or administrator session is nee
 
 **Then** §1.2 discovery can run.
 
+### 1.5 IAM Identity Center discovery access — bootstrap (2026-10-06T10:37Z)
+
+**Authorized** by the owner: an Identity Center instance in `eu-central-1`, one dedicated operator
+user with MFA, the `MunaxaOrgDiscovery` permission set (discovery plus OAuth sign-in permissions only),
+and its assignment to `800728620253`. Nothing else is authorized.
+
+**Result: nothing was created. Two blockers were found before the first change.**
+
+| # | Blocker | Evidence | Needed from the owner |
+| - | ------- | -------- | --------------------- |
+| 1 | **The Identity Center organization instance cannot be created through the API in a management account.** The connector's only route is the API | `sso-admin:CreateInstance`: _"The CreateInstance request is rejected if … the instance is created within the organization management account"_ (AWS SDK reference for `SSOAdmin.CreateInstance`). An organization instance is enabled from the IAM Identity Center console | Enable it in the console (steps below) |
+| 2 | **No operator email address has been supplied.** Identity Center users need one, and it is the sign-in and recovery channel | Not in the task or the repositories. It is not invented, and no existing identity's address is reused | Supply a dedicated mailbox Munaxa controls (a role address, not `admin.tamer` or `claude-munaxa-docs`) |
+
+**Read-only calls made:**
+
+- `ec2:DescribeRegions` (18 enabled Regions);
+- `sso-admin:ListInstances` in each of the 18 Regions. **No instance exists in any Region.**
+
+No Organizations API was called. Nothing was created or changed: no Identity Center instance, user,
+permission set, assignment, IAM user, access key or policy.
+
+#### Owner action A: enable the organization instance (console only)
+
+1. Sign in to the AWS console for account `800728620253`. This is the one remaining privileged
+   session: root or an existing administrator.
+2. Switch the console Region to **Europe (Frankfurt) `eu-central-1`**. The Region chosen here
+   becomes the instance's permanent home Region.
+3. Open **IAM Identity Center** and choose **Enable**. When offered, choose the **organization
+   instance**, not an account instance.
+   - If the console says AWS Organizations "all features" must be enabled first, **stop**. That is
+     also an ADR-0003 prerequisite (§1.2), and enabling it is a separate decision.
+4. Leave the identity source as the **Identity Center directory**, the default.
+5. Under **Settings → Authentication → Multi-factor authentication**, confirm or set:
+   - MFA every time they sign in;
+   - authenticator apps and security keys allowed;
+   - users without a device must register one at sign-in.
+6. Note the **AWS access portal URL** shown on the dashboard (`https://<identifier>.awsapps.com/start`)
+   and record it here.
+
+Enabling the instance is free, and adds the Identity Center service-linked role and trusted access
+for `sso.amazonaws.com` in Organizations. Those are the instance's own prerequisites, not additional
+resources.
+
+#### Owner action B: the operator, permission set and assignment
+
+Two options:
+
+- **B1:** the owner supplies the operator email, and Claude creates the user, the permission set and
+  the assignment through the API once the instance exists. That means `identitystore:CreateUser`,
+  `sso-admin:CreatePermissionSet`, `PutInlinePolicyToPermissionSet`, `CreateAccountAssignment` and
+  `ProvisionPermissionSet`.
+- **B2:** the owner creates them in the console from the definitions below.
+
+Either way, MFA is registered by the operator at first sign-in. It cannot be registered on a user's
+behalf.
+
+| Item | Definition |
+| --- | --- |
+| Operator user | Username `munaxa-org-operator`; display name "Munaxa organization operator"; email `<OPERATOR_EMAIL>` (owner-supplied). A dedicated identity used for nothing else. It gets a password through the console's "send email" or one-time-password setup, then registers MFA at first sign-in |
+| Permission set | `MunaxaOrgDiscovery`; description "Read-only AWS Organizations discovery for ADR-0003 (no writes)"; session duration **PT1H**; **no** AWS-managed or customer-managed policies attached; **no** permissions boundary needed (the inline policy is the whole grant) |
+| Assignment | User `munaxa-org-operator` → account `800728620253` → `MunaxaOrgDiscovery`. Nothing else |
+| Not created | The provisioning permission set (`munaxa-org-nonprod-provisioning`, §1.3) and any other assignment |
+
+**`MunaxaOrgDiscovery` inline policy**, the complete grant:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "OrganizationsReadOnly",
+      "Effect": "Allow",
+      "Action": ["organizations:Describe*", "organizations:List*"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "OrganizationsQuotaRead",
+      "Effect": "Allow",
+      "Action": "servicequotas:ListServiceQuotas",
+      "Resource": "*"
+    },
+    {
+      "Sid": "AwsMcpOAuthAuthorizeFromClaudeOnly",
+      "Effect": "Allow",
+      "Action": "signin:AuthorizeOAuth2Access",
+      "Resource": "arn:aws:signin:*:*:service-principal/aws-mcp.amazonaws.com",
+      "Condition": { "StringLike": { "signin:OAuthRedirectUri": "https://claude.ai/*" } }
+    },
+    {
+      "Sid": "AwsMcpOAuthTokensFromClaudeOnly",
+      "Effect": "Allow",
+      "Action": "signin:CreateOAuth2Token",
+      "Resource": "arn:aws:signin:*:*:service-principal/aws-mcp.amazonaws.com",
+      "Condition": {
+        "StringLike": { "signin:OAuthRedirectUri": "https://claude.ai/*" },
+        "StringEquals": { "signin:OAuthGrantType": ["authorization_code", "refresh_token"] }
+      }
+    }
+  ]
+}
+```
+
+How these conditions were chosen:
+
+- **Which keys apply to which action.** `signin:OAuthRedirectUri` applies to both actions;
+  `signin:OAuthGrantType` applies only to `CreateOAuth2Token` (AWS Sign-In condition keys reference).
+  The two actions are therefore in separate statements, so the grant-type condition never meets an
+  action that lacks the key, which would otherwise deny it. AWS's own localhost example puts both
+  conditions in one statement.
+- **What the conditions exclude.** The grant-type list excludes `client_credentials`, so no headless
+  token can be minted with these permissions. The redirect condition limits tokens to Claude's
+  documented redirect URI.
+- **Check at first connection.** If the hourly token refresh fails (that is, if AWS omits the
+  redirect URI on a `refresh_token` exchange), remove only the `StringLike` condition from
+  `AwsMcpOAuthTokensFromClaudeOnly` and record the change here. Do not widen anything else.
+- **`sts:GetCallerIdentity`** needs no permission and is not granted.
+
+#### Verification once created (to run then; not run now)
+
+1. `sso-admin:ListInstances` in `eu-central-1` shows one instance, owned by `800728620253`.
+2. `identitystore:ListUsers` shows `munaxa-org-operator`.
+3. `sso-admin:DescribePermissionSet`, `GetInlinePolicyForPermissionSet`,
+   `ListManagedPoliciesInPermissionSet` and `ListCustomerManagedPolicyReferencesInPermissionSet`
+   show the policy above and **nothing else**: no `AdministratorAccess`, no managed policy.
+4. `sso-admin:ListAccountAssignments` for `800728620253` and `MunaxaOrgDiscovery` shows exactly the
+   operator.
+5. `iam:ListUsers` still shows exactly `admin.tamer`, `claude-munaxa-docs` and
+   `munaxa-docs-ses-smtp`, with no new access keys (`iam:ListAccessKeys`). The IAM roles are the 24
+   from §1.3 plus Identity Center's own: `AWSServiceRoleForSSO` and one
+   `AWSReservedSSO_MunaxaOrgDiscovery_*` role.
+
+#### Reconnecting the AWS connector (after A and B)
+
+| Item | Value |
+| --- | --- |
+| Identity Center home Region | `eu-central-1` |
+| Management account | `800728620253` |
+| Operator identity | `munaxa-org-operator` (`<OPERATOR_EMAIL>`) |
+| Permission set | `MunaxaOrgDiscovery` |
+| Access portal | `<ACCESS_PORTAL_URL>`, recorded in action A step 6 |
+| MFA | **Required.** It is registered at first portal sign-in and completed on every sign-in |
+
+**Flow:**
+
+1. **Sign out of the root session.** Sign out of the AWS console and close any AWS tabs. AWS Sign-In
+   reuses an active session, so a lingering root session would authorize the connector as root
+   again.
+2. Open the access portal URL, sign in as `munaxa-org-operator`, and complete MFA.
+3. **Disconnect and reconnect the connector.** In claude.ai, go to **Settings → Connectors → AWS**,
+   disconnect it, then connect it again. The connector opens AWS Sign-In in the browser.
+4. **Sign in through Identity Center.** At AWS Sign-In, choose the IAM Identity Center option (or
+   continue the portal session from step 2). Select account `800728620253` and permission set
+   `MunaxaOrgDiscovery`, then review and approve the authorization request. The exact screens are
+   not documented in the pages consulted (§1.4); follow the prompts, and do not choose root or an
+   IAM user.
+5. **Confirm the identity.** Ask Claude to run `sts:GetCallerIdentity`. The expected `Arn` is
+   `arn:aws:sts::800728620253:assumed-role/AWSReservedSSO_MunaxaOrgDiscovery_<suffix>/munaxa-org-operator`.
+   **Any other ARN, root included, means stop.**
+
+**Remaining gate:** Organizations discovery (§1.2) starts only after step 5 shows the
+`MunaxaOrgDiscovery` session.
+
 ---
 
 ## 2. Account creation
@@ -692,6 +854,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06T09:57Z | §1.2 inspection, second attempt (read-only discovery task) | **Blocked before the first call.** `sts:GetCallerIdentity` through the AWS connector returned "`AWS_MCP` needs you to sign in again". No Organizations API was reached, no alternative credential was used, and nothing was created or changed | Claude Code session |
 | 2026-10-06T10:03Z | §1.3 principal assessment (read-only IAM and IAM Identity Center) | Connector now reachable, as `arn:aws:iam::800728620253:root`. No scoped Organizations principal and no Identity Center instance found. **No Organizations API called; nothing created or changed. BLOCKED** pending a scoped principal | Claude Code session |
 | 2026-10-06T10:34Z | §1.4 connector authentication capability | Documentation-only check. **Connector supports IAM Identity Center** (interactive OAuth through AWS Sign-In). No AWS API call; nothing created or changed. Still **BLOCKED** until the Identity Center principal exists and the connector is re-authorized as it | Claude Code session |
+| 2026-10-06T10:37Z | §1.5 Identity Center bootstrap (authorized) | **Nothing created.** Two blockers: `CreateInstance` is rejected in a management account (console-only enablement), and no operator email was supplied. Read-only: `ec2:DescribeRegions` and `sso-admin:ListInstances` in all 18 enabled Regions (none exists). No Organizations call | Claude Code session |
 
 ### Discovery status (2026-10-06T09:57Z)
 
