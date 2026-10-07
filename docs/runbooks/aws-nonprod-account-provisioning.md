@@ -785,6 +785,70 @@ administrator session, as for §1.6):
 2. the `munaxa-nonprod` root email address is supplied (§1.1);
 3. explicit authorization to run §2–§6.
 
+### 1.10 Foundation provisioning run — stopped on unexpected existing state (2026-10-07T08:41Z)
+
+**Authorized by the owner:**
+
+- create the `NonProduction` OU;
+- create the three §6 SCPs and attach them to it;
+- enable IAM trusted access and root-credential management;
+- create `munaxa-nonprod` (`aws-nonprod@munaxa.com`) and move it into the OU.
+
+**Connector identity, verified:**
+`arn:aws:sts::800728620253:assumed-role/AWSReservedSSO_MunaxaOrgNonprodProvisioning_417be04cc68c7e1e/munaxa-org-operator`.
+The permission set exists. It was created outside this session; §1.9 records that Claude could not
+create it.
+
+**Stopped at step 2 (reconfirm state).** No write call was made. The organization was not in the
+expected starting state: most of the foundation already existed, created outside this session
+earlier on 2026-10-07.
+
+#### Verified current state (read-only)
+
+| Item | Found |
+| --- | --- |
+| Organization | `o-qzf8irwaya`, `ALL`, management `800728620253`, unchanged |
+| `NonProduction` OU | **Exists**: `ou-tbrv-yxidi6qt` (path `o-qzf8irwaya/r-tbrv/ou-tbrv-yxidi6qt/`), no child OUs. Tags not readable with this permission set |
+| Member account | **`munaxa-nonprod` exists**: `657878534449`, `aws-nonprod@munaxa.com`, `ACTIVE`, `JoinedMethod CREATED`, joined 2026-10-07T08:14:27Z, **already in `NonProduction`** |
+| CreateAccount | `car-644bf8108bc046258553835a8dd69040`, `SUCCEEDED`, requested 08:14:23Z, completed 08:14:30Z. It is the only request on record |
+| Trusted access | `iam.amazonaws.com` (enabled 2026-10-07T08:39:13Z) and `sso.amazonaws.com` |
+| IAM organization features | `RootSessions`, `RootCredentialsManagement`, both enabled |
+| SCPs in the organization | `DenyLeaveAndCloseAccount` (`p-5jgkeubl`, content unchanged); `FullAWSAccess`; and **`MunaxaNonProductionBaseline` (`p-0o3ih59q`)**, "Product-neutral baseline guardrails for the NonProduction OU". Its only statement denies changes to `arn:aws:iam::*:role/OrganizationAccountAccessRole` (attach, detach, put or delete policy, delete, update, update trust, boundary and tag changes) |
+| SCPs on `NonProduction` | `MunaxaNonProductionBaseline` and `FullAWSAccess` |
+| SCPs on `657878534449` directly | `FullAWSAccess` only |
+| §6.2 / §6.3 / §6.4 SCPs | **Do not exist.** No region lock, no IAM-user, access-key or CloudTrail protection, no cost guardrails |
+| Root SCP attachments | Not re-readable: `ListTargetsForPolicy` is denied to this permission set. §1.8 recorded `DenyLeaveAndCloseAccount` and `FullAWSAccess` on the root, and the root SCP's content is unchanged |
+
+#### Deviations from the plan
+
+1. **OU, account, IAM trusted access and root-credential management were done outside this
+   session and outside this runbook**, before the authorized run. The runbook order (guardrails
+   attached to the OU before the account is moved in, §2) was not followed: the account sits in the
+   OU without the ADR-0003 guardrails.
+2. **An undocumented SCP, `MunaxaNonProductionBaseline`, is attached instead of the three planned
+   ones.** Protecting `OrganizationAccountAccessRole` is reasonable, but it is not in ADR-0003 or this
+   runbook, and it does not provide the region, credential, audit or cost controls ADR-0003 §5 and §8
+   rely on.
+3. **The provisioning permission set differs from §1.9.** It allows some reads
+   (`DescribeOrganization`, `ListAccounts`, `ListPolicies`, `DescribePolicy`,
+   `ListPoliciesForTarget`, `ListAWSServiceAccessForOrganization`, `ListCreateAccountStatus`,
+   `iam:ListOrganizationsFeatures`) but denies others (`ListTargetsForPolicy`, `ListTagsForResource`).
+   Its actual definition has not been verified.
+
+**No conflict with ADR-0003's decisions**: the account, OU, email and placement match. The gap is the
+missing guardrails.
+
+#### Required follow-up (owner decisions)
+
+1. **Confirm who created the OU, account, baseline SCP and trusted access at 08:14–08:39Z**, and
+   whether `MunaxaNonProductionBaseline` should stay as a fourth SCP.
+2. **Authorize the remaining step for the actual state:** create the three §6 SCPs (with or without
+   §6.3's redundant `DenyLeavingOrClosing`) and attach them to `ou-tbrv-yxidi6qt`, where the account
+   already is. Until then, `munaxa-nonprod` has no region, credential or cost guardrails, so no
+   application resources should be created in it.
+3. **Optionally,** have the provisioning permission set's actual definition read back from a
+   session with Identity Center read access, to reconcile it with §1.9.
+
 ---
 
 ## 2. Account creation
@@ -1195,6 +1259,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06T13:24Z | §1.9 provisioning permission set (authorized) | **Not created.** The connector was `MunaxaOrgDiscovery`, which has no `sso-admin` permissions. No creation attempted; only `sts:GetCallerIdentity` was called. The final definition is recorded, ready to apply from a root or administrator session | Claude Code session (`munaxa-org-operator`) |
 | 2026-10-06T13:43Z | §1.9 provisioning permission set, root session (authorized) | **Blocked at identity verification.** `sts:GetCallerIdentity` returned "`AWS_MCP` needs you to sign in again", so root could not be confirmed. No Identity Center call, nothing created or changed. `MunaxaOrgNonprodProvisioning` still does not exist | Claude Code session |
 | 2026-10-06T13:44Z | §1.9 provisioning permission set, root session, second attempt (authorized) | **Blocked at identity verification.** `sts:GetCallerIdentity` failed twice with "The provided SessionId was not found or has expired, please re-initialize your connection" (the connector's MCP session had expired). Root not confirmed, no Identity Center call, nothing created or changed | Claude Code session |
+| 2026-10-07T08:41Z | §1.10 foundation provisioning (authorized) | **Stopped at state reconfirmation, no writes.** Found the `NonProduction` OU (`ou-tbrv-yxidi6qt`), `munaxa-nonprod` (`657878534449`, in the OU), IAM trusted access and root management already done outside this session, plus an undocumented SCP `MunaxaNonProductionBaseline` (`p-0o3ih59q`). The three §6 SCPs do not exist | Claude Code session (`munaxa-org-operator`, `MunaxaOrgNonprodProvisioning`) |
 
 ### Discovery status (2026-10-06T09:57Z)
 
