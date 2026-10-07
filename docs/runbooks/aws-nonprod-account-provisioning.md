@@ -849,6 +849,164 @@ missing guardrails.
 3. **Optionally,** have the provisioning permission set's actual definition read back from a
    session with Identity Center read access, to reconcile it with §1.9.
 
+### 1.11 Read-only provenance investigation (2026-10-07T08:45Z)
+
+**Identity:**
+`arn:aws:sts::800728620253:assumed-role/AWSReservedSSO_MunaxaOrgNonprodProvisioning_417be04cc68c7e1e/munaxa-org-operator`.
+Read-only calls only. **No AWS change was made.**
+
+**CloudTrail is not readable here.** `cloudtrail:LookupEvents` was denied: _"no identity-based policy
+allows the cloudtrail:LookupEvents action"_. Also denied: `DescribeOrganizationalUnit`,
+`DescribeAccount`, `ListTargetsForPolicy`, `ListTagsForResource` and `ListDelegatedAdministrators`.
+The actor behind each change therefore **cannot be established conclusively** from this session. The
+timestamps below come from Organizations itself.
+
+#### Provenance
+
+| Change | Evidence available (Organizations/IAM, read-only) | Actor | Conclusive? |
+| --- | --- | --- | --- |
+| `NonProduction` OU `ou-tbrv-yxidi6qt` | Exists; parent `r-tbrv` (`ListParents`). Creation time not exposed without `DescribeOrganizationalUnit`/CloudTrail | Unknown. It existed before `munaxa-nonprod` was placed in it (≤ 08:14Z) | No |
+| Account `657878534449` | `CreateAccount` request `car-644bf8108bc046258553835a8dd69040` for `munaxa-nonprod`: requested 2026-10-07T08:14:23.380Z, `SUCCEEDED` 08:14:30.164Z. `JoinedMethod CREATED`, joined 08:14:27Z, so it was created by the organization's management account (`800728620253`) | A principal in `800728620253` with `organizations:CreateAccount`. Which one (root, an IAM administrator, or `MunaxaOrgNonprodProvisioning`) is not determinable | Event and time: **yes**. Actor: no |
+| Account placement in the OU | Parent `ou-tbrv-yxidi6qt` (`ListParents`); `MoveAccount` time not exposed | Unknown | No |
+| SCP `MunaxaNonProductionBaseline` `p-0o3ih59q` | Customer-managed; description "Product-neutral baseline guardrails for the NonProduction OU"; attached to `ou-tbrv-yxidi6qt` (`ListPoliciesForTarget`). Creation and attachment times not exposed | Unknown | No |
+| Trusted access `iam.amazonaws.com` | `DateEnabled` 2026-10-07T08:39:13.492Z (`ListAWSServiceAccessForOrganization`) | Unknown principal in `800728620253` | Time: **yes**. Actor: no |
+| IAM `RootSessions`, `RootCredentialsManagement` | Both enabled (`iam:ListOrganizationsFeatures`); no timestamp exposed. They depend on IAM trusted access, so they were enabled at or after 08:39:13Z | Unknown | No |
+
+**What is conclusive:** none of these was made by this Claude Code session. This session's AWS calls
+before 2026-10-07T08:40Z were the failed identity checks of 2026-10-06T13:43–13:44Z (no write),
+and every later call has been read-only. The times (08:14Z, 08:39Z) also predate the first call
+under `MunaxaOrgNonprodProvisioning`.
+
+**Indicative only:** every change matches an action granted to `MunaxaOrgNonprodProvisioning`
+(`CreateOrganizationalUnit`, `CreateAccount`, `MoveAccount`, `CreatePolicy`, `AttachPolicy`,
+`EnableAWSServiceAccess` for IAM, root-credential management). That fits the changes having been made
+on 2026-10-07 from a session using that permission set, or from root or an administrator.
+**Confirming the actor needs CloudTrail**, from root, an administrator, or a session with
+`cloudtrail:LookupEvents`. Look in the management account's `us-east-1` event history for
+`CreateOrganizationalUnit`, `CreateAccount`, `CreatePolicy`, `AttachPolicy`, `MoveAccount`,
+`EnableAWSServiceAccess`, `EnableOrganizationsRootCredentialsManagement` and
+`EnableOrganizationsRootSessions` on 2026-10-07.
+
+#### `MunaxaNonProductionBaseline` (`p-0o3ih59q`)
+
+Exact content:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ProtectOrganizationAccountAccessRole",
+      "Effect": "Deny",
+      "Action": [
+        "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:PutRolePolicy", "iam:DeleteRolePolicy",
+        "iam:DeleteRole", "iam:UpdateRole", "iam:UpdateRoleDescription", "iam:UpdateAssumeRolePolicy",
+        "iam:PutRolePermissionsBoundary", "iam:DeleteRolePermissionsBoundary", "iam:TagRole", "iam:UntagRole"
+      ],
+      "Resource": "arn:aws:iam::*:role/OrganizationAccountAccessRole"
+    }
+  ]
+}
+```
+
+**What it protects.** It stops any principal in a `NonProduction` account, including the account's
+own root user, from changing or deleting `OrganizationAccountAccessRole`. That role is the
+management account's administrative path into each member account. It does not stop the role being
+assumed or used, and it covers nothing else.
+
+**Against ADR-0003's planned guardrails** (§6.2–§6.4):
+
+- **No conflict.** §6.2 exempts `iam:*` from the region lock, so this deny applies globally as
+  intended. §6.3 denies IAM users and keys and CloudTrail changes. §6.4 covers compute, database and
+  cache sizes.
+- **No overlap.** None of the three touches `OrganizationAccountAccessRole`.
+- **It complements them.** §8.5 (7) of the architecture and runbook §2 rely on this role as the
+  bootstrap and break-glass path, and §5 restricts who may assume it. This SCP keeps that path from
+  being tampered with or removed from inside the member account.
+- **Slots.** `FullAWSAccess`, this policy and the three planned SCPs come to 5 on the OU, under the
+  limit of 10.
+- **Tags and creation time:** not readable.
+
+#### `DenyLeaveAndCloseAccount` (`p-5jgkeubl`) and inheritance
+
+| Item | State |
+| --- | --- |
+| Content | `{"Effect":"Deny","Action":["organizations:LeaveOrganization","account:CloseAccount"],"Resource":"*"}`, unchanged since §1.8 |
+| Description | "Prevents member accounts from leaving the organization and self closure" |
+| Attached to | The **root `r-tbrv`** (`ListPoliciesForTarget` on the root returns it with `FullAWSAccess`). Not attached to the OU or to either account directly |
+| Inherited by `munaxa-nonprod`? | **Yes.** SCPs attached to the root apply to every OU and member account beneath it, and `657878534449` is under `r-tbrv` → `ou-tbrv-yxidi6qt`. It does not affect the management account (SCPs never do) |
+
+#### Current `NonProduction` state
+
+| Item | State |
+| --- | --- |
+| Directly attached SCPs | `MunaxaNonProductionBaseline`, `FullAWSAccess` |
+| Inherited from the root | `DenyLeaveAndCloseAccount`, `FullAWSAccess` |
+| Account attachments | `657878534449`: `FullAWSAccess` only (direct) |
+| Accounts in the OU | `657878534449` `munaxa-nonprod` (`aws-nonprod@munaxa.com`, `ACTIVE`) |
+| Child OUs | None |
+| OU tags | Not readable (`ListTagsForResource` denied) |
+
+**Effective guardrails on `munaxa-nonprod` today:**
+
+- no leaving or self-closing (from the root);
+- `OrganizationAccountAccessRole` protected (from the OU).
+
+Nothing else. **There is no region lock, no IAM-user or access-key ban, no CloudTrail protection and
+no cost guardrail.**
+
+#### The three ADR-0003 SCPs
+
+`ListPolicies` for SCPs returns exactly three: `MunaxaNonProductionBaseline`,
+`DenyLeaveAndCloseAccount` and `FullAWSAccess`. **None of the region lock (§6.2), account/audit
+protection (§6.3) or cost guardrails (§6.4) exists anywhere in the organization.** There are no
+RCPs either.
+
+#### Compared with ADR-0003 and this runbook
+
+- **ADR-0003's decisions hold.** `munaxa-nonprod` is a dedicated member account, in a
+  `NonProduction` OU, and the management account holds no new workloads. **No ADR change is
+  required.**
+- **The runbook's §2 order was not followed.** The account sits in the OU without §6.2–§6.4.
+- **Two items exist that the runbook does not define:** `MunaxaNonProductionBaseline`, and the
+  provisioning permission set's extra read permissions (§1.10).
+- **Root credentials.** `RootCredentialsManagement` was enabled at or after 08:39Z, about 25 minutes
+  after the account was created (08:14Z). §5 intended it first, so new accounts never receive root
+  credentials. Organizations-created accounts have no root password, and whether
+  `657878534449` has any root credentials can be checked from the management account (IAM →
+  root access management). That check is not possible with this permission set.
+
+#### Recommendations (not executed)
+
+- **A. `MunaxaNonProductionBaseline`: KEEP**, conditional on the owner confirming its origin.
+  Its content is narrow, correct and complementary (above), and it protects the break-glass path
+  the architecture depends on. If kept, document it in this runbook as a fourth SCP on the OU
+  (§6, with its JSON and purpose). ADR-0003 needs no change: §5 lists guardrail examples, not a
+  closed set. **If the owner did not create it, treat it as unauthorized**: confirm the actor
+  through CloudTrail before deciding, and remove it only after that review (by detaching it from
+  `ou-tbrv-yxidi6qt` and deleting `p-0o3ih59q` from the management account).
+- **B. The leave/close statement in §6.3: DROP.** `DenyLeaveAndCloseAccount` is attached to the
+  root and therefore already inherited by `munaxa-nonprod` and any future member account. A second
+  copy adds nothing. §6.3 then contains only `DenyIamUsersAndLongLivedKeys` and `ProtectCloudTrail`,
+  and the runbook should state that leave/close protection comes from the root SCP, which must
+  stay attached there.
+
+#### Final state
+
+| Resource / change | Current state | Created by / evidence | ADR-0003 / runbook expected state | Decision needed |
+| --- | --- | --- | --- | --- |
+| `NonProduction` OU | `ou-tbrv-yxidi6qt` under `r-tbrv` | Unknown actor; CloudTrail not readable | Exists under the root | None (matches) |
+| `munaxa-nonprod` | `657878534449`, `ACTIVE`, in the OU | `car-644bf810…`, 08:14:23–08:14:30Z, from the management account; actor unknown | Exists, in the OU, after guardrails | Accept placement; guardrails first before use |
+| `MunaxaNonProductionBaseline` | Attached to the OU; protects `OrganizationAccountAccessRole` | Unknown actor; not in the runbook | Not defined | **A: keep and document (recommended) or remove** |
+| Root `DenyLeaveAndCloseAccount` | Attached to the root, unchanged, inherited by the account | Pre-existing (§1.8) | Root-level, inherited | None |
+| §6.3 leave/close statement | n/a (SCP not created) | — | In §6.3 draft | **B: drop (recommended)** |
+| §6.2 region lock | **Does not exist** | — | Attached to the OU | Authorize creation and attachment |
+| §6.3 account/audit protection | **Does not exist** | — | Attached to the OU | Authorize (after B) |
+| §6.4 cost guardrails | **Does not exist** | — | Attached to the OU | Authorize |
+| IAM trusted access | Enabled 08:39:13Z | Unknown actor | Enabled | None (matches) |
+| `RootSessions`, `RootCredentialsManagement` | Enabled | Unknown actor, ≥ 08:39Z | Enabled before account creation | Check the account for root credentials |
+| Provisioning permission set | Works; reads differ from §1.9 | Created outside this session | As §1.9 | Reconcile its definition |
+
 ---
 
 ## 2. Account creation
@@ -1260,6 +1418,7 @@ Nothing in Identity, Work, Docs or School changes, and no GitHub environment is 
 | 2026-10-06T13:43Z | §1.9 provisioning permission set, root session (authorized) | **Blocked at identity verification.** `sts:GetCallerIdentity` returned "`AWS_MCP` needs you to sign in again", so root could not be confirmed. No Identity Center call, nothing created or changed. `MunaxaOrgNonprodProvisioning` still does not exist | Claude Code session |
 | 2026-10-06T13:44Z | §1.9 provisioning permission set, root session, second attempt (authorized) | **Blocked at identity verification.** `sts:GetCallerIdentity` failed twice with "The provided SessionId was not found or has expired, please re-initialize your connection" (the connector's MCP session had expired). Root not confirmed, no Identity Center call, nothing created or changed | Claude Code session |
 | 2026-10-07T08:41Z | §1.10 foundation provisioning (authorized) | **Stopped at state reconfirmation, no writes.** Found the `NonProduction` OU (`ou-tbrv-yxidi6qt`), `munaxa-nonprod` (`657878534449`, in the OU), IAM trusted access and root management already done outside this session, plus an undocumented SCP `MunaxaNonProductionBaseline` (`p-0o3ih59q`). The three §6 SCPs do not exist | Claude Code session (`munaxa-org-operator`, `MunaxaOrgNonprodProvisioning`) |
+| 2026-10-07T08:45Z | §1.11 read-only provenance investigation | CloudTrail not readable with `MunaxaOrgNonprodProvisioning`; actors not determinable. Times: account 08:14Z, IAM trusted access 08:39Z. Root `DenyLeaveAndCloseAccount` confirmed attached and inherited. The three §6 SCPs confirmed absent. Recommendations: keep and document `MunaxaNonProductionBaseline`; drop §6.3's leave/close statement. **No AWS change** | Claude Code session |
 
 ### Discovery status (2026-10-06T09:57Z)
 
