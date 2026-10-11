@@ -1,7 +1,7 @@
 import { themes } from '@munaxa/ui';
 import type { DemoRequest } from './demo-request';
 import { site } from './site';
-import { renderWelcomeEmail } from './welcome-email';
+import { LOGO_CID, renderWelcomeEmail } from './welcome-email';
 
 /**
  * Lead notifications, sent through Resend's HTTP API.
@@ -77,18 +77,41 @@ export async function sendLeadEmail(lead: DemoRequest & { submittedAt: string })
   });
 }
 
-/** The visitor's confirmation, in the theme of the product they asked about. */
+/**
+ * The visitor's confirmation, in the theme of the product they asked about. The logo goes inline
+ * (Resend fetches it from munaxa.com); if that send is refused, it goes again with the logo linked.
+ */
 export async function sendWelcomeEmail(lead: DemoRequest): Promise<void> {
-  const { subject, html, text } = renderWelcomeEmail(lead);
   const address = process.env.EMAIL_WELCOME_FROM_ADDRESS || 'no-reply@mail.munaxa.com';
-  await sendResend({
+  const envelope = {
     from: `Munaxa ${lead.product} <${address}>`,
     to: [lead.email],
     reply_to: leadsInbox(),
-    subject,
-    text,
-    html,
-  });
+  };
+  const inline = renderWelcomeEmail(lead);
+  try {
+    await sendResend({
+      ...envelope,
+      subject: inline.subject,
+      text: inline.text,
+      html: inline.html,
+      attachments: [
+        { path: inline.logo.url, filename: inline.logo.filename, content_id: LOGO_CID },
+      ],
+    });
+  } catch (error) {
+    console.warn(
+      '[demo] welcome email with inline logo failed, retrying with a linked logo:',
+      error instanceof Error ? error.message : error,
+    );
+    const linked = renderWelcomeEmail(lead, 'remote');
+    await sendResend({
+      ...envelope,
+      subject: linked.subject,
+      text: linked.text,
+      html: linked.html,
+    });
+  }
 }
 
 interface ResendEmail {
@@ -98,6 +121,7 @@ interface ResendEmail {
   subject: string;
   text: string;
   html: string;
+  attachments?: { path: string; filename: string; content_id: string }[];
 }
 
 async function sendResend(email: ResendEmail): Promise<void> {
