@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // MUST match the Cloudflare Worker munaxa.com is attached to. A different name does not fail:
+  // wrangler creates a new Worker with no custom domain and munaxa.com keeps serving the old bundle.
+  // `.github/workflows/deploy-cloudflare.yml` asserts this before deploying.
+  //
+  // munaxa-school's landing site deploys to this same Worker today. Retarget or retire that
+  // deploy before this one goes live, or each repository's merges will overwrite the other's site.
+  "name": "munaxa",
+  "main": ".open-next/worker.js",
+  // Keep in sync with the date this config was last reviewed.
+  "compatibility_date": "2026-10-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "observability": {
+    "enabled": true,
+  },
+  // Non-secret runtime config. RESEND_API_KEY is a secret: `wrangler secret put RESEND_API_KEY`.
+  // Never add secrets here.
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://munaxa.com",
+    // Sender for demo/waitlist notifications. Must be on a domain verified in Resend — the same
+    // `mail.munaxa.com` the School landing sends from.
+    "EMAIL_FROM": "Munaxa Website <contactus@mail.munaxa.com>",
+    "EMAIL_TO": "info@munaxa.com",
+  },
+}

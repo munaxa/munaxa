@@ -2,7 +2,7 @@
   "name": "@corporate/web",
   "version": "0.1.0",
   "private": true,
-  "description": "Munaxa Corporate — the company website: product showcase, pricing, about, careers and contact. Consumes the shared design system from @munaxa/*.",
+  "description": "Munaxa Corporate — the company website (munaxa.com): the hub plus the School, Work and Docs product pages. Consumes the shared design system from @munaxa/*. Runs on Cloudflare Workers via OpenNext.",
   "type": "module",
   "scripts": {
     "dev": "next dev -p 3100",
@@ -13,7 +13,11 @@
     "start": "next start -p 3100",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"no tests yet\" && exit 0"
+    "test": "echo \"no tests yet\" && exit 0",
+    "cf:build": "opennextjs-cloudflare build",
+    "cf:preview": "pnpm run cf:build && wrangler dev",
+    "cf:deploy": "pnpm run cf:build && wrangler deploy",
+    "cf:typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
   },
   "dependencies": {
     "@munaxa/icons": "^1.1.1",
@@ -27,6 +31,7 @@
   "devDependencies": {
     "@eslint/js": "^9.17.0",
     "@next/eslint-plugin-next": "15.1.12",
+    "@opennextjs/cloudflare": "~1.16.6",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.10.5",
     "@types/react": "^19.0.2",
@@ -38,6 +43,7 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.19.1"
+    "typescript-eslint": "^8.19.1",
+    "wrangler": "^4.59.2"
   }
 }

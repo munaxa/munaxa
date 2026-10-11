@@ -1,0 +1,62 @@
+/*
+ * Structure shared by every page of the corporate site. Imported after a theme, never on its own:
+ * each route group's stylesheet (`corporate.css`, `school.css`, …) is the theme import plus this.
+ *
+ * Nothing here names a colour. Values resolve to the active theme's tokens.
+ */
+
+@layer base {
+  :root {
+    /* The app-level radius the platform contract derives sm/md/lg from. Corporate runs a
+     * softer, more editorial curve than the product consoles. */
+    --radius: 0.875rem;
+    --hairline: color-mix(in oklch, var(--foreground) 8%, transparent);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    /* Anchored sections clear the sticky header. */
+    scroll-padding-top: 4.5rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+}
+
+/* The faint square grid behind every hero, fading out from the top centre. Its colour is the
+ * element's `currentColor`, so a hero tints it with an ordinary text utility. */
+@utility hero-grid {
+  background-image:
+    linear-gradient(currentColor 1px, transparent 1px),
+    linear-gradient(90deg, currentColor 1px, transparent 1px);
+  background-size: 4rem 4rem;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, black 30%, transparent 75%);
+}
+
+/* The hub's product stage: a progress bar that fills over one rotation. */
+@keyframes stage-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@utility stage-progress {
+  transform-origin: left;
+  animation: stage-progress 6s linear forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
