@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { parseDemoRequest } from '@/lib/demo-request';
-import { emailConfigured, leadsInbox, sendLeadEmail } from '@/lib/email';
+import { emailConfigured, leadsInbox, sendLeadEmail, sendWelcomeEmail } from '@/lib/email';
 
 /**
  * Demo and waitlist requests from every page. Each one is validated and emailed to
- * info@munaxa.com, with Reply-To set to the visitor so sales can answer from the inbox.
+ * info@munaxa.com, with Reply-To set to the visitor so sales can answer from the inbox. The
+ * visitor then gets a welcome email in the theme of the product they asked about.
  */
 export async function POST(request: Request) {
   const body: unknown = await request.json().catch(() => null);
@@ -41,6 +42,14 @@ export async function POST(request: Request) {
       },
       { status: 502 },
     );
+  }
+
+  // The lead has reached the team, so a failed confirmation must not turn into an error the
+  // visitor would retry (and so submit twice).
+  try {
+    await sendWelcomeEmail(lead);
+  } catch (error) {
+    console.error('[demo] welcome email failed:', error instanceof Error ? error.message : error);
   }
 
   return NextResponse.json({ ok: true, sent: true });
