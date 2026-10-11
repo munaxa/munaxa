@@ -132,7 +132,7 @@ export default function WorkPage() {
           shot={{
             src: '/shots/work-dashboard.png',
             alt: 'Munaxa Work HR dashboard',
-            url: 'app.munaxa.work',
+            url: 'work.munaxa.com',
           }}
         />
         <Facts

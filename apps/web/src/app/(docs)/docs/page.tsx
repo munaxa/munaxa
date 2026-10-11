@@ -117,7 +117,7 @@ export default function DocsPage() {
           shot={{
             src: '/shots/docs-dashboard.png',
             alt: 'Munaxa Docs home dashboard',
-            url: 'app.munaxa.docs',
+            url: 'docs.munaxa.com',
           }}
         />
         <Facts

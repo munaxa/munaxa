@@ -109,7 +109,7 @@ export default function SchoolPage() {
           shot={{
             src: '/shots/school-dashboard.png',
             alt: 'Munaxa School admin dashboard',
-            url: 'app.munaxa.school',
+            url: 'school.munaxa.com',
           }}
         />
         <Facts
