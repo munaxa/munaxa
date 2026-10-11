@@ -1,6 +1,7 @@
 import { themes } from '@munaxa/ui';
 import type { DemoRequest } from './demo-request';
 import { site } from './site';
+import { renderWelcomeEmail } from './welcome-email';
 
 /**
  * Lead notifications, sent through Resend's HTTP API.
@@ -13,6 +14,9 @@ import { site } from './site';
  *   RESEND_API_KEY  secret, set with `wrangler secret put RESEND_API_KEY`
  *   EMAIL_FROM      var in wrangler.jsonc, an address on the verified domain
  *   EMAIL_TO        optional var; defaults to info@munaxa.com
+ *   EMAIL_WELCOME_FROM_ADDRESS
+ *                   optional var; the address the visitor's welcome email comes from, defaults
+ *                   to no-reply@mail.munaxa.com (replies still reach EMAIL_TO via Reply-To)
  */
 
 /** Email HTML cannot read CSS custom properties, so it renders the registry's static neutrals. */
@@ -63,20 +67,47 @@ export async function sendLeadEmail(lead: DemoRequest & { submittedAt: string })
       <p style="margin:0;white-space:pre-wrap">${message ? escapeHtml(message) : '<em>(none)</em>'}</p>
     </div>`;
 
+  await sendResend({
+    from: process.env.EMAIL_FROM || 'Munaxa Website <contactus@mail.munaxa.com>',
+    to: [leadsInbox()],
+    reply_to: `${lead.name} <${lead.email}>`,
+    subject: `${what}: Munaxa ${lead.product} · ${lead.organization}`,
+    text,
+    html,
+  });
+}
+
+/** The visitor's confirmation, in the theme of the product they asked about. */
+export async function sendWelcomeEmail(lead: DemoRequest): Promise<void> {
+  const { subject, html, text } = renderWelcomeEmail(lead);
+  const address = process.env.EMAIL_WELCOME_FROM_ADDRESS || 'no-reply@mail.munaxa.com';
+  await sendResend({
+    from: `Munaxa ${lead.product} <${address}>`,
+    to: [lead.email],
+    reply_to: leadsInbox(),
+    subject,
+    text,
+    html,
+  });
+}
+
+interface ResendEmail {
+  from: string;
+  to: string[];
+  reply_to: string;
+  subject: string;
+  text: string;
+  html: string;
+}
+
+async function sendResend(email: ResendEmail): Promise<void> {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.RESEND_API_KEY ?? ''}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      from: process.env.EMAIL_FROM || 'Munaxa Website <contactus@mail.munaxa.com>',
-      to: [leadsInbox()],
-      reply_to: `${lead.name} <${lead.email}>`,
-      subject: `${what}: Munaxa ${lead.product} · ${lead.organization}`,
-      text,
-      html,
-    }),
+    body: JSON.stringify(email),
     signal: AbortSignal.timeout(10_000),
   });
   if (!res.ok) {

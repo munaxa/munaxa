@@ -26,5 +26,7 @@
     // `mail.munaxa.com` the School landing sends from.
     "EMAIL_FROM": "Munaxa Website <contactus@mail.munaxa.com>",
     "EMAIL_TO": "info@munaxa.com",
+    // The visitor's welcome email comes from "Munaxa <Product> <this address>", Reply-To EMAIL_TO.
+    "EMAIL_WELCOME_FROM_ADDRESS": "no-reply@mail.munaxa.com",
   },
 }

@@ -12,6 +12,7 @@ import { ProductDot, ProductScope } from '@/components/product-scope';
 import { ProductStage, type StageProduct } from '@/components/product-stage';
 import { SiteFooter } from '@/components/site-footer';
 import { HUB_SOLID, SiteHeader } from '@/components/site-header';
+import { productCopy } from '@/lib/product-copy';
 import { site } from '@/lib/site';
 
 export const metadata: Metadata = {
@@ -77,24 +78,7 @@ const chapters: Chapter[] = [
     body: 'A K-12 school operating system covering administration, people, timetables, attendance, academics, finance and communication with families.',
     link: 'Explore Munaxa School',
     shotAlt: 'Munaxa School admin dashboard',
-    points: [
-      {
-        t: 'Timetable engine',
-        d: 'Builds the week and resolves teacher, room and class conflicts for you.',
-      },
-      {
-        t: 'Attendance to report cards',
-        d: 'Daily attendance, grading and report cards on one academic record.',
-      },
-      {
-        t: 'Fees and collections',
-        d: 'Billing, payments and outstanding balances in the same system.',
-      },
-      {
-        t: 'Apps for every family',
-        d: 'Mobile apps for parents, students and teachers, plus a parent portal on the web.',
-      },
-    ],
+    points: productCopy.school.points,
     padding: 'py-24',
   },
   {
@@ -105,21 +89,7 @@ const chapters: Chapter[] = [
     body: 'Hiring, onboarding, attendance, leave, payroll and performance read and write the same record, so nothing gets typed in twice.',
     link: soon ? 'Join the Work waitlist' : 'Explore Munaxa Work',
     shotAlt: 'Munaxa Work HR dashboard',
-    points: [
-      {
-        t: 'Hire to retire',
-        d: 'Pipelines, offers and onboarding checklists that turn a candidate into an employee.',
-      },
-      {
-        t: 'Attendance and leave',
-        d: 'Your leave policies and overtime rules, applied automatically.',
-      },
-      {
-        t: 'Payroll by exception',
-        d: 'Attendance and leave flow into the run. You review only what needs a decision.',
-      },
-      { t: 'Performance cycles', d: 'Goals, check-ins and calibrated reviews on the same record.' },
-    ],
+    points: productCopy.work.points,
     padding: 'pt-30 pb-24',
   },
   {
@@ -130,24 +100,7 @@ const chapters: Chapter[] = [
     body: 'Document control for organizations that answer to auditors. Every document has an identity, a permanent number, a lifecycle, an owner and a full history.',
     link: 'Explore Munaxa Docs',
     shotAlt: 'Munaxa Docs home dashboard',
-    points: [
-      {
-        t: 'Controlled lifecycle',
-        d: 'Draft to retired, with a permanent number assigned on approval.',
-      },
-      {
-        t: 'Workflows that keep moving',
-        d: 'Deadlines, delegation and automatic escalation on every approval step.',
-      },
-      {
-        t: 'Witnessed e-signatures',
-        d: 'Identity is re-verified at signing, and the meaning of each signature is recorded.',
-      },
-      {
-        t: 'Search inside every file',
-        d: 'OCR and full-text search, filtered by what each user is allowed to see.',
-      },
-    ],
+    points: productCopy.docs.points,
     padding: 'pt-6 pb-30',
   },
 ];
