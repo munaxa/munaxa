@@ -26,9 +26,22 @@ export interface WelcomeEmail {
   subject: string;
   html: string;
   text: string;
+  /** The hosted product logo, to attach inline under `LOGO_CID`. */
+  logo: { url: string; filename: string };
 }
 
-export function renderWelcomeEmail(lead: DemoRequest): WelcomeEmail {
+/** The Content-ID the HTML references the logo by when it is attached inline. */
+export const LOGO_CID = 'product-logo';
+
+/**
+ * `logoSrc` is `cid:` by default: an inline attachment shows without the "download pictures"
+ * prompt clients such as Outlook put in front of remote images. Pass `remote` to point at the
+ * hosted file instead, for when the attachment can't be sent.
+ */
+export function renderWelcomeEmail(
+  lead: DemoRequest,
+  logoSrc: 'cid' | 'remote' = 'cid',
+): WelcomeEmail {
   const id = productId[lead.product];
   const { color, neutral } = themes[id].brand;
   const copy = productCopy[id];
@@ -38,6 +51,7 @@ export function renderWelcomeEmail(lead: DemoRequest): WelcomeEmail {
   const productUrl = new URL(`/${id}`, site.url).toString();
   const logo = productBrands[id].assets.horizontal.onDark;
   const logoUrl = new URL(logo.src, site.url).toString();
+  const logoImg = logoSrc === 'cid' ? `cid:${LOGO_CID}` : logoUrl;
   const logoHeight = 34;
   const logoWidth = Math.round((logo.width / logo.height) * logoHeight);
 
@@ -102,7 +116,7 @@ export function renderWelcomeEmail(lead: DemoRequest): WelcomeEmail {
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:${neutral[0]};border:1px solid ${neutral.border};border-radius:14px;overflow:hidden">
   <tr><td style="background:${color.dark};padding:26px 32px">
-    <img src="${logoUrl}" alt="${name}" width="${logoWidth}" height="${logoHeight}" style="display:block;height:${logoHeight}px;width:auto;border:0">
+    <img src="${logoImg}" alt="${name}" width="${logoWidth}" height="${logoHeight}" style="display:block;height:${logoHeight}px;width:auto;border:0">
   </td></tr>
   <tr><td style="height:4px;background:${color.DEFAULT};font-size:0;line-height:0">&nbsp;</td></tr>
   <tr><td style="padding:32px 32px 8px">
@@ -156,5 +170,5 @@ export function renderWelcomeEmail(lead: DemoRequest): WelcomeEmail {
     `Have something to add? Just reply to this email; it goes straight to our team at ${site.contactEmail}.`,
   ].join('\n');
 
-  return { subject, html, text };
+  return { subject, html, text, logo: { url: logoUrl, filename: `munaxa-${id}.png` } };
 }
