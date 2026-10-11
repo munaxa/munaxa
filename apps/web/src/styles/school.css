@@ -1,0 +1,9 @@
+/* Munaxa School product page: the School theme, so every `primary-*` utility is the School ramp. */
+@import 'tailwindcss';
+@import '@munaxa/theme/css/school';
+
+/* Tailwind v4 must scan the design system's shipped sources to emit the classes its components
+ * use. Points at the installed package, never a path into another repository. */
+@source '../../node_modules/@munaxa/platform/dist';
+
+@import './site.css';

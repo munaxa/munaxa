@@ -32,14 +32,24 @@ builds on its own, without cloning any other.
 
 ```text
 munaxa/
-├── apps/web/                            # The corporate site (Next.js 15, App Router)
+├── apps/web/                            # munaxa.com (Next.js 15, App Router, Cloudflare Workers)
 ├── PLATFORM_ENGINEERING_STANDARDS.md    # Mandatory. How work is done across the ecosystem
 └── docs/MIGRATION_REPORT.md             # The monorepo → multi-repo migration record
 ```
 
-The corporate site covers the company's own surfaces: product showcase, pricing, about,
-careers and contact. Product marketing sites live with their products —
-`munaxa.com`'s School landing page is in `munaxa-school`, not here.
+`munaxa.com` is the landing site for all three products: a hub page (`/`) and one sales page each
+for School (`/school`), Work (`/work`) and Docs (`/docs`). Each product is sold separately, so each
+page stands on its own; the hub introduces the three and sends visitors to the right one. Every
+page ends in a demo form that emails `info@munaxa.com` through Resend.
+
+The pages live in four route groups, each with its own root layout and exactly one theme import
+(`apps/web/src/styles/<theme>.css`), so `/school` wears the School theme, `/docs` the Docs theme
+and the hub the corporate one. The hub also shows the three products side by side, which the
+platform's `:root` palettes cannot express; `ProductScope` covers that from the theme registry until
+the platform ships scoped palettes (see `styles/corporate.css`).
+
+Deploys go to the Cloudflare Worker `munaxa` on every merge to `main`
+(`.github/workflows/deploy-cloudflare.yml`).
 
 ## The design system comes from the platform
 
@@ -50,7 +60,7 @@ import { buttonVariants, Card } from '@munaxa/ui';
 ```
 
 ```css
-/* apps/web/src/app/globals.css */
+/* apps/web/src/styles/corporate.css */
 @import 'tailwindcss';
 @import '@munaxa/theme/css/corporate';
 @source '../../node_modules/@munaxa/platform/dist';
@@ -75,4 +85,11 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
+```
+
+The demo forms need `RESEND_API_KEY` (copy `apps/web/.env.example` to `.env.local`). Without it,
+development logs submissions instead of emailing them. To run the production Worker locally:
+
+```bash
+pnpm --filter @corporate/web cf:preview   # OpenNext build + wrangler dev; secrets in apps/web/.dev.vars
 ```

@@ -1,0 +1,34 @@
+/* The hub (munaxa.com): the Corporate theme. Swapping this import is the site's branding. */
+@import 'tailwindcss';
+@import '@munaxa/theme/css/corporate';
+
+/* Tailwind v4 must scan the design system's shipped sources to emit the classes its components
+ * use. Points at the installed package, never a path into another repository. */
+@source '../../node_modules/@munaxa/platform/dist';
+
+@import './site.css';
+
+/*
+ * One product's colours inside the corporate page.
+ *
+ * The hub shows School, Work and Docs side by side, but the platform's palettes are written for
+ * `:root` — one product per page — so there is no scoped way to load three. Until the platform
+ * ships one, a `ProductScope` element carries its product's registry colours (`themes.<id>.brand`)
+ * as `--scope-brand` / `--scope-deep`, and the ramp steps the page uses are mixed from them here.
+ * Inside a scope the ordinary `bg-primary-50` / `text-primary-800` utilities then read that
+ * product, exactly as they do on its own page.
+ *
+ * Delete this block when `@munaxa/platform` ships scoped product palettes.
+ */
+.product-scope {
+  --primary-50: color-mix(in oklab, var(--scope-brand) 7%, var(--background));
+  --primary-100: color-mix(in oklab, var(--scope-brand) 16%, var(--background));
+  --primary-200: color-mix(in oklab, var(--scope-brand) 32%, var(--background));
+  --primary-300: color-mix(in oklab, var(--scope-brand) 50%, var(--background));
+  --primary-400: color-mix(in oklab, var(--scope-brand) 80%, var(--background));
+  --primary-500: var(--scope-brand);
+  --primary-600: color-mix(in oklab, var(--scope-brand) 85%, var(--scope-deep));
+  --primary-700: color-mix(in oklab, var(--scope-brand) 70%, var(--scope-deep));
+  --primary-800: color-mix(in oklab, var(--scope-brand) 55%, var(--scope-deep));
+  --primary-900: color-mix(in oklab, var(--scope-brand) 40%, var(--scope-deep));
+}
