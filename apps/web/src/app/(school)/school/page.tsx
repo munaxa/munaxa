@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { BilingualBand } from '@/components/bilingual-band';
 import { DemoForm } from '@/components/demo-form';
 import { Faq } from '@/components/faq';
+import { pageMetadata } from '@/components/root-document';
 import { JsonLd, productJsonLd } from '@/components/json-ld';
 import { FeesMock, GradebookMock, ParentAppMock, TimetableMock } from '@/components/mocks/school';
 import {
@@ -21,17 +22,17 @@ import { productTone } from '@/lib/products';
 const description =
   'Munaxa School is a school management system for K-12 schools and school groups, with timetabling, attendance, grading, fees and family apps in Arabic and English.';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Munaxa School: School management system for K-12',
   description,
-  alternates: { canonical: '/school' },
-  openGraph: {
-    title: 'Munaxa School',
-    description,
-    url: '/school',
-    images: ['/shots/school-dashboard.png'],
+  path: '/school',
+  image: {
+    src: '/shots/school-dashboard.png',
+    width: 1600,
+    height: 1000,
+    alt: 'Munaxa School admin dashboard',
   },
-};
+});
 
 const capabilities = [
   {
@@ -84,6 +85,8 @@ export default function SchoolPage() {
           category: 'School management',
           description,
           path: '/school',
+          image: '/shots/school-dashboard.png',
+          faqs: faqs,
         })}
       />
       <SiteHeader

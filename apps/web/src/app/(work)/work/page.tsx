@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DemoForm } from '@/components/demo-form';
 import { Faq } from '@/components/faq';
+import { pageMetadata } from '@/components/root-document';
 import { JsonLd, productJsonLd } from '@/components/json-ld';
 import { LeaveMock, OnboardingMock, PayrollMock, ReviewMock } from '@/components/mocks/work';
 import {
@@ -21,17 +22,17 @@ import { site } from '@/lib/site';
 const description =
   'Munaxa Work is a human capital management system covering hiring, onboarding, attendance, leave, payroll and performance on one employee record.';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Munaxa Work: HR, payroll and human capital management',
   description,
-  alternates: { canonical: '/work' },
-  openGraph: {
-    title: 'Munaxa Work',
-    description,
-    url: '/work',
-    images: ['/shots/work-dashboard.png'],
+  path: '/work',
+  image: {
+    src: '/shots/work-dashboard.png',
+    width: 1600,
+    height: 1000,
+    alt: 'Munaxa Work HR dashboard',
   },
-};
+});
 
 const capabilities = [
   { t: 'Org structure', d: 'Departments, positions and reporting lines that drive approvals.' },
@@ -107,6 +108,8 @@ export default function WorkPage() {
           category: 'Human capital management',
           description,
           path: '/work',
+          image: '/shots/work-dashboard.png',
+          faqs: copy.faqs,
         })}
       />
       <SiteHeader
