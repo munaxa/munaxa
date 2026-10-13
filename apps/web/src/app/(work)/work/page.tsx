@@ -88,14 +88,14 @@ const copy = site.workLaunchingSoon
       faqs: [launchFaq, ...faqs],
     }
   : {
-      ctaShort: 'Book a demo',
-      ctaLong: 'Request a demo',
-      demoTitle: 'See Munaxa Work with your company’s data.',
+      ctaShort: 'Contact us',
+      ctaLong: 'Contact us',
+      demoTitle: 'Talk to us about Munaxa Work.',
       demoSub:
-        'A 30-minute walkthrough set up around your departments, policies and payroll cycle.',
-      formNote: 'A Munaxa Work specialist will contact you to schedule.',
+        'Tell us about your departments, policies and payroll cycle, and a Munaxa Work specialist will get back to you.',
+      formNote: 'A Munaxa Work specialist will get back to you.',
       sentTitle: 'Request received.',
-      sentBody: 'A Munaxa Work specialist will be in touch to schedule your demo.',
+      sentBody: 'A Munaxa Work specialist will be in touch soon.',
       faqs,
     };
 

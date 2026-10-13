@@ -51,8 +51,8 @@ const faqs = [
     a: 'Munaxa School works fully in Arabic and English, with proper right-to-left layout on every screen. Each user chooses their language.',
   },
   {
-    q: 'How do I see a demo?',
-    a: 'Book a 30-minute walkthrough of School, Work or Docs through the form on this page. A product specialist prepares the demo around how your organization already works.',
+    q: 'How do I get in touch?',
+    a: 'Use the contact form on this page or email info@munaxa.com. Tell us which product you are interested in and what you run today, and a product specialist will get back to you.',
   },
 ];
 
@@ -199,7 +199,7 @@ export default function HubPage() {
           { label: 'Docs', href: '/docs' },
           { label: 'Security', href: '#security' },
         ]}
-        cta={{ label: 'Book a demo', href: '#demo' }}
+        cta={{ label: 'Contact us', href: '#demo' }}
       />
       <main>
         <section className="relative">
@@ -239,7 +239,7 @@ export default function HubPage() {
                     cn('h-12 rounded-lg px-7 font-semibold', HUB_SOLID),
                   )}
                 >
-                  Book a demo
+                  Contact us
                 </a>
                 <a
                   href="#school"
@@ -374,16 +374,16 @@ export default function HubPage() {
           <div className="grid grid-cols-1 items-start gap-x-22 gap-y-14 lg:grid-cols-2">
             <div className="flex flex-col gap-5.5">
               <h2 className="font-display text-4xl leading-none font-semibold tracking-tighter lg:text-6xl">
-                See the product you need, on your data.
+                Tell us what you need.
               </h2>
               <p className="max-w-md text-lg leading-relaxed text-neutral-600">
-                A 30-minute walkthrough of School, Work or Docs, set up around how your organization
+                Ask about School, Work or Docs and how each would fit the way your organization
                 already works.
               </p>
               <ol className="mt-3 border-t border-foreground/10">
                 {[
                   'Tell us which product and what you run today.',
-                  'A product specialist prepares a demo around your workflows.',
+                  'A product specialist reviews your needs and gets back to you.',
                   'You decide, with no bundle and no obligation.',
                 ].map((s, i) => (
                   <li key={s} className="flex gap-4 border-b border-foreground/10 py-4 text-base">
@@ -404,11 +404,11 @@ export default function HubPage() {
                   label: 'Organization',
                   placeholder: 'School, company or institution',
                 }}
-                submitLabel="Request a demo"
+                submitLabel="Contact us"
                 submitClassName={HUB_SOLID}
-                note="A product specialist will contact you to schedule."
+                note="A product specialist will get back to you."
                 sentTitle="Request received."
-                sentBody="A Munaxa {product} specialist will be in touch to schedule your demo."
+                sentBody="A Munaxa {product} specialist will be in touch soon."
               />
             </div>
           </div>

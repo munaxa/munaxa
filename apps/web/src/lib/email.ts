@@ -33,7 +33,7 @@ export function leadsInbox(): string {
 const escapeHtml = (s: string): string => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export async function sendLeadEmail(lead: DemoRequest & { submittedAt: string }): Promise<void> {
-  const what = lead.kind === 'waitlist' ? 'Waitlist sign-up' : 'Demo request';
+  const what = lead.kind === 'waitlist' ? 'Waitlist sign-up' : 'Contact request';
   const rows: [string, string | undefined][] = [
     ['Product', `Munaxa ${lead.product}`],
     ['Name', lead.name],

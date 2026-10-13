@@ -96,7 +96,7 @@ export default function SchoolPage() {
           { label: 'Arabic', href: '#arabic' },
           { label: 'FAQ', href: '#faq' },
         ]}
-        cta={{ label: 'Book a demo', href: '#demo' }}
+        cta={{ label: 'Contact us', href: '#demo' }}
       />
       <main>
         <ProductHero
@@ -104,7 +104,7 @@ export default function SchoolPage() {
           kicker="School management system"
           title="Run your whole school from one system."
           sub="Admissions, timetables, attendance, grading, fees and communication with families, in Arabic and English. Built for K-12 schools and school groups."
-          primaryCta="Book a demo"
+          primaryCta="Contact us"
           bullets={[
             'Arabic and English, full RTL',
             'Parent, student and teacher apps',
@@ -194,8 +194,8 @@ export default function SchoolPage() {
         <Faq title="Questions schools ask us." items={faqs} />
         <DemoBand
           product="school"
-          title="See Munaxa School with your school's data."
-          sub="A 30-minute walkthrough set up around your grades, sections and fee structure."
+          title="Talk to us about Munaxa School."
+          sub="Tell us about your grades, sections and fee structure, and a Munaxa School specialist will get back to you."
         >
           <DemoForm
             product="school"
@@ -204,11 +204,11 @@ export default function SchoolPage() {
             emailPlaceholder="rania@school.edu.jo"
             organization={{ label: 'School', placeholder: 'School name' }}
             detail={{ label: 'Students', placeholder: 'e.g. 1,200' }}
-            submitLabel="Request a demo"
+            submitLabel="Contact us"
             submitClassName={productTone.school.solid}
-            note="A Munaxa School specialist will contact you to schedule."
+            note="A Munaxa School specialist will get back to you."
             sentTitle="Request received."
-            sentBody="A Munaxa School specialist will be in touch to schedule your demo."
+            sentBody="A Munaxa School specialist will be in touch soon."
           />
         </DemoBand>
       </main>

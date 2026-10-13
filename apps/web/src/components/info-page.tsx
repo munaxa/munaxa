@@ -29,7 +29,7 @@ export function InfoPage({
           { label: 'Docs', href: '/docs' },
           { label: 'Security', href: '/#security' },
         ]}
-        cta={{ label: 'Book a demo', href: '/contact' }}
+        cta={{ label: 'Contact us', href: '/contact' }}
       />
       <main className="mx-auto max-w-3xl px-8 pt-20 pb-28">
         <div className="text-sm font-semibold text-primary-700">{eyebrow}</div>

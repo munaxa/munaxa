@@ -107,7 +107,7 @@ export default function AboutPage() {
 
       <h2 className="font-display mt-14 text-2xl font-semibold tracking-tight">Talk to us</h2>
       <p className="mt-4 text-base leading-relaxed text-neutral-700">
-        Book a 30-minute walkthrough of the product you need on the{' '}
+        Ask about the product you need on the{' '}
         <Link href="/contact" className="font-semibold text-primary-800 underline">
           contact page
         </Link>

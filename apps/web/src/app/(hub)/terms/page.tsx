@@ -53,9 +53,9 @@ const sections: ProseSection[] = [
   },
   {
     id: 'requests',
-    heading: 'Demo and information requests',
+    heading: 'Contact and information requests',
     body: [
-      'When you request a demo or join a waitlist, please give accurate details. Demos are free and create no obligation for either side. We may decline a request at our discretion. Any trial, pilot or subscription is subject to its own terms, agreed separately.',
+      'When you contact us or join a waitlist, please give accurate details. Contacting us creates no obligation for either side. We may decline a request at our discretion. Any demonstration, trial, pilot or subscription is subject to its own terms, agreed separately.',
       'How we handle the personal data you send us is explained in our privacy policy.',
     ],
   },
