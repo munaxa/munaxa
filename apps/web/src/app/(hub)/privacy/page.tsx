@@ -35,7 +35,7 @@ const sections: ProseSection[] = [
     id: 'scope',
     heading: 'What this policy covers',
     body: [
-      'This policy covers personal data we collect through this website, through demo and waitlist requests, and in sales and support correspondence with prospective customers.',
+      'This policy covers personal data we collect through this website, through contact and waitlist requests, and in sales and support correspondence with prospective customers.',
       'It does not cover data that our customers put into Munaxa School, Munaxa Work or Munaxa Docs, such as student, employee or document records. For that data the customer (the school, employer or organization) is the controller, and Munaxa processes it only on the customer’s instructions under the customer agreement and its data processing terms. If your school or employer uses a Munaxa product, please contact them first about your data; we will support them in answering you.',
     ],
   },
@@ -43,7 +43,7 @@ const sections: ProseSection[] = [
     id: 'what-we-collect',
     heading: 'Personal data we collect',
     body: [
-      'When you request a demo or join a waitlist, we collect what you enter in the form:',
+      'When you contact us through the website form or join a waitlist, we collect what you enter in the form:',
       [
         'your name, work email address and phone number;',
         'your organization’s name and the product you are interested in;',
@@ -60,7 +60,7 @@ const sections: ProseSection[] = [
     heading: 'How we use it, and on what basis',
     body: [
       [
-        'To answer your request and arrange a demo, based on your request and your consent when you submit the form, and as steps you ask us to take before any contract.',
+        'To answer your request and follow up on what you asked about, based on your request and your consent when you submit the form, and as steps you ask us to take before any contract.',
         'To send you an email confirming that we received your request.',
         'To follow up with you about the Munaxa product you asked about. You can tell us to stop at any time.',
         'To keep the website and our systems secure and working, which is necessary for our legitimate operation of the service.',
@@ -93,7 +93,7 @@ const sections: ProseSection[] = [
     id: 'retention',
     heading: 'How long we keep it',
     body: [
-      'We keep demo and waitlist requests and related correspondence for up to 24 months after our last contact with you, then delete them. If your organization becomes a customer, we keep the contact details needed to manage the relationship for as long as the contract requires. We keep data longer only where the law requires it. Our hosting provider keeps technical request logs for short periods for security.',
+      'We keep contact and waitlist requests and related correspondence for up to 24 months after our last contact with you, then delete them. If your organization becomes a customer, we keep the contact details needed to manage the relationship for as long as the contract requires. We keep data longer only where the law requires it. Our hosting provider keeps technical request logs for short periods for security.',
     ],
   },
   {

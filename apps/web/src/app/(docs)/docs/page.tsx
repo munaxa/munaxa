@@ -104,7 +104,7 @@ export default function DocsPage() {
           { label: 'Compliance', href: '#compliance' },
           { label: 'FAQ', href: '#faq' },
         ]}
-        cta={{ label: 'Book a demo', href: '#demo' }}
+        cta={{ label: 'Contact us', href: '#demo' }}
       />
       <main>
         <ProductHero
@@ -112,7 +112,7 @@ export default function DocsPage() {
           kicker="Document management system"
           title="Every document a controlled record."
           sub="Lifecycle, permanent numbering, approvals, e-signatures and a tamper-proof audit trail. Document control for organizations that answer to auditors."
-          primaryCta="Book a demo"
+          primaryCta="Contact us"
           bullets={[
             'Part 11-style witnessed signatures',
             'Hash-chained audit trail',
@@ -199,7 +199,7 @@ export default function DocsPage() {
         <DemoBand
           product="docs"
           title="Bring us your hardest document process."
-          sub="We'll show it running as a controlled workflow, with your numbering scheme and your approval chain."
+          sub="Tell us how it works today, and a Munaxa Docs specialist will get back to you about running it as a controlled workflow, with your numbering scheme and your approval chain."
         >
           <DemoForm
             product="docs"
@@ -208,11 +208,11 @@ export default function DocsPage() {
             emailPlaceholder="rami@company.com"
             organization={{ label: 'Organization', placeholder: 'Company name' }}
             detail={{ label: 'Industry', placeholder: 'e.g. Pharma' }}
-            submitLabel="Request a demo"
+            submitLabel="Contact us"
             submitClassName={productTone.docs.solid}
-            note="A Munaxa Docs specialist will contact you to schedule."
+            note="A Munaxa Docs specialist will get back to you."
             sentTitle="Request received."
-            sentBody="A Munaxa Docs specialist will be in touch to schedule your demo."
+            sentBody="A Munaxa Docs specialist will be in touch soon."
           />
         </DemoBand>
       </main>

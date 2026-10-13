@@ -9,10 +9,10 @@ import { site } from '@/lib/site';
 
 const title = 'Contact Munaxa';
 const description =
-  'Book a demo of Munaxa School, Munaxa Work or Munaxa Docs, or email the Munaxa team at info@munaxa.com.';
+  'Contact the Munaxa team about Munaxa School, Munaxa Work or Munaxa Docs, or email info@munaxa.com.';
 
 export const metadata: Metadata = pageMetadata({
-  title: `${title}: book a demo`,
+  title: `${title}: talk to our team`,
   description,
   path: '/contact',
   image: { src: site.ogImage, width: 1200, height: 630, alt: 'Munaxa: School, Work and Docs' },
@@ -23,7 +23,7 @@ export default function ContactPage() {
     <InfoPage
       eyebrow="Contact"
       title="Talk to the Munaxa team."
-      intro="Tell us which product you are looking at and what you run today. A product specialist will set up a 30-minute walkthrough around how your organization already works."
+      intro="Tell us which product you are interested in and what you run today, and a product specialist will get back to you."
     >
       <JsonLd
         data={infoPageJsonLd({ type: 'ContactPage', name: title, description, path: '/contact' })}
@@ -34,11 +34,11 @@ export default function ContactPage() {
           namePlaceholder="Rania Khalil"
           emailPlaceholder="rania@organization.com"
           organization={{ label: 'Organization', placeholder: 'School, company or institution' }}
-          submitLabel="Request a demo"
+          submitLabel="Contact us"
           submitClassName={HUB_SOLID}
-          note="A product specialist will contact you to schedule."
+          note="A product specialist will get back to you."
           sentTitle="Request received."
-          sentBody="A Munaxa {product} specialist will be in touch to schedule your demo."
+          sentBody="A Munaxa {product} specialist will be in touch soon."
         />
       </div>
       <p className="mt-10 text-base leading-relaxed text-neutral-700">

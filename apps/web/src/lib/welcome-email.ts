@@ -57,10 +57,10 @@ export function renderWelcomeEmail(
 
   const subject = waitlist
     ? `You're on the ${name} waitlist`
-    : `We've received your ${name} demo request`;
+    : `We've received your ${name} enquiry`;
   const opening = waitlist
     ? `Thank you for joining the waitlist for <strong>${name}</strong> on behalf of <strong>${esc(lead.organization)}</strong>. We'll be in touch before launch to plan your onboarding.`
-    : `Thank you for your interest in <strong>${name}</strong> on behalf of <strong>${esc(lead.organization)}</strong>. A member of our team will be in touch shortly to arrange your demo.`;
+    : `Thank you for your interest in <strong>${name}</strong> on behalf of <strong>${esc(lead.organization)}</strong>. A member of our team will be in touch shortly.`;
   const steps = waitlist
     ? [
         `A ${name} specialist reviews your sign-up.`,
@@ -69,8 +69,8 @@ export function renderWelcomeEmail(
       ]
     : [
         `A ${name} specialist reviews your request.`,
-        'We contact you shortly to agree a time.',
-        'Your demo is set up around how your organization already works.',
+        'We get back to you shortly.',
+        'Our answer is shaped around how your organization already works.',
       ];
 
   const summary: [string, string][] = [
@@ -142,7 +142,7 @@ export function renderWelcomeEmail(
   </td></tr>
   <tr><td style="background:${neutral.surface};padding:18px 32px;font-size:12px;line-height:1.6;color:${neutral.mutedText};text-align:center">
     ${name} &middot; ${esc(copy.tagline)}<br>
-    You&rsquo;re receiving this because you ${waitlist ? 'joined a waitlist' : 'requested a demo'} at <a href="${site.url}" style="color:${neutral.mutedText}">${esc(new URL(site.url).host)}</a>.
+    You&rsquo;re receiving this because you ${waitlist ? 'joined a waitlist' : 'contacted us'} at <a href="${site.url}" style="color:${neutral.mutedText}">${esc(new URL(site.url).host)}</a>.
   </td></tr>
 </table></td></tr></table>
 </body></html>`;
@@ -152,7 +152,7 @@ export function renderWelcomeEmail(
     '',
     waitlist
       ? `Thank you for joining the waitlist for ${name} on behalf of ${lead.organization}. We'll be in touch before launch to plan your onboarding.`
-      : `Thank you for your interest in ${name} on behalf of ${lead.organization}. A member of our team will be in touch shortly to arrange your demo.`,
+      : `Thank you for your interest in ${name} on behalf of ${lead.organization}. A member of our team will be in touch shortly.`,
     '',
     `ABOUT ${name.toUpperCase()} · ${copy.tagline.toUpperCase()}`,
     copy.summary,
