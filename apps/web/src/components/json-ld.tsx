@@ -52,7 +52,7 @@ export function hubJsonLd(faqs: FaqItem[]) {
         '@type': 'WebSite',
         '@id': websiteId,
         name: site.name,
-        alternateName: [site.legalName, 'munaxa.com'],
+        alternateName: [site.legalName, 'munaxa.com', 'www.munaxa.com'],
         url: abs('/'),
         description: site.description,
         inLanguage: 'en',

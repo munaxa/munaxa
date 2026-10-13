@@ -22,7 +22,7 @@
   // Non-secret runtime config. RESEND_API_KEY is a secret: `wrangler secret put RESEND_API_KEY`.
   // Never add secrets here.
   "vars": {
-    "NEXT_PUBLIC_SITE_URL": "https://munaxa.com",
+    "NEXT_PUBLIC_SITE_URL": "https://www.munaxa.com",
     // Sender for demo/waitlist notifications. Must be on a domain verified in Resend — the same
     // `mail.munaxa.com` the School landing sends from.
     "EMAIL_FROM": "Munaxa Website <contactus@mail.munaxa.com>",
