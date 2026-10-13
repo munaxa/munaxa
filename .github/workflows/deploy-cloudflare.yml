@@ -83,3 +83,31 @@ jobs:
           # Set them as repository variables; unset means no verification tag is rendered.
           NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
           NEXT_PUBLIC_BING_SITE_VERIFICATION: ${{ vars.BING_SITE_VERIFICATION }}
+
+      # Tell IndexNow engines (Bing, Yandex, Naver, Seznam, Yep; not Google) that the site
+      # changed, so they re-crawl now instead of on their own schedule. The key is public by
+      # design: apps/web/public/<INDEXNOW_KEY>.txt proves we own the host. Submits whatever the
+      # live sitemap lists, so new pages are picked up without editing this step. A failure here
+      # only warns: the deploy itself already succeeded.
+      - name: Notify IndexNow
+        env:
+          SITE: https://www.munaxa.com
+          INDEXNOW_KEY: 8fe5b07def9c523317c389940a3ae656
+        run: |
+          set -euo pipefail
+          if ! curl -fsS "$SITE/$INDEXNOW_KEY.txt" | grep -qx "$INDEXNOW_KEY"; then
+            echo "::warning::IndexNow key file is not live at $SITE/$INDEXNOW_KEY.txt; skipping."
+            exit 0
+          fi
+          urls=$(curl -fsS "$SITE/sitemap.xml" | grep -oP '(?<=<loc>)[^<]+' | jq -R . | jq -sc .)
+          body=$(jq -nc --arg host "${SITE#https://}" --arg key "$INDEXNOW_KEY" \
+            --arg loc "$SITE/$INDEXNOW_KEY.txt" --argjson urls "$urls" \
+            '{host: $host, key: $key, keyLocation: $loc, urlList: $urls}')
+          echo "$body" | jq .
+          status=$(curl -sS -o /dev/null -w '%{http_code}' -X POST https://api.indexnow.org/indexnow \
+            -H 'Content-Type: application/json; charset=utf-8' --data "$body")
+          echo "IndexNow responded $status"
+          case "$status" in
+            200|202) ;;
+            *) echo "::warning::IndexNow returned $status (see https://www.indexnow.org/documentation)." ;;
+          esac
