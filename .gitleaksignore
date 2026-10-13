@@ -1,0 +1,6 @@
+# Findings gitleaks reports that are not secrets. Each line is a finding's fingerprint
+# (commit:file:rule:line), so only that exact occurrence is ignored.
+#
+# The IndexNow key is public by design (it is served at www.munaxa.com/<key>.txt). It was
+# briefly inlined in the deploy workflow before being read from the key file instead.
+a5323ab719ee55ec689d00cc31f762636d77308f:.github/workflows/deploy-cloudflare.yml:generic-api-key:95

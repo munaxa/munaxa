@@ -86,15 +86,21 @@ jobs:
 
       # Tell IndexNow engines (Bing, Yandex, Naver, Seznam, Yep; not Google) that the site
       # changed, so they re-crawl now instead of on their own schedule. The key is public by
-      # design: apps/web/public/<INDEXNOW_KEY>.txt proves we own the host. Submits whatever the
-      # live sitemap lists, so new pages are picked up without editing this step. A failure here
-      # only warns: the deploy itself already succeeded.
+      # design: apps/web/public/<key>.txt holds it and proves we own the host, and the key is
+      # read from that file's name so it lives in one place. Submits whatever the live sitemap
+      # lists, so new pages are picked up without editing this step. A failure here only warns:
+      # the deploy itself already succeeded.
       - name: Notify IndexNow
         env:
           SITE: https://www.munaxa.com
-          INDEXNOW_KEY: 8fe5b07def9c523317c389940a3ae656
         run: |
           set -euo pipefail
+          keyfile=$(find apps/web/public -maxdepth 1 -regextype posix-extended -regex '.*/[0-9a-f]{32}\.txt' | head -1)
+          if [ -z "$keyfile" ]; then
+            echo "::warning::No IndexNow key file in apps/web/public; skipping."
+            exit 0
+          fi
+          INDEXNOW_KEY=$(basename "$keyfile" .txt)
           if ! curl -fsS "$SITE/$INDEXNOW_KEY.txt" | grep -qx "$INDEXNOW_KEY"; then
             echo "::warning::IndexNow key file is not live at $SITE/$INDEXNOW_KEY.txt; skipping."
             exit 0
