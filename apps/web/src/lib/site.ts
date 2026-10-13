@@ -2,7 +2,11 @@
 export const site = {
   name: 'Munaxa',
   legalName: 'Munaxa Corporate',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://munaxa.com',
+  /**
+   * The canonical origin. Cloudflare redirects the apex (munaxa.com) to www, so every canonical,
+   * sitemap entry and emailed link must name www or it points at a redirect.
+   */
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.munaxa.com',
   /** Inbox that receives every demo and waitlist request. */
   contactEmail: 'info@munaxa.com',
   description:
