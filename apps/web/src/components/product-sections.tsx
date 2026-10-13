@@ -19,6 +19,7 @@ const container = 'mx-auto max-w-7xl px-8';
 export function ProductHero({
   product,
   badge,
+  kicker,
   title,
   sub,
   primaryCta,
@@ -27,6 +28,8 @@ export function ProductHero({
 }: {
   product: BrandedProductId;
   badge?: string;
+  /** What the product is, in the words people search for. Leads the h1 in small type. */
+  kicker: string;
   title: string;
   sub: string;
   primaryCta: string;
@@ -47,6 +50,14 @@ export function ProductHero({
             {badge && <SoonBadge>{badge}</SoonBadge>}
           </div>
           <h1 className="font-display max-w-4xl text-5xl leading-none font-bold tracking-tighter text-balance sm:text-6xl lg:text-7xl xl:text-8xl">
+            <span
+              className={cn(
+                'mb-5 block font-sans text-base font-semibold tracking-normal',
+                tone.eyebrow,
+              )}
+            >
+              {kicker}
+            </span>
             {title}
           </h1>
           <p className="max-w-2xl text-lg leading-relaxed text-neutral-600 lg:text-xl">{sub}</p>

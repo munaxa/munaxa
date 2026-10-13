@@ -38,7 +38,14 @@ export function SiteFooter({ blurb, company }: { blurb: string; company: NavLink
         </div>
         <div className="mt-12 flex flex-wrap justify-between gap-4 border-t border-foreground/10 pt-5 text-sm text-neutral-400">
           <span>© 2026 Munaxa Corporate. All rights reserved.</span>
-          {/* Legal pages are not part of this site yet; link them here once published. */}
+          <nav aria-label="Legal" className="flex gap-6">
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy policy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground">
+              Terms of use
+            </Link>
+          </nav>
         </div>
       </div>
     </footer>
