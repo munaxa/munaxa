@@ -109,6 +109,7 @@ export default function DocsPage() {
       <main>
         <ProductHero
           product="docs"
+          kicker="Document management system"
           title="Every document a controlled record."
           sub="Lifecycle, permanent numbering, approvals, e-signatures and a tamper-proof audit trail. Document control for organizations that answer to auditors."
           primaryCta="Book a demo"
@@ -218,7 +219,7 @@ export default function DocsPage() {
       <SiteFooter
         blurb={description}
         company={[
-          { label: 'About Munaxa', href: '/' },
+          { label: 'About Munaxa', href: '/about' },
           { label: 'Security', href: '/#security' },
           { label: 'Contact sales', href: '#demo' },
         ]}

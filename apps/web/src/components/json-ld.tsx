@@ -114,3 +114,35 @@ function faqJsonLd(faqs: FaqItem[], url: string) {
     })),
   };
 }
+
+/** A hub text page (About, Contact, Privacy, Terms), tied to the same website and company. */
+export function infoPageJsonLd(p: {
+  type: 'AboutPage' | 'ContactPage' | 'WebPage';
+  name: string;
+  description: string;
+  path: string;
+}) {
+  const url = abs(p.path);
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': p.type,
+        '@id': `${url}#page`,
+        name: p.name,
+        description: p.description,
+        url,
+        inLanguage: 'en',
+        isPartOf: { '@id': websiteId },
+        about: { '@id': orgId },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: site.name, item: abs('/') },
+          { '@type': 'ListItem', position: 2, name: p.name, item: url },
+        ],
+      },
+    ],
+  };
+}

@@ -101,6 +101,7 @@ export default function SchoolPage() {
       <main>
         <ProductHero
           product="school"
+          kicker="School management system"
           title="Run your whole school from one system."
           sub="Admissions, timetables, attendance, grading, fees and communication with families, in Arabic and English. Built for K-12 schools and school groups."
           primaryCta="Book a demo"
@@ -214,7 +215,7 @@ export default function SchoolPage() {
       <SiteFooter
         blurb={description}
         company={[
-          { label: 'About Munaxa', href: '/' },
+          { label: 'About Munaxa', href: '/about' },
           { label: 'Security', href: '/#security' },
           { label: 'Contact sales', href: '#demo' },
         ]}

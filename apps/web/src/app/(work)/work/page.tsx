@@ -123,6 +123,7 @@ export default function WorkPage() {
       <main>
         <ProductHero
           product="work"
+          kicker="HR and payroll software"
           {...(site.workLaunchingSoon ? { badge: 'Launching soon' } : {})}
           title="One employee record, from offer to payslip."
           sub="Hiring, onboarding, attendance, leave, payroll and performance in one human capital management system. Nothing is typed in twice, and every number can be traced."
@@ -232,7 +233,7 @@ export default function WorkPage() {
       <SiteFooter
         blurb={description}
         company={[
-          { label: 'About Munaxa', href: '/' },
+          { label: 'About Munaxa', href: '/about' },
           { label: 'Security', href: '/#security' },
           { label: 'Contact sales', href: '#demo' },
         ]}

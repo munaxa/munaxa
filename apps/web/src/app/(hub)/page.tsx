@@ -20,7 +20,7 @@ import { site } from '@/lib/site';
 export const metadata: Metadata = pageMetadata({
   title: 'Munaxa: School, HR and document management software',
   description:
-    'Munaxa makes three standalone applications: Munaxa School for school management, Munaxa Work for HR and payroll, and Munaxa Docs for document control. Each one is sold on its own and runs on the same enterprise security platform.',
+    'Munaxa makes standalone software for school management, HR and payroll, and document control: School, Work and Docs, on one enterprise security platform.',
   path: '/',
   image: {
     src: site.ogImage,
@@ -209,6 +209,9 @@ export default function HubPage() {
           />
           <div className="relative mx-auto max-w-7xl px-8 pt-22">
             <h1 className="font-display text-5xl leading-none font-bold tracking-tighter sm:text-7xl lg:text-8xl">
+              <span className="mb-6 block font-sans text-base font-semibold tracking-normal text-primary-800">
+                School, HR and document management software
+              </span>
               <span className="block">
                 Run the school
                 <Stop product="school" />
@@ -414,9 +417,9 @@ export default function HubPage() {
       <SiteFooter
         blurb={site.description}
         company={[
+          { label: 'About Munaxa', href: '/about' },
           { label: 'Security', href: '#security' },
-          { label: 'Book a demo', href: '#demo' },
-          { label: 'Contact sales', href: '#demo' },
+          { label: 'Contact', href: '/contact' },
         ]}
       />
     </>
