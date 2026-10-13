@@ -1,28 +1,60 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { buttonVariants, cn, corporateBrand, themes, type BrandedProductId } from '@munaxa/ui';
+import { buttonVariants, cn, themes, type BrandedProductId } from '@munaxa/ui';
 import { BilingualBand } from '@/components/bilingual-band';
 import { Lockup } from '@/components/brand';
 import { DemoForm } from '@/components/demo-form';
-import { JsonLd } from '@/components/json-ld';
+import { Faq } from '@/components/faq';
+import { JsonLd, hubJsonLd } from '@/components/json-ld';
 import { ShieldCheck } from '@/components/mocks/ui';
 import { Eyebrow, SoonBadge } from '@/components/product-sections';
 import { ProductDot, ProductScope } from '@/components/product-scope';
 import { ProductStage, type StageProduct } from '@/components/product-stage';
+import { pageMetadata } from '@/components/root-document';
 import { SiteFooter } from '@/components/site-footer';
 import { HUB_SOLID, SiteHeader } from '@/components/site-header';
 import { productCopy } from '@/lib/product-copy';
 import { site } from '@/lib/site';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Munaxa: School, HR and document management software',
   description:
-    'Munaxa makes three standalone applications: School, Work and Docs. Each one is sold on its own and runs on the same enterprise security platform.',
-  alternates: { canonical: '/' },
-};
+    'Munaxa makes three standalone applications: Munaxa School for school management, Munaxa Work for HR and payroll, and Munaxa Docs for document control. Each one is sold on its own and runs on the same enterprise security platform.',
+  path: '/',
+  image: {
+    src: site.ogImage,
+    width: 1200,
+    height: 630,
+    alt: 'Munaxa: School, Work and Docs',
+  },
+});
 
 const soon = site.workLaunchingSoon;
+
+/** Brand questions, answered from what the rest of the page says. Mirrored into FAQPage data. */
+const faqs = [
+  {
+    q: 'What is Munaxa?',
+    a: 'Munaxa is a software company that makes three standalone applications for education and business: Munaxa School, a school management system for K-12 schools; Munaxa Work, a human capital management system for HR and payroll; and Munaxa Docs, a document management system for controlled records.',
+  },
+  {
+    q: 'Do I have to buy all three products?',
+    a: 'No. Each Munaxa product is sold and deployed on its own, with no bundle. Munaxa School, Munaxa Work and Munaxa Docs do not depend on each other.',
+  },
+  {
+    q: 'How does Munaxa keep data secure?',
+    a: 'Every product runs on the same Munaxa security platform: single sign-on and MFA, roles and policy guards, a hash-chained audit trail, encryption with key rotation, session control, and rate limiting with risk scoring.',
+  },
+  {
+    q: 'Does Munaxa work in Arabic?',
+    a: 'Munaxa School works fully in Arabic and English, with proper right-to-left layout on every screen. Each user chooses their language.',
+  },
+  {
+    q: 'How do I see a demo?',
+    a: 'Book a 30-minute walkthrough of School, Work or Docs through the form on this page. A product specialist prepares the demo around how your organization already works.',
+  },
+];
 
 const stage: StageProduct[] = [
   {
@@ -159,17 +191,7 @@ function Stop({ product }: { product: BrandedProductId }) {
 export default function HubPage() {
   return (
     <>
-      <JsonLd
-        data={{
-          '@context': 'https://schema.org',
-          '@type': 'Organization',
-          name: site.legalName,
-          url: site.url,
-          logo: new URL(corporateBrand.assets.symbol.src, site.url).toString(),
-          description: site.description,
-          email: site.contactEmail,
-        }}
-      />
+      <JsonLd data={hubJsonLd(faqs)} />
       <SiteHeader
         links={[
           { label: 'School', href: '/school' },
@@ -343,7 +365,9 @@ export default function HubPage() {
           </div>
         </section>
 
-        <section id="demo" className="mx-auto max-w-7xl px-8 pt-30 pb-24">
+        <Faq title="Questions about Munaxa." items={faqs} className="pt-30" />
+
+        <section id="demo" className="mx-auto max-w-7xl px-8 pt-24 pb-24">
           <div className="grid grid-cols-1 items-start gap-x-22 gap-y-14 lg:grid-cols-2">
             <div className="flex flex-col gap-5.5">
               <h2 className="font-display text-4xl leading-none font-semibold tracking-tighter lg:text-6xl">

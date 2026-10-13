@@ -12,4 +12,21 @@ export const site = {
    * hub stage caption, Work page CTAs, FAQ and form).
    */
   workLaunchingSoon: false,
+  /**
+   * The company's official profiles (LinkedIn, X, YouTube, …). Search engines use them, through the
+   * Organization structured data, to tie the brand's knowledge panel to this site. Add each one
+   * once it exists; an empty list is omitted.
+   */
+  sameAs: [] as string[],
+  /** Image shown when the hub is shared and in search previews. 1200×630. */
+  ogImage: '/og/munaxa.png',
 } as const;
+
+/**
+ * Search-console ownership tokens. They are inlined at build time (`NEXT_PUBLIC_*`, because every
+ * page is prerendered), so set them in the build environment, not as Worker vars.
+ */
+export const siteVerification = {
+  google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+  bing: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION,
+};

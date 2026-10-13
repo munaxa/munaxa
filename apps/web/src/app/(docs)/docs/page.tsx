@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { DemoForm } from '@/components/demo-form';
 import { Faq } from '@/components/faq';
+import { pageMetadata } from '@/components/root-document';
 import { JsonLd, productJsonLd } from '@/components/json-ld';
 import { AuditMock, LifecycleMock, SearchMock, WorkflowMock } from '@/components/mocks/docs';
 import {
@@ -20,17 +21,17 @@ import { productTone } from '@/lib/products';
 const description =
   'Munaxa Docs is an enterprise document management system with controlled lifecycles, approval workflows, electronic signatures, OCR search and a tamper-proof audit trail.';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: 'Munaxa Docs: Document control and management system',
   description,
-  alternates: { canonical: '/docs' },
-  openGraph: {
-    title: 'Munaxa Docs',
-    description,
-    url: '/docs',
-    images: ['/shots/docs-dashboard.png'],
+  path: '/docs',
+  image: {
+    src: '/shots/docs-dashboard.png',
+    width: 1600,
+    height: 1000,
+    alt: 'Munaxa Docs home dashboard',
   },
-};
+});
 
 const capabilities = [
   {
@@ -92,6 +93,8 @@ export default function DocsPage() {
           category: 'Document management',
           description,
           path: '/docs',
+          image: '/shots/docs-dashboard.png',
+          faqs: faqs,
         })}
       />
       <SiteHeader
