@@ -4,8 +4,9 @@
   // wrangler creates a new Worker with no custom domain and munaxa.com keeps serving the old bundle.
   // `.github/workflows/deploy-cloudflare.yml` asserts this before deploying.
   //
-  // munaxa-school's landing site deploys to this same Worker today. Retarget or retire that
-  // deploy before this one goes live, or each repository's merges will overwrite the other's site.
+  // This repository is the only one that deploys here. munaxa-school's deploy targets
+  // `munaxademo` and refuses `munaxa`; keep it that way, and keep the Worker's dashboard
+  // "Workers Builds" Git connection off, or another source will overwrite this site.
   "name": "munaxa",
   "main": ".open-next/worker.js",
   // Keep in sync with the date this config was last reviewed.

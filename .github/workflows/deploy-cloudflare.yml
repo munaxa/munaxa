@@ -11,8 +11,9 @@ name: Deploy Cloudflare
 #     environment;
 #   - the Worker secret RESEND_API_KEY (`pnpm --filter @corporate/web exec wrangler secret put
 #     RESEND_API_KEY`), without which the demo forms refuse and ask visitors to email instead;
-#   - munaxa-school's landing deploy moved off the `munaxa` Worker, or the two repositories will
-#     overwrite each other's site on every merge.
+#   - nothing else deploying to the `munaxa` Worker: no Git connection under the Worker's
+#     Settings → Builds in the Cloudflare dashboard. (munaxa-school's own deploy targets
+#     `munaxademo` and asserts it never targets `munaxa`.)
 
 on:
   push:
